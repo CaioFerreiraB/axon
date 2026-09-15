@@ -1,0 +1,141 @@
+# CI de ai-core-contracts (spec 001: FR-001, FR-017, FR-020, SC-001, SC-004).
+# Fica na raiz enquanto ai-core/ é subpasta deste repositório; muda de lugar na separação (antes da Fase 4).
+name: contracts
+
+on:
+  pull_request:
+    paths:
+      - "ai-core/packages/contracts/**"
+      - "ai-core/pyproject.toml"
+      - "ai-core/uv.lock"
+      - ".github/workflows/contracts.yml"
+  push:
+    branches: [main]
+    paths:
+      - "ai-core/packages/contracts/**"
+      - "ai-core/pyproject.toml"
+      - "ai-core/uv.lock"
+      - ".github/workflows/contracts.yml"
+
+defaults:
+  run:
+    working-directory: ai-core
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run ruff check packages/contracts
+      - run: uv run ruff format --check packages/contracts
+      - run: uv run mypy
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked --python ${{ matrix.python }}
+      - run: uv run --python ${{ matrix.python }} pytest
+
+  boundaries:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run lint-imports
+      - run: uv run pytest packages/contracts/tests/boundary
+
+  clean-env:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run python packages/contracts/tools/check_clean_env.py
+
+  # FR-020 (a): diff da superfície pública contra a última tag contracts-v*; bump insuficiente ou remoção sem
+  # depreciação falham. Antes da tag contracts-v0.1.0 não há linha de base.
+  surface:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - name: Localizar a última tag contracts-v*
+        id: baseline
+        run: echo "tag=$(git describe --tags --match 'contracts-v*' --abbrev=0 2>/dev/null || true)" >> "$GITHUB_OUTPUT"
+      - name: Sem linha de base
+        if: steps.baseline.outputs.tag == ''
+        run: echo "sem linha de base — nenhuma tag contracts-v*; o FR-020 vale a partir de contracts-v0.1.0"
+      - name: Diff contra a tag
+        if: steps.baseline.outputs.tag != ''
+        env:
+          TAG: ${{ steps.baseline.outputs.tag }}
+        run: |
+          git worktree add "$RUNNER_TEMP/base" "$TAG"
+          base="$RUNNER_TEMP/base/ai-core/packages/contracts"
+          [ -d "$base" ] || base="$RUNNER_TEMP/base/packages/contracts"
+          old_version="${TAG#contracts-v}"
+          new_version=$(uv run python -c "import tomllib; print(tomllib.load(open('packages/contracts/pyproject.toml', 'rb'))['project']['version'])")
+          uv run --isolated --no-project --with "$base" python packages/contracts/tools/api_surface.py dump --output "$RUNNER_TEMP/old.json"
+          uv run python packages/contracts/tools/api_surface.py dump --output "$RUNNER_TEMP/new.json"
+          uv run python packages/contracts/tools/api_surface.py diff "$RUNNER_TEMP/old.json" "$RUNNER_TEMP/new.json" \
+            --old-version "$old_version" --new-version "$new_version"
+
+  # FR-020 (b): os testes do pack de teste da última tag rodam contra os contratos do HEAD — só na mesma série
+  # compatível (compatibility.md §8).
+  frozen-pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - name: Localizar a última tag contracts-v*
+        id: baseline
+        run: echo "tag=$(git describe --tags --match 'contracts-v*' --abbrev=0 2>/dev/null || true)" >> "$GITHUB_OUTPUT"
+      - name: Sem linha de base
+        if: steps.baseline.outputs.tag == ''
+        run: echo "sem linha de base — nenhuma tag contracts-v*; o pack congelado vale a partir de contracts-v0.1.0"
+      - name: Testes do pack congelado contra o HEAD
+        if: steps.baseline.outputs.tag != ''
+        env:
+          TAG: ${{ steps.baseline.outputs.tag }}
+        run: |
+          git worktree add "$RUNNER_TEMP/base" "$TAG"
+          base="$RUNNER_TEMP/base/ai-core/packages/contracts"
+          [ -d "$base" ] || base="$RUNNER_TEMP/base/packages/contracts"
+          old_version="${TAG#contracts-v}"
+          new_version=$(uv run python -c "import tomllib; print(tomllib.load(open('packages/contracts/pyproject.toml', 'rb'))['project']['version'])")
+          same_series=$(uv run python -c "import sys; from ai_core_contracts import derive_range; print(derive_range(sys.argv[1]).contains(sys.argv[2]))" "$old_version" "$new_version")
+          if [ "$same_series" != "True" ]; then
+            echo "série nova ($old_version → $new_version) — pack congelado não se aplica"
+            exit 0
+          fi
+          pack="$base/tests/fixtures/contract_test_pack"
+          uv venv "$RUNNER_TEMP/frozen"
+          uv pip install --python "$RUNNER_TEMP/frozen/bin/python" ./packages/contracts "$pack" pytest
+          cd "$pack" && "$RUNNER_TEMP/frozen/bin/python" -m pytest -q -p no:cacheprovider tests

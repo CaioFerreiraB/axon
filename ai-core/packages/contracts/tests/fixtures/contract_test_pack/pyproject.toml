@@ -1,0 +1,16 @@
+[project]
+name = "contract-test-pack"
+version = "0.1.0"
+description = "Pack de teste dos contratos: prova o pack sem o core (SC-001) e congela o uso por tag (FR-020 b)."
+requires-python = ">=3.12"
+dependencies = ["ai-core-contracts>=0.1,<0.2"]
+
+[project.entry-points."ai_core.packs"]
+contract_test = "contract_test_pack.pack:ContractTestPack"
+
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,11 @@
+[project]
+name = "ai-core-contracts"
+version = "0.1.0"
+description = "Contratos públicos do núcleo da plataforma Agentic AI: a única superfície que um pack enxerga."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["typing_extensions>=4.12"]
+
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"
