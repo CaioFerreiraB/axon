@@ -1,0 +1,27 @@
+# Segredos e estado local
+.env
+.claude/settings.local.json
+.specify/extensions/.cache/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv*/
+.pytest_cache/
+.ruff_cache/
+
+# Estado local do spec-kit (spec ativa)
+.specify/feature.json
+
+# Build e caches de ferramentas
+dist/
+build/
+*.egg-info/
+.mypy_cache/
+.hypothesis/
+.import_linter_cache/
+
+# Editores e sistema
+.DS_Store
+*.swp
+.idea/
