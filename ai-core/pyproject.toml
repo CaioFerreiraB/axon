@@ -11,11 +11,13 @@ dev = [
     "import-linter>=2",
     "ruff>=0.6",
     "mypy>=1.11",
+    "types-PyYAML",
+    "types-jsonschema",
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["packages/contracts/tests"]
-pythonpath = ["packages/contracts/tests"]
+testpaths = ["packages/contracts/tests", "packages/core/tests"]
+pythonpath = ["packages/contracts/tests", "packages/core/tests/packs"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 # estende os padrões do pytest; o pack de teste (fixtures/) roda no próprio ambiente limpo
@@ -29,15 +31,15 @@ line-length = 120
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["ai_core_contracts", "contract_test_pack"]
+known-first-party = ["ai_core_contracts", "contract_test_pack", "ai_core"]
 
 [tool.mypy]
 strict = true
 python_version = "3.12"
-files = ["packages/contracts/src", "packages/contracts/tools"]
+files = ["packages/contracts/src", "packages/contracts/tools", "packages/core/src"]
 
 [tool.importlinter]
-root_packages = ["ai_core_contracts"]
+root_packages = ["ai_core_contracts", "ai_core"]
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
@@ -64,3 +66,33 @@ source_modules = [
     "ai_core_contracts.view",
 ]
 forbidden_modules = ["ai_core_contracts.testing"]
+
+[[tool.importlinter.contracts]]
+name = "contratos não importam o core"
+type = "forbidden"
+source_modules = ["ai_core_contracts"]
+forbidden_modules = ["ai_core"]
+
+[[tool.importlinter.contracts]]
+name = "api.py do Pack Runtime não importa o resto do módulo"
+type = "forbidden"
+source_modules = ["ai_core.packs.api"]
+forbidden_modules = ["ai_core.packs.domain", "ai_core.packs.ports", "ai_core.packs.service", "ai_core.packs.adapters"]
+
+[[tool.importlinter.contracts]]
+name = "domain do Pack Runtime não importa portas, service nem adapters"
+type = "forbidden"
+source_modules = ["ai_core.packs.domain"]
+forbidden_modules = ["ai_core.packs.ports", "ai_core.packs.service", "ai_core.packs.adapters"]
+
+[[tool.importlinter.contracts]]
+name = "service do Pack Runtime não importa adapters"
+type = "forbidden"
+source_modules = ["ai_core.packs.service"]
+forbidden_modules = ["ai_core.packs.adapters"]
+
+[[tool.importlinter.contracts]]
+name = "infraestrutura só nos adapters do Pack Runtime"
+type = "forbidden"
+source_modules = ["ai_core.packs.api", "ai_core.packs.domain", "ai_core.packs.ports", "ai_core.packs.service"]
+forbidden_modules = ["yaml"]

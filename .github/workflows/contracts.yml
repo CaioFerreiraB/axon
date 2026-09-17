@@ -45,8 +45,15 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-      - run: uv sync --locked --python ${{ matrix.python }}
-      - run: uv run --python ${{ matrix.python }} pytest
+      # O workspace exige 3.14 (o core); o piso 3.12 e o 3.13 dos contratos rodam fora dele (spec 002, research R3).
+      - name: Testes no workspace (3.14)
+        if: matrix.python == '3.14'
+        run: uv sync --locked && uv run pytest packages/contracts/tests
+      - name: Testes fora do workspace (piso)
+        if: matrix.python != '3.14'
+        run: >-
+          uv run --no-project --python ${{ matrix.python }} --with ./packages/contracts --with pytest
+          --with pytest-asyncio --with hypothesis --with packaging pytest packages/contracts/tests -q
 
   boundaries:
     runs-on: ubuntu-latest

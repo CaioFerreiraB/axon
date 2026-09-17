@@ -21,7 +21,8 @@ uv sync                                  # workspace + grupo dev; Python 3.14 vi
 
 ```bash
 uv run pytest packages/contracts/tests                                   # 3.14
-uv run --python 3.12 --isolated pytest packages/contracts/tests         # piso
+uv run --no-project --python 3.12 --with ./packages/contracts --with pytest --with pytest-asyncio \
+  --with hypothesis --with packaging pytest packages/contracts/tests -q      # piso, fora do workspace (3.14)
 uv run ruff check packages/contracts && uv run ruff format --check packages/contracts
 uv run mypy packages/contracts/src
 ```

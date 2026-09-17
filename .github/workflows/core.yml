@@ -1,0 +1,56 @@
+# CI de ai-core (hoje: Pack Runtime, spec 002). Fica na raiz enquanto ai-core/ é subpasta deste repositório.
+name: core
+
+on:
+  pull_request:
+    paths:
+      - "ai-core/packages/core/**"
+      - "ai-core/packages/contracts/**"
+      - "ai-core/pyproject.toml"
+      - "ai-core/uv.lock"
+      - ".github/workflows/core.yml"
+  push:
+    branches: [main]
+    paths:
+      - "ai-core/packages/core/**"
+      - "ai-core/packages/contracts/**"
+      - "ai-core/pyproject.toml"
+      - "ai-core/uv.lock"
+      - ".github/workflows/core.yml"
+
+defaults:
+  run:
+    working-directory: ai-core
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run ruff check packages/core
+      - run: uv run ruff format --check packages/core
+      - run: uv run mypy
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run pytest packages/core/tests
+
+  boundaries:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run lint-imports

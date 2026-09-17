@@ -58,8 +58,9 @@ Ver "Como reescrever um módulo" em `specs/README.md`. Resumo:
 
 ## Código
 
-`ai-core-contracts` (spec 001, Fase 0) existe em `ai-core/packages/contracts/`. O resto dos caminhos-alvo
-(`ai-core/packages/...`, `ai-scouting/src/ai_scouting/...`) está nos `design.md`, no layout hexagonal do ADR-012.
+Implementado até agora: `ai-core-contracts` (spec 001, Fase 0) em `ai-core/packages/contracts/` e a distribuição
+`ai-core` em `ai-core/packages/core/`, com o Pack Runtime (`ai_core/packs/`, spec 002, Fase 1: US1, US2, US3 cenários
+2–4). O resto dos caminhos-alvo está nos `design.md`, no layout hexagonal do ADR-012.
 Decidido em 2026-09-15 (plano da 001): `ai-core/` é subpasta deste repositório nas Fases 0–3 e se separa antes da Fase 4;
 Python 3.14 no workspace, piso 3.12 em `ai-core-contracts`; CI em `.github/workflows/` da raiz. O `ai-scouting` segue a
 mesma regra: subpasta até existir repositório próprio, dependendo só de `ai-core-contracts`.
@@ -68,8 +69,12 @@ Verificação dos contratos (a partir de `ai-core/`; roteiro completo no quickst
 
 ```bash
 uv sync
-uv run pytest && uv run mypy && uv run ruff check packages/contracts && uv run lint-imports
+uv run pytest && uv run mypy && uv run ruff check packages && uv run lint-imports
 uv run python packages/contracts/tools/check_clean_env.py      # SC-001: pack só com os contratos
 ```
+
+O workspace exige Python 3.14 (por causa do core); o piso 3.12 dos contratos roda fora dele:
+`uv run --no-project --python 3.12 --with ./packages/contracts --with pytest --with pytest-asyncio --with hypothesis
+--with packaging pytest packages/contracts/tests`.
 
 Nesta máquina, rode o `uv` com `XDG_DATA_HOME=$HOME/.local/share` (o VSCode snap aponta o XDG para uma pasta que some).
