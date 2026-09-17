@@ -16,6 +16,7 @@ on:
       - "ai-core/pyproject.toml"
       - "ai-core/uv.lock"
       - ".github/workflows/contracts.yml"
+  workflow_dispatch:
 
 defaults:
   run:
