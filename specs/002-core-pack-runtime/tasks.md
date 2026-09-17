@@ -1,0 +1,215 @@
+---
+
+description: "Tarefas da Fase 1 da 002 — Pack Runtime (US1, US2, US3 cenários 2–4)"
+---
+
+# Tasks: Descoberta, carga e composição de packs
+
+**Input**: Design documents from `/specs/002-core-pack-runtime/`
+
+**Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/ (pack-runtime-api.md, ports.md,
+packs-yaml.md), quickstart.md; `ai-core-contracts` 0.1.0 (spec 001) no workspace
+
+**Tests**: incluídos — a spec pede falhas injetadas (SC-002) e composição verificável (SC-005), e a constituição exige
+suíte de conformidade dos seams e das portas em todo PR. Dentro de cada user story, os testes vêm antes e falham
+primeiro.
+
+**Escopo**: **Fase 1** — US1, US2 e US3 cenários 2–4 (Pack Hooks de execução). Fora desta lista: US3 cenário 1
+(catálogo com namespace, Fase 3), US4 (CLI `packs list | check`, Fase 2), US5 (template de instalação, Fase 4), US6
+(pack declarativo, P3), `reranker`/`routine` no Pack Hooks (Fase 5 e 001 US5).
+
+**Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
+
+## Format: `[ID] [P?] [Story] Description`
+
+- **[P]**: Can run in parallel (different files, no dependencies)
+- **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
+- Include exact file paths in descriptions
+
+## Path Conventions
+
+- Módulo: `ai-core/packages/core/src/ai_core/packs/`; testes: `ai-core/packages/core/tests/packs/`
+- Todo módulo Python começa com `from __future__ import annotations`; value objects são
+  `@dataclass(frozen=True, slots=True, kw_only=True)`; mensagens em português (formato no data-model.md, "Mensagens de
+  erro")
+- `ai_core.packs` importa só a API pública de `ai_core_contracts` (nada com prefixo `_`)
+- Nomes de arquivo de teste únicos no workspace: prefixo `test_packs_` (o pytest usa import `prepend`, sem `__init__.py`
+  nos testes)
+
+---
+
+## Phase 1: Setup (Shared Infrastructure)
+
+**Purpose**: nascer a distribuição `ai-core` (R2) e manter o CI dos contratos funcionando com o workspace em 3.14 (R3)
+
+- [X] T001 Criar a distribuição em `ai-core/packages/core/`: `pyproject.toml` (`name = "ai-core"`, `version = "0.1.0"`, `requires-python = ">=3.14"`, `dependencies = ["ai-core-contracts", "pyyaml>=6.0.2", "jsonschema>=4.23"]`, `[tool.uv.sources] ai-core-contracts = { workspace = true }`, `[build-system] requires = ["uv_build>=0.12,<0.13"]`, `build-backend = "uv_build"`), `README.md` (uma linha), `src/ai_core/__init__.py` (docstring), `src/ai_core/py.typed` vazio, `src/ai_core/packs/__init__.py` (docstring: consumidores importam `ai_core.packs.api`), `src/ai_core/packs/domain/__init__.py` e `src/ai_core/packs/adapters/__init__.py`
+- [X] T002 Atualizar a raiz `ai-core/pyproject.toml`: `testpaths` passa a `["packages/contracts/tests", "packages/core/tests"]`; mypy `files` inclui `packages/core/src`; `known-first-party` do ruff inclui `ai_core`; rodar `uv sync` (gera o novo `ai-core/uv.lock`) e conferir `uv run python -c "import ai_core.packs"` e `uv run pytest -q` (a suíte dos contratos continua verde) (depende de T001)
+- [X] T003 Ajustar os testes de piso dos contratos (R3): no job `test` de `.github/workflows/contracts.yml`, manter 3.14 pelo workspace (`uv sync --locked` + `uv run pytest packages/contracts/tests`) e rodar 3.12 e 3.13 fora dele com `uv run --no-project --python <v> --with ./packages/contracts --with pytest --with pytest-asyncio --with hypothesis --with packaging pytest packages/contracts/tests -q`; trocar o comando de 3.12 da seção 1 de `specs/001-core-contracts/quickstart.md` pelo mesmo comando; conferir localmente com Python 3.12 (depende de T002)
+
+---
+
+## Phase 2: Foundational (Blocking Prerequisites)
+
+**Purpose**: seams, portas, adapters em memória e packs de teste que todas as stories usam
+
+**⚠️ CRITICAL**: No user story work can begin until this phase is complete
+
+- [X] T004 [P] Implementar `ai-core/packages/core/src/ai_core/packs/api.py` conforme specs/002-core-pack-runtime/contracts/pack-runtime-api.md: `PackStatus` (`StrEnum`: `enabled`, `disabled`, `error`); `RetrieverCapability` (`name`, `collections: frozenset[str]`); `PackCapabilities` (os 8 campos do data-model.md); `PackEntry` (`name`, `version: str | None`, `contract_version: str | None`, `origin: Literal["code", "declarative"]`, `status`, `error: str | None = None`, `capabilities: PackCapabilities | None = None`, com a regra "`error` obrigatório quando `status == error`" no `__post_init__`); `Composition` (`packs: tuple[str, ...]`); `CompositionError(ValueError)` com atributo `packs`; `PackHookError(RuntimeError)` com `pack` e `hook`; `PackConfigError(ValueError)`; Protocols `PackRegistry` (`entries`, `entry`, `compose`) e `PackHooks` (`system_prompts`, `async prepare`, `async validate`); `ValidatorRun`; `ValidationOutcome`; `type Slices = Mapping[str, Mapping[str, JSONValue]]`. Só importa stdlib e `ai_core_contracts`. Testes em `ai-core/packages/core/tests/packs/unit/test_packs_api.py`
+- [X] T005 [P] Implementar `ai-core/packages/core/src/ai_core/packs/ports.py` conforme contracts/ports.md: `DiscoveredPack` (`name`, `distribution`, `version`, `load: Callable[[], object]`), `PackSettings` (`enabled: bool = False`; `config: Mapping[str, JSONValue]` default vazio, congelado), Protocols `PackSource.discover()` e `PackConfigSource.load()` (documentando que `load` levanta `PackConfigError`)
+- [X] T006 Implementar `ai-core/packages/core/src/ai_core/packs/adapters/memory.py`: `InMemoryPackSource(entries: Sequence[DiscoveredPack])` e o construtor de conveniência `InMemoryPackSource.of(*classes, distribution="test-dist", version="0.1.0")` (usa `cls.name` como nome do entry point, ou `(nome, classe)` quando o teste quer divergência), e `InMemoryPackConfigSource(settings: Mapping[str, PackSettings] | None = None, *, error: PackConfigError | None = None)` (depende de T005)
+- [X] T007 Criar `ai-core/packages/core/tests/packs/conftest.py`: fábrica `make_pack_class(name="good", contract_version="0.1", *, manifest=None, init=None, **hooks)` que devolve uma subclasse de `ai_core_contracts.PackBase` com `name`/`contract_version` como atributos de classe e contador de instâncias (`created`); packs prontos `good` (com `config_schema` exigindo `collection: string`, `system_prompt`, uma tool nativa e um validator determinístico); fixture `fake_distribution(tmp_path, monkeypatch)` que escreve `<dist>-<versão>.dist-info/METADATA` e `entry_points.txt` (grupo `ai_core.packs`) mais o módulo do pack em `tmp_path`, põe `tmp_path` no `sys.path` e limpa `sys.modules` no fim (depende de T006)
+
+**Checkpoint**: seams tipados, portas e adapters em memória prontos
+
+---
+
+## Phase 3: User Story 1 — Operador instala um pack e o core o descobre (Priority: P1) 🎯 MVP
+
+**Goal**: descoberta por entry point, identidade e contrato checados antes de instanciar, habilitação e configuração
+pelo operador, catálogo coletado uma vez.
+
+**Independent Test**: `ai-core/packages/core/tests/packs/integration/test_packs_entry_points_load.py` — distribuição falsa
+com o pack `good` e `packs.yaml` real: `enabled` com capacidades; ausente ou `enabled: false` → `disabled` sem instância;
+config fora do schema → `error` nomeando o campo (quickstart §3).
+
+### Tests for User Story 1 ⚠️
+
+> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+
+- [X] T008 [P] [US1] Criar `ai-core/packages/core/tests/packs/contract/test_packs_source_port.py`: suíte de conformidade de `PackSource` parametrizada sobre `InMemoryPackSource` e `EntryPointPackSource` (este com distribuições falsas via `fake_distribution`): um `DiscoveredPack` por entrada; `load()` devolve a classe; nome, distribuição e versão corretos; módulo que levanta no import só falha ao chamar `load()`; duas distribuições com o mesmo nome aparecem as duas (contracts/ports.md)
+- [X] T009 [P] [US1] Criar `ai-core/packages/core/tests/packs/contract/test_packs_config_port.py`: suíte de conformidade de `PackConfigSource` sobre `InMemoryPackConfigSource` e `YamlPackConfigSource` (arquivos em `tmp_path`): pack ausente não aparece; `enabled` default `False`; `config` default vazio; e, só no YAML, as violações de specs/002-core-pack-runtime/contracts/packs-yaml.md → `PackConfigError` nomeando `packs.<nome>.<chave>` (raiz sem `packs`, chave desconhecida, `enabled` não booleano, `config` não mapeamento, arquivo inexistente)
+- [X] T010 [P] [US1] Criar `ai-core/packages/core/tests/packs/unit/test_packs_identity_config.py`: `domain/identity.py` — classe com `name`/`contract_version` como atributos de classe → identidade; `name` diferente do entry point → mensagem `entry point '<x>' aponta para classe com name '<y>'`; atributo ausente ou não `str` → `classe sem atributo de classe '<attr>'`; `domain/config.py` — config conforme → sem erro; `{"collection": 42}` contra schema que exige string → `configuração inválida em 'collection': ...`; erro aninhado → caminho `limits.top_k`; schema inválido → `config_schema inválido: ...`; pack sem schema → aceita
+- [X] T011 [P] [US1] Criar `ai-core/packages/core/tests/packs/unit/test_packs_load.py` (service com adapters em memória): pack `good` habilitado com `config={"collection": "docs"}` → `enabled`, `version` da distribuição, `contract_version` `0.1`, `capabilities` com prompt, tool, validator, `preferred_flow`, `depends_on`, `requires_collections`; o `PackContext` entregue aos hooks carrega a config; cada hook de catálogo chamado exatamente uma vez; pack ausente da configuração ou `enabled: false` → `disabled` e `created == 0` (cenário 2); config violando o schema → `error` com `configuração inválida em 'collection'` (cenário 3); `entries()` ordenado por nome e `entry(nome)`
+- [X] T012 [P] [US1] Criar `ai-core/packages/core/tests/packs/integration/test_packs_entry_points_load.py`: carga completa com `EntryPointPackSource` + `YamlPackConfigSource` sobre `fake_distribution` e `packs.yaml` em `tmp_path`, cobrindo as três linhas da tabela do quickstart §3
+
+### Implementation for User Story 1
+
+- [X] T013 [P] [US1] Implementar `ai-core/packages/core/src/ai_core/packs/domain/identity.py`: `read_identity(entry_name: str, cls: object) -> tuple[str, str] | str` — lê `name` e `contract_version` com `getattr` na **classe** (atributos de classe, FR-017), exige `str`, exige `name == entry_name`; devolve `(name, contract_version)` ou a mensagem de erro do data-model.md
+- [X] T014 [P] [US1] Implementar `ai-core/packages/core/src/ai_core/packs/domain/config.py`: `config_error(config: Mapping[str, JSONValue], schema: Mapping[str, JSONValue] | None) -> str | None` com `jsonschema.validators.validator_for(schema, default=Draft202012Validator)`, `check_schema` (→ `config_schema inválido: ...`), primeiro erro por `best_match`, caminho com `.` entre segmentos (`(raiz)` quando vazio), sem resolução de `$ref` remoto; converte mapeamentos congelados em `dict`/`list` antes de validar
+- [X] T015 [US1] Implementar `ai-core/packages/core/src/ai_core/packs/adapters/entry_points.py`: `EntryPointPackSource(group: str = "ai_core.packs")` com `importlib.metadata.entry_points(group=...)` → `DiscoveredPack(name=ep.name, distribution=ep.dist.name, version=ep.dist.version, load=ep.load)` (sem chamar `load`), ordenados por nome e distribuição (depende de T005)
+- [X] T016 [US1] Implementar `ai-core/packages/core/src/ai_core/packs/adapters/config_yaml.py`: `YamlPackConfigSource(path: Path)` com `yaml.safe_load` e as regras de contracts/packs-yaml.md (arquivo inexistente, raiz sem `packs`, chaves desconhecidas, `enabled` booleano, `config` mapeamento JSON → `PackConfigError` com o caminho); devolve `Mapping[str, PackSettings]` (depende de T005)
+- [X] T017 [US1] Implementar `ai-core/packages/core/src/ai_core/packs/service.py`: `PackRuntime(source: PackSource, config_source: PackConfigSource)` com `load() -> None` (etapas 1, 3, 4 e 5 de research R5: descobrir, importar, `read_identity`, `check_compatibility`, habilitação, instanciar sem argumentos, `manifest()`, `config_error`, hooks de catálogo uma vez com `PackContext(pack_name, config)`, `check_declaration` da 001, `PackCapabilities`) e implementação de `PackRegistry.entries()`/`entry()`; estado interno `LoadedPack` com o catálogo coletado; registry imutável depois de `load()` (segunda chamada levanta `RuntimeError`); logger `ai_core.packs` (depende de T004–T006, T013, T014)
+
+**Checkpoint**: US1 completa — um pack instalado é descoberto, configurado e aparece como `enabled`; MVP da 002
+
+---
+
+## Phase 4: User Story 2 — Pack quebrado não derruba o sistema (Priority: P1)
+
+**Goal**: toda falha de pack vira `error` com etapa e causa, o boot segue e a indisponibilidade é explícita ao compor.
+
+**Independent Test**: `ai-core/packages/core/tests/packs/unit/test_packs_failure_matrix.py` — com `good` sempre
+habilitado, cada defeito injetado deixa só o pack defeituoso em `error`, com a mensagem prevista (quickstart §4, SC-002).
+
+### Tests for User Story 2 ⚠️
+
+- [X] T018 [P] [US2] Criar `ai-core/packages/core/tests/packs/unit/test_packs_failure_matrix.py` com a tabela do quickstart §4: `contract_version = "0.2"` (→ `requer ai-core-contracts>=0.2, instalado 0.1.0`), manifest com nome diferente (→ `manifest inválido:`), exceção no construtor (→ `falha ao instanciar:`), exceção em `tools()` (→ `hook tools levantou`), declaração inválida (duas tools com o mesmo nome → `declaração inválida:`), falha no import (→ `falha ao importar:`), entry point com nome diferente do `name`, dois packs com o mesmo nome (os dois em erro, `nome duplicado:`), `depends_on` para pack desabilitado, ciclo `a → b → a`, pack citado na configuração e não instalado (→ `não instalado`); em todos, `good` continua `enabled` e o `load()` termina; cada erro gera um registro de log com nome e etapa (`caplog`)
+- [X] T019 [P] [US2] Criar `ai-core/packages/core/tests/packs/unit/test_packs_dependencies.py`: `domain/dependencies.py` — dependência não instalada, desabilitada ou em erro → dependente em erro (`depende de '<b>', que está <estado>`); cascata até ponto fixo (A → B → C quebrado derruba B e A); ciclo → todos os packs do ciclo em erro com `dependência circular: a → b → a`; packs sem dependência não mudam
+- [X] T020 [P] [US2] Criar `ai-core/packages/core/tests/packs/contract/test_packs_registry_seam.py` (seam Pack Registry, contracts/pack-runtime-api.md): `entries()` imutável e ordenado; `entry()` de nome desconhecido → `None`; `compose` recusa nome desconhecido, pack `disabled`, pack `error` (a mensagem repete o erro do pack — US2 cenário 3) e nome repetido, sempre com `CompositionError.packs` preenchido; composição válida devolve `Composition` com a ordem recebida
+
+### Implementation for User Story 2
+
+- [X] T021 [P] [US2] Implementar `ai-core/packages/core/src/ai_core/packs/domain/dependencies.py`: `dependency_errors(status: Mapping[str, PackStatus], depends_on: Mapping[str, Sequence[str]]) -> dict[str, str]` com a regra de cascata até ponto fixo e a detecção de ciclos (research R9), mensagens do data-model.md
+- [X] T022 [P] [US2] Implementar `ai-core/packages/core/src/ai_core/packs/domain/composition.py`: `composition_error(pack_names: Sequence[str], entries: Mapping[str, PackEntry]) -> tuple[str, tuple[str, ...]] | None` para nome desconhecido, status diferente de `enabled` (mensagem inclui o `error` do pack) e nome repetido (a regra de ordem de dependência entra na US3)
+- [X] T023 [US2] Completar a carga em `ai-core/packages/core/src/ai_core/packs/service.py` com falha fechada (research R5 etapas 2, 6 e 7): nomes duplicados, exceção em qualquer etapa → `error` com a etapa, `dependency_errors` depois da carga individual, pack citado e não instalado → entrada `error: não instalado`, um `logger.error` por pack em erro; e `PackRegistry.compose()` com `composition_error` → `CompositionError` (depende de T021, T022)
+
+**Checkpoint**: US1 e US2 — o boot sempre conclui e todo pack quebrado aparece com a causa
+
+---
+
+## Phase 5: User Story 3 — Composição de packs: execução de hooks (Priority: P1, cenários 2–4)
+
+**Goal**: Pack Hooks que a 005 US1 consome: prompts na ordem, `prepare` com Turn View recortada e merge raso, `validate`
+encadeado, dependência antes do dependente e `PackHookError` que nomeia o pack.
+
+**Independent Test**: `ai-core/packages/core/tests/packs/contract/test_packs_hooks_seam.py` — dois packs com a mesma chave
+de fatia não se sobrescrevem; A antes de B nos prompts; B dependente de A vê a fatia que A acabou de escrever; leitura
+de fatia não declarada e hook que levanta encerram com `PackHookError` (quickstart §5).
+
+### Tests for User Story 3 ⚠️
+
+- [X] T024 [P] [US3] Criar `ai-core/packages/core/tests/packs/unit/test_packs_hook_rules.py`: `domain/hooks.py` — `scope_view` devolve Turn View com `own_slice` = fatia do pack e `dependency_slices` só com `depends_on` (packs fora ficam ausentes); `merge_slice` faz merge raso (chaves devolvidas substituem, ausentes permanecem) e rejeita valor não-JSON; `apply_validation` atualiza `answer`/`citations` só quando o resultado os traz e acumula `flags`; `composition_error` recusa dependência ausente da lista ou depois do dependente, nomeando os dois
+- [X] T025 [P] [US3] Criar `ai-core/packages/core/tests/packs/contract/test_packs_hooks_seam.py` (seam Pack Hooks, tabela de contracts/pack-runtime-api.md): `system_prompts` na ordem da composição, sem fragmentos `None` (cenário 2); `prepare` com A e B usando a mesma chave de fatia → fatias separadas; B dependente de A recebe em `dependency_slices["a"]` a fatia nova de A; retorno de `prepare` com todas as fatias da composição; `compose(["b", "a"])` e `compose(["b"])` → `CompositionError` com os dois nomes; hook que lê `dependency_slices["c"]` não declarado → `PackHookError(pack="b", hook="prepare_context")` (cenário 3); `prepare_context` que levanta ou devolve não-mapeamento/não-JSON → `PackHookError` (cenário 4); `validate` encadeia resposta e citações, devolve `ValidationOutcome` (ok, answer, citations, flags, runs na ordem); validator que levanta → `PackHookError(hook="validate:<nome>")`; `Composition` montada à mão com pack desabilitado → `CompositionError`; SC-005 — para todo par ordenado de packs de teste válidos que respeite as dependências, `compose`, `prepare` e `validate` rodam sem erro
+
+### Implementation for User Story 3
+
+- [X] T026 [US3] Acrescentar a `ai-core/packages/core/src/ai_core/packs/domain/composition.py` a regra de ordem (FR-008): toda dependência de um pack precisa estar na lista e antes dele; senão `CompositionError` nomeando o dependente e a dependência (depende de T022)
+- [X] T027 [P] [US3] Implementar `ai-core/packages/core/src/ai_core/packs/domain/hooks.py`: `scope_view(view: TurnView, pack: str, depends_on: Sequence[str], slices: Slices) -> TurnView` (via `dataclasses.replace`), `merge_slice(current, update) -> Mapping[str, JSONValue]` (merge raso; `TypeError` se `update` não for mapeamento JSON — usa `is_json_value` equivalente, sem API privada da 001) e `apply_validation(view, result) -> TurnView`
+- [X] T028 [US3] Implementar `PackHooks` em `ai-core/packages/core/src/ai_core/packs/service.py`: `system_prompts`, `prepare` e `validate` conforme contracts/pack-runtime-api.md e research R7/R8 — revalidar a composição, rodar pack a pack na ordem, recortar a view, converter exceção ou retorno inválido em `PackHookError(pack, hook)`, montar o `ValidationOutcome` (depende de T026, T027)
+
+**Checkpoint**: escopo da Fase 1 da 002 entregue — Pack Registry e Pack Hooks prontos para a 005 e a 011
+
+---
+
+## Phase 6: Polish & Cross-Cutting Concerns
+
+- [X] T029 Acrescentar a `ai-core/pyproject.toml` os contratos de import-linter do research R13 — `root_packages = ["ai_core_contracts", "ai_core"]`; `ai_core_contracts` não importa `ai_core`; `ai_core.packs.api` não importa `domain`/`ports`/`service`/`adapters`; `ai_core.packs.domain` não importa `ports`/`service`/`adapters`; `ai_core.packs.service` não importa `adapters`; `ai_core.packs.api`/`domain`/`ports`/`service` não importam `yaml` — e rodar `uv run lint-imports` até passar
+- [X] T030 [P] Criar `ai-core/packages/core/tests/packs/unit/test_packs_public_api.py`: os nomes públicos de `ai_core.packs.api` são exatamente os de specs/002-core-pack-runtime/contracts/pack-runtime-api.md, e `ai_core.packs.api` só importa stdlib e `ai_core_contracts` (varredura AST)
+- [X] T031 [P] Criar `.github/workflows/core.yml` (raiz do repositório; `working-directory: ai-core`; gatilhos em `ai-core/packages/core/**`, `ai-core/packages/contracts/**`, `ai-core/pyproject.toml`, `ai-core/uv.lock` e no próprio workflow): jobs `lint` (`ruff check`/`ruff format --check` em `packages/core`, `mypy`), `test` (`uv sync --locked`; `uv run pytest packages/core/tests`) e `boundaries` (`uv run lint-imports`)
+- [X] T032 Executar as seções 1–6 de specs/002-core-pack-runtime/quickstart.md e corrigir divergências entre o resultado e o "Esperado"
+- [X] T033 [P] Atualizar a seção "Código" de `CLAUDE.md` (a distribuição `ai-core` existe, com o módulo `ai_core/packs/`; o workspace exige 3.14 e os testes de piso dos contratos rodam fora dele) e a linha da 002 em `specs/README.md` (status "Fase 1 implementada")
+
+---
+
+## Dependencies & Execution Order
+
+### Phase Dependencies
+
+- **Setup (Phase 1)**: T001 → T002 → T003
+- **Foundational (Phase 2)**: depende do Setup; T004 e T005 em paralelo; T006 depois de T005; T007 depois de T006 —
+  **bloqueia as stories**
+- **US1 (Phase 3)**: depende da Foundational
+- **US2 (Phase 4)**: depende da US1 (completa a carga do `service.py`)
+- **US3 (Phase 5)**: depende da US2 (`compose` e o registry completo); T026 estende o arquivo de T022
+- **Polish (Phase 6)**: depende de tudo
+
+### Within Each User Story
+
+- Testes antes e falhando; regras de `domain/` antes do `service.py`
+- `service.py` é tocado por T017, T023 e T028 — nessa ordem; `domain/composition.py` por T022 e T026 — nessa ordem
+
+### Parallel Opportunities
+
+- Foundational: T004 e T005
+- US1: testes T008–T012 em paralelo; T013 e T014 em paralelo; T015 e T016 em paralelo
+- US2: testes T018–T020 em paralelo; T021 e T022 em paralelo
+- US3: testes T024 e T025 em paralelo; T027 em paralelo com T026
+- Polish: T030, T031 e T033 em paralelo
+
+---
+
+## Parallel Example: User Story 1
+
+```bash
+Task: "T008 conformidade de PackSource em tests/packs/contract/test_packs_source_port.py"
+Task: "T009 conformidade de PackConfigSource em tests/packs/contract/test_packs_config_port.py"
+Task: "T010 identidade e config em tests/packs/unit/test_packs_identity_config.py"
+Task: "T011 carga em tests/packs/unit/test_packs_load.py"
+Task: "T012 integração em tests/packs/integration/test_packs_entry_points_load.py"
+```
+
+---
+
+## Implementation Strategy
+
+### MVP First (User Story 1 Only)
+
+1. Setup → Foundational → US1
+2. **PARAR E VALIDAR**: `uv run pytest packages/core/tests/packs` e o teste de integração com entry points reais
+
+### Incremental Delivery
+
+1. US1 → descoberta e carga
+2. US2 → falha fechada (o boot nunca cai por causa de pack)
+3. US3 (cenários 2–4) → Pack Hooks para a 005
+4. Polish → fronteiras, CI e documentação
+
+A 005 US1 pode começar quando a US3 desta lista estiver pronta; a 011 depende de US1 e US2.
+
+---
+
+## Notes
+
+- [P] = arquivos diferentes, sem dependência de tarefa incompleta
+- Commit após cada tarefa ou grupo lógico
+- Fora de escopo: US3 cenário 1, US4, US5, US6 e `reranker`/`routine` do Pack Hooks

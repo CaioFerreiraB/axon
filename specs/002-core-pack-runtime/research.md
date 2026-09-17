@@ -1,0 +1,210 @@
+# Research — 002 Pack Runtime
+
+**Data**: 2026-09-15 · **Plano**: [plan.md](plan.md) · **Spec**: [spec.md](spec.md)
+
+Decisões do [design.md](design.md) e dos ADRs 003, 009, 011 e 012 entram como pré-aprovadas (R-A*). As demais (R*) refinam o
+que o design deixou em aberto, à luz das clarificações de 2026-09-15 e do contrato 001 já implementado
+(`ai-core-contracts` 0.1.0).
+
+## Decisões herdadas (pré-aprovadas)
+
+### R-A1 — Code pack é extensão do operador, por entry point
+
+- **Decision**: packs de código são distribuições Python descobertas pelo grupo de entry points `ai_core.packs`; não existe
+  instalação de pack em runtime (FR-001, FR-014).
+- **Rationale (ADR-003)**: usuário final nunca executa código no processo do core; quem precisa de código próprio sem ser
+  operador escreve um MCP server.
+- **Alternatives**: endpoint de admin que instala pack de git em runtime — rejeitado no ADR-003.
+
+### R-A2 — Instalação por imagem com build-arg e `packs check` no build
+
+- **Decision**: o repositório de instalação recebe a lista de packs por build-arg e roda `ai-core packs check` no build
+  (US5, Fase 4).
+- **Rationale (ADR-009)**: instalação imutável; incompatibilidade falha o build, não a produção.
+- **Alternatives**: venv gravável em runtime — rejeitado no ADR-009.
+
+### R-A3 — Turn View recortada por pack; o hook devolve a própria fatia
+
+- **Decision**: o motor produz a projeção da execução; o Pack Hooks entrega a cada pack uma Turn View só com a própria
+  fatia e as de `depends_on`, e mescla o retorno de `prepare_context` apenas na fatia do pack (FR-009).
+- **Rationale (ADR-011)**: packs não enxergam o estado interno do motor; reescrever o grafo não quebra packs.
+- **Alternatives**: estado bruto nos hooks — rejeitado no ADR-011.
+
+### R-A4 — Módulo hexagonal com duas portas secundárias
+
+- **Decision**: `ai_core/packs/` com `api.py` (seams Pack Registry e Pack Hooks), `domain/` (regras puras), `ports.py`
+  (`PackSource`, `PackConfigSource`), `service.py` e `adapters/`; cada porta com adapter em memória e suíte de
+  conformidade.
+- **Rationale (ADR-012, design.md "Portas e adapters")**: descoberta e configuração são I/O e têm troca prevista
+  (entry points → + declarativo; YAML → outras fontes).
+- **Alternatives**: n/a.
+
+## Decisões deste plano
+
+### R1 — Escopo por fase
+
+- **Decision** (clarificação 2026-09-15): **Fase 1** = US1 (descoberta e carga), US2 (falha fechada) e US3 cenários 2–4
+  (Pack Hooks de execução: prompts, `prepare`, `validate`, erro de hook). **Fase 2** = US4 (CLI `packs list | check`).
+  **Fase 3** = US3 cenário 1 (catálogo com namespace, para a 004). **Fase 4** = US5 (template de instalação). **P3** =
+  US6 (pack declarativo). No seam Pack Hooks, `reranker` e `routine` entram com seus consumidores (Fase 5 e US5 da 001),
+  com as assinaturas do design.md.
+- **Rationale**: cada parte do seam chega junto do consumidor (princípio XII); a 005 US1 precisa só de prompts,
+  preparação de contexto e validators.
+- **Alternatives**: US3 inteira na Fase 1; Pack Hooks provisório na 005 — rejeitadas na clarificação.
+
+### R2 — A distribuição `ai-core` nasce com esta spec
+
+- **Decision**: a 002 é o primeiro módulo do core e cria `ai-core/packages/core/` (distribuição `ai-core`, versão
+  `0.1.0`, `requires-python = ">=3.14"`, backend `uv_build`), com `ai_core/__init__.py` e o módulo `ai_core/packs/`.
+  Dependências de runtime: `ai-core-contracts` (fonte do workspace), `pyyaml` (só no adapter de configuração) e
+  `jsonschema` (validação de configuração). O script `ai-core` e a raiz do CLI ficam para a 011.
+- **Rationale**: o workspace já prevê `packages/*`; `ai-core` e `ai-generic` compartilham a linha de versão (ADR-004).
+- **Alternatives**: esperar a 011 criar o esqueleto (bloquearia a 002, que a 011 consome).
+
+### R3 — Python 3.14 no core e consequência para os testes de piso dos contratos
+
+- **Decision**: o core declara `requires-python = ">=3.14"` (imagem, research R2 da 001). Como o `requires-python` de um
+  uv workspace é a interseção dos membros, o workspace passa a exigir 3.14; os testes dos contratos em 3.12 e 3.13 saem
+  do workspace e rodam num ambiente isolado (`uv run --no-project --python 3.12 --with ./packages/contracts --with pytest
+  ...`). O workflow `contracts.yml` e o quickstart da 001 são ajustados na mesma entrega.
+- **Rationale**: o core só roda na imagem (3.14); declarar 3.12 prometeria suporte não testado. O piso 3.12 continua
+  valendo — e testado — para `ai-core-contracts`, que é o que packs externos instalam.
+- **Alternatives**: core com `>=3.12` (sem mexer no CI dos contratos, mas com suporte declarado e não verificado).
+
+### R4 — Forma dos seams (`api.py`)
+
+- **Decision**:
+  - `PackRegistry`: `entries()`, `entry(name)` e `compose(pack_names) -> Composition`; `compose` valida a lista (pack
+    conhecido, `enabled`, sem repetição, dependências presentes e antes do dependente) e levanta `CompositionError`
+    nomeando os packs (FR-008, US2 cenário 3).
+  - `PackHooks` (Fase 1): `system_prompts(composition)`, `async prepare(composition, view, slices)` e
+    `async validate(composition, view, slices)`. O motor passa a Turn View base e o mapeamento `slices` (fatia de cada
+    pack); o Pack Hooks recorta a view por pack. *Refinamento* de `state_projection` do design.md, que não tinha tipo.
+  - Erros de execução levantam `PackHookError(pack, hook, message)` (FR-011).
+  - Value objects: `PackEntry`, `PackStatus`, `PackCapabilities`, `RetrieverCapability`, `Composition`,
+    `ValidationOutcome`, `ValidatorRun` — só stdlib e `ai_core_contracts`.
+- **Rationale**: a 003 valida Assistants chamando `compose`; a 005 consome a composição sem conhecer packs individuais;
+  a 008 lista entradas.
+- **Alternatives**: `Composition` com os objetos de pack dentro (vazaria instâncias para a 005); validação de
+  composição só na 003 (a regra de dependência é da 002).
+
+### R5 — Algoritmo de carga e estados
+
+- **Decision**: o carregamento (uma vez, no boot — FR-003) segue:
+  1. `PackSource.discover()` lista entradas (nome do entry point, distribuição, versão, função que importa a classe);
+  2. nomes repetidos → todas as entradas com o nome ficam `error`;
+  3. para **todo** pack instalado: importar a classe (falha → `error`), ler `name` e `contract_version` da classe (FR-017),
+     exigir `name` = nome do entry point e checar `check_compatibility(contract_version)` (FR-002). Isso vale também para
+     packs desabilitados, porque o `packs check` do build (US4/US5) cobre tudo que está instalado;
+  4. pack não habilitado → `disabled` (sem instanciar);
+  5. pack habilitado → instanciar sem argumentos, `manifest()`, validar a configuração contra `config_schema` (R6),
+     chamar os hooks de catálogo uma vez com o `PackContext` (001 FR-019) e aplicar `check_declaration`;
+  6. regras de dependência (R9) até ponto fixo;
+  7. pack citado na configuração mas não instalado → entrada `error: não instalado`.
+  Qualquer exceção numa etapa vira `error` com a causa; o boot segue (FR-005, SC-002). Cada falha é registrada em log
+  (R11).
+- **Rationale**: US1, US2 e os edge cases; importar para ler a classe é inevitável (FR-017, texto corrigido na
+  spec).
+- **Alternatives**: ler `contract_version` só de metadados da distribuição (não existe campo padrão); instanciar para ler
+  (executaria o construtor de pack incompatível — rejeitada na clarificação).
+
+### R6 — Configuração do operador (`packs.yaml`)
+
+- **Decision**: a 002 é dona do **formato** (`packs: {<nome>: {enabled: bool, config: mapping}}`, chaves desconhecidas
+  rejeitadas) e do adapter `YamlPackConfigSource(path)`; a 011 decide o caminho e liga o adapter pelo perfil. A validação
+  da configuração de cada pack usa `jsonschema` com o dialeto indicado em `$schema` (padrão: Draft 2020-12), sem
+  resolução de `$ref` remoto; a mensagem de erro nomeia o caminho do campo (US1 cenário 3). Pack sem `config_schema`
+  recebe a configuração como está.
+- **Rationale**: o design da 002 põe `config_yaml.py` no módulo e o da 011 põe os caminhos em `settings.py` — os dois se
+  encaixam assim. `jsonschema` é validação pura (sem I/O com refs locais) e aponta o caminho do erro.
+- **Alternatives**: a 011 ler o arquivo e repassar um mapeamento (a 002 perderia a validação do próprio formato);
+  validação estrutural própria (não nomearia o campo com precisão).
+
+### R7 — Fatias e preparação de contexto
+
+- **Decision**: `prepare` roda os packs na ordem da composição; cada um recebe a Turn View recortada
+  (`own_slice` = fatia atual do pack; `dependency_slices` = fatias atuais das dependências, já atualizadas nesta
+  execução, porque dependências vêm antes — clarificação); o retorno precisa ser mapeamento JSON (senão
+  `PackHookError`) e entra por **merge raso** na fatia do pack (001 data-model). `prepare` devolve o novo mapeamento de
+  fatias da composição; o motor guarda.
+- **Rationale**: FR-008, FR-009 e FR-011; fatia JSON é o que permite checkpoint (Fase 3).
+- **Alternatives**: substituir a fatia inteira (perderia chaves de turnos anteriores sem o pack pedir); aceitar
+  valores não-JSON em runtime (quebraria o checkpoint depois).
+
+### R8 — Encadeamento de validators
+
+- **Decision**: `validate` roda os validators de cada pack, na ordem da composição e na ordem declarada pelo pack; cada
+  um recebe a Turn View recortada com `answer` e `citations` já atualizados pelos anteriores (quando um resultado traz
+  `answer` ou `citations`). O `ValidationOutcome` final traz resposta, citações, união das `flags`, `ok` (todos
+  aprovaram) e a lista de execuções. Exceção em validator → `PackHookError` (edge case: sem entrega sem validação).
+- **Rationale**: 001 data-model ("citações correntes após validators anteriores") e 104 (o aviso de vigência considera
+  só citações válidas).
+- **Alternatives**: validators em paralelo sobre a mesma entrada (quebraria a dependência entre eles).
+
+### R9 — Grafo de dependências
+
+- **Decision**: depois da carga individual, função pura em `domain/` marca `error` todo pack cujo `depends_on` cite pack
+  não instalado, desabilitado ou em erro, repetindo até ponto fixo (falha em cascata), e todo pack em ciclo (mensagem
+  mostra o ciclo, ex.: `a → b → a`).
+- **Rationale**: FR-010 como clarificado.
+- **Alternatives**: checar só no `compose` (erro chegaria tarde, na hora de usar o Assistant).
+
+### R10 — Composição
+
+- **Decision**: `compose(pack_names)` recusa com `CompositionError`: nome desconhecido, pack `disabled` ou `error`
+  (mensagem inclui o erro do pack — US2 cenário 3), nome repetido, dependência ausente da lista ou depois do dependente
+  (nomeia os dois — FR-008). O Pack Hooks revalida a composição recebida (operação barata) para não confiar em
+  `Composition` construída à mão.
+- **Rationale**: a regra de ordem é da 002; a 003 a usa ao validar Assistants (Fase 2) sem reimplementar.
+- **Alternatives**: token privado em `Composition` (acoplamento desnecessário).
+
+### R11 — Log
+
+- **Decision**: `logging` da stdlib com logger `ai_core.packs`; cada pack em `error` gera um registro com nome, etapa e
+  causa. Handlers e formato são da composition root (011). Não é porta secundária.
+- **Rationale**: não há troca prevista nem não-determinismo; dados de execução por requisição vão pelo Trace Sink (009),
+  que a 002 não consome.
+- **Alternatives**: porta `Logger` própria (indireção sem troca prevista — princípio XIII, "porta só onde se paga").
+
+### R12 — Estratégia de testes
+
+- **Decision**:
+  - `domain/`: testes unitários puros (identidade, grafo de dependências, ordem de composição, recorte de view, merge,
+    encadeamento de validators);
+  - portas: suíte de conformidade de `PackSource` rodando contra o adapter em memória e contra `EntryPointPackSource`
+    (distribuições falsas criadas em `tmp_path` com `*.dist-info/entry_points.txt` no `sys.path`); suíte de
+    `PackConfigSource` contra o adapter em memória e o YAML;
+  - seams: suítes de conformidade de `PackRegistry` e `PackHooks` contra o `service` com adapters em memória;
+  - matriz de falhas injetadas (SC-002): incompatível, manifest inválido, exceção no construtor, exceção em hook de
+    catálogo, config inválida, nome divergente, nome duplicado, dependência quebrada, ciclo;
+  - packs de teste escritos com `PackBase` e validados antes pela conformidade da 001.
+- **Rationale**: princípio XIII (porta = adapter em memória + conformidade contra o real) e governança da constituição.
+- **Alternatives**: instalar distribuições reais num venv por teste (lento); depender da 010 (ainda não existe).
+
+### R13 — Fronteiras de import
+
+- **Decision**: novos contratos no import-linter: `ai_core_contracts` não importa `ai_core`; no módulo `ai_core.packs`,
+  `api` não importa o resto do módulo, `domain` não importa `ports`/`service`/`adapters`, `service` não importa
+  `adapters`, e `api`/`domain`/`ports`/`service` não importam `yaml`. A regra "outro módulo só importa `api.py`" entra
+  quando existir o segundo módulo do core. O `ai_core.packs` importa só a API pública de `ai_core_contracts`.
+- **Rationale**: princípios II e XIII; 001 R20 previa acrescentar os contratos do `ai_core` quando ele existisse.
+- **Alternatives**: n/a.
+
+### R14 — CI
+
+- **Decision**: `.github/workflows/core.yml` (lint, tipos, testes 3.14, import-linter), disparado por mudanças em
+  `ai-core/packages/core/**`, nos contratos, na raiz do workspace e no `uv.lock`; mypy estrito e ruff passam a cobrir
+  `packages/core`.
+- **Rationale**: mesmo padrão do `contracts.yml`.
+- **Alternatives**: um workflow único para o workspace (misturaria as regras do FR-020, que valem só para os contratos).
+
+## Pendências para outros planos
+
+| Pendência | Onde |
+|---|---|
+| `assistants validate` chama `PackRegistry.compose` com a lista de cada Assistant; Assistant com composição inválida fica indisponível | plano da 003 (Fase 2) |
+| Motor guarda o mapeamento de fatias e passa Turn View base + `slices` ao Pack Hooks; transforma `PackHookError` em erro explícito | plano da 005 |
+| Caminho do `packs.yaml` e escolha do adapter por perfil; handlers de log; raiz do CLI | plano da 011 |
+| Introspecção HTTP a partir de `PackRegistry.entries()` | plano da 008 |
+| Pacote genérico em `ai-core/packs/generic/` exige acrescentar `packs/*` aos membros do workspace | plano da 010 |
+| Conformidade da 001 checar `name`/`contract_version` como atributos de classe (FR-017) — adição de patch | backlog da 001 |
