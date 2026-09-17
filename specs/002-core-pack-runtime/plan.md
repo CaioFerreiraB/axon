@@ -171,7 +171,7 @@ mínimo para este módulo; o script `ai-core` e a composition root são da 011.
 | 005 (Fase 1) | Guardar `slices` na execução; chamar `prepare`/`validate` com a Turn View base (fatias vazias) e o mapeamento; `PackHookError` encerra a execução com erro explícito |
 | 008 | Introspecção = `PackRegistry.entries()` |
 | 011 | Montar `PackRuntime(source, config_source)` pelo perfil (`memory` nos testes; entry points + YAML no real); configurar handlers do logger `ai_core.packs`; o registry é montado uma vez no boot |
-| 010 | Pack genérico em `ai-core/packs/generic/` exige acrescentar `packs/*` aos membros do workspace |
+| 010 | Pack genérico em `ai-core/packages/generic/` — já coberto por `members = ["packages/*"]` (clarificação de 2026-09-17 da 010; a redação anterior dizia `packs/generic/`) |
 
 ## Constitution Check — pós-design (Phase 1)
 

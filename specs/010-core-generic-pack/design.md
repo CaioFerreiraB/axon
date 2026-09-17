@@ -5,7 +5,7 @@
 ## Localização
 
 ```text
-ai-core/packs/generic/
+ai-core/packages/generic/
 ├── pyproject.toml       # distribuição ai-generic; entry point ai_core.packs
 └── src/ai_generic/
     ├── pack.py
@@ -13,16 +13,27 @@ ai-core/packs/generic/
     └── prompts/
 ```
 
+> Atualizado na clarificação de 2026-09-17: a pasta é `packages/generic/` (cabe no `members = ["packages/*"]` criado na
+> Fase 0), não `packs/generic/` como dizia a redação original, escrita antes de o workspace existir.
+
 Pack de referência, com o mesmo formato de um pack externo: `pyproject.toml` próprio, entry point e dependência apenas de contratos. É o primeiro consumidor real dos contratos e a fixture dos testes de carregamento de pack do core.
 
 ```toml
 [project]
 name = "ai-generic"
-dependencies = ["ai-core-contracts"]      # mesmo commit, sem faixa
+dependencies = ["ai-core-contracts>=0.1,<0.2"]      # faixa derivada da contract_version (ADR-014)
+
+[tool.uv.sources]
+ai-core-contracts = { workspace = true }            # resolve no commit local enquanto mora no workspace
 
 [project.entry-points."ai_core.packs"]
 generic = "ai_generic.pack:GenericPack"
 ```
+
+> Atualizado na clarificação de 2026-09-17: a redação original ("mesmo commit, sem faixa") precede o
+> [ADR-014](../../docs/adr/ADR-014-politica-versoes-0x-contratos.md) e a etapa de distribuição da suíte de
+> conformidade (001 FR-018), que trata dependência sem faixa como erro (`distribution.range_too_wide`). A faixa
+> derivada mais a fonte do workspace preservam a intenção original e mantêm o pack conforme.
 
 ## Portas e adapters **[ADR-012]**
 
