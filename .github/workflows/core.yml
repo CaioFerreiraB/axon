@@ -1,4 +1,6 @@
 # CI de ai-core (hoje: Pack Runtime, spec 002). Fica na raiz enquanto ai-core/ é subpasta deste repositório.
+# `packages/generic/**` também dispara: o pack genérico é dependência de desenvolvimento do workspace e o teste de
+# integração da carga por entry point roda aqui (spec 010, research R8).
 name: core
 
 on:
@@ -6,6 +8,7 @@ on:
     paths:
       - "ai-core/packages/core/**"
       - "ai-core/packages/contracts/**"
+      - "ai-core/packages/generic/**"
       - "ai-core/pyproject.toml"
       - "ai-core/uv.lock"
       - ".github/workflows/core.yml"
@@ -14,6 +17,7 @@ on:
     paths:
       - "ai-core/packages/core/**"
       - "ai-core/packages/contracts/**"
+      - "ai-core/packages/generic/**"
       - "ai-core/pyproject.toml"
       - "ai-core/uv.lock"
       - ".github/workflows/core.yml"

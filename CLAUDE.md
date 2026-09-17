@@ -58,12 +58,27 @@ Ver "Como reescrever um módulo" em `specs/README.md`. Resumo:
 
 ## Código
 
-Implementado até agora: `ai-core-contracts` (spec 001, Fase 0) em `ai-core/packages/contracts/` e a distribuição
+Implementado até agora: `ai-core-contracts` (spec 001, Fase 0) em `ai-core/packages/contracts/`; a distribuição
 `ai-core` em `ai-core/packages/core/`, com o Pack Runtime (`ai_core/packs/`, spec 002, Fase 1: US1, US2, US3 cenários
-2–4). O resto dos caminhos-alvo está nos `design.md`, no layout hexagonal do ADR-012.
+2–4); e o pack de referência `ai-generic` em `ai-core/packages/generic/` (spec 010, Fase 1: US1) — prompt de uso geral,
+tool nativa `calculate` e validator `non_empty_answer`, descoberto pelo entry point `ai_core.packs` como qualquer pack
+externo. O resto dos caminhos-alvo está nos `design.md`, no layout hexagonal do ADR-012.
 Decidido em 2026-09-15 (plano da 001): `ai-core/` é subpasta deste repositório nas Fases 0–3 e se separa antes da Fase 4;
 Python 3.14 no workspace, piso 3.12 em `ai-core-contracts`; CI em `.github/workflows/` da raiz. O `ai-scouting` segue a
 mesma regra: subpasta até existir repositório próprio, dependendo só de `ai-core-contracts`.
+
+O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
+dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
+true }`, suíte de conformidade nos próprios testes e zero import do core (import-linter, nas duas direções). Ele é
+dependência de desenvolvimento do workspace porque o teste de carga real por entry point roda na suíte do core
+(`packages/core/tests/packs/integration/test_packs_generic_entry_point.py`). A etapa de distribuição da conformidade só
+verifica a faixa numa instalação normal — no workspace tudo é editável —, então ela vale no ambiente limpo:
+
+```bash
+tmp=$(mktemp -d) && uv venv --python 3.12 "$tmp/venv"
+uv pip install --python "$tmp/venv/bin/python" ./packages/contracts ./packages/generic pytest
+(cd packages/generic && "$tmp/venv/bin/python" -m pytest -q tests) ; rm -rf "$tmp"
+```
 
 Verificação dos contratos (a partir de `ai-core/`; roteiro completo no quickstart da 001):
 

@@ -1,9 +1,14 @@
-# Raiz virtual do uv workspace `ai-core` (ADR-004): contracts agora; core e generic entram na Fase 1.
+# Raiz virtual do uv workspace `ai-core` (ADR-004): contracts, core e generic.
 [tool.uv.workspace]
 members = ["packages/*"]
 
+[tool.uv.sources]
+# O pack genérico entra como dependência de desenvolvimento: o teste de carga real roda na suíte do core (010 R8).
+ai-generic = { workspace = true }
+
 [dependency-groups]
 dev = [
+    "ai-generic",
     "pytest>=8",
     "pytest-asyncio>=0.24",
     "hypothesis>=6",
@@ -16,7 +21,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["packages/contracts/tests", "packages/core/tests"]
+testpaths = ["packages/contracts/tests", "packages/core/tests", "packages/generic/tests"]
 pythonpath = ["packages/contracts/tests", "packages/core/tests/packs"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
@@ -31,15 +36,15 @@ line-length = 120
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["ai_core_contracts", "contract_test_pack", "ai_core"]
+known-first-party = ["ai_core_contracts", "contract_test_pack", "ai_core", "ai_generic"]
 
 [tool.mypy]
 strict = true
 python_version = "3.12"
-files = ["packages/contracts/src", "packages/contracts/tools", "packages/core/src"]
+files = ["packages/contracts/src", "packages/contracts/tools", "packages/core/src", "packages/generic/src"]
 
 [tool.importlinter]
-root_packages = ["ai_core_contracts", "ai_core"]
+root_packages = ["ai_core_contracts", "ai_core", "ai_generic"]
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
@@ -72,6 +77,24 @@ name = "contratos não importam o core"
 type = "forbidden"
 source_modules = ["ai_core_contracts"]
 forbidden_modules = ["ai_core"]
+
+[[tool.importlinter.contracts]]
+name = "o pack genérico não importa o core"
+type = "forbidden"
+source_modules = ["ai_generic"]
+forbidden_modules = ["ai_core"]
+
+[[tool.importlinter.contracts]]
+name = "o core não importa o pack genérico"
+type = "forbidden"
+source_modules = ["ai_core"]
+forbidden_modules = ["ai_generic"]
+
+[[tool.importlinter.contracts]]
+name = "o pack genérico não importa frameworks de infraestrutura"
+type = "forbidden"
+source_modules = ["ai_generic"]
+forbidden_modules = ["yaml", "jsonschema", "fastapi", "langgraph", "langchain", "qdrant_client", "sqlalchemy"]
 
 [[tool.importlinter.contracts]]
 name = "api.py do Pack Runtime não importa o resto do módulo"

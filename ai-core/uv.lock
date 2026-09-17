@@ -10,10 +10,12 @@ resolution-markers = [
 members = [
     "ai-core",
     "ai-core-contracts",
+    "ai-generic",
 ]
 
 [manifest.dependency-groups]
 dev = [
+    { name = "ai-generic", editable = "packages/generic" },
     { name = "hypothesis", specifier = ">=6" },
     { name = "import-linter", specifier = ">=2" },
     { name = "mypy", specifier = ">=1.11" },
@@ -52,6 +54,17 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "typing-extensions", specifier = ">=4.12" }]
+
+[[package]]
+name = "ai-generic"
+version = "0.1.0"
+source = { editable = "packages/generic" }
+dependencies = [
+    { name = "ai-core-contracts" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "ai-core-contracts", editable = "packages/contracts" }]
 
 [[package]]
 name = "ast-serialize"

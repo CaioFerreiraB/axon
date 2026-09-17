@@ -1,0 +1,103 @@
+# CI de ai-generic (spec 010: FR-001, FR-003, FR-004, SC-001).
+# Fica na raiz enquanto ai-core/ é subpasta deste repositório.
+name: generic
+
+on:
+  pull_request:
+    paths:
+      - "ai-core/packages/generic/**"
+      - "ai-core/packages/contracts/**"
+      - "ai-core/pyproject.toml"
+      - "ai-core/uv.lock"
+      - ".github/workflows/generic.yml"
+  push:
+    branches: [main]
+    paths:
+      - "ai-core/packages/generic/**"
+      - "ai-core/packages/contracts/**"
+      - "ai-core/pyproject.toml"
+      - "ai-core/uv.lock"
+      - ".github/workflows/generic.yml"
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: ai-core
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run ruff check packages/generic
+      - run: uv run ruff format --check packages/generic
+      - run: uv run mypy
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run pytest packages/generic/tests
+
+  # Teste independente da US1: o pack instalado num ambiente que tem só os contratos. É aqui que a etapa de
+  # distribuição da suíte de conformidade confere a faixa declarada (no workspace a instalação é editável e ela
+  # não tem o que verificar — ver packages/generic/tests/test_conformance.py).
+  clean-env:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Instalar o pack só com os contratos (Python 3.12, o piso)
+        run: |
+          uv venv --python 3.12 "$RUNNER_TEMP/clean"
+          uv pip install --python "$RUNNER_TEMP/clean/bin/python" ./packages/contracts ./packages/generic
+      # Pelos metadados instalados, não pelo texto do `freeze`: a dependência de contratos do pack é resolvida pelo
+      # workspace, e a forma da linha (`-e file://…`) varia.
+      - name: A resolução do pack tem exatamente três distribuições
+        run: |
+          "$RUNNER_TEMP/clean/bin/python" - <<'PY'
+          import re
+          from importlib.metadata import distributions
+
+          installed = sorted({re.sub(r"[-_.]+", "-", d.metadata["Name"]).lower() for d in distributions()})
+          print(installed)
+          assert installed == ["ai-core-contracts", "ai-generic", "typing-extensions"], installed
+          PY
+      - name: A etapa de distribuição confere a faixa declarada
+        run: |
+          "$RUNNER_TEMP/clean/bin/python" - <<'PY'
+          from importlib.metadata import packages_distributions
+
+          from ai_core_contracts.testing import check_pack
+          from ai_generic.pack import GenericPack
+
+          # Instalação normal (não editável): o mapeamento existe, então a etapa 9 tem o que verificar.
+          assert packages_distributions().get("ai_generic") == ["ai-generic"]
+          report = check_pack(GenericPack())
+          assert report.issues == (), report.render()
+          print(report.render())
+          PY
+      - name: Suíte do pack no ambiente limpo
+        run: |
+          uv pip install --python "$RUNNER_TEMP/clean/bin/python" pytest
+          cd packages/generic && "$RUNNER_TEMP/clean/bin/python" -m pytest -q -p no:cacheprovider tests
+
+  boundaries:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run lint-imports
