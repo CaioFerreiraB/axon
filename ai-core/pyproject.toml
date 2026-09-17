@@ -22,7 +22,7 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["packages/contracts/tests", "packages/core/tests", "packages/generic/tests"]
-pythonpath = ["packages/contracts/tests", "packages/core/tests/packs"]
+pythonpath = ["packages/contracts/tests", "packages/core/tests/packs", "packages/core/tests/observability"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 # estende os padrões do pytest; o pack de teste (fixtures/) roda no próprio ambiente limpo
@@ -77,6 +77,52 @@ name = "contratos não importam o core"
 type = "forbidden"
 source_modules = ["ai_core_contracts"]
 forbidden_modules = ["ai_core"]
+
+[[tool.importlinter.contracts]]
+name = "api.py do trace não importa o resto do módulo"
+type = "forbidden"
+source_modules = ["ai_core.observability.api"]
+forbidden_modules = [
+    "ai_core.observability.domain",
+    "ai_core.observability.ports",
+    "ai_core.observability.service",
+    "ai_core.observability.adapters",
+]
+
+[[tool.importlinter.contracts]]
+name = "domain do trace não importa portas, service nem adapters"
+type = "forbidden"
+source_modules = ["ai_core.observability.domain"]
+forbidden_modules = [
+    "ai_core.observability.ports",
+    "ai_core.observability.service",
+    "ai_core.observability.adapters",
+]
+
+[[tool.importlinter.contracts]]
+name = "service do trace não importa adapters"
+type = "forbidden"
+source_modules = ["ai_core.observability.service"]
+forbidden_modules = ["ai_core.observability.adapters"]
+
+# Mantém executável a decisão da 009 (research R1): o seam é contrato próprio, e biblioteca de observabilidade só
+# poderia aparecer num adapter.
+[[tool.importlinter.contracts]]
+name = "o núcleo do trace não importa biblioteca de observabilidade"
+type = "forbidden"
+source_modules = [
+    "ai_core.observability.api",
+    "ai_core.observability.domain",
+    "ai_core.observability.ports",
+    "ai_core.observability.service",
+]
+forbidden_modules = ["opentelemetry", "logfire", "sentry_sdk"]
+
+[[tool.importlinter.contracts]]
+name = "o trace não importa outros módulos do core"
+type = "forbidden"
+source_modules = ["ai_core.observability"]
+forbidden_modules = ["ai_core.packs"]
 
 [[tool.importlinter.contracts]]
 name = "o pack genérico não importa o core"

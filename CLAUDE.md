@@ -60,7 +60,9 @@ Ver "Como reescrever um módulo" em `specs/README.md`. Resumo:
 
 Implementado até agora: `ai-core-contracts` (spec 001, Fase 0) em `ai-core/packages/contracts/`; a distribuição
 `ai-core` em `ai-core/packages/core/`, com o Pack Runtime (`ai_core/packs/`, spec 002, Fase 1: US1, US2, US3 cenários
-2–4); e o pack de referência `ai-generic` em `ai-core/packages/generic/` (spec 010, Fase 1: US1) — prompt de uso geral,
+2–4) e o trace por requisição (`ai_core/observability/`, spec 009, Fase 1: US1) — seam Trace Sink com eventos tipados,
+consulta por requisição, redação de credenciais e backends de memória e JSONL (`ai_core/eval/`, o harness, é Fase 6);
+e o pack de referência `ai-generic` em `ai-core/packages/generic/` (spec 010, Fase 1: US1) — prompt de uso geral,
 tool nativa `calculate` e validator `non_empty_answer`, descoberto pelo entry point `ai_core.packs` como qualquer pack
 externo. O resto dos caminhos-alvo está nos `design.md`, no layout hexagonal do ADR-012.
 Decidido em 2026-09-15 (plano da 001): `ai-core/` é subpasta deste repositório nas Fases 0–3 e se separa antes da Fase 4;
