@@ -19,20 +19,31 @@
 - **Substituição**: preservar o Trace Sink, o formato do conjunto dourado e o formato de relatório; o backend de trace pode ser trocado (é adapter).
 - **Insumo técnico**: [design.md](design.md); [ADR-007](../../docs/adr/ADR-007-citacao-mecanica.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md).
 
+## Clarifications
+
+### Session 2026-09-17
+
+- Q: O seam Trace Sink é um contrato próprio do projeto ou a API do OpenTelemetry usada diretamente como porta? → A: Contrato próprio, com value objects do projeto — quem emite (004, 005, 006) importa apenas o seam deste módulo e nenhuma biblioteca de observabilidade. OpenTelemetry, se for adotado, entra como adapter do exporter, que é onde o backend pode ser trocado. Resolve a candidata em aberto do `design.md` e do ADR-013, preservando a semântica do seam.
+- Q: Como os dados chegam ao Trace Sink? → A: Um único método de emissão que recebe um evento tipado; cada tipo de dado de trace é um value object publicado pelo módulo. Instrumentar um módulo novo é acrescentar um tipo de evento, sem alterar o seam — o que evita um ADR por fase, já que os emissores chegam em fases diferentes.
+- Q: Quais tipos de evento existem na Fase 1, se tools, iterações do controller e recuperação só chegam nas Fases 3 e 5? → A: Apenas os dos módulos que existem na fase: execução iniciada e concluída (assistant, packs ativos, flow, desfecho), chamada de modelo (provider, modelo, papel, tokens, latência), execução de validator e erro. Os demais campos da US1 entram como tipos novos nas fases dos módulos que os produzem. Emitir é responsabilidade de quem produz o dado (005, 006 e, depois, 004); esta spec entrega o seam, os tipos, o exporter e a consulta.
+- Q: Como o módulo garante que credencial nunca aparece no trace? → A: Em duas camadas — os tipos de evento não têm campo onde um segredo caiba, e o que é texto livre (hoje, a mensagem de erro) passa por redação antes de sair do processo: nomes de chave conhecidos em qualquer mapeamento e padrões de credencial no texto, substituídos por marcador. A regra é pura e testável sem backend.
+- Q: Os eventos vão para o backend um a um, na hora, ou acumulados por requisição e gravados no fim? → A: Um a um, na hora, um evento por registro — o trace sobrevive a queda, travamento ou encerramento forçado no meio da execução, que é quando ele mais importa, e uma execução longa é observável enquanto corre. A consulta por identificador de requisição agrega os registros na leitura.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Entender por que uma execução se comportou assim (Priority: P1)
 
-Cada requisição produz um trace com: Assistant resolvido, packs ativos, tools em catálogo, cada iteração do controller e sua ação, cada tool executada com latência e status, chunks recuperados com score, tokens por papel, validators e seus resultados, erros.
+Cada requisição produz um trace com: Assistant resolvido, packs ativos, tools em catálogo, cada iteração do controller e sua ação, cada tool executada com latência e status, chunks recuperados com score, tokens por papel, validators e seus resultados, erros. Cada campo aparece a partir da fase do módulo que o produz; na Fase 1, o trace cobre execução iniciada e concluída, chamada de modelo, execução de validator e erro (FR-001).
 
 **Why this priority**: Sem trace, depurar por que o controller escolheu determinada tool é adivinhação. Útil desde a Fase 1.
 
-**Independent Test**: Executar uma requisição agêntica e responder, só pelo trace, qual tool foi chamada em cada iteração e por quê o loop terminou.
+**Independent Test**: Na Fase 1, executar uma conversa e responder, só pelo trace, qual modelo atendeu cada papel, quantos tokens custou, quais packs estavam ativos e como a execução terminou. A partir da Fase 3, a mesma pergunta sobre uma requisição agêntica: qual tool foi chamada em cada iteração e por que o loop terminou.
 
 **Acceptance Scenarios**:
 
-1. **Given** uma execução concluída, **When** o operador consulta o trace pelo identificador da requisição, **Then** vê todos os campos listados.
-2. **Given** uma chamada de tool com credencial, **When** registrada no trace, **Then** a credencial não aparece.
+1. **Given** uma execução concluída, **When** o operador consulta o trace pelo identificador da requisição, **Then** vê os campos produzidos pelos módulos existentes, na ordem em que aconteceram.
+2. **Given** um dado de trace que carrega credencial — mensagem de erro de provider na Fase 1, argumentos de tool a partir da Fase 3 —, **When** registrado, **Then** a credencial não aparece no trace, e sim um marcador de redação.
+3. **Given** uma execução interrompida no meio (queda ou encerramento forçado), **When** o trace é consultado, **Then** os eventos já emitidos estão lá.
 
 ---
 
@@ -90,8 +101,8 @@ O mesmo harness compara modelos candidatos em tokens/s, tempo até o primeiro to
 
 ### Functional Requirements
 
-- **FR-001**: Cada requisição DEVE gerar um trace com os campos da US1, acessível pelo identificador da requisição.
-- **FR-002**: O trace NÃO DEVE conter credenciais.
+- **FR-001**: Cada requisição DEVE gerar um trace acessível pelo identificador da requisição, com os campos da US1 que os módulos existentes na fase produzem — na Fase 1: execução iniciada e concluída (assistant, packs ativos, flow, desfecho), chamada de modelo (provider, modelo, papel, tokens, latência), execução de validator e erro.
+- **FR-002**: O trace NÃO DEVE conter credenciais: nenhum tipo de evento DEVE ter campo destinado a segredo, e todo texto livre e todo mapeamento de atributos DEVEM passar por redação de nomes de chave conhecidos e de padrões de credencial antes de sair do processo.
 - **FR-003**: O harness DEVE definir um formato de conjunto dourado com: pergunta, documentos esperados, resposta de referência, citações esperadas e data de referência do item (ADR-013), para que itens datados sejam reproduzíveis.
 - **FR-004**: O harness DEVE calcular as métricas das camadas recuperação, rerank, geração, citação e operação (tabela no design).
 - **FR-005**: O harness DEVE aceitar métricas de domínio fornecidas por packs.
@@ -101,11 +112,14 @@ O mesmo harness compara modelos candidatos em tokens/s, tempo até o primeiro to
 - **FR-009**: O harness DEVE suportar benchmark comparativo de modelos.
 - **FR-010**: O módulo DEVE oferecer o Trace Sink: uma porta de emissão pela qual 004, 005 e 006 registram dados de trace com o identificador da requisição, sem conhecer o backend (ADR-013).
 - **FR-011**: A falha do backend de trace NÃO DEVE interromper nem atrasar perceptivelmente a execução; dados perdidos são sinalizados.
+- **FR-012**: Cada dado de trace DEVE ser entregue ao backend no momento da emissão, um registro por evento, de modo que o trace de uma execução interrompida permaneça consultável e uma execução em andamento seja observável.
+- **FR-013**: O seam de emissão DEVE receber eventos tipados publicados por este módulo e NÃO DEVE expor tipos de biblioteca de observabilidade; acrescentar um tipo de evento NÃO DEVE alterar o seam.
 
 ### Key Entities
 
 - **Trace Sink**: porta de emissão de dados de trace, consumida pelos módulos que produzem esses dados.
-- **Trace**: registro estruturado de uma execução.
+- **Trace Event**: um dado de trace tipado, publicado por este módulo; um tipo por espécie de acontecimento (execução, chamada de modelo, validação, erro, e adiante tool e recuperação).
+- **Trace**: registro estruturado de uma execução — os eventos de um identificador de requisição, agregados na consulta.
 - **Golden Set / Golden Item**: conjunto dourado e seus itens.
 - **Eval Run / Baseline**: execução do harness e linha de base de comparação.
 
@@ -122,5 +136,5 @@ O mesmo harness compara modelos candidatos em tokens/s, tempo até o primeiro to
 
 - O conteúdo dos conjuntos dourados é responsabilidade do pack de domínio (ex.: spec 105); o core fornece só formato e runner.
 - Instrumentação de trace é incremental desde a Fase 1; o harness completo entra na Fase 6.
-- Backend de trace (arquivo, Postgres ou ferramenta de observabilidade) é decidido no plano; é adapter do Trace Sink. Candidata para a porta: a API do OpenTelemetry, com SDK e exporter como adapters (ADR-013).
+- Backend de trace (arquivo, Postgres ou ferramenta de observabilidade) é decidido no plano; é adapter do exporter. A candidata "API do OpenTelemetry como porta" foi resolvida na clarificação de 2026-09-17: o seam é contrato próprio, e OpenTelemetry, se entrar, é adapter.
 - Trace e harness estão em lados opostos do hexágono (porta secundária × adapter primário); dividi-los em duas specs é opcional e, se feito, segue "Como reescrever um módulo" em `specs/README.md`.

@@ -23,9 +23,13 @@ ai-core/packages/core/src/ai_core/
 ## Trace Sink [ADR-013]
 
 Porta de emissão. 004 (chamadas de tool), 005 (iterações, decisões, validações) e 006 (chamadas de modelo) emitem
-dados com o `request_id`; nenhum deles conhece o backend nem o harness. Candidata para o plano: usar a **API do
-OpenTelemetry** como porta (só a API); SDK e exporter são adapters montados pela composition root (011). Se o plano
-escolher outra forma, a semântica do seam se mantém.
+dados com o `request_id`; nenhum deles conhece o backend nem o harness.
+
+> Resolvido na clarificação de 2026-09-17: a candidata "**API do OpenTelemetry** como porta" foi **rejeitada** — ela
+> poria uma biblioteca externa no seam e, com ela, nos `api.py` de 004, 005 e 006, contra o princípio XIII. O seam é
+> contrato próprio, com eventos tipados publicados por este módulo (um método de emissão; evento novo é tipo novo, sem
+> mudar o seam). O SDK e o exporter do OpenTelemetry seguem sendo candidatos — como **adapters** do `TraceExporter`,
+> montados pela composition root (011). A semântica do seam é a que este design descreve.
 
 ## Trace
 
