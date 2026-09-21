@@ -10,6 +10,8 @@ dependencies = [
     "jsonschema>=4.23",
     # Spec 006 (research R4): camada compatível com OpenAI, confinada a ai_core/llm/adapters/ por import-linter.
     "openai>=3.15,<4",
+    # Spec 005 (research R1): framework de grafo, confinado a ai_core/graph/adapters/langgraph/ por import-linter.
+    "langgraph>=1.2,<2",
 ]
 
 [tool.uv.sources]

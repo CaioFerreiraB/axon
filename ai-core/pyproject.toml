@@ -27,6 +27,7 @@ pythonpath = [
     "packages/core/tests/packs",
     "packages/core/tests/observability",
     "packages/core/tests/llm",
+    "packages/core/tests/graph",
 ]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
@@ -165,6 +166,65 @@ type = "forbidden"
 source_modules = ["ai_core.llm"]
 forbidden_modules = [
     "ai_core.packs",
+    "ai_core.observability.domain",
+    "ai_core.observability.ports",
+    "ai_core.observability.service",
+    "ai_core.observability.adapters",
+]
+
+[[tool.importlinter.contracts]]
+name = "api.py do motor não importa o resto do módulo"
+type = "forbidden"
+source_modules = ["ai_core.graph.api"]
+forbidden_modules = [
+    "ai_core.graph.domain",
+    "ai_core.graph.ports",
+    "ai_core.graph.service",
+    "ai_core.graph.adapters",
+]
+
+[[tool.importlinter.contracts]]
+name = "domain do motor não importa portas, service nem adapters"
+type = "forbidden"
+source_modules = ["ai_core.graph.domain"]
+forbidden_modules = ["ai_core.graph.ports", "ai_core.graph.service", "ai_core.graph.adapters"]
+
+[[tool.importlinter.contracts]]
+name = "service do motor não importa adapters"
+type = "forbidden"
+source_modules = ["ai_core.graph.service"]
+forbidden_modules = ["ai_core.graph.adapters"]
+
+# A promessa central do ADR-011 e do SC-001: o framework de grafo não é contrato. Ele existe num pacote só, que pode
+# ser jogado fora inteiro sem que api.py, domain/, ports.py e service.py — nem qualquer outro módulo — percebam.
+[[tool.importlinter.contracts]]
+name = "o framework de grafo só existe no adapter do motor"
+type = "forbidden"
+source_modules = [
+    "ai_core.graph.api",
+    "ai_core.graph.domain",
+    "ai_core.graph.ports",
+    "ai_core.graph.service",
+    "ai_core.graph.adapters.clock",
+    "ai_core.packs",
+    "ai_core.llm",
+    "ai_core.observability",
+]
+forbidden_modules = ["langgraph", "langchain_core"]
+
+[[tool.importlinter.contracts]]
+name = "o motor só enxerga outros módulos pelo api.py"
+type = "forbidden"
+source_modules = ["ai_core.graph"]
+forbidden_modules = [
+    "ai_core.packs.domain",
+    "ai_core.packs.ports",
+    "ai_core.packs.service",
+    "ai_core.packs.adapters",
+    "ai_core.llm.domain",
+    "ai_core.llm.ports",
+    "ai_core.llm.service",
+    "ai_core.llm.adapters",
     "ai_core.observability.domain",
     "ai_core.observability.ports",
     "ai_core.observability.service",
