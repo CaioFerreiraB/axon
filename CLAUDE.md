@@ -67,7 +67,10 @@ saúde sob demanda, trace por chamada e o provider local do Ollama pela camada c
 confinado a `adapters/` por import-linter), mais o provider simulado do perfil de teste; OpenAI e OpenRouter são Fase 3
 — e o motor de execução (`ai_core/graph/`, spec 005, Fase 1: US1) — seam Execution Engine (`run(grant, request)` →
 token, progresso e evento final), o flow `chat` em LangGraph (framework preso a `adapters/langgraph/` por
-import-linter) e o grant chegando como `Protocol` estrutural até a 003 existir; `agentic` e `rag_first` são Fases 3 e 5;
+import-linter) e o grant chegando como `Protocol` estrutural até a 003 existir; `agentic` e `rag_first` são Fases 3 e 5
+— e a API HTTP (`ai_core/http/`, spec 008, Fase 1: US1) — chat completions compatível com OpenAI, com e sem streaming
+SSE, nas superfícies `/v1` e `/private/v1`, com autenticação e resolução de Assistant atrás de portas até a 003
+existir; listagem de modelos, conversas e fila são Fases 2 e 7;
 e o pack de referência `ai-generic` em `ai-core/packages/generic/` (spec 010, Fase 1: US1) — prompt de uso geral,
 tool nativa `calculate` e validator `non_empty_answer`, descoberto pelo entry point `ai_core.packs` como qualquer pack
 externo. O resto dos caminhos-alvo está nos `design.md`, no layout hexagonal do ADR-012.

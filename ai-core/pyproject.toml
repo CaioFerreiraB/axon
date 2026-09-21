@@ -9,6 +9,8 @@ ai-generic = { workspace = true }
 [dependency-groups]
 dev = [
     "ai-generic",
+    # Cliente de teste do framework HTTP (spec 008): a suíte exercita a app em processo, sem abrir porta.
+    "httpx>=0.28",
     "pytest>=8",
     "pytest-asyncio>=0.24",
     "hypothesis>=6",
@@ -28,6 +30,7 @@ pythonpath = [
     "packages/core/tests/observability",
     "packages/core/tests/llm",
     "packages/core/tests/graph",
+    "packages/core/tests/http",
 ]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
@@ -230,6 +233,65 @@ forbidden_modules = [
     "ai_core.observability.service",
     "ai_core.observability.adapters",
 ]
+
+[[tool.importlinter.contracts]]
+name = "domain da API não importa portas, service nem adapters"
+type = "forbidden"
+source_modules = ["ai_core.http.domain"]
+forbidden_modules = ["ai_core.http.ports", "ai_core.http.service", "ai_core.http.adapters"]
+
+[[tool.importlinter.contracts]]
+name = "service da API não importa adapters"
+type = "forbidden"
+source_modules = ["ai_core.http.service"]
+forbidden_modules = ["ai_core.http.adapters"]
+
+# O framework HTTP é adapter primário: ele conhece o resto, mas o resto não o conhece. É o que mantém verdadeiro o
+# princípio XI — a plataforma não depende de quem a chama.
+[[tool.importlinter.contracts]]
+name = "o framework HTTP só existe nos adapters da API"
+type = "forbidden"
+source_modules = [
+    "ai_core.http.ports",
+    "ai_core.http.domain",
+    "ai_core.http.service",
+    "ai_core.packs",
+    "ai_core.llm",
+    "ai_core.observability",
+    "ai_core.graph",
+]
+forbidden_modules = ["fastapi", "starlette"]
+
+# Só os internos: o `api.py` da 005 publica tipos de `packs.api` e `llm.api`, então esses dois são alcançáveis de
+# forma legítima — e transitiva — por quem consome o motor.
+[[tool.importlinter.contracts]]
+name = "a API só enxerga outros módulos pelo api.py"
+type = "forbidden"
+source_modules = ["ai_core.http"]
+forbidden_modules = [
+    "ai_core.packs.domain",
+    "ai_core.packs.ports",
+    "ai_core.packs.service",
+    "ai_core.packs.adapters",
+    "ai_core.llm.domain",
+    "ai_core.llm.ports",
+    "ai_core.llm.service",
+    "ai_core.llm.adapters",
+    "ai_core.observability.domain",
+    "ai_core.observability.ports",
+    "ai_core.observability.service",
+    "ai_core.observability.adapters",
+    "ai_core.graph.domain",
+    "ai_core.graph.ports",
+    "ai_core.graph.service",
+    "ai_core.graph.adapters",
+]
+
+[[tool.importlinter.contracts]]
+name = "nenhum módulo do core importa a API"
+type = "forbidden"
+source_modules = ["ai_core.packs", "ai_core.llm", "ai_core.observability", "ai_core.graph"]
+forbidden_modules = ["ai_core.http"]
 
 [[tool.importlinter.contracts]]
 name = "o pack genérico não importa o core"

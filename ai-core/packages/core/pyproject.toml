@@ -12,6 +12,8 @@ dependencies = [
     "openai>=3.15,<4",
     # Spec 005 (research R1): framework de grafo, confinado a ai_core/graph/adapters/langgraph/ por import-linter.
     "langgraph>=1.2,<2",
+    # Spec 008: framework HTTP, confinado a ai_core/http/adapters/ por import-linter.
+    "fastapi>=0.141,<1",
 ]
 
 [tool.uv.sources]
