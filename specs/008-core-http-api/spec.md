@@ -12,7 +12,7 @@
 
 - **Módulo**: HTTP API — superfícies pública e privada, compatibilidade com o formato OpenAI, tradução de eventos do motor para SSE e histórico de conversa.
 - **Repositório / distribuição**: `ai-core` → `ai_core/http/` (antes `ai_core/api/`; renomeado para não colidir com a convenção `api.py` do ADR-012).
-- **Consome (seams)**: autenticação, Principal, Execution Grant e Assistant Directory — 003; Execution Engine (eventos) — 005; Pack Registry (introspecção) — 002; MCP Registry (CRUD) — 007; Trace (identificador de requisição) — 009.
+- **Consome (seams)**: autenticação, Principal, Execution Grant e Assistant Directory — 003, pelas formas que este módulo publica como `Protocol` (satisfeitas estruturalmente pela 003 a partir da Fase 2); Execution Engine (eventos) — 005; Pack Registry (introspecção) — 002; MCP Registry (CRUD) — 007; Trace (identificador de requisição) — 009.
 - **Expõe (seams)**: **API HTTP** — `/v1` (OIDC) e `/private/v1` (chave de API) — consumida por clientes externos (Open WebUI, scripts). É o adapter primário da plataforma; não expõe seam Python.
 - **Depende de infraestrutura (via portas)**: armazenamento das conversas; relógio (expiração de conversas); saúde agregada da plataforma (porta própria, implementada pela composition root, 011). O framework HTTP é o próprio adapter.
 - **Não conhece**: flows e seu estado, packs individuais, providers, políticas de tool.
@@ -27,6 +27,13 @@
 - Q: Quando um cliente continua uma conversa, de onde vem o histórico que a execução usa? → A: Do servidor, nas duas superfícies — a API armazena o estado e as mensagens de cada conversa e os recupera do armazenamento; na compat OpenAI, o id de conversa vai num campo extra opcional.
 - Q: O que a API deve fazer quando chegam mais execuções simultâneas do que a máquina consegue atender? → A: Limite global de execuções simultâneas com fila curta e limitada (ambos configuráveis); quem espera recebe em até 2 s um evento de progresso "na fila"; com a fila cheia, 503 com indicação de quando tentar de novo.
 - Q: O usuário pode apagar as próprias conversas, e por quanto tempo o servidor as guarda? → A: O usuário apaga as próprias conversas pela API, com exclusão definitiva; conversas sem atividade expiram após um prazo configurável pelo operador, com padrão de 180 dias.
+
+### Session 2026-09-21
+
+- Q: A autenticação é da 003, que é Fase 2. Como a API da Fase 1 trata Principal e as duas superfícies? → A: As duas superfícies são montadas como a US1 pede, e o Principal chega por uma porta que este módulo declara. Na Fase 1 a composition root (011) injeta um adapter anônimo de desenvolvimento; na Fase 2 a 003 fornece o verificador real, e nenhuma rota muda — a autenticação entra como troca de adapter, não como reescrita da API.
+- Q: O id de modelo `<assistant>/<modelo>` precisa virar um Execution Grant, mas quem resolve Assistant é a 003. Como a API obtém o grant na Fase 1? → A: Este módulo publica a forma do resolvedor que exige (id de modelo + Principal → grant); a 011 injeta um resolvedor montado da configuração na Fase 1 e a 003 passa a fornecê-lo na Fase 2, satisfazendo a forma estruturalmente. Mantém a direção `008 → 003` do grafo e impede que resolução de Assistant — que é a fronteira de isolamento — caia dentro da camada HTTP.
+- Q: Os eventos de progresso do motor entram no SSE já na Fase 1, mesmo a US6 sendo Fase 7? → A: Sim, como chunk com um campo extra que clientes padrão ignoram e `delta` vazio. O motor já os emite, o custo é quase zero, e é o que entrega a SC-003 (primeiro sinal em até 2 s) na fase em que o streaming nasce. O restante da US6 — progresso de tool e aviso de fila — continua nas fases deles.
+- Q: Quando a execução falha depois que o SSE já abriu, o status 200 já foi enviado. O que o cliente recebe? → A: O stream fecha normalmente: um chunk final com `finish_reason` de erro e os motivos num campo extra, seguido do marcador de fim. O cliente padrão vê a resposta parcial e um encerramento limpo; quem entende o campo extra vê a causa. Nem conexão pendurada, nem evento que clientes padrão não sabem ler.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -179,7 +186,7 @@ Open WebUI se conecta pela compat OpenAI; os Assistants permitidos ao usuário a
 - **FR-002**: A API DEVE implementar chat completions compatível com OpenAI, com e sem streaming SSE.
 - **FR-003**: A API DEVE listar Assistants visíveis ao Principal como modelos `<assistant>/<modelo>`.
 - **FR-004**: A API DEVE aceitar requisição nativa (Assistant, mensagens, streaming) e rejeitar campos de ampliação.
-- **FR-005**: A API DEVE traduzir os eventos do motor em chunks SSE, emitindo progresso como metadados ignoráveis.
+- **FR-005**: A API DEVE traduzir os eventos do motor em chunks SSE, emitindo progresso como metadados ignoráveis. Falha depois de o stream ter aberto DEVE encerrar o stream normalmente — chunk final com desfecho de erro, motivos em campo extra e marcador de fim —, nunca com conexão pendurada nem interrompida sem aviso.
 - **FR-006**: A superfície pública DEVE oferecer CRUD de Assistants e MCPs do próprio usuário.
 - **FR-007**: A superfície privada DEVE oferecer introspecção de packs, CRUD de MCPs globais e health.
 - **FR-008**: A API DEVE armazenar cada conversa — estado e mensagens — por Principal e Assistant, separada do estado de execução.
