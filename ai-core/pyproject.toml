@@ -22,7 +22,12 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["packages/contracts/tests", "packages/core/tests", "packages/generic/tests"]
-pythonpath = ["packages/contracts/tests", "packages/core/tests/packs", "packages/core/tests/observability"]
+pythonpath = [
+    "packages/contracts/tests",
+    "packages/core/tests/packs",
+    "packages/core/tests/observability",
+    "packages/core/tests/llm",
+]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 # estende os padrões do pytest; o pack de teste (fixtures/) roda no próprio ambiente limpo
@@ -122,7 +127,49 @@ forbidden_modules = ["opentelemetry", "logfire", "sentry_sdk"]
 name = "o trace não importa outros módulos do core"
 type = "forbidden"
 source_modules = ["ai_core.observability"]
-forbidden_modules = ["ai_core.packs"]
+forbidden_modules = ["ai_core.packs", "ai_core.llm"]
+
+[[tool.importlinter.contracts]]
+name = "api.py do Model Router não importa o resto do módulo"
+type = "forbidden"
+source_modules = ["ai_core.llm.api"]
+forbidden_modules = ["ai_core.llm.domain", "ai_core.llm.ports", "ai_core.llm.service", "ai_core.llm.adapters"]
+
+[[tool.importlinter.contracts]]
+name = "domain do Model Router não importa portas, service nem adapters"
+type = "forbidden"
+source_modules = ["ai_core.llm.domain"]
+forbidden_modules = ["ai_core.llm.ports", "ai_core.llm.service", "ai_core.llm.adapters"]
+
+[[tool.importlinter.contracts]]
+name = "service do Model Router não importa adapters"
+type = "forbidden"
+source_modules = ["ai_core.llm.service"]
+forbidden_modules = ["ai_core.llm.adapters"]
+
+# Torna executável a decisão da 006 (research R4): o SDK do provedor e o cliente HTTP só existem em adapters/.
+[[tool.importlinter.contracts]]
+name = "o núcleo do Model Router não importa SDK de provedor nem cliente HTTP"
+type = "forbidden"
+source_modules = [
+    "ai_core.llm.api",
+    "ai_core.llm.domain",
+    "ai_core.llm.ports",
+    "ai_core.llm.service",
+]
+forbidden_modules = ["openai", "httpx", "httpx2"]
+
+[[tool.importlinter.contracts]]
+name = "o Model Router só enxerga outros módulos pelo api.py"
+type = "forbidden"
+source_modules = ["ai_core.llm"]
+forbidden_modules = [
+    "ai_core.packs",
+    "ai_core.observability.domain",
+    "ai_core.observability.ports",
+    "ai_core.observability.service",
+    "ai_core.observability.adapters",
+]
 
 [[tool.importlinter.contracts]]
 name = "o pack genérico não importa o core"
