@@ -14,7 +14,12 @@ dependencies = [
     "langgraph>=1.2,<2",
     # Spec 008: framework HTTP, confinado a ai_core/http/adapters/ por import-linter.
     "fastapi>=0.141,<1",
+    # Spec 011 (research R5): servidor ASGI do `ai-core serve`.
+    "uvicorn>=0.53,<1",
 ]
+
+[project.scripts]
+ai-core = "ai_core.bootstrap.cli:main"
 
 [tool.uv.sources]
 ai-core-contracts = { workspace = true }

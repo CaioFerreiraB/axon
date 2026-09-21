@@ -31,6 +31,7 @@ pythonpath = [
     "packages/core/tests/llm",
     "packages/core/tests/graph",
     "packages/core/tests/http",
+    "packages/core/tests/bootstrap",
 ]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
@@ -292,6 +293,20 @@ name = "nenhum módulo do core importa a API"
 type = "forbidden"
 source_modules = ["ai_core.packs", "ai_core.llm", "ai_core.observability", "ai_core.graph"]
 forbidden_modules = ["ai_core.http"]
+
+# A exceção do princípio XIII em forma executável: a composition root importa todo mundo, e ninguém a importa. Se um
+# módulo passar a depender dela, a direção da montagem se inverte e o ADR-012 deixa de valer.
+[[tool.importlinter.contracts]]
+name = "nenhum módulo importa a composition root"
+type = "forbidden"
+source_modules = [
+    "ai_core.packs",
+    "ai_core.llm",
+    "ai_core.observability",
+    "ai_core.graph",
+    "ai_core.http",
+]
+forbidden_modules = ["ai_core.bootstrap"]
 
 [[tool.importlinter.contracts]]
 name = "o pack genérico não importa o core"

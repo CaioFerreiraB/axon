@@ -70,7 +70,11 @@ token, progresso e evento final), o flow `chat` em LangGraph (framework preso a 
 import-linter) e o grant chegando como `Protocol` estrutural até a 003 existir; `agentic` e `rag_first` são Fases 3 e 5
 — e a API HTTP (`ai_core/http/`, spec 008, Fase 1: US1) — chat completions compatível com OpenAI, com e sem streaming
 SSE, nas superfícies `/v1` e `/private/v1`, com autenticação e resolução de Assistant atrás de portas até a 003
-existir; listagem de modelos, conversas e fila são Fases 2 e 7;
+existir; listagem de modelos, conversas e fila são Fases 2 e 7 — e a composition root (`ai_core/bootstrap/`, spec 011,
+Fase 1: US1, US2 em memória, US3) — boot por etapas declaradas com falha fechada, perfis `memory` e `test`, resolvedor
+de grant a partir de `assistants.yaml` e o comando `ai-core serve`; saúde agregada e subcomandos de módulo são Fase 2.
+**A Fase 1 do roadmap está completa**: `ai-core serve` sobe a plataforma e uma conversa atravessa HTTP, motor, packs e
+modelo local;
 e o pack de referência `ai-generic` em `ai-core/packages/generic/` (spec 010, Fase 1: US1) — prompt de uso geral,
 tool nativa `calculate` e validator `non_empty_answer`, descoberto pelo entry point `ai_core.packs` como qualquer pack
 externo. O resto dos caminhos-alvo está nos `design.md`, no layout hexagonal do ADR-012.
