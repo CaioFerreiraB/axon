@@ -19,6 +19,15 @@
 - **Substituição**: preservar a ordem de boot com falha fechada, os perfis de adapters e os comandos da linha de comando; a técnica de injeção é livre.
 - **Insumo técnico**: [design.md](design.md); [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md), [ADR-009](../../docs/adr/ADR-009-deploy-docker-build-arg.md).
 
+## Clarifications
+
+### Session 2026-09-21
+
+- Q: A ordem de boot tem sete etapas, mas duas pertencem a módulos que ainda não existem. Como o boot lida com isso? → A: Cada etapa é declarada — nome, ação e política de falha (interrompe o boot ou degrada e segue) — e a sequência executa a lista registrada na fase. Na Fase 1 registram-se configuração, adapters, packs, motor e API; registry MCP e validação de Assistants entram quando seus módulos existirem, sem tocar no código da sequência. É o que torna FR-002 e FR-003 verificáveis com etapas de teste, sem subir a plataforma inteira.
+- Q: A linha de comando completa é a US4 (Fase 2); o que a Fase 1 entrega como ponto de entrada? → A: Um `ai-core serve` mínimo, que conduz o boot e serve a aplicação com um servidor ASGI. É o que faz a US1 existir de fato — sem ele, "o operador inicia o serviço" não teria como acontecer — e o que permite conversar com a plataforma por HTTP fora da suíte. Os subcomandos contribuídos por cada módulo continuam na Fase 2.
+- Q: A API resolve `<assistant>/<modelo>` num grant, e até a 003 existir quem monta isso é esta spec. De onde vem a configuração? → A: De um `assistants.yaml` mínimo — nome do Assistant → packs, flow e modelo por papel —, como o `design.md` já previa ao dar YAML ao armazenamento de Assistants de sistema. A composition root o lê e monta o resolvedor de grant; quando a 003 chegar, ela assume o arquivo e esta spec passa a consumir o seam dela. O formato nasce aqui e é herdado, em vez de inventado duas vezes.
+- Q: O perfil de teste que sobe a plataforma inteira em memória é código distribuído ou das suítes? → A: Da distribuição. O perfil vive no próprio módulo, e qualquer suíte monta a plataforma com uma chamada — inclusive a de um pack externo, que passa a poder testar seu pack contra a plataforma de verdade. É o que a SC-003 mede, e evita que cada spec remonte tudo à mão.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Operador sobe a plataforma e o boot segue uma ordem fixa (Priority: P1)
@@ -115,7 +124,7 @@ A verificação de saúde reúne o estado de cada módulo — packs carregados e
 ### Functional Requirements
 
 - **FR-001**: O sistema DEVE carregar a configuração do operador (packs, Assistants de sistema, perfil de adapters, parâmetros de ambiente, referências de segredo) e validá-la antes de qualquer outra etapa, rejeitando-a com erro que nomeia o campo.
-- **FR-002**: O sistema DEVE conduzir o boot na ordem configuração → adapters → packs (002) → registry MCP (007) → motor (005) → validação de Assistants (003, que usa os nomes de flow do motor) → API (008); a API só aceita requisições depois da última etapa.
+- **FR-002**: O sistema DEVE conduzir o boot na ordem configuração → adapters → packs (002) → registry MCP (007) → motor (005) → validação de Assistants (003, que usa os nomes de flow do motor) → API (008); a API só aceita requisições depois da última etapa. As etapas são declaradas, e cada fase registra as que seus módulos já oferecem — acrescentar uma etapa NÃO DEVE exigir mudança na sequência.
 - **FR-003**: Cada etapa DEVE falhar fechada: erro de configuração ou de adapter obrigatório impede o boot; pack, MCP ou Assistant inválido fica indisponível com erro explícito, sem impedir os demais.
 - **FR-004**: Cada perfil DEVE definir um adapter para cada porta secundária declarada pelos módulos; porta sem adapter DEVE invalidar o perfil antes do boot.
 - **FR-005**: O sistema DEVE oferecer pelo menos os perfis "em memória" (Fase 1), "persistente" (Fase 2 em diante) e "teste"; trocar de perfil NÃO DEVE exigir mudança em nenhum módulo.
@@ -127,7 +136,7 @@ A verificação de saúde reúne o estado de cada módulo — packs carregados e
 - **FR-011**: Subcomandos de validação DEVEM rodar sem abrir a API e sair com código não zero em caso de erro.
 - **FR-012**: O sistema DEVE agregar a saúde de todos os módulos num único resultado, com o estado e o motivo de cada item, consumido pela superfície privada (008) e pela linha de comando.
 - **FR-013**: No encerramento, o sistema DEVE parar de aceitar requisições, aguardar as execuções em andamento até um prazo configurável e liberar os recursos na ordem inversa do boot.
-- **FR-014**: O perfil de teste DEVE subir a plataforma inteira sem nenhum serviço externo (armazenamento, vetores, rede, provider de modelo real).
+- **FR-014**: O perfil de teste DEVE subir a plataforma inteira sem nenhum serviço externo (armazenamento, vetores, rede, provider de modelo real), e DEVE fazer parte da distribuição, para que a suíte de qualquer pack possa montar a plataforma de verdade.
 
 ### Key Entities
 
