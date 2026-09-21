@@ -47,9 +47,13 @@ SC-001 barato.
 
 É esta tabela que torna o grafo reescrevível: a lógica vive nos serviços, o grafo só ordena.
 
+> Atualizado em 2026-09-21 (plano da Fase 1, [research.md](research.md) R5): `validate_request` **não** é nó do grafo.
+> A validação acontece em `service.run()`, antes de devolver o iterador, para que a 008 responda 4xx sem abrir o SSE —
+> um nó só falharia depois do iterador já ter começado. A política continua pura, em `domain/request.py`.
+
 | Nó (interno) | Delega a | Spec dona |
 |---|---|---|
-| `validate_request` | parâmetros, modelo (via Model Router), orçamento do grant | 005 / 006 / 003 |
+| ~~`validate_request`~~ (fora do grafo) | parâmetros, modelo (via Model Router), orçamento do grant | 005 / 006 / 003 |
 | `prepare_context` | `PackHooks.prepare` | 002 |
 | `load_capabilities` | `CapabilityCatalog` | 004 |
 | `agent_controller` | `ModelRouter.for_role("controller")` + `catalog.for_controller()` | 006 / 004 |
@@ -245,10 +249,15 @@ Hardware alvo 2 OCPU / 12 GB / ARM64, CPU-only, com `qwen3:1.7b`: **5–15 token
 ## Streaming (arch-v1 §25)
 
 ```text
-astream_events → filtrar tokens do agent_generate → TokenEvent
-               → tool chamada / retrieval em curso → ProgressEvent
-               → fim                               → FinalEvent
+astream(["custom", "values"]) → custom: token do agent_generate    → TokenEvent
+                              → custom: etapa iniciada             → ProgressEvent
+                              → último values                      → FinalEvent
 ```
+
+> Atualizado em 2026-09-21 (plano da Fase 1, [research.md](research.md) R2): era `astream_events`, que pressupõe que a
+> geração passe por um modelo do próprio framework. Não é o caso — o modelo vem do Model Router (006), pelo princípio
+> XIII —, então não há evento de LLM a filtrar. O canal `custom` é a forma suportada de emitir de dentro de um nó e
+> entrega o pedaço antes de o nó terminar, que é o que a SC-004 exige.
 
 A tradução para SSE no formato OpenAI é da spec 008; o motor emite eventos neutros.
 

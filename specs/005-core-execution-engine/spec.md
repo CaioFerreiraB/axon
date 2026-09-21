@@ -12,12 +12,21 @@
 
 - **Módulo**: Execution Engine — orquestra uma execução: ordena as chamadas aos serviços do core e aos hooks de pack segundo um flow nomeado, e emite um fluxo de eventos. **Esta spec é desenhada para ser reescrita.**
 - **Repositório / distribuição**: `ai-core` → `ai_core/graph/` (seam em `api.py`, políticas em `domain/`, framework de grafo e estado interno em `adapters/`).
-- **Consome (seams)**: Turn View e PackRoutine — 001; Pack Hooks — 002; Execution Grant — 003; Capability Catalog e Tool Gateway — 004; Model Router — 006; Trace Sink — 009.
+- **Consome (seams)**: Turn View e PackRoutine — 001; Pack Hooks — 002; Execution Grant — 003, pela forma que este módulo publica como `Protocol` (satisfeita estruturalmente pelo grant da 003 a partir da Fase 2); Capability Catalog e Tool Gateway — 004; Model Router — 006; Trace Sink — 009.
 - **Expõe (seams)**: **Execution Engine** — `run(grant, requisição) → fluxo de eventos` — consumido por 008 e 009; **nomes de flow** (`chat`, `agentic`, `rag_first`) — consumidos como dado por 003 (validação) e por manifests de pack.
-- **Depende de infraestrutura (via portas)**: armazenamento de checkpoint de execução, relógio (data de referência). O framework de grafo é adapter interno.
+- **Depende de infraestrutura (via portas)**: relógio (data de referência) e, a partir da Fase 3, armazenamento de checkpoint de execução. O framework de grafo é adapter interno.
 - **Não conhece**: HTTP, autenticação, quais packs existem ou seu domínio, como tools são executadas ou protegidas, quais providers existem.
 - **Substituição**: qualquer implementação que honre os dois seams expostos e consuma apenas os seams listados é válida. **Nomes de nós, forma do estado interno e o framework de grafo não são contrato** (ADR-011). Reescrever o grafo troca o adapter de fluxo e preserva as políticas de `domain/` com seus testes (ADR-012). Renomear ou remover um flow é permitido; `assistants validate` (003) aponta as referências pendentes.
 - **Insumo técnico**: [design.md](design.md); [ADR-001](../../docs/adr/ADR-001-topologia-fixa.md), [ADR-005](../../docs/adr/ADR-005-execute-tool-unificado.md), [ADR-006](../../docs/adr/ADR-006-rag-first-default-scouting.md), [ADR-007](../../docs/adr/ADR-007-citacao-mecanica.md), [ADR-010](../../docs/adr/ADR-010-temporal-fora.md), [ADR-011](../../docs/adr/ADR-011-contratos-independentes-do-motor.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md).
+
+## Clarifications
+
+### Session 2026-09-21
+
+- Q: O flow `chat` da Fase 1 é linear. O framework de grafo entra já nesta fase ou só quando houver loop? → A: Já nesta fase, como o `design.md` e a tabela de stack da constituição determinam. A parte mais delicada do desenho é traduzir o streaming do framework nos eventos do seam, e é isso que a Fase 1 — cuja razão de ser é a conversa ponta a ponta em streaming (princípio XI) — precisa pôr à prova. A Fase 3 acrescenta o loop ao grafo existente, sem reescrever o adapter nem escrevê-lo duas vezes.
+- Q: O seam é `run(grant, requisição)`, mas o Execution Grant pertence à 003, que é Fase 2. Como o motor recebe o grant na Fase 1? → A: O `api.py` deste módulo publica um `Protocol` que descreve apenas o que o motor lê do grant (assistant, flow, packs, política de modelos, limites). Na Fase 2 o Execution Grant concreto da 003 o satisfaz estruturalmente, sem import e sem inverter a direção `005 → 003` do grafo de dependências; o seam é o mesmo nas duas fases. Na Fase 1, quem constrói um objeto que cumpre o Protocol é a composition root (011).
+- Q: Uma falha chega ao consumidor como evento ou como exceção? → A: Depende de quando acontece. A validação da requisição — parâmetros, flow inexistente, orçamento — levanta exceção tipada **antes** do primeiro evento, para que a 008 responda 4xx sem abrir o stream e sem custo (princípio VII: 4xx antes de qualquer custo). Depois que o fluxo começou, toda falha vira evento final com erros, porque o consumidor já está lendo um stream e os tokens já emitidos não podem ser perdidos.
+- Q: A porta de checkpoint (FR-014) entra na Fase 1? → A: Não. Nesta fase nada retoma execução: o `chat` roda do começo ao fim dentro de uma requisição. Declarar a porta agora seria porta sem consumidor, contra o princípio XIII. Ela entra na Fase 3, junto com o loop, que é quando reter estado entre passos passa a significar alguma coisa.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -127,7 +136,7 @@ Quando o catálogo inclui a rotina de um pack, o controller pode invocá-la como
 
 ### Functional Requirements
 
-- **FR-001**: O motor DEVE expor uma única operação de execução: recebe Execution Grant e requisição e devolve um fluxo de eventos (token, progresso, final com resposta, citações e erros).
+- **FR-001**: O motor DEVE expor uma única operação de execução: recebe Execution Grant e requisição e devolve um fluxo de eventos (token, progresso, final com resposta, citações e erros). Falha anterior ao primeiro evento DEVE ser exceção tipada; falha posterior DEVE ser evento final com erros, preservando o que já foi emitido.
 - **FR-002**: O motor DEVE interagir com packs somente via Pack Hooks (002), com tools somente via Capability Catalog e Tool Gateway (004) e com modelos somente via Model Router (006).
 - **FR-003**: O motor DEVE oferecer os flows `chat`, `agentic` e `rag_first` num registro nomeado; flows novos são decisão arquitetural registrada em ADR.
 - **FR-004**: Packs NÃO DEVEM poder criar, alterar ou inspecionar flows.
@@ -139,8 +148,8 @@ Quando o catálogo inclui a rotina de um pack, o controller pode invocá-la como
 - **FR-010**: O motor DEVE produzir, para os hooks de pack, a Turn View definida em 001, incluindo o conjunto exato de chunks entregues à geração.
 - **FR-011**: O contexto enviado a modelos DEVE respeitar o teto de tokens do grant.
 - **FR-012**: O motor DEVE emitir eventos de progresso (tool chamada, recuperação em curso) e de token durante a geração.
-- **FR-013**: A validação da requisição (parâmetros, modelo, orçamento) DEVE ocorrer antes de qualquer chamada de modelo.
-- **FR-014**: O estado de execução DEVE poder ser registrado por checkpoint (em memória na Fase 1, persistente a partir da Fase 3), separado do histórico de conversa.
+- **FR-013**: A validação da requisição (parâmetros, modelo, orçamento) DEVE ocorrer antes de qualquer chamada de modelo e antes do primeiro evento, levantando exceção tipada que nomeia o que está errado.
+- **FR-014**: O estado de execução DEVE poder ser registrado por checkpoint, separado do histórico de conversa. A porta entra na Fase 3, com o loop: antes disso nenhuma execução é retomada (clarificação de 2026-09-21).
 - **FR-015**: A rotina isolada de pack DEVE ser executada como passo único, com entradas e saídas restritas ao declarado e limites herdados.
 - **FR-016**: Cada iteração, decisão do controller, chamada de tool e validação DEVE emitir dados de trace pelo Trace Sink (009).
 - **FR-017**: O motor DEVE fixar, no início de cada execução, a data de referência — pelo relógio ou, numa execução de avaliação, pelo valor fixado (ADR-013) — e entregá-la em toda Turn View daquela execução.
@@ -149,6 +158,7 @@ Quando o catálogo inclui a rotina de um pack, o controller pode invocá-la como
 
 - **Execution Request**: mensagens, streaming sim/não, restrições válidas e, só em execução de avaliação, data de referência fixa (ADR-013) — preenchida apenas pelo harness em processo, nunca pela API HTTP (008 FR-012).
 - **Execution Event**: token, progresso ou final (resposta, citações, erros, marcações).
+- **Execution Grant (forma exigida)**: o que o motor lê do grant — assistant, flow, packs, política de modelos e limites. Publicado por este módulo como `Protocol`; a 003 produz o valor que o satisfaz.
 - **Flow**: topologia nomeada.
 - **Controller Action**: `{action: tool, name, arguments}` ou `{action: answer}`.
 - **Internal State**: privado do motor; não é seam.
