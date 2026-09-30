@@ -405,7 +405,11 @@ class AccessService:
             raise NotFound(f"chave '{key_id}' não existe")
         return record.info
 
+    def is_admin(self, principal: Principal) -> bool:
+        """Chave de API **e** grupo de administração (FR-015). Cumpre a porta `AdminGate` da 008 (research R20 dela)."""
+        return is_admin(principal, self._admin_group)
+
     def _require_admin(self, actor: Principal) -> None:
         """Quem não administra recebe o mesmo que um recurso inexistente (US2 cen. 5)."""
-        if not is_admin(actor, self._admin_group):
+        if not self.is_admin(actor):
             raise NotFound("recurso não encontrado")

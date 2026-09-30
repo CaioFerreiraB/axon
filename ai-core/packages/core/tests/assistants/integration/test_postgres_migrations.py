@@ -40,11 +40,12 @@ async def test_duas_chamadas_concorrentes_aplicam_uma_vez(pg_pool: Any) -> None:
 
 
 async def test_nenhuma_tabela_fora_do_schema_do_modulo(pg_pool: Any) -> None:
+    """Cada módulo tem a própria `schema_version` no próprio schema (ADR-015); as tabelas da 003 só existem no dela."""
     await migrate(pg_pool, now=T0)
     schemas = await _scalar_rows(
         pg_pool,
         "SELECT DISTINCT table_schema FROM information_schema.tables "
-        "WHERE table_name IN ('api_keys', 'user_assistants', 'schema_version')",
+        "WHERE table_name IN ('api_keys', 'user_assistants')",
     )
     assert schemas == ["assistants"]
 

@@ -102,7 +102,5 @@ def validate(profile: Profile) -> Profile:
     """Recusa perfil a que falte fábrica para alguma porta exigida, nomeando a porta (FR-004)."""
     missing = [port for port in REQUIRED_PORTS if port not in profile.factories]
     if missing:
-        raise ConfigurationError(
-            f"perfil '{profile.name}' não atende a(s) porta(s): {', '.join(missing)}"
-        )
+        raise ConfigurationError(f"perfil '{profile.name}' não atende a(s) porta(s): {', '.join(missing)}")
     return profile

@@ -80,7 +80,8 @@ def test_rejeita_campo_de_ampliacao_sem_tocar_o_provider(field: str) -> None:
     client = TestClient(app(llm=llm))
     response = client.post("/v1/chat/completions", json=body(**{field: [{"type": "function"}]}))
     assert response.status_code == 400
-    assert field in response.json()["detail"]
+    assert response.json()["error"]["param"] == field
+    assert response.json()["error"]["code"] == "widening_field"
     assert llm.calls == []
 
 
@@ -89,7 +90,8 @@ def test_rejeita_data_de_referencia_sem_tocar_o_provider() -> None:
     client = TestClient(app(llm=llm))
     response = client.post("/v1/chat/completions", json=body(reference_time="2026-01-01"))
     assert response.status_code == 400
-    assert "reference_time" in response.json()["detail"]
+    assert response.json()["error"]["param"] == "reference_time"
+    assert response.json()["error"]["code"] == "reference_time"
     assert llm.calls == []
 
 

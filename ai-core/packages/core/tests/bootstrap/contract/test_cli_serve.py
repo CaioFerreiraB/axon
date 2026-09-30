@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from bootstrap_testkit import ASSISTANTS_YAML, PACKS_YAML, FakeServer
+from bootstrap_testkit import ASSISTANTS_YAML, ASSISTANTS_YAML_QUEBRADO, PACKS_YAML, FakeServer
 
 from ai_core.bootstrap import cli
 from ai_core.bootstrap.profiles import ANONYMOUS_WARNING
@@ -45,7 +45,7 @@ def test_serve_imprime_o_relatorio_de_boot(
     cli.main(["serve"], server=server)
 
     saida = capsys.readouterr().out
-    for etapa in ("configuration", "adapters", "packs", "engine", "api"):
+    for etapa in ("configuration", "adapters", "packs", "engine", "assistants", "api"):
         assert etapa in saida
     assert "9123" in saida
 
@@ -75,7 +75,7 @@ def test_boot_interrompido_sai_com_codigo_nao_zero_sem_chamar_o_servidor(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, server: FakeServer, capsys: pytest.CaptureFixture[str]
 ) -> None:
     quebrado = tmp_path / "assistants.yaml"
-    quebrado.write_text("assistants:\n  x:\n    models: {}\n", encoding="utf-8")
+    quebrado.write_text(ASSISTANTS_YAML_QUEBRADO, encoding="utf-8")
     monkeypatch.setenv("AI_CORE_PROFILE", "test")
     monkeypatch.setenv("AI_CORE_ASSISTANTS_FILE", str(quebrado))
 

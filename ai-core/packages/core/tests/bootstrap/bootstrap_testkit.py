@@ -27,27 +27,39 @@ packs:
     enabled: true
 """
 
+PUBLICO: Final = """
+    visibility: public
+    auth:
+      schemes: [oidc, api_key]
+      allow: ["*"]"""
+"""ACL de um Assistant público: o autenticador anônimo dos perfis é `user:anonymous`, e só `*` o deixa entrar."""
+
 ASSISTANTS_YAML: Final = f"""
 assistants:
-  {ASSISTANT}:
+  {ASSISTANT}:{PUBLICO}
     flow: chat
     packs: [generic]
     models:
       generation: ollama/{MODEL}
-    allow: ["ollama/*"]
+      allow: ["ollama/*"]
 """
 
 ASSISTANTS_YAML_SEM_PACK: Final = f"""
 assistants:
-  {ASSISTANT}:
+  {ASSISTANT}:{PUBLICO}
     packs: [generic]
     models:
       generation: ollama/{MODEL}
-  orfao:
+      allow: ["ollama/*"]
+  orfao:{PUBLICO}
     packs: [inexistente]
     models:
       generation: ollama/{MODEL}
+      allow: ["ollama/*"]
 """
+
+ASSISTANTS_YAML_QUEBRADO: Final = "assistentes: {}\n"
+"""Erro de **arquivo** (chave de topo desconhecida): o boot para. Erro de um Assistant só o deixa indisponível."""
 
 
 class Recorder:

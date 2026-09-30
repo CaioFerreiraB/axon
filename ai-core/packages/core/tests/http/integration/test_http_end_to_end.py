@@ -10,18 +10,13 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 from graph_testkit import RecordingTraceSink, provider
-from http_testkit import CREATED, answer_of, chunks_of, has_done
+from http_testkit import CREATED, answer_of, app_with, chunks_of, has_done
 
+from ai_core.assistants.api import AssistantNotFound, Principal
 from ai_core.graph.adapters.clock import FixedClock as GraphFixedClock
 from ai_core.graph.adapters.langgraph import langgraph_runtime
 from ai_core.graph.service import ExecutionService
-from ai_core.http.adapters.app import create_app
-from ai_core.http.adapters.development import (
-    AnonymousAuthenticator,
-    FixedClock,
-    SequentialRequestIds,
-)
-from ai_core.http.ports import AssistantNotFound, Principal
+from ai_core.http.adapters.development import AnonymousAuthenticator
 from ai_core.llm.api import ModelPolicy, ModelRef
 from ai_core.llm.service import ModelRoutingService
 from ai_core.observability.api import ExecutionFinished, ExecutionStarted, ModelCall, ValidationRun
@@ -41,9 +36,7 @@ class RealGrant:
         self.assistant = ASSISTANT
         self.flow = "chat"
         self.composition = composition
-        self.models = ModelPolicy(
-            roles={"generation": ModelRef(provider="ollama", model=MODEL)}, allow=("ollama/*",)
-        )
+        self.models = ModelPolicy(roles={"generation": ModelRef(provider="ollama", model=MODEL)}, allow=("ollama/*",))
 
 
 class PackGrants:
@@ -69,14 +62,7 @@ def _platform(llm: Any, trace: RecordingTraceSink) -> TestClient:
         trace=trace,
         clock=clock,
     )
-    app = create_app(
-        engine=engine,
-        authenticator=AnonymousAuthenticator(),
-        grants=PackGrants(packs),
-        request_ids=SequentialRequestIds(),
-        clock=FixedClock(CREATED),
-    )
-    return TestClient(app)
+    return TestClient(app_with(engine, authenticator=AnonymousAuthenticator(), grants=PackGrants(packs)))
 
 
 def _body(**overrides: Any) -> dict[str, Any]:

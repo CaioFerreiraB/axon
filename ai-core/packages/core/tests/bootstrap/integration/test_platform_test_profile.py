@@ -30,6 +30,7 @@ def test_a_plataforma_sobe_inteira_no_perfil_de_teste(tmp_path: Path) -> None:
         "adapters",
         "packs",
         "engine",
+        "assistants",
         "api",
     ]
     assert plataforma.packs is not None

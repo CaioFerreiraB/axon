@@ -39,9 +39,13 @@ def _chunk(*, request_id: str, model: str, created: datetime, delta: dict[str, A
     return body
 
 
-def opening_chunk(*, request_id: str, model: str, created: datetime) -> dict[str, Any]:
-    """Abre a mensagem. O papel vai só aqui: repetido, confunde alguns clientes."""
-    return _chunk(request_id=request_id, model=model, created=created, delta={"role": ASSISTANT_ROLE})
+def opening_chunk(
+    *, request_id: str, model: str, created: datetime, conversation_id: str | None = None
+) -> dict[str, Any]:
+    """Abre a mensagem. O papel vai só aqui: repetido, confunde alguns clientes. O id da conversa também — é o que
+    permite ao cliente continuá-la mesmo que a execução ainda não tenha terminado (FR-014)."""
+    extra: dict[str, Any] = {} if conversation_id is None else {EXTRA: {"conversation_id": conversation_id}}
+    return _chunk(request_id=request_id, model=model, created=created, delta={"role": ASSISTANT_ROLE}, **extra)
 
 
 def token_chunk(event: TokenEvent, *, request_id: str, model: str, created: datetime) -> dict[str, Any]:
@@ -73,7 +77,9 @@ def final_chunk(event: FinalEvent, *, request_id: str, model: str, created: date
     )
 
 
-def completion(event: FinalEvent, *, request_id: str, model: str, created: datetime) -> dict[str, Any]:
+def completion(
+    event: FinalEvent, *, request_id: str, model: str, created: datetime, conversation_id: str | None = None
+) -> dict[str, Any]:
     """Resposta sem streaming: um objeto só, com a resposta inteira."""
     body = _envelope(request_id=request_id, model=model, created=created, object_type=COMPLETION_OBJECT)
     body["choices"] = [
@@ -84,6 +90,8 @@ def completion(event: FinalEvent, *, request_id: str, model: str, created: datet
         }
     ]
     body[EXTRA] = extra_field(event, request_id=request_id)
+    if conversation_id is not None:
+        body[EXTRA]["conversation_id"] = conversation_id
     return body
 
 

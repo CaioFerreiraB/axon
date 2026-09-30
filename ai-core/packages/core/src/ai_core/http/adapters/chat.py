@@ -1,25 +1,27 @@
-"""Rota de chat completions, montada nas duas superfícies.
+"""Rotas de chat, montadas nas duas superfícies.
 
-É aqui — e só aqui — que existem status, cabeçalho e conexão. As regras de formato estão em `domain/`, e a execução,
-no `service.py`.
+É aqui — e só aqui — que existem status, cabeçalho e conexão. As regras de formato estão em `domain/`, a execução no
+`service.py`, e os status de erro na tabela de `domain/errors.py`: esta camada só levanta.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Header, HTTPException, Request, Response
+from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from ai_core.graph.api import ExecutionRequestInvalid
+from ai_core.assistants.api import Principal
+from ai_core.http.adapters.auth import authenticated
+from ai_core.http.adapters.errors import ApiError
 from ai_core.http.adapters.sse import MEDIA_TYPE, event_stream
-from ai_core.http.domain.chat_request import ChatRequestInvalid, parse
-from ai_core.http.ports import AssistantNotFound, Authenticator, Principal
+from ai_core.http.domain.chat_request import ChatRequest, parse
+from ai_core.http.domain.errors import EXTRA, InvalidRequest, error_for
+from ai_core.http.domain.native_request import parse_native
 from ai_core.http.service import ChatService
 
 REQUEST_ID_HEADER = "X-Request-Id"
-NOT_FOUND_DETAIL = "assistant não encontrado"
-"""Mesmo texto para inexistente e para não autorizado: a existência de um Assistant privado não vaza (FR-009)."""
+CONVERSATION_ID_HEADER = "X-Conversation-Id"
 
 
 def chat_router(*, surface: str) -> APIRouter:
@@ -27,74 +29,63 @@ def chat_router(*, surface: str) -> APIRouter:
     router = APIRouter()
 
     @router.post("/chat/completions")
-    async def chat_completions(
-        request: Request,
-        response: Response,
-        authorization: str | None = Header(default=None),
-    ) -> Any:
-        service: ChatService = request.app.state.chat_service
-        authenticator: Authenticator = request.app.state.authenticator
+    async def chat_completions(request: Request, response: Response) -> Any:
+        """Compat OpenAI: tolera campos que ignora, recusa os de ampliação."""
+        principal = await authenticated(request, surface)
+        return await _run(request, response, parse(await json_body(request)), principal)
 
-        principal = await authenticator.authenticate(surface=surface, credential=authorization)
-        if principal is None:
-            raise HTTPException(status_code=401, detail="credencial inválida")
-
-        body = await _body(request)
-        try:
-            chat_request = parse(body)
-        except ChatRequestInvalid as error:
-            raise HTTPException(status_code=400, detail=str(error)) from error
-
-        if chat_request.stream:
-            return await _stream(service, chat_request, principal)
-        return await _complete(service, chat_request, principal, response)
+    @router.post("/chat")
+    async def chat_native(request: Request, response: Response) -> Any:
+        """Requisição nativa: estrita, com a mesma resposta da compat (research R17)."""
+        principal = await authenticated(request, surface)
+        return await _run(request, response, parse_native(await json_body(request)), principal)
 
     return router
 
 
-async def _body(request: Request) -> dict[str, Any]:
+async def _run(request: Request, response: Response, chat_request: ChatRequest, principal: Principal) -> Any:
+    service: ChatService = request.app.state.chat_service
+    if chat_request.stream:
+        return await _stream(service, chat_request, principal)
+    return await _complete(service, chat_request, principal, response)
+
+
+async def json_body(request: Request) -> dict[str, Any]:
+    """O corpo como objeto JSON, ou 400 no envelope."""
     try:
         body = await request.json()
     except Exception as error:
-        raise HTTPException(status_code=400, detail="corpo precisa ser JSON") from error
+        raise ApiError(_bad_body("corpo precisa ser JSON")) from error
     if not isinstance(body, dict):
-        raise HTTPException(status_code=400, detail="corpo precisa ser um objeto JSON")
+        raise ApiError(_bad_body("corpo precisa ser um objeto JSON"))
     return body
 
 
-async def _stream(service: ChatService, chat_request: Any, principal: Principal) -> StreamingResponse:
-    """O primeiro chunk é buscado antes de responder: é o que permite 404 e 400 saírem como status, não como stream."""
+def _bad_body(message: str) -> Any:
+    response = error_for(InvalidRequest(message))
+    assert response is not None
+    return response
+
+
+async def _stream(service: ChatService, chat_request: ChatRequest, principal: Principal) -> StreamingResponse:
+    """O primeiro chunk é buscado antes de responder: é o que permite 404, 400, 424 e 429 saírem como status, e não
+    como stream — os erros de resolução atravessam até os tratadores da app."""
     chunks = service.stream(chat_request, principal)
-    try:
-        first = await anext(chunks)
-    except AssistantNotFound as error:
-        raise HTTPException(status_code=404, detail=NOT_FOUND_DETAIL) from error
-    except ExecutionRequestInvalid as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
-
-    request_id = _request_id(first)
-    return StreamingResponse(
-        event_stream(_prepend(first, chunks)),
-        media_type=MEDIA_TYPE,
-        headers={REQUEST_ID_HEADER: request_id},
-    )
+    first = await anext(chunks)
+    headers = {REQUEST_ID_HEADER: _request_id(first)}
+    conversation_id = first.get(EXTRA, {}).get("conversation_id")
+    if conversation_id is not None:
+        headers[CONVERSATION_ID_HEADER] = conversation_id
+    return StreamingResponse(event_stream(_prepend(first, chunks)), media_type=MEDIA_TYPE, headers=headers)
 
 
-async def _complete(
-    service: ChatService, chat_request: Any, principal: Principal, response: Response
-) -> Any:
-    try:
-        result = await service.complete(chat_request, principal)
-    except AssistantNotFound as error:
-        raise HTTPException(status_code=404, detail=NOT_FOUND_DETAIL) from error
-    except ExecutionRequestInvalid as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
-
-    headers = {REQUEST_ID_HEADER: result.request_id}
+async def _complete(service: ChatService, chat_request: ChatRequest, principal: Principal, response: Response) -> Any:
+    result = await service.complete(chat_request, principal)
+    headers = {REQUEST_ID_HEADER: result.request_id, CONVERSATION_ID_HEADER: result.conversation_id}
     if result.failed:
         # Sem streaming ainda dá para escolher o status: 200 com marcador de erro seria degradação silenciosa.
         return JSONResponse(status_code=502, content=result.body, headers=headers)
-    response.headers[REQUEST_ID_HEADER] = result.request_id
+    response.headers.update(headers)
     return result.body
 
 

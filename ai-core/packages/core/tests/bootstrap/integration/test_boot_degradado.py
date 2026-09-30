@@ -9,8 +9,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from bootstrap_testkit import (
+    ASSISTANTS_YAML_QUEBRADO,
     ASSISTANTS_YAML_SEM_PACK,
     PACKS_YAML_COM_QUEBRADO,
+    PUBLICO,
     MemoryConfig,
     body,
     write_config,
@@ -27,7 +29,7 @@ def test_boot_conclui_com_pack_em_erro_e_a_etapa_fica_degradada(tmp_path: Path) 
     plataforma = platform(config=MemoryConfig(settings))
 
     assert plataforma.ok, "pack em erro não pode impedir o boot"
-    assert plataforma.report.degraded == ("packs",)
+    assert plataforma.report.degraded == ("packs", "assistants")
     detalhe = next(o.detail for o in plataforma.report.stages if o.name == "packs")
     assert detalhe is not None
     assert "inexistente" in detalhe, "o relatório nomeia o pack que falhou"
@@ -39,7 +41,9 @@ def test_o_assistant_que_nao_depende_do_pack_quebrado_atende(tmp_path: Path) -> 
 
     with TestClient(plataforma.app) as client:
         assert client.post("/v1/chat/completions", json=body()).status_code == 200
-        assert client.post("/v1/chat/completions", json=body(model="orfao")).status_code == 404
+        orfao = client.post("/v1/chat/completions", json=body(model="orfao"))
+        assert orfao.status_code == 424, "autorizado, mas indisponível: 424 com o motivo (008 FR-020)"
+        assert any("inexistente" in motivo for motivo in orfao.json()["x_ai_core"]["reasons"])
 
 
 def test_o_pack_quebrado_aparece_em_erro_no_registro(tmp_path: Path) -> None:
@@ -56,7 +60,7 @@ def test_o_pack_quebrado_aparece_em_erro_no_registro(tmp_path: Path) -> None:
 def test_configuracao_invalida_impede_o_boot(tmp_path: Path) -> None:
     """SC-002: falha de configuração é detectada antes de a API existir."""
     quebrado = tmp_path / "assistants.yaml"
-    quebrado.write_text("assistants:\n  x:\n    models: {}\n", encoding="utf-8")
+    quebrado.write_text(ASSISTANTS_YAML_QUEBRADO, encoding="utf-8")
     settings = Settings(profile="test", assistants_file=quebrado)
 
     plataforma = platform(config=MemoryConfig(settings))
@@ -67,17 +71,21 @@ def test_configuracao_invalida_impede_o_boot(tmp_path: Path) -> None:
     assert plataforma.app is None, "a API não chega a ser montada"
 
 
-def test_flow_inexistente_no_assistant_impede_o_boot(tmp_path: Path) -> None:
+def test_flow_inexistente_deixa_so_aquele_assistant_indisponivel(tmp_path: Path) -> None:
+    """Erro de um Assistant não para o boot (003 FR-011, 011 FR-003): a etapa degrada nomeando Assistant e flow."""
     arquivo = tmp_path / "assistants.yaml"
     arquivo.write_text(
-        "assistants:\n  x:\n    flow: agentic\n    models:\n      generation: ollama/m\n", encoding="utf-8"
+        f"assistants:\n  x:{PUBLICO}\n    flow: agentic\n    models:\n      generation: ollama/m\n"
+        f"      allow: ['ollama/*']\n",
+        encoding="utf-8",
     )
     plataforma = platform(config=MemoryConfig(Settings(profile="test", assistants_file=arquivo)))
 
-    assert not plataforma.ok
-    falha = plataforma.report.failure()
-    assert falha is not None and falha.name == "engine"
-    assert "agentic" in (falha.detail or "")
+    assert plataforma.ok
+    detalhe = next(o.detail for o in plataforma.report.stages if o.name == "assistants")
+    assert detalhe is not None and "'x'" in detalhe and "agentic" in detalhe
+    with TestClient(plataforma.app) as client:
+        assert client.post("/v1/chat/completions", json=body(model="x")).status_code == 424
 
 
 def test_perfil_desconhecido_impede_o_boot() -> None:

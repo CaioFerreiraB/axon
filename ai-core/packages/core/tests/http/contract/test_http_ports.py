@@ -9,23 +9,28 @@ from fastapi.testclient import TestClient
 from graph_testkit import RecordingTraceSink
 from http_testkit import CREATED, RejectingAuthenticator, StaticGrants, app, body
 
+from ai_core.assistants.api import PRIVATE_SURFACE, PUBLIC_SURFACE
 from ai_core.http.adapters.development import (
-    ANONYMOUS_ID,
+    ANONYMOUS_SUBJECT,
     AnonymousAuthenticator,
-    DevelopmentPrincipal,
     FixedClock,
     SequentialRequestIds,
     Uuid4RequestIds,
 )
-from ai_core.http.ports import PRIVATE_SURFACE, PUBLIC_SURFACE
 from ai_core.observability.api import ExecutionStarted, ModelCall
 
 
-async def test_autenticador_anonimo_devolve_o_mesmo_principal_nas_duas_superficies() -> None:
+async def test_autenticador_anonimo_devolve_o_mesmo_subject_com_o_esquema_de_cada_superficie() -> None:
     authenticator = AnonymousAuthenticator()
     publico = await authenticator.authenticate(surface=PUBLIC_SURFACE, credential=None)
     privado = await authenticator.authenticate(surface=PRIVATE_SURFACE, credential="chave")
-    assert publico.id == privado.id == ANONYMOUS_ID
+    assert publico is not None and privado is not None
+    assert publico.subject == privado.subject == ANONYMOUS_SUBJECT
+    assert (publico.scheme, privado.scheme) == ("oidc", "api_key")
+
+
+async def test_autenticador_anonimo_recusa_superficie_desconhecida() -> None:
+    assert await AnonymousAuthenticator().authenticate(surface="admin", credential=None) is None
 
 
 async def test_autenticador_anonimo_nunca_levanta_por_credencial_ausente() -> None:
@@ -33,9 +38,9 @@ async def test_autenticador_anonimo_nunca_levanta_por_credencial_ausente() -> No
 
 
 async def test_principal_customizado_e_respeitado() -> None:
-    authenticator = AnonymousAuthenticator(DevelopmentPrincipal(id="operador"))
+    authenticator = AnonymousAuthenticator("svc:operador", frozenset({"ops"}))
     principal = await authenticator.authenticate(surface=PRIVATE_SURFACE, credential=None)
-    assert principal.id == "operador"
+    assert principal is not None and principal.subject == "svc:operador" and principal.groups == frozenset({"ops"})
 
 
 def test_autenticador_que_recusa_faz_a_rota_responder_401() -> None:
@@ -53,7 +58,7 @@ def test_o_resolvedor_recebe_o_modelo_pedido_e_o_principal() -> None:
     grants = StaticGrants()
     client = TestClient(app(grants=grants))
     client.post("/v1/chat/completions", json=body())
-    assert grants.calls == [("geral/qwen3:1.7b", ANONYMOUS_ID)]
+    assert grants.calls == [("geral/qwen3:1.7b", ANONYMOUS_SUBJECT)]
 
 
 def test_identificadores_sequenciais_sao_distintos_e_crescentes() -> None:

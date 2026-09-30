@@ -1,6 +1,6 @@
 ---
 
-description: "Task list for 008 — chat completions compatível com OpenAI, Fase 1"
+description: "Task list for 008 — Fase 1 (US1) e Fase 2 (US2, US3, US4, US5, US7)"
 ---
 
 # Tasks: API HTTP — chat completions compatível com OpenAI
@@ -151,9 +151,151 @@ só via HTTP.
 
 ---
 
+## Fase 2 (2026-09-30): US2, US3, US4 (Assistants), US5 (packs, chaves, saúde), US7
+
+Escopo e decisões em [plan.md](plan.md) ("Fase 2") e [research.md](research.md) R12–R24. **Não** entram: endpoints de
+MCP (Fase 3), fila e progresso de tool (US6, Fase 7), Open WebUI (US8, Fase 7). Caminhos abaixo relativos a
+`ai-core/packages/core/`; `http/` = `src/ai_core/http/`.
+
+## Phase 5: Foundational da Fase 2 — troca atômica para os seams da 003 (R13, R14, R15, R23)
+
+**⚠️ CRITICAL**: bloqueia as stories da Fase 2; ao fim dela, a suíte inteira do workspace precisa passar de novo.
+
+- [X] T021 Reescrever `http/ports.py` (contracts/ports.md, "Fase 2"): remover `Principal`, `Authenticator`,
+  `GrantResolver`, `AssistantNotFound`, `PUBLIC_SURFACE`/`PRIVATE_SURFACE` (passam a vir de `ai_core.assistants.api`);
+  manter `RequestIds` e `Clock`; acrescentar `Conversation`, `StoredMessage`, `ConversationPage`, `HealthItem`,
+  `HealthReport` (data-model.md, "Fase 2") e os `Protocol` `ConversationStore`, `HealthProvider` e `AdminGate`, com as
+  assinaturas exatas do contrato
+- [X] T022 [P] Criar `tests/http/unit/test_errors.py` (contracts/errors.md): envelope `{"error": {message, type, param,
+  code}}` para cada linha da tabela; 404 com o mesmo corpo para inexistente e não autorizado; 424 com
+  `x_ai_core.reasons`; 429 com `Retry-After` arredondado para cima
+- [X] T023 Implementar `http/domain/errors.py` (a tabela do R14 como função pura: exceção → status, type, code, param,
+  extras) e `http/adapters/errors.py` (tratadores de exceção do framework que usam a tabela e escrevem o envelope e
+  `Retry-After`); `http/adapters/auth.py` com a extração `Authorization: Bearer <token>` (R15) — ausente, outro
+  esquema ou vazio → `credential=None` → 401 no envelope
+- [X] T024 Migrar a rota de chat e a app para os seams da 003: `http/adapters/chat.py`, `http/adapters/app.py`
+  (`create_app` recebe `authenticator`, `grants`, `directory`, `keys`, `packs`, `admin`, `conversations`, `health`,
+  `request_ids`, `conversation_ids`, `clock`), `http/service.py` (`AssistantNotFound`, `RequestRejected`,
+  `AssistantUnavailable`, `RateLimited` da 003 atravessam até os tratadores do T023) e
+  `http/adapters/development.py` (`AnonymousAuthenticator` devolve `Principal(subject="user:anonymous",
+  scheme=SCHEME_OF_SURFACE[surface])` da 003; `DevelopmentPrincipal` sai); atualizar `tests/http/http_testkit.py`,
+  `tests/http/contract/test_http_ports.py`, `test_chat_completions.py` e `tests/http/integration/*` para os tipos da
+  003 e o envelope de erro
+- [X] T025 Acrescentar a `src/ai_core/assistants/service.py` o método público `AccessService.is_admin(principal) ->
+  bool` (a regra de `_require_admin`, que passa a usá-lo) e um teste em
+  `tests/assistants/contract/test_key_admin.py`; é a implementação da porta `AdminGate` (R20)
+- [X] T026 Troca na composition root (exceção declarada do R13): `src/ai_core/bootstrap/wiring.py` constrói, depois do
+  motor, `AssistantsService` (003: `YamlAssistantConfigSource` do `assistants_file` ou configuração vazia,
+  `InMemoryUserAssistantStore`, catálogos vazios, `InMemoryRateCounterStore`, nomes de flow do motor) e `AccessService`
+  (`InMemoryApiKeyStore`, `DisabledOidcVerifier`, `SecretsTokenGenerator`, `admin_group` da configuração), a
+  `InMemoryConversationStore`, um `HealthProvider` mínimo a partir do relatório de boot e as duas instâncias de
+  `RequestIds`, e os entrega a `create_app`; acrescenta a etapa `assistants` (degradável) que roda `validate()` e põe os
+  indisponíveis no relatório; `profiles.py` mantém o `AnonymousAuthenticator` nos dois perfis; remover
+  `src/ai_core/bootstrap/grants.py` e `tests/bootstrap/unit/test_grants.py`; migrar os `assistants.yaml` de
+  `tests/bootstrap/` (testkit, `test_cli_serve.py`, `test_boot_degradado.py`) para o formato da 003 (`visibility`,
+  `auth`, `models.allow`) e trocar a expectativa de "flow inexistente para o boot" por "Assistant indisponível no
+  relatório e 424 no chat"
+- [X] T027 Atualizar `ai-core/pyproject.toml` (import-linter): `psycopg`/`psycopg_pool` proibidos em
+  `ai_core.http.ports`/`domain`/`service`; rodar `uv run lint-imports`, `uv run mypy` e `uv run pytest` inteiros até
+  passarem
+
+**Checkpoint**: a plataforma monta com os serviços da 003; chat completions responde como antes, com o envelope novo
+
+## Phase 6: User Story 2 — Assistants aparecem como modelos (Priority: P1)
+
+**Independent Test**: `uv run pytest packages/core/tests/http/contract/test_models_route.py`.
+
+- [X] T028 [P] [US2] Criar `tests/http/contract/test_models_route.py` (contracts/models.md): com os serviços reais da
+  003 em memória, dois Principals veem listas que diferem exatamente pela ACL (US2 cen. 1); privado de grupo aparece
+  para o membro; indisponível não aparece; o id listado resolve no chat; o id de privado usado por quem não pode dá o
+  mesmo 404 de um inexistente (US2 cen. 2); mesmo formato nas duas superfícies; `created` do relógio fixo
+- [X] T029 [US2] Implementar `http/adapters/models.py` (`GET /models` nas duas superfícies, sobre
+  `AssistantDirectory.discover`) e a construção da entrada em `http/domain/openai_chunks.py` ou num `domain/models.py`
+  puro: `{"id", "object": "model", "created", "owned_by", "x_ai_core": {generation, description, origin, allow}}`
+
+## Phase 7: User Story 3 — Requisição nativa que só restringe (Priority: P2)
+
+**Independent Test**: `uv run pytest packages/core/tests/http/contract/test_native_route.py`.
+
+- [X] T030 [P] [US3] Criar `tests/http/unit/test_native_request.py` e `tests/http/contract/test_native_route.py`
+  (contracts/native-request.md): cada campo de `WIDENING_FIELDS` recusado nomeando o campo e sem chamar o motor (US3
+  cen. 1); campo desconhecido recusado; data de referência recusada; `assistant` + `model` = id completo; mesma resposta
+  da compat com e sem streaming; e, na compat, `packs`/`mcp_servers`/`provider` agora também recusados (R18)
+- [X] T031 [US3] Implementar `http/domain/native_request.py` (parser estrito) e a rota `POST /chat` nas duas
+  superfícies em `http/adapters/chat.py`; trocar `CAPABILITY_FIELDS` de `http/domain/chat_request.py` por
+  `WIDENING_FIELDS` da 003 (R18)
+
+## Phase 8: User Story 4 — Usuário gerencia Assistants próprios (Priority: P2)
+
+**Independent Test**: `uv run pytest packages/core/tests/http/contract/test_user_assistants_routes.py`.
+
+- [X] T032 [P] [US4] Criar `tests/http/unit/test_assistant_body.py` e
+  `tests/http/contract/test_user_assistants_routes.py` (contracts/user-assistants.md): criar → ler → atualizar →
+  listar → remover pela superfície pública; fora da política → 400 `policy_violation` com `param`; sem política → 400
+  `no_applicable_policy`; nome repetido → 409; nome alheio → 404; criado aparece em `/v1/models` do dono e resolve no
+  chat (US4 cen. 2); as rotas não existem em `/private/v1`
+- [X] T033 [US4] Implementar `http/domain/assistant_body.py` (JSON ⇄ `UserAssistantDraft`, modelos em
+  `provider/modelo`, campo desconhecido recusado) e `http/adapters/user_assistants.py` (rotas sobre
+  `AssistantDirectory`, só em `/v1`)
+
+## Phase 9: User Story 5 — Operação pela superfície privada (Priority: P2)
+
+**Independent Test**: `uv run pytest packages/core/tests/http/contract/test_private_routes.py`.
+
+- [X] T034 [P] [US5] Criar `tests/http/contract/test_private_routes.py` (contracts/private-surface.md): pack em erro com
+  status e mensagem para o admin e 404 para chave fora do grupo (US5 cen. 1); emitir → autenticar com a chave → listar
+  sem a chave → revogar → recusada (US5 cen. 2), e 404 para quem não é admin; saúde com qualquer chave, 200 quando ok e
+  503 quando um item não está (US5 cen. 3); nenhuma dessas rotas em `/v1`
+- [X] T035 [US5] Implementar `http/adapters/private.py` (`/packs` com `AdminGate`, `/admin/keys` sobre `ApiKeyAdmin`,
+  `/health` sobre `HealthProvider`) e um `StaticHealthProvider` de teste em `http/adapters/development.py`
+
+## Phase 10: User Story 7 — Conversa armazenada e retomada no servidor (Priority: P2)
+
+**Independent Test**: `uv run pytest packages/core/tests/http/contract/test_conversation_routes.py
+packages/core/tests/http/integration/test_conversation_restart.py`.
+
+- [X] T036 [P] [US7] Criar `tests/http/contract/test_conversation_store.py` (contracts/ports.md, "Fase 2"), parametrizado
+  memória × Postgres (fixture como a da 003, schema `http`): isolamento por dono; ordem das mensagens; `append` em
+  conversa apagada → `False`; `delete_inactive(before=…)` apaga só as inativas; paginação estável e mais recente
+  primeiro; um armazenamento novo sobre o mesmo banco encontra a conversa
+- [X] T037 [P] [US7] Criar `tests/http/unit/test_conversations_domain.py` e `tests/http/unit/test_conversation_expiry.py`:
+  com id, só histórico + última mensagem de usuário entram (mensagens de assistente e de tool do cliente descartadas —
+  SC-005); sem id, as mensagens do pedido; o que é gravado ao fim (a última de usuário e a resposta, com `request_id`,
+  citações e marcações); execução com erro não grava; expiração com relógio fixo apaga no prazo e nem um ciclo depois
+  (SC-007)
+- [X] T038 [P] [US7] Criar `tests/http/contract/test_conversation_routes.py` e
+  `tests/http/integration/test_conversation_restart.py` (contracts/conversations.md): US7 cen. 1, 2 (nas duas
+  superfícies, mesmo subject), 3 (serviço novo sobre o mesmo armazenamento, em memória e em Postgres), 4, 5, 6; id no
+  cabeçalho e em `x_ai_core.conversation_id` com e sem streaming; conversa de outro Assistant → 400
+  `conversation_assistant_mismatch`; conversa apagada durante a execução não recebe a troca
+- [X] T039 [US7] Implementar `http/domain/conversations.py` (regras puras do R21), `http/adapters/conversations_memory.py`,
+  `http/adapters/sql/001_conversations.sql` (tabelas `http.conversations` e `http.messages`), `http/adapters/postgres_schema.py`
+  (`migrate(pool, now=…)`, mesmo desenho da 003) e `http/adapters/conversations_postgres.py`
+- [X] T040 [US7] Implementar em `http/service.py` o fluxo de conversa do `ChatService` (resolver → abrir ou carregar →
+  executar → gravar no evento final sem erro) e o `ConversationService` (listar, ler, apagar, `expire()` com prazo
+  configurável, default 180 dias); `conversation_id` no primeiro chunk e na completion (`http/domain/openai_chunks.py`) e
+  no cabeçalho `X-Conversation-Id`; rotas `GET /conversations`, `GET|DELETE /conversations/{id}` nas duas superfícies em
+  `http/adapters/conversations.py`
+
+## Phase 11: Polish da Fase 2
+
+- [X] T041 Rodar a seção "Fase 2" do [quickstart.md](quickstart.md) e a verificação completa (`uv run pytest` com e sem
+  `AI_CORE_TEST_POSTGRES_DSN`, `uv run mypy`, `uv run ruff check packages`, `uv run lint-imports`), corrigindo
+  divergências
+- [X] T042 [P] Atualizar `CLAUDE.md` ("Código": a API consome os seams da 003; rotas novas; conversas em Postgres) e a
+  linha da 008 em `specs/README.md` ("Fase 1 e Fase 2 implementadas; MCP na Fase 3; fila e Open WebUI na Fase 7")
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
+
+**Fase 2**: T021 → (T022 ∥ T025) → T023 → T024 → T026 → T027 — bloqueia as stories. Depois: US2 (T028 → T029), US3
+(T030 → T031), US4 (T032 → T033), US5 (T034 → T035) e US7 (T036–T038 → T039 → T040) são independentes em teste;
+`http/adapters/chat.py` é tocado por T024, T031 e T040 nessa ordem, e `http/service.py` por T024 e T040. Polish por
+último.
+
 
 - **Setup (Phase 1)**: T001 e T002 primeiro; T003 em paralelo
 - **Foundational (Phase 2)**: T004 antes de T005; T006 depois dos dois e de T012, que por isso pode ser antecipada

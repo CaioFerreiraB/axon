@@ -13,16 +13,18 @@ from typing import Any, Final
 from fastapi import FastAPI
 from graph_testkit import ASSISTANT, MODEL, Grant, RecordingTraceSink, ScriptedHooks, provider
 
+from ai_core.assistants.api import SCHEME_OF_SURFACE, AssistantNotFound, Principal
 from ai_core.graph.adapters.clock import FixedClock as GraphFixedClock
 from ai_core.graph.adapters.langgraph import langgraph_runtime
 from ai_core.graph.service import ExecutionService
 from ai_core.http.adapters.app import create_app
-from ai_core.http.adapters.development import DevelopmentPrincipal, FixedClock, SequentialRequestIds
-from ai_core.http.ports import AssistantNotFound, Principal
+from ai_core.http.adapters.conversations_memory import InMemoryConversationStore
+from ai_core.http.adapters.development import FixedClock, SequentialRequestIds, StaticHealthProvider
 from ai_core.llm.service import ModelRoutingService
 
 CREATED: Final = datetime(2026, 9, 21, 12, tzinfo=UTC)
 MODEL_ID: Final = f"{ASSISTANT}/{MODEL}"
+ANONYMOUS: Final = "user:anonymous"
 
 
 class StaticGrants:
@@ -33,7 +35,7 @@ class StaticGrants:
         self.calls: list[tuple[str, str]] = []
 
     async def resolve(self, *, model: str, principal: Principal) -> Grant:
-        self.calls.append((model, principal.id))
+        self.calls.append((model, principal.subject))
         assistant = model.split("/", 1)[0]
         if assistant not in self._known:
             raise AssistantNotFound(f"assistant '{assistant}' não existe ou não é visível")
@@ -55,7 +57,7 @@ class SurfaceRecordingAuthenticator:
 
     async def authenticate(self, *, surface: str, credential: str | None) -> Principal:
         self.surfaces.append(surface)
-        return DevelopmentPrincipal()
+        return Principal(subject=ANONYMOUS, scheme=SCHEME_OF_SURFACE[surface])
 
 
 def engine(
@@ -83,15 +85,36 @@ def app(
     trace: RecordingTraceSink | None = None,
     authenticator: Any = None,
     grants: Any = None,
+    **overrides: Any,
 ) -> FastAPI:
     """A app como a 011 a montará, com os adapters de desenvolvimento."""
-    return create_app(
-        engine=engine(hooks=hooks, llm=llm, trace=trace),
+    return app_with(
+        engine(hooks=hooks, llm=llm, trace=trace),
         authenticator=authenticator or SurfaceRecordingAuthenticator(),
         grants=grants or StaticGrants(),
-        request_ids=SequentialRequestIds(),
-        clock=FixedClock(CREATED),
+        **overrides,
     )
+
+
+def app_with(engine_: Any, *, authenticator: Any, grants: Any, **overrides: Any) -> FastAPI:
+    """`create_app` com defaults para tudo o que o teste não declara: serviços reais da 003 em memória, Pack Registry
+    falso, conversas em memória, saúde ok, identificadores sequenciais e relógio fixo."""
+    from assistants_testkit import access_service, assistants_service, config, default_registry
+
+    access = overrides.pop("access", None) or access_service()
+    parts: dict[str, Any] = {
+        "directory": assistants_service(config()),
+        "keys": access,
+        "packs": default_registry(),
+        "admin": access,
+        "conversations": InMemoryConversationStore(),
+        "health": StaticHealthProvider(),
+        "request_ids": SequentialRequestIds(),
+        "conversation_ids": SequentialRequestIds(prefix="conv"),
+        "clock": FixedClock(CREATED),
+    }
+    parts.update(overrides)
+    return create_app(engine=engine_, authenticator=authenticator, grants=grants, **parts)
 
 
 def body(**overrides: Any) -> dict[str, Any]:
@@ -123,3 +146,92 @@ def has_done(text: str) -> bool:
 
 def answer_of(chunks: Sequence[dict[str, Any]]) -> str:
     return "".join(chunk["choices"][0]["delta"].get("content", "") for chunk in chunks)
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Fase 2: a app com os serviços reais da 003 (research R24)
+# ---------------------------------------------------------------------------------------------------------------------
+
+ANA_TOKEN: Final = "tok-ana"
+BIA_TOKEN: Final = "tok-bia"
+CAIO_TOKEN: Final = "tok-caio"
+"""Tokens OIDC do verificador estático: `user:ana` sem grupos; `user:bia` do grupo `chefia`; `user:caio` — o mesmo
+subject da `ADMIN_KEY`, pela superfície pública."""
+
+ADMIN_KEY: Final = "aic_00000000000000a1_admin"
+"""Chave de `user:caio`, do grupo de administração `operadores`."""
+
+SVC_KEY: Final = "aic_00000000000000b2_servico"
+"""Chave de `svc:ingestor`, sem grupos."""
+
+
+def bearer(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+class Platform:
+    """A app montada com os serviços reais da 003 e os adapters em memória, mais os objetos para inspeção."""
+
+    def __init__(self, data: Any = None, *, llm: Any = None, trace: Any = None, **overrides: Any) -> None:
+        from assistants_testkit import (
+            POLICIES,
+            T0,
+            MutableClock,
+            access_service,
+            assistant,
+            assistants_service,
+            claims,
+            config,
+            private,
+        )
+
+        from ai_core.assistants.adapters.memory import (
+            InMemoryApiKeyStore,
+            InMemoryUserAssistantStore,
+            StaticOidcVerifier,
+        )
+        from ai_core.assistants.api import ApiKeyInfo
+        from ai_core.assistants.domain.keys import ApiKeyRecord, hash_key
+
+        self.clock = overrides.pop("assistants_clock", None) or MutableClock()
+        keys = InMemoryApiKeyStore()
+        for plaintext, key_id, subject, groups in (
+            (ADMIN_KEY, "00000000000000a1", "user:caio", frozenset({"operadores"})),
+            (SVC_KEY, "00000000000000b2", "svc:ingestor", frozenset()),
+        ):
+            info = ApiKeyInfo(key_id=key_id, subject=subject, groups=groups, created_at=T0)
+            keys.seed(ApiKeyRecord(info=info, key_hash=hash_key(plaintext)))
+        oidc = StaticOidcVerifier(
+            {
+                ANA_TOKEN: claims("ana", ttl=3600),
+                BIA_TOKEN: claims("bia", groups=["chefia"], ttl=3600),
+                CAIO_TOKEN: claims("caio", ttl=3600),
+            }
+        )
+        self.access = access_service(keys=keys, oidc=oidc, clock=self.clock)
+        self.users = overrides.pop("users", None) or InMemoryUserAssistantStore()
+        self.assistants = assistants_service(
+            data
+            if data is not None
+            else config(
+                {
+                    "geral": assistant(description="uso geral"),
+                    "privado": private(allow=["user:caio"], schemes=["api_key"]),
+                    "chefia": private(allow=["group:chefia"], schemes=["oidc"]),
+                },
+                policies=POLICIES,
+            ),
+            users=self.users,
+            clock=self.clock,
+        )
+        self.conversations = overrides.pop("conversations", None) or InMemoryConversationStore()
+        self.app = app_with(
+            engine(llm=llm, trace=trace),
+            authenticator=self.access,
+            grants=self.assistants,
+            directory=self.assistants,
+            keys=self.access,
+            admin=self.access,
+            conversations=self.conversations,
+            **overrides,
+        )

@@ -431,3 +431,11 @@ name = "o Model Router não importa a 003"
 type = "forbidden"
 source_modules = ["ai_core.llm"]
 forbidden_modules = ["ai_core.assistants"]
+
+# --- Spec 008, Fase 2 (research R22): driver de banco só nos adapters da API ------------------------------------------
+
+[[tool.importlinter.contracts]]
+name = "o núcleo da API não importa driver de banco"
+type = "forbidden"
+source_modules = ["ai_core.http.ports", "ai_core.http.domain", "ai_core.http.service"]
+forbidden_modules = ["psycopg", "psycopg_pool"]

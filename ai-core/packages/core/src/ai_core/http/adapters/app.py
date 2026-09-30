@@ -1,17 +1,33 @@
 """Fábrica da app HTTP, chamada pela composition root (spec 011).
 
-As duas superfícies são o mesmo roteador montado em dois prefixos, cada um sabendo qual é a sua — é o que o
-`design.md` descreve e evita duplicar rota (FR-001).
+As duas superfícies são os mesmos roteadores montados em dois prefixos, cada um sabendo qual é a sua (FR-001). A app
+recebe tudo pronto: os seams da 003, 002 e 005 e os adapters das portas deste módulo (princípio XIII).
 """
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from fastapi import FastAPI
 
+from ai_core.assistants.api import (
+    PRIVATE_SURFACE,
+    PUBLIC_SURFACE,
+    ApiKeyAdmin,
+    AssistantDirectory,
+    Authenticator,
+    GrantResolver,
+)
 from ai_core.graph.api import ExecutionEngine
+from ai_core.http.adapters import errors
 from ai_core.http.adapters.chat import chat_router
-from ai_core.http.ports import PRIVATE_SURFACE, PUBLIC_SURFACE, Authenticator, Clock, GrantResolver, RequestIds
-from ai_core.http.service import ChatService
+from ai_core.http.adapters.conversations import conversations_router
+from ai_core.http.adapters.models import models_router
+from ai_core.http.adapters.private import private_router
+from ai_core.http.adapters.user_assistants import user_assistants_router
+from ai_core.http.ports import AdminGate, Clock, ConversationStore, HealthProvider, RequestIds
+from ai_core.http.service import DEFAULT_RETENTION, ChatService, ConversationService
+from ai_core.packs.api import PackRegistry
 
 PUBLIC_PREFIX = "/v1"
 PRIVATE_PREFIX = "/private/v1"
@@ -22,15 +38,44 @@ def create_app(
     engine: ExecutionEngine,
     authenticator: Authenticator,
     grants: GrantResolver,
+    directory: AssistantDirectory,
+    keys: ApiKeyAdmin,
+    packs: PackRegistry,
+    admin: AdminGate,
+    conversations: ConversationStore,
+    health: HealthProvider,
     request_ids: RequestIds,
+    conversation_ids: RequestIds,
     clock: Clock,
+    conversation_retention: timedelta = DEFAULT_RETENTION,
 ) -> FastAPI:
-    """Monta a app com os seams já injetados. A API não instancia nada: recebe tudo pronto (princípio XIII)."""
+    """Monta a app com os seams já injetados. A API não instancia nada de outro módulo (princípio XIII)."""
     app = FastAPI(title="ai-core", version="0.1.0")
     app.state.chat_service = ChatService(
-        engine=engine, grants=grants, request_ids=request_ids, clock=clock
+        engine=engine,
+        grants=grants,
+        request_ids=request_ids,
+        clock=clock,
+        conversations=conversations,
+        conversation_ids=conversation_ids,
+    )
+    app.state.conversation_service = ConversationService(
+        store=conversations, clock=clock, retention=conversation_retention
     )
     app.state.authenticator = authenticator
-    app.include_router(chat_router(surface=PUBLIC_SURFACE), prefix=PUBLIC_PREFIX)
-    app.include_router(chat_router(surface=PRIVATE_SURFACE), prefix=PRIVATE_PREFIX)
+    app.state.directory = directory
+    app.state.keys = keys
+    app.state.packs = packs
+    app.state.admin = admin
+    app.state.conversations = conversations
+    app.state.health = health
+    app.state.conversation_ids = conversation_ids
+    app.state.clock = clock
+    errors.install(app)
+    for surface, prefix in ((PUBLIC_SURFACE, PUBLIC_PREFIX), (PRIVATE_SURFACE, PRIVATE_PREFIX)):
+        app.include_router(chat_router(surface=surface), prefix=prefix)
+        app.include_router(models_router(surface=surface), prefix=prefix)
+        app.include_router(conversations_router(surface=surface), prefix=prefix)
+    app.include_router(user_assistants_router(), prefix=PUBLIC_PREFIX)
+    app.include_router(private_router(), prefix=PRIVATE_PREFIX)
     return app

@@ -83,3 +83,11 @@ async def test_subject_fora_do_formato_e_recusado_nomeando_o_campo(subject: str)
 async def test_revogar_chave_inexistente_e_not_found() -> None:
     with pytest.raises(NotFound):
         await access_service().revoke(actor=CAIO_KEY, key_id="00000000000000ff")
+
+
+def test_is_admin_publico_segue_a_mesma_regra() -> None:
+    """T025 — a regra que a 008 consome pela porta `AdminGate`."""
+    service = access_service()
+    assert service.is_admin(CAIO_KEY)
+    assert not any(service.is_admin(p) for p in (ANA, BIA, CAIO_OIDC, SVC))
+    assert not access_service(admin_group=None).is_admin(CAIO_KEY)

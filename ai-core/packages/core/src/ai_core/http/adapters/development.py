@@ -1,8 +1,8 @@
-"""Adapters das portas para a Fase 1: identidade anônima, identificadores e relógio.
+"""Adapters de desenvolvimento e de teste: identidade anônima, saúde fixa, identificadores e relógio.
 
 O autenticador anônimo aceita qualquer requisição — é de **desenvolvimento**, e o nome diz isso para que a composition
-root (011) o anuncie no boot e ninguém o confunda com configuração de produção. Na Fase 2 a 003 fornece o verificador
-real, e nenhuma rota muda (research R1).
+root (011) o anuncie no boot e ninguém o confunda com configuração de produção. O verificador real é o
+`AccessService` da 003; pôr autenticação real nos perfis é da passada da Fase 2 da 011 (research R13).
 """
 
 from __future__ import annotations
@@ -10,29 +10,40 @@ from __future__ import annotations
 import time
 import uuid
 from collections.abc import Sequence
-from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from ai_core.http.ports import Principal
+from ai_core.assistants.api import SCHEME_OF_SURFACE, Principal
+from ai_core.http.ports import HealthItem, HealthReport
 
-ANONYMOUS_ID = "anonymous"
-
-
-@dataclass(frozen=True, slots=True)
-class DevelopmentPrincipal:
-    """Principal sem autenticação de verdade. Cumpre `Principal` (spec 008)."""
-
-    id: str = ANONYMOUS_ID
+ANONYMOUS_SUBJECT = "user:anonymous"
 
 
 class AnonymousAuthenticator:
-    """Aceita qualquer credencial, nas duas superfícies, e devolve sempre o mesmo Principal."""
+    """Aceita qualquer credencial, nas duas superfícies, e devolve `user:anonymous` com o esquema da superfície.
 
-    def __init__(self, principal: Principal | None = None) -> None:
-        self._principal = principal or DevelopmentPrincipal()
+    O Principal é o da 003: a ACL dos Assistants continua valendo — um Assistant com `allow: ["*"]` atende; um privado,
+    não. Superfície desconhecida é recusada, como no autenticador real.
+    """
 
-    async def authenticate(self, *, surface: str, credential: str | None) -> Principal:
-        return self._principal
+    def __init__(self, subject: str = ANONYMOUS_SUBJECT, groups: frozenset[str] = frozenset()) -> None:
+        self._subject = subject
+        self._groups = groups
+
+    async def authenticate(self, *, surface: str, credential: str | None) -> Principal | None:
+        scheme = SCHEME_OF_SURFACE.get(surface)
+        if scheme is None:
+            return None
+        return Principal(subject=self._subject, scheme=scheme, groups=self._groups)
+
+
+class StaticHealthProvider:
+    """Saúde fixa, para testes e para quem ainda não tem o agregador da 011."""
+
+    def __init__(self, *items: HealthItem) -> None:
+        self._report = HealthReport(items=tuple(items))
+
+    async def health(self) -> HealthReport:
+        return self._report
 
 
 class Uuid4RequestIds:

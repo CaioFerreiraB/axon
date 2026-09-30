@@ -93,6 +93,13 @@ Fase 2 da 008 (rotas, status, CRUD, endpoint de chaves) e da 011 (perfis, etapa 
 Da 002, a US4 da Fase 2 também existe: `packs list` e `packs check` em `ai_core/packs/adapters/cli.py`, sobre o
 registry carregado pela mesma rotina do boot (`check` reprova com 1 todo pack em erro, inclusive instalado e
 desabilitado, e com 2 o `packs.yaml` malformado), aguardando o registro na raiz `ai-core` pela 011.
+Da 008, a Fase 2 (US2, US3, US4 de Assistants, US5, US7) também existe: a API consome os seams da 003 direto
+(`Authorization: Bearer`, erros no envelope da OpenAI, 424 para Assistant indisponível), com `/models` (id curto por
+Assistant), a requisição nativa estrita `POST /chat`, o CRUD de Assistants de usuário em `/v1/assistants`, a superfície
+privada (`/packs` e `/admin/keys` só para o grupo de administração, `/health` para qualquer chave) e as conversas no
+servidor — dono = subject, continuação por `conversation_id`, exclusão, expiração, em memória e em Postgres (schema
+`http`). A composition root já monta tudo isso com os serviços da 003 em memória e a etapa de validação de Assistants;
+o autenticador dos perfis continua o anônimo até a passada da 011. Endpoints de MCP são Fase 3.
 
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
