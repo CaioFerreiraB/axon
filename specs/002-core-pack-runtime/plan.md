@@ -26,6 +26,12 @@ Hooks** (prompts na ordem, `prepare` com Turn View recortada e merge raso, `vali
 nomeia o pack). Escopo da Fase 1: **US1, US2 e US3 cenários 2–4**; CLI (US4) na Fase 2, catálogo com namespace (US3
 cenário 1) na Fase 3, template de instalação (US5) na Fase 4, pack declarativo (US6) em P3.
 
+**Fase 2 (2026-09-30): US4.** Os comandos `packs list` e `packs check` como funções em `adapters/cli.py` sobre o Pack
+Registry já carregado — o mesmo que o servidor monta, pela mesma rotina de carga (R5). `check` reprova com código 1
+qualquer pack em erro, inclusive instalado e desabilitado, e com 2 o `packs.yaml` malformado; o registro na raiz
+`ai-core` é da 011 (US4) e a introspecção HTTP, da 008 (US5). Sem porta, dependência ou entidade novas
+([research.md](research.md) R15–R17).
+
 ## Technical Context
 
 **Language/Version**: Python 3.14 (`ai-core` com `requires-python = ">=3.14"`); `ai-core-contracts` mantém o piso 3.12,
@@ -53,7 +59,8 @@ domínio (princípio I)
 **Scale/Scope**: 1 módulo (`api.py`, `domain/` com 5 arquivos, `ports.py`, `service.py`, 3 adapters); ~15 símbolos
 públicos no `api.py`
 
-Nenhum `NEEDS CLARIFICATION` — resolvidos na clarificação de 2026-09-15 e em [research.md](research.md).
+Nenhum `NEEDS CLARIFICATION` — resolvidos na clarificação de 2026-09-15 e em [research.md](research.md). A Fase 2 não
+muda nenhuma linha acima: a US4 usa só a biblioteca padrão, dentro de `adapters/`.
 
 ## Constitution Check
 
@@ -116,7 +123,8 @@ specs/002-core-pack-runtime/
 ├── contracts/
 │   ├── pack-runtime-api.md   # seams Pack Registry e Pack Hooks
 │   ├── ports.md              # PackSource, PackConfigSource e suas conformidades
-│   └── packs-yaml.md         # formato da configuração do operador
+│   ├── packs-yaml.md         # formato da configuração do operador
+│   └── cli.md                # packs list e packs check (Fase 2, US4)
 └── tasks.md             # /speckit-tasks
 ```
 
@@ -151,16 +159,18 @@ ai-core/
         │           ├── __init__.py
         │           ├── memory.py         # InMemoryPackSource, InMemoryPackConfigSource
         │           ├── entry_points.py   # EntryPointPackSource (grupo ai_core.packs)
-        │           └── config_yaml.py    # YamlPackConfigSource (packs.yaml)
+        │           ├── config_yaml.py    # YamlPackConfigSource (packs.yaml)
+        │           └── cli.py            # Fase 2 (US4): packs list e packs check sobre o registry carregado
         └── tests/packs/
             ├── conftest.py           # packs de teste (PackBase) e fábrica de distribuições falsas
             ├── unit/                 # domain/*, service com adapters em memória, matriz de falhas
             ├── contract/             # conformidade das portas (memória × real) e dos seams
-            └── integration/          # carga completa com entry points e packs.yaml reais em tmp_path
+            └── integration/          # carga completa com entry points e packs.yaml reais em tmp_path;
+                                      # test_packs_cli.py (Fase 2): os comandos contra a carga real
 ```
 
 **Structure Decision**: layout hexagonal do ADR-012, no caminho do design.md (`ai-core/packages/core/src/ai_core/packs/`).
-`adapters/cli.py` (US4) e `adapters/declarative.py` (US6) entram nas fases deles. A distribuição `ai-core` é criada com o
+`adapters/cli.py` entra na Fase 2 (US4) e `adapters/declarative.py` (US6) em P3. A distribuição `ai-core` é criada com o
 mínimo para este módulo; o script `ai-core` e a composition root são da 011.
 
 ## Seam Notes for Consumers
@@ -170,7 +180,7 @@ mínimo para este módulo; o script `ai-core` e a composition root são da 011.
 | 003 (Fase 2) | Validar Assistant = `PackRegistry.compose(assistant.packs)`; `CompositionError` torna o Assistant indisponível com a mensagem |
 | 005 (Fase 1) | Guardar `slices` na execução; chamar `prepare`/`validate` com a Turn View base (fatias vazias) e o mapeamento; `PackHookError` encerra a execução com erro explícito |
 | 008 | Introspecção = `PackRegistry.entries()` |
-| 011 | Montar `PackRuntime(source, config_source)` pelo perfil (`memory` nos testes; entry points + YAML no real); configurar handlers do logger `ai_core.packs`; o registry é montado uma vez no boot |
+| 011 | Montar `PackRuntime(source, config_source)` pelo perfil (`memory` nos testes; entry points + YAML no real); configurar handlers do logger `ai_core.packs`; o registry é montado uma vez no boot. Fase 2: registrar `packs list` e `packs check` (`adapters/cli.py`), carregando o registry com os mesmos adapters do servidor e sem abrir a API; `PackConfigError` vai para `config_error_command` (código 2) |
 | 010 | Pack genérico em `ai-core/packages/generic/` — já coberto por `members = ["packages/*"]` (clarificação de 2026-09-17 da 010; a redação anterior dizia `packs/generic/`) |
 
 ## Constitution Check — pós-design (Phase 1)
@@ -182,6 +192,16 @@ Reavaliado com [data-model.md](data-model.md) e [contracts/](contracts/): **PASS
 - VII: cada transição para `error` do diagrama de estados tem mensagem com etapa e causa; configuração malformada é o
   único caso que para o boot, e é decisão da 011.
 - XIII: `jsonschema` em `domain/config.py` é validação pura; o teste de fronteira proíbe `yaml` fora de `adapters/`.
+
+## Constitution Check — Fase 2 (US4)
+
+Reavaliado para a US4: **PASS**, sem mudança em nenhum item acima.
+
+- II: nenhum seam muda; a CLI é adapter primário do próprio módulo e lê só `PackRegistry` (R15).
+- VII: `check` reprova exatamente o que o boot marcaria como erro, com a mesma mensagem (R16).
+- XIII: `adapters/cli.py` usa só a biblioteca padrão; nenhuma porta nova (não há I/O além da saída que recebe); quem monta
+  e carrega o registry continua sendo a composition root.
+- XII: sem saída estruturada nem parser próprio (R17, R15).
 
 ## Complexity Tracking
 

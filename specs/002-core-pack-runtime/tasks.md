@@ -1,6 +1,6 @@
 ---
 
-description: "Tarefas da Fase 1 da 002 — Pack Runtime (US1, US2, US3 cenários 2–4)"
+description: "Tarefas da 002 — Pack Runtime: Fase 1 (US1, US2, US3 cenários 2–4) e Fase 2 (US4)"
 ---
 
 # Tasks: Descoberta, carga e composição de packs
@@ -17,6 +17,10 @@ primeiro.
 **Escopo**: **Fase 1** — US1, US2 e US3 cenários 2–4 (Pack Hooks de execução). Fora desta lista: US3 cenário 1
 (catálogo com namespace, Fase 3), US4 (CLI `packs list | check`, Fase 2), US5 (template de instalação, Fase 4), US6
 (pack declarativo, P3), `reranker`/`routine` no Pack Hooks (Fase 5 e 001 US5).
+
+**Fase 2 (2026-09-30)**: US4 — `packs list` e `packs check` como funções sobre o registry carregado (Phase 7,
+T034–T037; [research.md](research.md) R15–R17). O registro na raiz `ai-core` é da 011 (US4); a introspecção HTTP, da 008
+(US5).
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -151,6 +155,46 @@ de fatia não declarada e hook que levanta encerram com `PackHookError` (quickst
 
 ---
 
+## Phase 7: User Story 4 — Operador inspeciona e valida packs sem subir o servidor (Priority: P2) — Fase 2
+
+**Goal**: listar o que está instalado e habilitado e reprovar, com código de saída, exatamente o que o boot marcaria
+como erro — inclusive pack instalado e desabilitado.
+
+**Independent Test**: `uv run pytest packages/core/tests/packs/integration/test_packs_cli.py` — com um pack
+incompatível instalado, `check` sai com código diferente de zero e nomeia a incompatibilidade.
+
+### Tests for User Story 4 ⚠️
+
+- [X] T034 [US4] Criar `ai-core/packages/core/tests/packs/integration/test_packs_cli.py` com os seis itens de
+  [contracts/cli.md](contracts/cli.md), sobre a carga real (`EntryPointPackSource` + `YamlPackConfigSource`, com
+  `FakeDistributions` e `packs.yaml` em `tmp_path`, como `test_packs_entry_points_load.py`): `list_command` imprime uma
+  linha por pack com nome, versão, versão de contrato e status, `-` onde não há valor (pack citado e não instalado), e
+  sai com 0 mesmo com pack em erro; `check_command` sai com 0 e `M packs ok` quando todos estão bons; sai com 1 e nomeia
+  a incompatibilidade de um pack com `contract_version = "0.2"` **desabilitado** no `packs.yaml` (US4 cen. 2); sai com 1
+  nomeando pack citado e não instalado e pack com `config` fora do schema; `config_error_command` sai com 2 e repete a
+  mensagem de `PackConfigError`
+
+### Implementation for User Story 4
+
+- [X] T035 [US4] Implementar `ai-core/packages/core/src/ai_core/packs/adapters/cli.py` conforme
+  [contracts/cli.md](contracts/cli.md) e research R15–R17: `list_command(registry, out) -> int`,
+  `check_command(registry, out) -> int` e `config_error_command(error, err) -> int`, síncronas, só com a biblioteca
+  padrão; saída em colunas na ordem de `entries()`, erro na mesma linha, `-` para campo ausente; `check` imprime só as
+  entradas em erro e o resumo (`N de M packs em erro` ou `M packs ok`); códigos 0/1/2 como os do `assistants validate`
+  (003). Sem parser: o registro é da 011
+
+**Checkpoint**: a US4 da 002 está pronta para a 011 registrar
+
+### Polish da Fase 2
+
+- [X] T036 Rodar a seção 7 de [quickstart.md](quickstart.md) e a verificação completa (`uv run pytest`, `uv run mypy`,
+  `uv run ruff check packages`, `uv run lint-imports`), corrigindo divergências
+- [X] T037 [P] Atualizar a linha da 002 em `specs/README.md` (status "Fase 1 implementada (US1, US2, US3 cen. 2–4);
+  Fase 2 (US4) implementada") e a seção "Código" de `CLAUDE.md` (os comandos `packs list`/`packs check` existem em
+  `ai_core/packs/adapters/cli.py`, aguardando o registro pela 011)
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -162,6 +206,7 @@ de fatia não declarada e hook que levanta encerram com `PackHookError` (quickst
 - **US2 (Phase 4)**: depende da US1 (completa a carga do `service.py`)
 - **US3 (Phase 5)**: depende da US2 (`compose` e o registry completo); T026 estende o arquivo de T022
 - **Polish (Phase 6)**: depende de tudo
+- **US4 (Phase 7, Fase 2)**: depende só da carga da Fase 1, já entregue; T034 → T035 → T036; T037 em paralelo com T036
 
 ### Within Each User Story
 
@@ -212,4 +257,5 @@ A 005 US1 pode começar quando a US3 desta lista estiver pronta; a 011 depende d
 
 - [P] = arquivos diferentes, sem dependência de tarefa incompleta
 - Commit após cada tarefa ou grupo lógico
-- Fora de escopo: US3 cenário 1, US4, US5, US6 e `reranker`/`routine` do Pack Hooks
+- Fora de escopo: US3 cenário 1, US5, US6 e `reranker`/`routine` do Pack Hooks; da US4, o registro na raiz `ai-core`
+  (011) e a introspecção HTTP (008)

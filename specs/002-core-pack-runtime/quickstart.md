@@ -92,3 +92,14 @@ uv run --no-project --python 3.12 --with ./packages/contracts --with pytest --wi
 ```
 
 **Esperado**: a suíte dos contratos continua passando em 3.12, fora do workspace (que agora exige 3.14).
+
+## 7. CLI de packs (US4, Fase 2)
+
+```bash
+uv run pytest packages/core/tests/packs/integration/test_packs_cli.py -v
+```
+
+Esperado: `list` mostra nome, versão, versão de contrato e status de cada pack e sai com 0; `check` sai com 1 e nomeia a
+incompatibilidade quando há um pack incompatível instalado, mesmo desabilitado, e com 0 quando todos estão bons;
+`packs.yaml` malformado sai com 2 ([contracts/cli.md](contracts/cli.md)). Rodar os comandos pela raiz `ai-core` depende
+do registro pela 011 (US4).

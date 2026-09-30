@@ -198,6 +198,48 @@ que o design deixou em aberto, à luz das clarificações de 2026-09-15 e do con
 - **Rationale**: mesmo padrão do `contracts.yml`.
 - **Alternatives**: um workflow único para o workspace (misturaria as regras do FR-020, que valem só para os contratos).
 
+## Decisões da Fase 2 (US4) — 2026-09-30
+
+Clarificação da Fase 2 sem perguntas: o que `packs check` verifica já está em R5 (todo pack instalado, inclusive os
+desabilitados) e na FR-003 (valida a configuração nova antes do restart). As decisões abaixo são de plano.
+
+### R15 — Os comandos são funções sobre o Pack Registry já carregado
+
+- **Decision**: `adapters/cli.py` oferece `list_command(registry, out)`, `check_command(registry, out)` e
+  `config_error_command(error, err)`. Recebem o `PackRegistry` que a composition root montou e carregou com os mesmos
+  adapters do servidor (entry points + `packs.yaml`), sem abrir a API. Quem os registra na raiz `ai-core` é a 011 (US4);
+  a introspecção na superfície privada é a 008 (US5), a partir de `PackRegistry.entries()`.
+- **Rationale** (design.md, "Linha de comando": "os subcomandos `packs` moram em `adapters/cli.py` deste módulo; a raiz
+  `ai-core` que os registra é da spec 011"; 011 FR-010, FR-011): o comando e o servidor não podem divergir sobre o mesmo
+  pack, então os dois leem o mesmo registry, carregado pela mesma rotina (R5). Sem parser aqui: o framework de linha de
+  comando é decisão da 011 — o mesmo arranjo da 003 (research R14 dela).
+- **Alternatives**: o comando montar o próprio `PackRuntime` (duplicaria a escolha de adapters, que é da composition
+  root); ler os entry points direto, sem a carga (o `check` do build aprovaria o que o boot recusa).
+
+### R16 — O que reprova o `packs check` e com que código
+
+- **Decision**: qualquer entrada do registry com `status == error` — pack instalado incompatível (mesmo desabilitado),
+  identidade divergente, falha de import ou de instanciação, configuração que não conforma ao schema, dependência
+  indisponível ou circular, pack citado e não instalado — sai com **1**, nomeando pack e causa. `packs.yaml` malformado
+  (`PackConfigError`, que para o boot) sai com **2**. Tudo certo, **0**. `packs list` sai com 0 mesmo com packs em erro —
+  listar não é validar —, e com 2 para `packs.yaml` malformado.
+- **Rationale** (US4 cen. 2, FR-012, R5, R-A2): o `check` roda no build da imagem (US5, Fase 4) e precisa reprovar
+  exatamente o que o boot marcaria como erro. Os códigos são os do `assistants validate` da 003 — 0 disponível, 1
+  indisponível, 2 configuração —, para que um script de build trate os dois comandos do mesmo jeito.
+- **Alternatives**: reprovar só packs habilitados (um pack instalado e incompatível passaria no build e quebraria no dia
+  em que alguém o habilitasse); um código só para qualquer falha (o build não distinguiria arquivo quebrado de pack
+  quebrado).
+
+### R17 — Saída em texto, uma linha por pack
+
+- **Decision**: uma linha por entrada, na ordem de `entries()` (por nome): nome, versão, versão de contrato, status e,
+  quando em erro, a mensagem. `check` termina com um resumo (`N de M packs em erro`, ou `M packs ok`). Campo ausente
+  (pack não instalado não tem versão) aparece como `-`. Sem saída estruturada nesta fase.
+- **Rationale** (US4 cen. 1; princípio XII): é o que o operador lê no terminal e no log do build. A interface
+  estruturada é a introspecção HTTP da 008, que já devolve JSON; uma segunda, sem consumidor, seria complexidade sem
+  caso de uso.
+- **Alternatives**: `--json` (sem consumidor hoje; entra de forma aditiva se o build precisar).
+
 ## Pendências para outros planos
 
 | Pendência | Onde |
@@ -205,6 +247,7 @@ que o design deixou em aberto, à luz das clarificações de 2026-09-15 e do con
 | `assistants validate` chama `PackRegistry.compose` com a lista de cada Assistant; Assistant com composição inválida fica indisponível | plano da 003 (Fase 2) |
 | Motor guarda o mapeamento de fatias e passa Turn View base + `slices` ao Pack Hooks; transforma `PackHookError` em erro explícito | plano da 005 |
 | Caminho do `packs.yaml` e escolha do adapter por perfil; handlers de log; raiz do CLI | plano da 011 |
+| Registrar `packs list` e `packs check` (`adapters/cli.py`, R15) na raiz `ai-core`, carregando o registry sem abrir a API | plano da 011 (Fase 2, US4) |
 | Introspecção HTTP a partir de `PackRegistry.entries()` | plano da 008 |
 | Pacote genérico em `ai-core/packs/generic/` exige acrescentar `packs/*` aos membros do workspace | plano da 010 |
 | Conformidade da 001 checar `name`/`contract_version` como atributos de classe (FR-017) — adição de patch | backlog da 001 |

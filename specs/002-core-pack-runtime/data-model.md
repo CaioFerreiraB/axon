@@ -141,3 +141,8 @@ Toda mensagem começa pela etapa, para o operador achar a causa em menos de 1 mi
 | catálogo | `hook tools levantou ValueError: ...` · `declaração inválida: duas tools com o nome 'search'` |
 | dependência | `depende de 'b', que está em erro` · `dependência circular: a → b → a` |
 | instalação | `não instalado` |
+
+## Fase 2 (US4) — sem entidades novas
+
+`packs list` e `packs check` são projeções de `PackEntry`: nome, versão, versão de contrato, status e erro
+([contracts/cli.md](contracts/cli.md)). Nenhum campo novo no registry.
