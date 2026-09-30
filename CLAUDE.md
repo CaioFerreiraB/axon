@@ -90,6 +90,9 @@ referências e os comandos `assistants validate`/`keys`. É o primeiro módulo c
 `assistants`, migrações SQL no próprio adapter (ADR-015) —, e o grant carrega a `ModelPolicy` da 006 (seta 003 → 006,
 ADR-016). A plataforma em execução ainda usa o resolvedor e o autenticador da Fase 1: o encaixe vem com as passadas da
 Fase 2 da 008 (rotas, status, CRUD, endpoint de chaves) e da 011 (perfis, etapa de boot, registro da CLI).
+Da 002, a US4 da Fase 2 também existe: `packs list` e `packs check` em `ai_core/packs/adapters/cli.py`, sobre o
+registry carregado pela mesma rotina do boot (`check` reprova com 1 todo pack em erro, inclusive instalado e
+desabilitado, e com 2 o `packs.yaml` malformado), aguardando o registro na raiz `ai-core` pela 011.
 
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
