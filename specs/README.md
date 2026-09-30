@@ -203,11 +203,12 @@ secundárias (armazenamento, relógio, segredos…) não são seams: são intern
 | **Contratos de serviço** (`LLMProvider`, `MCPClient`) | 001 | 006, 007 | Formas que providers e cliente MCP implementam |
 | **Pack Registry** | 002 | 003, 004, 008 | Packs habilitados, status, capacidades por pack |
 | **Pack Hooks** | 002 | 005 | Executa hooks de pack com isolamento de fatia: prompts, preparação de contexto, rerank, validators, rotinas |
-| **Principal** + **Execution Grant** | 003 | 004, 005, 006, 007, 008 | Quem pede e o que a execução pode usar, já resolvido e restrito |
+| **Principal** + **Execution Grant** | 003 | 004, 005, 007, 008 | Quem pede e o que a execução pode usar, já resolvido e restrito |
 | **Assistant Directory** | 003 | 008 | Listagem filtrada por ACL e CRUD de assistants de usuário |
+| **API Key Admin** | 003 | 008 | Emissão, listagem e revogação de chaves de API (superfície privada; a CLI é adapter da própria 003) |
 | **Capability Catalog** + **Tool Gateway** | 004 | 005 | Catálogo por execução; execução de tool com timeout, limite, fencing, política de escrita e auditoria |
 | **Execution Engine** (`run(grant, request) → eventos`) + **nomes de flow** | 005 | 008, 009, 003 (valida nomes) | Única porta de entrada para executar; saída é um fluxo de eventos |
-| **Model Router** | 006 | 005 | Resolve provider+modelo por papel, aplicando allowlist |
+| **Model Router** | 006 | 005; 003 (só os value objects da política — [ADR-016](../docs/adr/ADR-016-grant-carrega-politica-de-modelos.md)) | Resolve provider+modelo por papel, aplicando allowlist |
 | **MCP Registry** + **cliente MCP restrito** | 007 | 003, 004, 008 | Servidores por alias, escopo e política; cliente limitado a aliases autorizados |
 | **Trace Sink** | 009 | 004, 005, 006 | Porta de emissão de dados de trace por requisição; o backend é adapter ([ADR-013](../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md)) |
 | **Trace** + **Eval Harness** (formato de conjunto dourado) | 009 | 008 (id de requisição), 105, CI | Consulta de trace por requisição; execução de conjuntos dourados, com data de referência por item |
@@ -251,6 +252,7 @@ flowchart LR
     C010 --> C001
     C003 --> C002
     C003 --> C005
+    C003 --> C006
     C003 --> C007
     C004 --> C002
     C004 --> C003
@@ -261,7 +263,6 @@ flowchart LR
     C005 --> C004
     C005 --> C006
     C005 --> C009
-    C006 --> C003
     C006 --> C009
     C007 --> C003
     C008 --> C003

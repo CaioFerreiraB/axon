@@ -100,6 +100,9 @@ class Authenticator(Protocol):     # seam em api.py
         """Levanta NotAuthenticated. A superfície pública aceita só OIDC; a privada, só chave de API."""
 ```
 
+> Forma superada pela [research R1](research.md): argumentos só por nome, `credential: str | None` e `None` para
+> credencial recusada — a forma da porta que a 008 já declarou.
+
 A dependência HTTP que extrai a credencial da requisição e chama `authenticate` é da spec 008 (adapter primário).
 Superfícies são poucas e estáveis; assistants crescem. Por isso a variável de roteamento é a superfície de auth, não o pack (ADR-002).
 
@@ -130,7 +133,11 @@ class ExecutionGrant:
     limits: Limits                      # rpm, max_iterations, max_context_tokens
 ```
 
-É o único objeto que 004, 005, 006 e 007 recebem para saber o que uma execução pode usar. Nenhum deles lê a configuração de Assistants diretamente.
+> `packs` virou propriedade derivada de `composition` (o `Composition` da 002), que é o que o `Protocol` da 005 lê
+> ([research R1](research.md)); `models: ModelPolicy` faz a seta ser 003 → 006 ([ADR-016](../../docs/adr/ADR-016-grant-carrega-politica-de-modelos.md)).
+
+É o único objeto que 004, 005 e 007 recebem para saber o que uma execução pode usar; a 006 recebe dele a política já
+pronta. Nenhum deles lê a configuração de Assistants diretamente.
 
 ## Cadeia de enforcement (arch-v1 §16) — elos por spec
 
@@ -163,10 +170,11 @@ Campos rejeitados por ampliar: `packs`, `mcp_servers`, `provider` fora da allowl
 | `Authenticator` | primária (seam) | `service.py` | suíte de conformidade (os dois esquemas, credencial inválida) |
 | `GrantResolver` | primária (seam) | `service.py` | suíte adversarial: 404-não-403, ampliação rejeitada |
 | `AssistantDirectory` | primária (seam) | `service.py` | listagem filtrada por ACL |
-| `AssistantStore` | secundária | YAML (sistema); memória → Postgres (usuário, Fase 2) | em memória + conformidade contra Postgres |
-| `ApiKeyStore` | secundária | configuração do operador (Fase 2); armazenamento a decidir no plano | em memória |
+| `AssistantStore` | secundária | YAML (sistema); memória → Postgres (usuário, Fase 2) — dividida em `AssistantConfigSource` e `UserAssistantStore` ([research R15](research.md)) | em memória + conformidade contra Postgres |
+| `ApiKeyStore` | secundária | ~~configuração do operador (Fase 2); armazenamento a decidir no plano~~ — memória → Postgres, só o hash (clarificação de 2026-09-30, [research R7, R8](research.md), [ADR-015](../../docs/adr/ADR-015-persistencia-postgres-por-modulo.md)) | em memória + conformidade contra Postgres |
 | `OidcVerifier` | secundária | JWKS do provedor OIDC | verificador de teste com chaves locais |
 | `RateCounterStore` | secundária | memória | em memória |
 | `Clock` | secundária | relógio do sistema (adapter único, injetado pela 011) | relógio fixo |
 
-Consome por seam (via `api.py` dos donos): Pack Registry (002), MCP Registry (007), nomes de flow (005).
+Consome por seam (via `api.py` dos donos): Pack Registry (002), MCP Registry (007), nomes de flow (005), value objects da
+política de modelos (006, [ADR-016](../../docs/adr/ADR-016-grant-carrega-politica-de-modelos.md)).

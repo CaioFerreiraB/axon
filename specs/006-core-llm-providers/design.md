@@ -89,5 +89,5 @@ As duas últimas são as decisivas, e são exatamente as que o benchmark padrão
 | `LLMProvider` (contrato 001) | secundária | Ollama (Fase 1); OpenAI e OpenRouter (Fase 3); simulado (teste) | suíte de conformidade de provider, com streaming e `response_format` |
 | `SecretResolver` | secundária | variáveis de ambiente (adapter único, injetado pela 011) | dicionário em memória |
 
-Consome por seam: Execution Grant (003) e Trace Sink (009). Este é o módulo que já nasceu hexagonal na arch-v1: a
+Consome por seam: Trace Sink (009). ~~Execution Grant (003)~~ — superado pelo [ADR-016](../../docs/adr/ADR-016-grant-carrega-politica-de-modelos.md): a política chega pronta, e é a 003 que importa os value objects daqui. Este é o módulo que já nasceu hexagonal na arch-v1: a
 mudança é só a separação `domain/` × `adapters/` e a porta de segredos.

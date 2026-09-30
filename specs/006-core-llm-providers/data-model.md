@@ -32,7 +32,7 @@ provider remoto na Fase 3.
 | `roles` | `Mapping[ModelRole, ModelRef]` | pelo menos um papel; guardado como `MappingProxyType` |
 | `allow` | `tuple[str, ...]` | padrões `fnmatch` sobre `"provider/model"`; vazio = nenhuma restrição declarada |
 
-Construída pela composition root (011) na Fase 1 e derivada do Execution Grant (003) a partir da Fase 2 — a forma é a
+Construída pela composition root (011) na Fase 1 e pela 003, dentro do Execution Grant, a partir da Fase 2 ([ADR-016](../../docs/adr/ADR-016-grant-carrega-politica-de-modelos.md)) — a forma é a
 mesma nas duas fases (R1). `__post_init__` rejeita papel fora do vocabulário e política sem papel nenhum.
 
 ### `ModelHealth` — resultado da verificação sob demanda (FR-009)

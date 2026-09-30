@@ -12,7 +12,7 @@
 
 - **Módulo**: LLM Providers — implementações de provider e o roteador que resolve provider + modelo por papel, aplicando a allowlist do Assistant.
 - **Repositório / distribuição**: `ai-core` → `ai_core/llm/` (providers em `adapters/`).
-- **Consome (seams)**: contrato `LLMProvider` — 001; Execution Grant (política de modelos) — 003, a partir da Fase 2; Trace Sink — 009.
+- **Consome (seams)**: contrato `LLMProvider` — 001; Trace Sink — 009. A política de modelos chega pronta, como `ModelPolicy` deste módulo: montada pela 011 na Fase 1 e pela 003, dentro do Execution Grant, a partir da Fase 2 ([ADR-016](../../docs/adr/ADR-016-grant-carrega-politica-de-modelos.md)).
 - **Expõe (seams)**: **Model Router** (`for_execution(política, requisição)` → `for_role(papel) → cliente de modelo`, mais a verificação de saúde) — consumido por 005 e, para saúde e montagem, pela composition root (011).
 - **Depende de infraestrutura (via portas)**: provedores de modelo, local e remotos (adapters de `LLMProvider`); segredos (credenciais dos providers remotos).
 - **Não conhece**: flows, packs, prompts, domínio.
@@ -23,7 +23,7 @@
 
 ### Session 2026-09-18
 
-- Q: Na Fase 1 o Execution Grant (003) ainda não existe. De onde o roteador tira a política de modelos por papel? → A: A política é um value object publicado no `api.py` deste módulo (**Model Policy**: modelo por papel + allowlist), com que o roteador é construído. Na Fase 1 quem o monta a partir da configuração do operador é a composition root (011); a partir da Fase 2 a própria 006 o deriva do Execution Grant, o que preserva a direção 006 → 003 do grafo de dependências e mantém o seam inalterado entre as fases. O roteador continua puro e testável sem 003.
+- Q: Na Fase 1 o Execution Grant (003) ainda não existe. De onde o roteador tira a política de modelos por papel? → A: A política é um value object publicado no `api.py` deste módulo (**Model Policy**: modelo por papel + allowlist), com que o roteador é construído. Na Fase 1 quem o monta a partir da configuração do operador é a composition root (011); a partir da Fase 2 a própria 006 o deriva do Execution Grant, o que preserva a direção 006 → 003 do grafo de dependências e mantém o seam inalterado entre as fases. O roteador continua puro e testável sem 003. *(Superada em parte pelo [ADR-016](../../docs/adr/ADR-016-grant-carrega-politica-de-modelos.md): quem monta a política a partir da Fase 2 é a 003, dentro do grant, e a seta passa a 003 → 006; o seam continua inalterado.)*
 - Q: Quem emite o evento de chamada de modelo no Trace Sink, e o tempo até o primeiro token entra já na Fase 1? → A: Emite o cliente devolvido pelo roteador, que instrumenta a própria chamada — assim nenhum consumidor precisa lembrar de medir e SC-002 vale por construção. Na Fase 1 vão provider, modelo, papel, tokens e latência, que é o que o evento `ModelCall` da 009 já carrega; o tempo até o primeiro token entra com a US6 (Fase 3) como campo aditivo na 009, sem editar aquela spec fora da fase dela.
 - Q: Como o adapter do provider local fala com o Ollama? → A: Pelo SDK oficial da OpenAI em modo assíncrono, com o endereço base apontando para a camada compatível do Ollama, como o `design.md` prevê. Streaming, tool calls e restrição de formato de saída vêm prontos, e os adapters de OpenAI e OpenRouter (Fase 3) reaproveitam quase tudo. O SDK fica confinado a `adapters/` (princípio XIII).
 - Q: A verificação de saúde dos providers (FR-009) entra na Fase 1? → A: Sim, sob demanda — pergunta ao provider se o modelo declarado existe e responde disponível/indisponível com o motivo. Nunca é etapa bloqueante do boot: a plataforma sobe sem o provider local no ar (inclusive na suíte de testes) e o erro aparece na consulta de saúde e na primeira chamada.
@@ -92,7 +92,7 @@ O papel `controller` sempre chama o modelo com restrição de formato de saída.
 
 ### User Story 5 - Allowlist de provider e modelo (Priority: P2)
 
-Todo modelo usado — o default do Assistant ou o escolhido na requisição — é conferido contra a allowlist da Model Policy (derivada do grant).
+Todo modelo usado — o default do Assistant ou o escolhido na requisição — é conferido contra a allowlist da Model Policy (que chega no grant).
 
 **Why this priority**: Elo 6 da cadeia de enforcement.
 
@@ -132,7 +132,7 @@ Cada chamada informa ao trace provider, modelo, papel, tokens de entrada e saíd
 ### Functional Requirements
 
 - **FR-001**: O sistema DEVE oferecer providers para Ollama (local), OpenAI e OpenRouter, todos cumprindo o contrato `LLMProvider`.
-- **FR-002**: O roteador DEVE resolver provider e modelo por papel a partir da **Model Policy** com que foi construído — montada pela composition root (011) a partir da configuração na Fase 1 e derivada do Execution Grant (003) a partir da Fase 2.
+- **FR-002**: O roteador DEVE resolver provider e modelo por papel a partir da **Model Policy** com que foi construído — montada pela composition root (011) a partir da configuração na Fase 1 e pela 003, dentro do Execution Grant, a partir da Fase 2 ([ADR-016](../../docs/adr/ADR-016-grant-carrega-politica-de-modelos.md)).
 - **FR-003**: O roteador DEVE aplicar a allowlist de provider/modelo da Model Policy a toda resolução.
 - **FR-004**: Modelos de roteamento automático DEVEM ser rejeitados na validação.
 - **FR-005**: O papel `controller` DEVE sempre usar restrição de formato de saída; ausência de suporte DEVE resultar em erro explícito.
@@ -144,7 +144,7 @@ Cada chamada informa ao trace provider, modelo, papel, tokens de entrada e saíd
 
 ### Key Entities
 
-- **Model Policy**: modelo por papel + allowlist. Value object publicado por este módulo; a composition root (011) o monta a partir da configuração na Fase 1 e o módulo o deriva do grant a partir da Fase 2.
+- **Model Policy**: modelo por papel + allowlist. Value object publicado por este módulo; a composition root (011) o monta a partir da configuração na Fase 1 e a 003 o monta, dentro do Execution Grant, a partir da Fase 2 ([ADR-016](../../docs/adr/ADR-016-grant-carrega-politica-de-modelos.md)).
 - **Model Role**: `controller`, `generation`, `rerank`.
 - **Provider**: implementação de acesso a modelos.
 

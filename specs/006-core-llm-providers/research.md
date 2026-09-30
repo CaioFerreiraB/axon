@@ -7,7 +7,8 @@
 
 **Decision**: o roteador é construído com um value object **Model Policy** (`ModelPolicy`: modelo por papel + allowlist)
 publicado no `api.py` deste módulo. Na Fase 1 a composition root (011) o monta a partir da configuração do operador; a
-partir da Fase 2 é a própria 006 que o deriva do Execution Grant (003).
+partir da Fase 2 ~~é a própria 006 que o deriva do Execution Grant (003)~~ — superado pelo [ADR-016](../../docs/adr/ADR-016-grant-carrega-politica-de-modelos.md): é a 003 que o monta,
+dentro do grant, e a seta passa a 003 → 006. O seam não muda.
 
 **Rationale** (clarificação de 2026-09-18; ADR-008; princípio XIII): o grafo de `specs/README.md` tem a seta `006 → 003`,
 não a inversa — se a 003 construísse o value object, ela passaria a importar o `api.py` da 006 e a direção do seam

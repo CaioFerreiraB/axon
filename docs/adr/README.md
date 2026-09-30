@@ -19,6 +19,8 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 | [012](ADR-012-estilo-arquitetural-hexagonal.md) | Estilo arquitetural: microkernel, monolito modular e hexagonal por módulo | Aceita | todas |
 | [013](ADR-013-seams-transversais-trace-e-tempo.md) | Seams transversais: Trace Sink e tempo de referência | Aceita | 001, 004, 005, 006, 009, 101, 103, 105 |
 | [014](ADR-014-politica-versoes-0x-contratos.md) | Política de versões 0.x de `ai-core-contracts` | Aceita | 001, 002, 101 |
+| [015](ADR-015-persistencia-postgres-por-modulo.md) | Persistência em Postgres por módulo: psycopg 3, schema próprio, migrações no adapter | Aceita | 003, 004, 005, 007, 008, 011 |
+| [016](ADR-016-grant-carrega-politica-de-modelos.md) | O Execution Grant carrega a política de modelos da 006: seta 003 → 006 | Aceita | 003, 005, 006 |
 
 ## Modelo para ADR novo
 

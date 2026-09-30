@@ -1,0 +1,54 @@
+# Contrato — comandos de linha de comando da 003
+
+Implementados em `ai_core/assistants/adapters/cli.py` como funções que recebem o serviço já montado, os argumentos e
+a saída, e devolvem o código de saída. **Quem os registra** na raiz `ai-core` é a composition root (011 US4): o
+framework de linha de comando é decisão dela ([research.md](../research.md) R14). Rodam com a mesma configuração e os
+mesmos adapters do servidor, sem abrir a API (011 FR-010, FR-011).
+
+## `ai-core assistants validate`
+
+Valida todos os Assistants contra packs, flows, MCPs, coleções e modelos (FR-011).
+
+```text
+$ ai-core assistants validate
+geral        system  ok
+interno      system  indisponível  packs: pack 'financeiro' não está habilitado
+~meu-rag     user    ok            (dono user:ana)
+1 de 3 Assistants indisponível
+```
+
+| Situação | Código de saída |
+|---|---|
+| todos disponíveis | 0 |
+| algum indisponível | 1 |
+| erro de arquivo no `assistants.yaml` | 2, com a mensagem que nomeia o campo |
+
+Assistants de usuário aparecem com as referências conferidas; a conformidade com a política depende dos grupos do
+Principal e só é verificável na resolução (R14).
+
+## `ai-core keys create --subject <user:…|svc:…> [--group <g>]... [--label <texto>]`
+
+Emite uma chave com a autoridade do operador. A chave em claro aparece **uma vez**, na saída padrão, sozinha na última
+linha — para que um script possa capturá-la —, e nunca em log.
+
+```text
+$ ai-core keys create --subject user:caio --group operadores --label "notebook"
+key_id: 3f9a1c2e7b604d18
+subject: user:caio  groups: operadores
+aic_3f9a1c2e7b604d18_Jd8…
+```
+
+## `ai-core keys list`
+
+Lista `key_id`, subject, grupos, rótulo, emissão e revogação. Nunca mostra hash nem chave.
+
+## `ai-core keys revoke <key_id>`
+
+Revoga; a próxima requisição com a chave é recusada. `key_id` inexistente sai com código 1 e mensagem explícita.
+
+## Observações
+
+- No perfil em memória, cada processo tem o próprio armazenamento: chaves emitidas pela CLI só valem no perfil
+  persistente. O comando avisa quando roda num perfil sem armazenamento persistente.
+- Conformidade em `tests/assistants/integration/test_cli.py`: saída e código de saída de cada comando com o serviço em
+  memória; `create` seguido de `authenticate` com a chave impressa; `revoke` seguido de recusa.

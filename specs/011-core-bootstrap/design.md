@@ -80,7 +80,7 @@ seams recebidos aqui (ADR-012).
 |---|---|---|---|
 | `AssistantStore` de sistema (003) | YAML | YAML | fixture |
 | `AssistantStore` de usuário (003) | memória | Postgres (Fase 2) | memória |
-| `ApiKeyStore` (003) | configuração | a decidir no plano da 003 | fixture |
+| `ApiKeyStore` (003) | memória | Postgres (Fase 2 — plano da 003, ADR-015) | memória |
 | `OidcVerifier` (003) | provedor OIDC | provedor OIDC | verificador de teste |
 | `RateCounterStore` (003) | memória | memória (processo único) | memória |
 | `PackSource` (002) | entry points | entry points + declarativo | packs de teste |
