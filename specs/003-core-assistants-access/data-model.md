@@ -81,7 +81,7 @@ declarado pelo Assistant; nada da requisição entra no grant além do modelo de
 | `mcp` | `tuple[str, ...]` | ⊆ `McpDirectory.aliases(owner=dono)` |
 | `collections` | `tuple[str, ...]` | ⊆ `policy.collections` ∩ `CollectionCatalog.names()` |
 | `models` | `Mapping[ModelRole, ModelRef]` | ao menos `generation`; cada um casa com `policy.models_allow` |
-| `limits` | `rpm`, `max_iterations`, `max_context_tokens`, todos opcionais | ≤ teto da política; ausente = teto |
+| `limits` | `DraftLimits` (`rpm`, `max_iterations`, `max_context_tokens`, todos opcionais) | ≤ teto da política; ausente = teto |
 | `allowed_tools` | `tuple[str, ...] \| None` | livre (o catálogo só existe na Fase 3) |
 | `write_tools` | `tuple[str, ...]` | vazio, a menos que `policy.write_tools` seja verdadeiro |
 
@@ -105,6 +105,7 @@ Visibilidade (privada), esquemas (os dois) e `allow` (só o dono) **não** são 
 | `origin` | `Literal["system", "user"]` | |
 | `available` | `bool` | |
 | `reasons` | `tuple[str, ...]` | vazio se disponível; cada motivo nomeia o campo e a referência |
+| `owner` | `str \| None` | dono, para Assistants de usuário (aparece no `assistants validate`) |
 
 `ValidationReport.statuses: tuple[AssistantStatus, ...]` (ordenado por origem e nome); `ok` = todos disponíveis.
 
@@ -147,7 +148,7 @@ A tradução em status é da 008; a tabela registra a intenção que os erros ca
 | `UserAssistantPolicy` | `match`, `packs`, `flows`, `collections`, `models_allow`, tetos de limite, `write_tools: bool` | clarificação 1, FR-014 |
 | `AssistantsConfig` | `assistants: Mapping[str, AssistantDefinition]`, `policies: tuple[UserAssistantPolicy, ...]`, `admin_group: str \| None` | resultado de `AssistantConfigSource.load()` |
 | `ApiKeyRecord` | `ApiKeyInfo` + `key_hash: bytes` | o que a porta guarda |
-| `ModelSelection` | `assistant: str`, `requested: ModelRef \| str \| None` | id de modelo decomposto (R5) |
+| `ModelSelection` | `assistant: str`, `requested: str \| None` | id de modelo decomposto no primeiro `/` (R5); `select_models` interpreta a parte pedida |
 | `RateDecision` | `allowed: bool`, `retry_after: timedelta \| None` | resultado da janela deslizante (R9) |
 | `OidcClaims` | `subject_claim`, `groups_claim`, `leeway: timedelta` | configuração do mapeamento de claims (R6) |
 

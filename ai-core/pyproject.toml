@@ -32,6 +32,7 @@ pythonpath = [
     "packages/core/tests/graph",
     "packages/core/tests/http",
     "packages/core/tests/bootstrap",
+    "packages/core/tests/assistants",
 ]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
@@ -213,6 +214,7 @@ source_modules = [
     "ai_core.packs",
     "ai_core.llm",
     "ai_core.observability",
+    "ai_core.assistants",
 ]
 forbidden_modules = ["langgraph", "langchain_core"]
 
@@ -260,6 +262,7 @@ source_modules = [
     "ai_core.llm",
     "ai_core.observability",
     "ai_core.graph",
+    "ai_core.assistants",
 ]
 forbidden_modules = ["fastapi", "starlette"]
 
@@ -291,7 +294,7 @@ forbidden_modules = [
 [[tool.importlinter.contracts]]
 name = "nenhum módulo do core importa a API"
 type = "forbidden"
-source_modules = ["ai_core.packs", "ai_core.llm", "ai_core.observability", "ai_core.graph"]
+source_modules = ["ai_core.packs", "ai_core.llm", "ai_core.observability", "ai_core.graph", "ai_core.assistants"]
 forbidden_modules = ["ai_core.http"]
 
 # A exceção do princípio XIII em forma executável: a composition root importa todo mundo, e ninguém a importa. Se um
@@ -305,6 +308,7 @@ source_modules = [
     "ai_core.observability",
     "ai_core.graph",
     "ai_core.http",
+    "ai_core.assistants",
 ]
 forbidden_modules = ["ai_core.bootstrap"]
 
@@ -349,3 +353,81 @@ name = "infraestrutura só nos adapters do Pack Runtime"
 type = "forbidden"
 source_modules = ["ai_core.packs.api", "ai_core.packs.domain", "ai_core.packs.ports", "ai_core.packs.service"]
 forbidden_modules = ["yaml"]
+
+# --- Spec 003: Assistants & Access (plan.md, "Fronteiras verificadas") ------------------------------------------------
+
+[[tool.importlinter.contracts]]
+name = "api.py da 003 não importa o resto do módulo"
+type = "forbidden"
+source_modules = ["ai_core.assistants.api"]
+forbidden_modules = [
+    "ai_core.assistants.domain",
+    "ai_core.assistants.ports",
+    "ai_core.assistants.service",
+    "ai_core.assistants.adapters",
+]
+
+[[tool.importlinter.contracts]]
+name = "domain da 003 não importa portas, service nem adapters"
+type = "forbidden"
+source_modules = ["ai_core.assistants.domain"]
+forbidden_modules = ["ai_core.assistants.ports", "ai_core.assistants.service", "ai_core.assistants.adapters"]
+
+[[tool.importlinter.contracts]]
+name = "service da 003 não importa adapters"
+type = "forbidden"
+source_modules = ["ai_core.assistants.service"]
+forbidden_modules = ["ai_core.assistants.adapters"]
+
+# research R6, R8, R17: YAML, JWT, criptografia, cliente HTTP e driver de banco só existem em adapters/.
+[[tool.importlinter.contracts]]
+name = "o núcleo da 003 não importa infraestrutura"
+type = "forbidden"
+source_modules = [
+    "ai_core.assistants.api",
+    "ai_core.assistants.domain",
+    "ai_core.assistants.ports",
+    "ai_core.assistants.service",
+]
+forbidden_modules = ["yaml", "jwt", "cryptography", "httpx", "psycopg", "psycopg_pool"]
+
+[[tool.importlinter.contracts]]
+name = "a 003 só enxerga outros módulos pelo api.py"
+type = "forbidden"
+source_modules = ["ai_core.assistants"]
+forbidden_modules = [
+    "ai_core.packs.domain",
+    "ai_core.packs.ports",
+    "ai_core.packs.service",
+    "ai_core.packs.adapters",
+    "ai_core.llm.domain",
+    "ai_core.llm.ports",
+    "ai_core.llm.service",
+    "ai_core.llm.adapters",
+    "ai_core.graph.domain",
+    "ai_core.graph.ports",
+    "ai_core.graph.service",
+    "ai_core.graph.adapters",
+    "ai_core.observability.domain",
+    "ai_core.observability.ports",
+    "ai_core.observability.service",
+    "ai_core.observability.adapters",
+]
+
+[[tool.importlinter.contracts]]
+name = "outros módulos só enxergam a 003 pelo api.py"
+type = "forbidden"
+source_modules = ["ai_core.packs", "ai_core.llm", "ai_core.observability", "ai_core.graph", "ai_core.http"]
+forbidden_modules = [
+    "ai_core.assistants.domain",
+    "ai_core.assistants.ports",
+    "ai_core.assistants.service",
+    "ai_core.assistants.adapters",
+]
+
+# ADR-016: a seta é 003 → 006 (o grant carrega a ModelPolicy). O contrato impede que a inversa volte e forme ciclo.
+[[tool.importlinter.contracts]]
+name = "o Model Router não importa a 003"
+type = "forbidden"
+source_modules = ["ai_core.llm"]
+forbidden_modules = ["ai_core.assistants"]

@@ -35,17 +35,17 @@ na US6. **Não** entram: nada em `ai_core/http/` nem em `ai_core/bootstrap/` (a 
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-- [ ] T001 Criar o esqueleto do módulo: `ai-core/packages/core/src/ai_core/assistants/__init__.py` (docstring: spec
+- [X] T001 Criar o esqueleto do módulo: `ai-core/packages/core/src/ai_core/assistants/__init__.py` (docstring: spec
   003, a fronteira de isolamento; seams em `api.py`; autenticação mora aqui, não em `ai_core/auth/`, ADR-012),
   `assistants/domain/__init__.py`, `assistants/adapters/__init__.py`, `assistants/adapters/sql/` e os diretórios
   `ai-core/packages/core/tests/assistants/{unit,contract,integration}/`
-- [ ] T002 Acrescentar a `dependencies` de `ai-core/packages/core/pyproject.toml`, cada uma com comentário citando a
+- [X] T002 Acrescentar a `dependencies` de `ai-core/packages/core/pyproject.toml`, cada uma com comentário citando a
   spec 003 e a pesquisa: `pyjwt[crypto]>=2.10,<3` (R6), `httpx>=0.28,<1` (R6, R17), `psycopg[binary]>=3.2,<4` e
   `psycopg-pool>=3.2,<4` (R8, ADR-015); rodar `XDG_DATA_HOME=$HOME/.local/share uv sync` e conferir que `uv.lock` foi
   atualizado
-- [ ] T003 [P] Em `ai-core/pyproject.toml`, acrescentar `packages/core/tests/assistants` a
+- [X] T003 [P] Em `ai-core/pyproject.toml`, acrescentar `packages/core/tests/assistants` a
   `[tool.pytest.ini_options] pythonpath` e `ai_core` já coberto em `known-first-party` (conferir)
-- [ ] T004 [P] Em `.github/workflows/core.yml`, job `test`: acrescentar `services: postgres` (imagem `postgres:17`,
+- [X] T004 [P] Em `.github/workflows/core.yml`, job `test`: acrescentar `services: postgres` (imagem `postgres:17`,
   `POSTGRES_PASSWORD`, porta 5432, health check `pg_isready`) e a variável `AI_CORE_TEST_POSTGRES_DSN` apontando para
   ele, com comentário citando o princípio XIII e o ADR-015 (a conformidade contra o adapter real roda em todo PR)
 
@@ -57,7 +57,7 @@ na US6. **Não** entram: nada em `ai_core/http/` nem em `ai_core/bootstrap/` (a 
 
 **⚠️ CRITICAL**: nenhuma user story começa antes de T005–T009
 
-- [ ] T005 Implementar `assistants/api.py` conforme [data-model.md](data-model.md) e
+- [X] T005 Implementar `assistants/api.py` conforme [data-model.md](data-model.md) e
   [contracts/assistants-api.md](contracts/assistants-api.md), importando **só** a stdlib e os `api.py` de 002
   (`Composition`), 005 (`FLOW_CHAT`) e 006 (`ModelPolicy`, `ModelRef`, `ModelRole` — só value objects, [ADR-016](../../docs/adr/ADR-016-grant-carrega-politica-de-modelos.md)):
   - vocabulário: `Surface`, `Scheme`, `SCHEME_OF_SURFACE` (`public → oidc`, `private → api_key`), `USER_PREFIX = "~"`,
@@ -75,20 +75,20 @@ na US6. **Não** entram: nada em `ai_core/http/` nem em `ai_core/bootstrap/` (a 
   - erros: `NotFound(LookupError)`, `AssistantNotFound(NotFound)`, `AssistantUnavailable` (`reasons`),
     `RequestRejected(ValueError)` (`field`), `PolicyViolation(RequestRejected)`,
     `NoApplicablePolicy(RequestRejected)`, `Conflict`, `RateLimited` (`retry_after: float`), `AssistantsConfigError`
-- [ ] T006 Implementar os tipos internos e as portas: em `assistants/domain/definitions.py`, só os tipos
+- [X] T006 Implementar os tipos internos e as portas: em `assistants/domain/definitions.py`, só os tipos
   `AccessRule`, `AssistantDefinition` (com `problems: tuple[str, ...]`), `UserAssistantPolicy` e `AssistantsConfig`
   (`assistants`, `policies`, `admin_group`); em `assistants/domain/keys.py`, o tipo `ApiKeyRecord` (`ApiKeyInfo` +
   `key_hash: bytes`); em `assistants/domain/rate.py`, o tipo `RateDecision` (`allowed`, `retry_after: timedelta | None`);
   em `assistants/domain/access.py`, o tipo `OidcClaims` (`subject_claim="sub"`, `groups_claim="groups"`,
   `leeway=timedelta(seconds=60)`); e `assistants/ports.py` com as nove portas e o tipo `StoredUserAssistant`, nas
   assinaturas exatas de [contracts/ports.md](contracts/ports.md). Nenhum arquivo importa biblioteca de infraestrutura
-- [ ] T007 [P] Implementar os adapters em memória e de teste em `assistants/adapters/memory.py`:
+- [X] T007 [P] Implementar os adapters em memória e de teste em `assistants/adapters/memory.py`:
   `InMemoryAssistantConfigSource`, `InMemoryUserAssistantStore`, `InMemoryApiKeyStore` (com `seed(record)` para as
   suítes e para a 011), `StaticOidcVerifier` (token → claims), `DisabledOidcVerifier` (sempre `None`),
   `SequentialTokenGenerator` (determinístico), `InMemoryMcpDirectory` (globais + por dono) e
   `InMemoryCollectionCatalog`; e os vazios da fase em `assistants/adapters/catalogs.py` (`EmptyMcpDirectory`,
   `EmptyCollectionCatalog`)
-- [ ] T008 [P] Criar o kit de teste: `tests/assistants/assistants_testkit.py` com construtores de configuração
+- [X] T008 [P] Criar o kit de teste: `tests/assistants/assistants_testkit.py` com construtores de configuração
   (mapeamentos de Assistant e de política válidos por default, sobrescrevíveis por campo), Principals prontos
   (`user:ana` OIDC, `user:caio` chave, membro de `group:chefia`), `FakePackRegistry` que cumpre o `PackRegistry` da
   002 (entradas com status e `preferred_flow`, `compose` que levanta `CompositionError` para pack indisponível),
@@ -97,7 +97,7 @@ na US6. **Não** entram: nada em `ai_core/http/` nem em `ai_core/bootstrap/` (a 
   `pg_pool` — `AsyncConnectionPool` a partir de `AI_CORE_TEST_POSTGRES_DSN`, `DROP SCHEMA assistants CASCADE` antes
   de cada teste, `pytest.skip` com motivo explícito quando a variável não existe — e a fixture parametrizada que
   entrega cada porta de armazenamento nas versões memória e Postgres
-- [ ] T009 Acrescentar a `ai-core/pyproject.toml` os contratos de import-linter de [plan.md](plan.md) ("Fronteiras
+- [X] T009 Acrescentar a `ai-core/pyproject.toml` os contratos de import-linter de [plan.md](plan.md) ("Fronteiras
   verificadas"): `api.py` da 003 não importa o resto do módulo; `domain/` não importa portas, service nem adapters;
   `service.py` não importa adapters; o núcleo (`api`, `domain`, `ports`, `service`) não importa `yaml`, `jwt`,
   `cryptography`, `httpx`, `psycopg`, `psycopg_pool`; a 003 só vê internals de outros módulos pelo `api.py` (e nada de
@@ -120,7 +120,7 @@ outro privado com pack + MCP) resolvem para grants diferentes e completos.
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T010 [P] [US1] `tests/assistants/unit/test_assistants_yaml.py`, testes com `us1` no nome: o exemplo completo de
+- [X] T010 [P] [US1] `tests/assistants/unit/test_assistants_yaml.py`, testes com `us1` no nome: o exemplo completo de
   [contracts/assistants-yaml.md](contracts/assistants-yaml.md) carrega sem problemas; cada erro de arquivo (YAML
   inválido, raiz que não é mapeamento, chave de topo desconhecida, política malformada) levanta
   `AssistantsConfigError` nomeando o caminho do campo; cada erro de Assistant da lista do contrato vira `problems`
@@ -128,16 +128,16 @@ outro privado com pack + MCP) resolvem para grants diferentes e completos.
   modelo declarado fora da allowlist e composição sem flow —; o arquivo da Fase 1 (com `allow` na raiz e sem `auth`)
   produz a mensagem literal "`allow` saiu da raiz do Assistant: a allowlist de modelos vive em `models.allow`, e quem
   pode usar o Assistant, em `auth.allow`"
-- [ ] T011 [P] [US1] `tests/assistants/contract/test_config_source.py`: `YamlAssistantConfigSource` e
+- [X] T011 [P] [US1] `tests/assistants/contract/test_config_source.py`: `YamlAssistantConfigSource` e
   `InMemoryAssistantConfigSource` produzem o mesmo `AssistantsConfig` para a mesma configuração; arquivo ausente é
   erro que nomeia o caminho; variável não definida é tratada pela composition root (fora desta suíte)
-- [ ] T012 [P] [US1] `tests/assistants/contract/test_grant_resolver.py`, testes com `us1` no nome (Principal
+- [X] T012 [P] [US1] `tests/assistants/contract/test_grant_resolver.py`, testes com `us1` no nome (Principal
   autorizado por `*`): `mcp: []` → `mcp_aliases` vazio (cen. 1); dois packs → `composition.packs` na ordem declarada
   (cen. 2); um pack sem flow → `preferred_flow` do pack, ou `chat` se ele não preferir nenhum (cen. 3); dois packs sem
   flow → `AssistantUnavailable` (cen. 4); pack em erro → `AssistantUnavailable` com o motivo, e os demais resolvem;
   o grant tem os quatro atributos que o `ExecutionGrant` da 005 lê (`assistant`, `flow`, `composition`, `models`), com
   os tipos certos — a conformidade estática fica em T017, porque o mypy não cobre a pasta de testes
-- [ ] T013 [P] [US1] `tests/assistants/contract/test_validation.py`, testes com `us1` no nome: `validate()` devolve um
+- [X] T013 [P] [US1] `tests/assistants/contract/test_validation.py`, testes com `us1` no nome: `validate()` devolve um
   `AssistantStatus` por Assistant de sistema, ordenado por nome; referência a flow inexistente, pack em erro, MCP fora
   de `McpDirectory.aliases(owner=None)` e coleção fora do catálogo aparecem como motivos que nomeiam campo e
   referência; com os catálogos vazios da fase, qualquer `mcp` ou `collections` não vazio deixa o Assistant
@@ -145,7 +145,7 @@ outro privado com pack + MCP) resolvem para grants diferentes e completos.
 
 ### Implementation for User Story 1
 
-- [ ] T014 [US1] Implementar em `assistants/domain/definitions.py` a leitura pura de um mapeamento já carregado para
+- [X] T014 [US1] Implementar em `assistants/domain/definitions.py` a leitura pura de um mapeamento já carregado para
   `AssistantsConfig`, conforme [contracts/assistants-yaml.md](contracts/assistants-yaml.md): chaves de topo
   `assistants`, `user_assistants.policies`, `api_keys.admin_group`; para cada Assistant, as regras da tabela (nome
   `[a-z0-9][a-z0-9._-]{0,63}` e sem `~`; `visibility` ∈ {`public`, `private`}; `auth.schemes` não vazio ⊆ {`oidc`,
@@ -153,15 +153,15 @@ outro privado com pack + MCP) resolvem para grants diferentes e completos.
   caracteres"; `models.<papel>` em texto `provider/modelo` por `ModelRef.parse`; `models.allow` obrigatória e não
   vazia; `limits.rpm` default `DEFAULT_RPM`; inteiros ≥ 1) acumulando `problems` em vez de levantar; para políticas,
   as regras da tabela de política levantando `AssistantsConfigError`, porque política malformada para o boot
-- [ ] T015 [US1] Implementar `assistants/adapters/assistants_yaml.py`: `YamlAssistantConfigSource(path)` lê o arquivo
+- [X] T015 [US1] Implementar `assistants/adapters/assistants_yaml.py`: `YamlAssistantConfigSource(path)` lê o arquivo
   com `yaml.safe_load`, traduz erro de leitura e de YAML em `AssistantsConfigError` com o caminho, e delega a
   interpretação a `domain/definitions.py`
-- [ ] T016 [US1] Implementar `assistants/domain/resolution.py` — decomposição do id (`<assistant>` e o resto, no
+- [X] T016 [US1] Implementar `assistants/domain/resolution.py` — decomposição do id (`<assistant>` e o resto, no
   primeiro `/`), regra do flow (declarado; um pack → `preferred_flow` ou `FLOW_CHAT`; dois ou mais sem flow →
   motivo) e montagem do `ExecutionGrant` a partir de `AssistantDefinition`, `Composition` e `Principal` — e
   `assistants/domain/validation.py` — referências de uma definição (flow ∈ nomes do motor, packs compostos, MCP ⊆
   aliases, coleções ⊆ catálogo, `problems` de carga) → `AssistantStatus`
-- [ ] T017 [US1] Implementar em `assistants/service.py` a classe `AssistantsService(config, packs, flows, users, mcp,
+- [X] T017 [US1] Implementar em `assistants/service.py` a classe `AssistantsService(config, packs, flows, users, mcp,
   collections, rate, clock)` — `flows` chega como `frozenset[str]`, injetado pela composition root — com
   `validate() -> ValidationReport` para os Assistants de sistema e `resolve(*, model, principal)` com os passos 1, 2
   (sistema), 5 e 8 de [research.md](research.md) R4: nome desconhecido → `AssistantNotFound("assistant '<nome>' não
@@ -169,7 +169,7 @@ outro privado com pack + MCP) resolvem para grants diferentes e completos.
   US6, US4 e US7. Acrescentar ao mesmo arquivo uma função privada `_engine_grant(grant: ExecutionGrant) ->
   ai_core.graph.api.ExecutionGrant` que só devolve o argumento: é ela que faz o `uv run mypy` recusar qualquer
   divergência entre o grant desta spec e o `Protocol` da 005 (R1)
-- [ ] T018 [US1] Implementar em `assistants/adapters/cli.py` o comando `assistants validate` conforme
+- [X] T018 [US1] Implementar em `assistants/adapters/cli.py` o comando `assistants validate` conforme
   [contracts/cli.md](contracts/cli.md): função `validate_command(service, out) -> int` que imprime uma linha por
   Assistant (nome, origem, estado, motivos), o resumo "N de M Assistants indisponível" e devolve 0 (todos
   disponíveis), 1 (algum indisponível); e `validate_config_error(error, err) -> int` que imprime a mensagem de
@@ -189,27 +189,27 @@ packages/core/tests/assistants/contract/test_oidc_verifier.py packages/core/test
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T019 [P] [US2] `tests/assistants/unit/test_keys.py` e `tests/assistants/unit/test_access.py` (parte de claims):
+- [X] T019 [P] [US2] `tests/assistants/unit/test_keys.py` e `tests/assistants/unit/test_access.py` (parte de claims):
   formato `aic_<key_id>_<segredo>` com `key_id` de 16 caracteres hexadecimais; `parse` recusa prefixo errado, partes
   faltando e `key_id` fora do formato; hash é SHA-256 da chave inteira; comparação via `hmac.compare_digest`; claims →
   `Principal(subject="user:<sub>", scheme="oidc", groups=…)` com claims de subject e grupos configuráveis; grupos em
   lista de textos, texto único ou ausentes; `exp` no passado, `nbf` no futuro e `iat` no futuro além da tolerância de
   60 s → recusa, com `MutableClock`
-- [ ] T020 [P] [US2] `tests/assistants/contract/test_oidc_verifier.py`: `StaticOidcVerifier` e `JwksOidcVerifier`
+- [X] T020 [P] [US2] `tests/assistants/contract/test_oidc_verifier.py`: `StaticOidcVerifier` e `JwksOidcVerifier`
   (chaves RSA e EC da suíte, JWKS pelo `httpx.MockTransport`, descoberta por `<emissor>/.well-known/openid-configuration`
   e por URL explícita): token bom → claims; assinatura trocada, `iss` errado, `aud` errado, `alg: none`, HS256 assinado
   com a chave pública e `kid` desconhecido → `None`; rotação de chave dispara nova busca do JWKS, e duas buscas não
   acontecem em menos que o intervalo mínimo; `DisabledOidcVerifier` recusa tudo
-- [ ] T021 [P] [US2] `tests/assistants/contract/test_api_key_store.py`, parametrizado memória × Postgres: `add` e `get`
+- [X] T021 [P] [US2] `tests/assistants/contract/test_api_key_store.py`, parametrizado memória × Postgres: `add` e `get`
   por `key_id`; o registro guarda hash, nunca a chave; `revoke` é idempotente e preserva o primeiro `revoked_at`;
   `revoke` de inexistente → `None`; `list` inclui revogadas. E `tests/assistants/contract/test_token_generator.py`:
   tamanho e alfabeto de `token_hex`/`token_urlsafe` em `SecretsTokenGenerator`; `SequentialTokenGenerator`
   determinístico
-- [ ] T022 [P] [US2] `tests/assistants/contract/test_authenticator.py`, com os dois verificadores OIDC e os dois
+- [X] T022 [P] [US2] `tests/assistants/contract/test_authenticator.py`, com os dois verificadores OIDC e os dois
   armazenamentos de chave: a tabela do `Authenticator` em [contracts/assistants-api.md](contracts/assistants-api.md) —
   cen. 1 e 2; credencial ausente, malformada, expirada, adulterada ou revogada → `None` sem levantar (cen. 3 e 4); token
   na superfície privada e chave na pública → `None`; superfície desconhecida → `None`
-- [ ] T023 [P] [US2] `tests/assistants/contract/test_key_admin.py`: `issue` por ator do `admin_group` devolve
+- [X] T023 [P] [US2] `tests/assistants/contract/test_key_admin.py`: `issue` por ator do `admin_group` devolve
   `IssuedApiKey` cuja `plaintext` autentica; `keys()` não expõe chave nem hash; `revoke` faz a chamada seguinte ser
   recusada sem reconstruir o serviço (cen. 4); ator fora do grupo, ou `admin_group` ausente na configuração →
   `NotFound` nas três operações (cen. 5); `subject` sem `user:`/`svc:` → `RequestRejected(field="subject")`;
@@ -217,30 +217,30 @@ packages/core/tests/assistants/contract/test_oidc_verifier.py packages/core/test
 
 ### Implementation for User Story 2
 
-- [ ] T024 [P] [US2] Implementar `assistants/domain/keys.py` (formato, `parse`, `hash_key`, `matches` com
+- [X] T024 [P] [US2] Implementar `assistants/domain/keys.py` (formato, `parse`, `hash_key`, `matches` com
   `hmac.compare_digest`) e, em `assistants/domain/access.py`, `principal_from_claims(claims, now, config)` com a
   conferência de `exp` (obrigatória), `nbf` e `iat` contra o relógio e a tolerância, e `is_admin(principal,
   admin_group)`
-- [ ] T025 [P] [US2] Implementar `assistants/adapters/tokens.py` (`SecretsTokenGenerator` sobre `secrets`) e
+- [X] T025 [P] [US2] Implementar `assistants/adapters/tokens.py` (`SecretsTokenGenerator` sobre `secrets`) e
   `assistants/adapters/oidc.py`: `JwksOidcVerifier(issuer, audience, client, clock, jwks_url=None,
   algorithms=("RS256", "ES256"), cache_ttl=timedelta(minutes=10), min_refresh_interval=timedelta(seconds=60))` com
   PyJWT — `options` exigindo `exp` e `sub`, conferindo `iss` e `aud`, **sem** conferir `exp`/`nbf`/`iat` (são do
   domínio, R6) —, lista fechada de algoritmos, recusa de `none` e HMAC, JWKS por httpx com cache, nova busca em `kid`
   desconhecido limitada pelo intervalo mínimo, e qualquer falha de rede ou de decodificação devolvendo `None`
-- [ ] T026 [US2] Implementar a persistência de chaves: `assistants/adapters/sql/001_api_keys.sql` (schema
+- [X] T026 [US2] Implementar a persistência de chaves: `assistants/adapters/sql/001_api_keys.sql` (schema
   `assistants`, tabela `schema_version`, tabela `api_keys` com `key_id text PRIMARY KEY`, `key_hash bytea NOT NULL`,
   `subject text NOT NULL`, `groups text[] NOT NULL DEFAULT '{}'`, `label text`, `created_at timestamptz NOT NULL`,
   `revoked_at timestamptz`); `assistants/adapters/postgres_schema.py` com `migrate(pool)` — aplica os arquivos de
   `sql/` em ordem numérica, cada um numa transação, sob `pg_advisory_xact_lock`, registrando a versão; falha nomeia o
   arquivo (ADR-015) —; e `assistants/adapters/api_keys_postgres.py` com `PostgresApiKeyStore(pool)`, timestamps sempre
   recebidos como parâmetro, nunca `now()` no SQL
-- [ ] T027 [US2] Implementar em `assistants/service.py` a classe `AccessService(keys, oidc, tokens, clock, claims,
+- [X] T027 [US2] Implementar em `assistants/service.py` a classe `AccessService(keys, oidc, tokens, clock, claims,
   admin_group)`: `authenticate` (superfície pública → OIDC + `principal_from_claims`; privada → `parse` + `get` +
   `matches` + não revogada; qualquer outra coisa → `None`; nunca levanta) e o `ApiKeyAdmin` (`issue` gera `key_id`
   com `token_hex(8)` e segredo com `token_urlsafe(32)`, guarda só o hash e devolve `IssuedApiKey`; `keys`; `revoke`),
   com `NotFound` para ator fora do `admin_group`; mais os métodos `issue_as_operator`, `keys_as_operator` e
   `revoke_as_operator`, sem checagem de grupo, para a CLI
-- [ ] T028 [US2] Acrescentar a `assistants/adapters/cli.py` os comandos `keys create`, `keys list` e `keys revoke`
+- [X] T028 [US2] Acrescentar a `assistants/adapters/cli.py` os comandos `keys create`, `keys list` e `keys revoke`
   conforme [contracts/cli.md](contracts/cli.md): a chave em claro sozinha na última linha da saída e em nenhum outro
   lugar; `keys revoke` de inexistente sai com 1; aviso quando o armazenamento não é persistente (parâmetro
   `persistent: bool` recebido de quem registra o comando)
@@ -258,10 +258,10 @@ mesmo que receberia por um Assistant inexistente.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T029 [P] [US3] `tests/assistants/unit/test_access.py` (parte de ACL): `AccessRule.permits` — esquema fora de
+- [X] T029 [P] [US3] `tests/assistants/unit/test_access.py` (parte de ACL): `AccessRule.permits` — esquema fora de
   `schemes` recusa; `*` aceita qualquer Principal de esquema aceito; `user:x` e `svc:x` casam só o subject exato;
   `group:g` casa quem tem `g` em `groups`; lista sem nenhum casamento recusa
-- [ ] T030 [P] [US3] `tests/assistants/contract/test_adversarial.py`, testes com `not_found` no nome: privado que só
+- [X] T030 [P] [US3] `tests/assistants/contract/test_adversarial.py`, testes com `not_found` no nome: privado que só
   aceita `api_key` e `user:caio`, pedido por Principal OIDC → `AssistantNotFound` (cen. 1); `user:caio` por chave →
   grant (cen. 2); público com `*` → grant para qualquer esquema aceito (cen. 3); inexistente e privado não autorizado
   levantam o **mesmo** tipo com a **mesma** mensagem; privado **indisponível** pedido por não autorizado também é
@@ -270,7 +270,7 @@ mesmo que receberia por um Assistant inexistente.
 
 ### Implementation for User Story 3
 
-- [ ] T031 [US3] Implementar `AccessRule.permits(principal)` em `assistants/domain/access.py` e acrescentar o passo 3
+- [X] T031 [US3] Implementar `AccessRule.permits(principal)` em `assistants/domain/access.py` e acrescentar o passo 3
   (ACL) a `AssistantsService.resolve` em `assistants/service.py`, **antes** da disponibilidade, levantando o mesmo
   `AssistantNotFound` do passo 2 pelo mesmo caminho de código
 
@@ -292,15 +292,15 @@ R13). Aqui, T034 garante o conteúdo da lista.
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T032 [P] [US4] `tests/assistants/unit/test_resolution.py`: gramática do id de [research.md](research.md) R5 —
+- [X] T032 [P] [US4] `tests/assistants/unit/test_resolution.py`: gramática do id de [research.md](research.md) R5 —
   `geral` (sem restrição), `geral/qwen3:8b` (provider do `generation` declarado), `geral/ollama/qwen3:8b`,
   `generic/openrouter/qwen/qwen3-8b` (provider `openrouter`, modelo `qwen/qwen3-8b`), `geral/` (parte vazia →
   `RequestRejected(field="model")`); o modelo pedido substitui só `generation`, e os demais papéis ficam intactos
-- [ ] T033 [P] [US4] `tests/assistants/contract/test_allowlist_parity.py`: tabela de pares (referência, padrões) —
+- [X] T033 [P] [US4] `tests/assistants/contract/test_allowlist_parity.py`: tabela de pares (referência, padrões) —
   curingas, tag do Ollama, modelos com `/`, maiúsculas — em que a regra de allowlist da resolução e
   `ai_core.llm.domain.policy.is_allowed` (importada só pela suíte) dão a mesma resposta, excluída a allowlist vazia,
   que a 003 nunca produz
-- [ ] T034 [P] [US4] Em `tests/assistants/contract/test_adversarial.py`: allowlist `ollama/*` e pedido `openai/...` →
+- [X] T034 [P] [US4] Em `tests/assistants/contract/test_adversarial.py`: allowlist `ollama/*` e pedido `openai/...` →
   `RequestRejected(field="model")` (cen. 1, SC-005); pedido `ollama/<outro>` → grant com esse modelo em `generation`
   (cen. 3); com hypothesis, gerar Assistants (packs, MCPs, coleções, tools, papéis, allowlist) e ids de modelo
   arbitrários e conferir que todo grant produzido tem `mcp_aliases`, `collections`, `allowed_tools`, `write_tools` e
@@ -309,7 +309,7 @@ R13). Aqui, T034 garante o conteúdo da lista.
 
 ### Implementation for User Story 4
 
-- [ ] T035 [US4] Implementar em `assistants/domain/resolution.py` a seleção de modelo (`ModelSelection`: parte com
+- [X] T035 [US4] Implementar em `assistants/domain/resolution.py` a seleção de modelo (`ModelSelection`: parte com
   `/` → `ModelRef.parse`; sem `/` → provider do `generation` declarado) e a checagem de allowlist com `fnmatchcase`
   sobre `provider/modelo`; e acrescentar o passo 6 a `AssistantsService.resolve` em `assistants/service.py`, depois da
   disponibilidade e antes de montar o grant, levantando `RequestRejected(field="model", "modelo não permitido: <ref>;
@@ -327,7 +327,7 @@ R13). Aqui, T034 garante o conteúdo da lista.
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T036 [P] [US5] `tests/assistants/contract/test_directory.py`, testes com `discover` no nome: Principal público
+- [X] T036 [P] [US5] `tests/assistants/contract/test_directory.py`, testes com `discover` no nome: Principal público
   vê só os públicos que aceitam seu esquema (cen. 1); privado com `group:chefia` aparece para um membro do grupo e para
   mais ninguém (cen. 2); indisponível não aparece; para cada Principal do kit, o conjunto de nomes de `discover` é
   igual ao conjunto de nomes que `resolve` aceita sem `NotFound` nem `AssistantUnavailable`; cada
@@ -335,7 +335,7 @@ R13). Aqui, T034 garante o conteúdo da lista.
 
 ### Implementation for User Story 5
 
-- [ ] T037 [US5] Implementar `AssistantsService.discover(principal)` em `assistants/service.py` reutilizando a mesma
+- [X] T037 [US5] Implementar `AssistantsService.discover(principal)` em `assistants/service.py` reutilizando a mesma
   função de ACL e de disponibilidade da resolução (nenhuma regra duplicada), ordenado por nome
 
 **Checkpoint**: descoberta e resolução não divergem
@@ -352,17 +352,17 @@ packages/core/tests/assistants/contract/test_user_assistant_store.py`.
 
 ### Tests for User Story 6 ⚠️
 
-- [ ] T038 [P] [US6] `tests/assistants/unit/test_policies.py`: primeira política que casa, na ordem declarada; `*`
+- [X] T038 [P] [US6] `tests/assistants/unit/test_policies.py`: primeira política que casa, na ordem declarada; `*`
   casa todos; sem política aplicável → nenhuma; conformidade do rascunho — packs, flows e coleções fora da política,
   papel fora de `models.allow`, limite acima do teto e `write_tools` com a política em `false` → `PolicyViolation`
   nomeando o campo (`packs`, `flow`, `collections`, `models.<papel>`, `limits.rpm`, `write_tools`); limite ausente
   assume o teto; allowlist do Assistant de usuário = `models.allow` da política
-- [ ] T039 [P] [US6] `tests/assistants/contract/test_user_assistant_store.py`, parametrizado memória × Postgres:
+- [X] T039 [P] [US6] `tests/assistants/contract/test_user_assistant_store.py`, parametrizado memória × Postgres:
   unicidade (dono, nome) com `insert` duplicado → `False`; mesmo nome com donos diferentes coexiste; `get` e `list`
   isolados por dono; `replace` e `delete` de inexistente → `False`; `all` lista todos; ida e volta do rascunho sem
   perda (inclusive `ModelRef` e limites ausentes). E `tests/assistants/contract/test_catalogs.py`: vazios devolvem
   conjunto vazio; `InMemoryMcpDirectory` separa globais de `owner=None` e os do dono
-- [ ] T040 [P] [US6] Em `tests/assistants/contract/test_directory.py`: `create` dentro da política → `UserAssistant`
+- [X] T040 [P] [US6] Em `tests/assistants/contract/test_directory.py`: `create` dentro da política → `UserAssistant`
   com nome `~meu-rag`, resolvível pelo dono na chamada seguinte (cen. 1, SC-003); outro usuário recebe
   `AssistantNotFound` para o mesmo `~meu-rag` e resolve o próprio `~meu-rag` (cen. 4); MCP de outro usuário →
   `PolicyViolation(field="mcp")` com a mesma mensagem de MCP inexistente (cen. 2); modelo `openai/...` ou `rpm: 50`
@@ -371,23 +371,23 @@ packages/core/tests/assistants/contract/test_user_assistant_store.py`.
   grupo (novo `Principal` sem o grupo) vê o Assistant em `mine` como indisponível, com motivo, e recebe
   `AssistantUnavailable` ao resolver; `discover` passa a incluir os `~` disponíveis do próprio Principal; com
   Postgres, um serviço novo sobre o mesmo pool continua resolvendo o Assistant (cen. 3)
-- [ ] T041 [P] [US6] Em `tests/assistants/contract/test_validation.py`: `validate()` inclui os Assistants de usuário
+- [X] T041 [P] [US6] Em `tests/assistants/contract/test_validation.py`: `validate()` inclui os Assistants de usuário
   de `UserAssistantStore.all()` com referências conferidas (pack, flow, MCP do dono, coleção) e o dono no relatório,
   sem conferir política (R14)
 
 ### Implementation for User Story 6
 
-- [ ] T042 [P] [US6] Implementar `assistants/domain/policies.py`: `applicable_policy(policies, principal)` (primeira
+- [X] T042 [P] [US6] Implementar `assistants/domain/policies.py`: `applicable_policy(policies, principal)` (primeira
   que casa) e `conform(draft, policy, mcp_aliases, collections) -> AssistantDefinition` com as regras da tabela
   `UserAssistantDraft` de [data-model.md](data-model.md) — privado, os dois esquemas, `allow` só o dono, allowlist da
   política, limite ausente = teto —, levantando `PolicyViolation(field)`; a mensagem para MCP fora dos aliases é
   "MCP '<alias>' não existe ou não é visível", a mesma para inexistente e alheio
-- [ ] T043 [US6] Implementar a persistência: `assistants/adapters/sql/002_user_assistants.sql` (tabela
+- [X] T043 [US6] Implementar a persistência: `assistants/adapters/sql/002_user_assistants.sql` (tabela
   `user_assistants` com `owner text NOT NULL`, `name text NOT NULL` sem o `~`, `definition jsonb NOT NULL` com
   `"format": 1`, `created_at`/`updated_at timestamptz NOT NULL`, `PRIMARY KEY (owner, name)`) e
   `assistants/adapters/assistants_postgres.py` com `PostgresUserAssistantStore(pool)` serializando o rascunho em JSON
   (papéis como `provider/modelo`) e reconstruindo-o na leitura
-- [ ] T044 [US6] Implementar em `assistants/service.py` o `AssistantDirectory` de `AssistantsService` (`mine`, `get`,
+- [X] T044 [US6] Implementar em `assistants/service.py` o `AssistantDirectory` de `AssistantsService` (`mine`, `get`,
   `create`, `update`, `delete`; "a última escrita vence") e estender `resolve`: nome com `~` busca (dono =
   `principal.subject`, nome) — inexistente e alheio pelo mesmo caminho, `AssistantNotFound` —, passo 4 (política
   aplicável **agora** + `conform`; violação → `AssistantUnavailable` nomeando o campo) e disponibilidade; estender
@@ -406,11 +406,11 @@ excedente recebe `RateLimited` com o tempo de espera; iterações e tokens viaja
 
 ### Tests for User Story 7 ⚠️
 
-- [ ] T045 [P] [US7] `tests/assistants/unit/test_rate.py` e `tests/assistants/contract/test_rate_counter_store.py`:
+- [X] T045 [P] [US7] `tests/assistants/unit/test_rate.py` e `tests/assistants/contract/test_rate_counter_store.py`:
   janela deslizante — `limit` concessões na janela, a seguinte recusada com `retry_after` = instante mais antigo + 60 s
   − agora; concessão volta quando o mais antigo sai da janela; pares independentes; `acquire` recusado não registra
   instante
-- [ ] T046 [P] [US7] Em `tests/assistants/contract/test_grant_resolver.py`, testes com `rate` no nome: com `rpm: 20` e
+- [X] T046 [P] [US7] Em `tests/assistants/contract/test_grant_resolver.py`, testes com `rate` no nome: com `rpm: 20` e
   `MutableClock`, a 21ª resolução do par levanta `RateLimited` com `retry_after` exato e outro Principal resolve
   (cen. 1); avançado o relógio, o par volta a resolver; pedido recusado por ACL, indisponibilidade ou modelo não
   consome cota; sem `limits.rpm`, vale 60; `limits` do grant carrega `max_iterations` e `max_context_tokens`
@@ -418,10 +418,10 @@ excedente recebe `RateLimited` com o tempo de espera; iterações e tokens viaja
 
 ### Implementation for User Story 7
 
-- [ ] T047 [P] [US7] Implementar `assistants/domain/rate.py` (`sliding_window(instants, now, limit, window) ->
+- [X] T047 [P] [US7] Implementar `assistants/domain/rate.py` (`sliding_window(instants, now, limit, window) ->
   (RateDecision, instants_restantes)`) e `assistants/adapters/rate_memory.py` (`InMemoryRateCounterStore`, com
   `acquire` atômico por par, aplicando a regra do domínio)
-- [ ] T048 [US7] Acrescentar o passo 7 a `AssistantsService.resolve` em `assistants/service.py` — `acquire` com a
+- [X] T048 [US7] Acrescentar o passo 7 a `AssistantsService.resolve` em `assistants/service.py` — `acquire` com a
   chave (`principal.subject`, nome do Assistant), `limit` = `limits.rpm`, janela de 60 s, instante do `Clock` — como
   último passo antes de montar o grant, levantando `RateLimited(retry_after=<segundos>)`
 
@@ -431,19 +431,19 @@ excedente recebe `RateLimited` com o tempo de espera; iterações e tokens viaja
 
 ## Phase 10: Polish & Cross-Cutting Concerns
 
-- [ ] T049 `tests/assistants/integration/test_cli.py`: `validate_command` com todos disponíveis (0), com um
+- [X] T049 `tests/assistants/integration/test_cli.py`: `validate_command` com todos disponíveis (0), com um
   indisponível (1, motivo impresso) e com `AssistantsConfigError` (2); `keys create` seguido de `authenticate` com a
   chave impressa na última linha; `keys list` sem chave nem hash; `keys revoke` seguido de recusa; aviso de
   armazenamento não persistente
-- [ ] T050 `tests/assistants/integration/test_postgres_migrations.py` (pulado sem `AI_CORE_TEST_POSTGRES_DSN`):
+- [X] T050 `tests/assistants/integration/test_postgres_migrations.py` (pulado sem `AI_CORE_TEST_POSTGRES_DSN`):
   `migrate` num banco vazio cria o schema `assistants` e registra as versões 1 e 2; rodar de novo não reaplica; duas
   chamadas concorrentes terminam com o schema íntegro (trava consultiva); nenhuma tabela é criada fora do schema
   `assistants`
-- [ ] T051 Rodar a verificação completa de [quickstart.md](quickstart.md) — `uv run pytest`, `uv run mypy`,
+- [X] T051 Rodar a verificação completa de [quickstart.md](quickstart.md) — `uv run pytest`, `uv run mypy`,
   `uv run ruff check packages`, `uv run ruff format --check packages/core`, `uv run lint-imports` — e os cenários 1–8,
   com e sem `AI_CORE_TEST_POSTGRES_DSN` (Postgres local por `docker run`), corrigindo divergências entre o resultado e
   o "Esperado"
-- [ ] T052 [P] Atualizar a seção "Código" de `CLAUDE.md` (o módulo `ai_core/assistants/` existe, spec 003, Fase 2:
+- [X] T052 [P] Atualizar a seção "Código" de `CLAUDE.md` (o módulo `ai_core/assistants/` existe, spec 003, Fase 2:
   US1–US7 — autenticação OIDC e por chave, resolução de grant com 404-não-403, políticas de Assistant de usuário,
   orçamento, validação e comandos `assistants validate`/`keys`, Postgres por psycopg com schema próprio; a troca na
   plataforma chega com as passadas da 008 e da 011) e a linha da 003 em `specs/README.md` com o status "Fase 2
@@ -535,7 +535,7 @@ Task: "T025 adapters/tokens.py e adapters/oidc.py"
   administração de chaves (FR a acrescentar na spec dela) e aplica `WIDENING_FIELDS` no corpo — é o que fecha o
   cenário 2 da US4 e a SC-005 para o corpo da requisição. Corrige também o cenário US2.1 dela, que contradiz a FR-008
   daqui (um privado aparece para quem o `allow` nomeia).
-- **011 (Fase 2)**: constrói `AccessService` e `AssistantsService` nos perfis, chama `migrate(pool)`, acrescenta a
+- **011 (Fase 2)**: constrói `AccessService` e `AssistantsService` nos perfis, chama `migrate(pool, now=…)`, acrescenta a
   etapa de validação de Assistants, registra `assistants validate` e `keys` e remove `bootstrap/grants.py` — é essa etapa que fecha a SC-004
   ("antes de servir tráfego").
 

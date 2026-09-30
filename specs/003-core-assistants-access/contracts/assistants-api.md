@@ -11,10 +11,11 @@ from ai_core.assistants.api import (
     # seams
     Authenticator, GrantResolver, AssistantDirectory, ApiKeyAdmin,
     # value objects
-    Principal, ExecutionGrant, Limits, AssistantSummary, UserAssistantDraft, UserAssistant,
+    Principal, ExecutionGrant, Limits, AssistantSummary, UserAssistantDraft, DraftLimits, UserAssistant,
     AssistantStatus, ValidationReport, ApiKeyInfo, IssuedApiKey,
     # vocabulário
-    Surface, Scheme, SCHEME_OF_SURFACE, USER_PREFIX, DEFAULT_RPM, WIDENING_FIELDS,
+    Surface, Scheme, Origin, PUBLIC_SURFACE, PRIVATE_SURFACE, SCHEMES, SCHEME_OF_SURFACE, USER_PREFIX,
+    DEFAULT_RPM, WIDENING_FIELDS, NAME_PATTERN, SUBJECT_PATTERN, KEY_ID_PATTERN, DESCRIPTION_MAX,
     # erros
     NotFound, AssistantNotFound, AssistantUnavailable, RequestRejected, PolicyViolation,
     NoApplicablePolicy, Conflict, RateLimited, AssistantsConfigError,
@@ -101,7 +102,7 @@ class ApiKeyAdmin(Protocol):
 
 | Regra | Origem | Verificada por |
 |---|---|---|
-| Ator fora de `api_keys.admin_group` (ou grupo não configurado) → `NotFound` em todas as operações | US2 cen. 5, FR-015 | suíte adversarial |
+| Ator fora de `api_keys.admin_group`, autenticado fora da superfície privada (esquema diferente de `api_key`) ou com o grupo não configurado → `NotFound` em todas as operações | US2 cen. 5, FR-015 | suíte adversarial |
 | A chave em claro só existe em `IssuedApiKey.plaintext`; `keys()` nunca a devolve | FR-015 | conformidade |
 | Revogada, a chave é recusada por `authenticate` na chamada seguinte | US2 cen. 4 | conformidade |
 | `revoke` de `key_id` inexistente → `NotFound`; revogar de novo devolve o mesmo `revoked_at` | ciclo de vida | conformidade |
@@ -109,7 +110,7 @@ class ApiKeyAdmin(Protocol):
 
 ## Validação e campos de ampliação
 
-- `service.validate() -> ValidationReport` não é seam entre módulos: a composition root o chama na etapa de validação
+- `await service.validate() -> ValidationReport` não é seam entre módulos: a composition root o chama na etapa de validação
   de Assistants, e a CLI da própria 003 o expõe ([cli.md](cli.md)).
 - `WIDENING_FIELDS` é a lista canônica que a 008 recusa no corpo da requisição, nomeando o campo (FR-007, R13).
 
@@ -123,5 +124,6 @@ class ApiKeyAdmin(Protocol):
   com modelo fora da allowlist produz grant);
 - `tests/assistants/contract/test_directory.py` — descoberta igual ao conjunto resolvível, CRUD e isolamento entre donos;
 - `tests/assistants/contract/test_key_admin.py` — emissão, listagem, revogação e 404 para não administradores;
+- `tests/assistants/contract/test_validation.py` — um estado por Assistant, motivos que nomeiam campo e referência;
 - `tests/assistants/contract/test_allowlist_parity.py` — a regra de allowlist da resolução e a da 006 concordam sobre
   o mesmo conjunto de casos (R5).

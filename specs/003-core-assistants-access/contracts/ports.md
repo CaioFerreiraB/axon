@@ -73,7 +73,7 @@ A 011 lê e passa estes valores; os nomes de variável são decisão dela (suges
 | `YamlAssistantConfigSource` | caminho do arquivo (`AI_CORE_ASSISTANTS_FILE`, já existente) |
 | `JwksOidcVerifier` | emissor (`AI_CORE_OIDC_ISSUER`), audiência (`AI_CORE_OIDC_AUDIENCE`), URL do JWKS opcional — sem ela, descoberta em `<emissor>/.well-known/openid-configuration` —, algoritmos (default `RS256`, `ES256`), cliente httpx |
 | mapeamento de claims (domínio) | claim de subject (default `sub`), claim de grupos (default `groups`), tolerância de relógio (default 60 s) |
-| `PostgresUserAssistantStore`, `PostgresApiKeyStore` | `AsyncConnectionPool` compartilhado (ADR-015); `migrate(pool)` do módulo roda no boot |
+| `PostgresUserAssistantStore`, `PostgresApiKeyStore` | `AsyncConnectionPool` compartilhado (ADR-015); `await migrate(pool, now=clock.now())` (`adapters/postgres_schema.py`) roda no boot, e `MigrationError` para o boot nomeando o arquivo |
 
 Sem emissor configurado, a composition root injeta `DisabledOidcVerifier`: a superfície pública recusa toda
 credencial — falha fechada, anunciada no relatório de boot.

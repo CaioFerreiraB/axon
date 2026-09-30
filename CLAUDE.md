@@ -82,6 +82,15 @@ Decidido em 2026-09-15 (plano da 001): `ai-core/` é subpasta deste repositório
 Python 3.14 no workspace, piso 3.12 em `ai-core-contracts`; CI em `.github/workflows/` da raiz. O `ai-scouting` segue a
 mesma regra: subpasta até existir repositório próprio, dependendo só de `ai-core-contracts`.
 
+**Fase 2 em andamento.** O módulo Assistants & Access (`ai_core/assistants/`, spec 003, US1–US7) existe: autenticação
+OIDC (JWT verificado localmente contra o JWKS) e por chave de API (só o hash; emissão e revogação pela CLI e pela
+superfície privada, restritas ao grupo de administração), resolução de grant com 404-não-403, allowlist aplicada na
+resolução, orçamento em janela deslizante, Assistants de usuário `~nome` sob políticas por grupo, validação de
+referências e os comandos `assistants validate`/`keys`. É o primeiro módulo com Postgres — psycopg 3, schema
+`assistants`, migrações SQL no próprio adapter (ADR-015) —, e o grant carrega a `ModelPolicy` da 006 (seta 003 → 006,
+ADR-016). A plataforma em execução ainda usa o resolvedor e o autenticador da Fase 1: o encaixe vem com as passadas da
+Fase 2 da 008 (rotas, status, CRUD, endpoint de chaves) e da 011 (perfis, etapa de boot, registro da CLI).
+
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
 true }`, suíte de conformidade nos próprios testes e zero import do core (import-linter, nas duas direções). Ele é
@@ -106,5 +115,13 @@ uv run python packages/contracts/tools/check_clean_env.py      # SC-001: pack s�
 O workspace exige Python 3.14 (por causa do core); o piso 3.12 dos contratos roda fora dele:
 `uv run --no-project --python 3.12 --with ./packages/contracts --with pytest --with pytest-asyncio --with hypothesis
 --with packaging pytest packages/contracts/tests`.
+
+Conformidade contra o Postgres real (ADR-015; a CI do core tem o serviço): sem `AI_CORE_TEST_POSTGRES_DSN`, esses casos
+são pulados.
+
+```bash
+docker run -d --rm --name ai-core-pg -e POSTGRES_PASSWORD=pg -p 55432:5432 postgres:17
+AI_CORE_TEST_POSTGRES_DSN=postgresql://postgres:pg@localhost:55432/postgres uv run pytest
+```
 
 Nesta máquina, rode o `uv` com `XDG_DATA_HOME=$HOME/.local/share` (o VSCode snap aponta o XDG para uma pasta que some).

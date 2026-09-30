@@ -1,4 +1,4 @@
-# CI de ai-core (hoje: Pack Runtime, spec 002). Fica na raiz enquanto ai-core/ é subpasta deste repositório.
+# CI de ai-core (módulos do core, specs 002–011). Fica na raiz enquanto ai-core/ é subpasta deste repositório.
 # `packages/generic/**` também dispara: o pack genérico é dependência de desenvolvimento do workspace e o teste de
 # integração da carga por entry point roda aqui (spec 010, research R8).
 name: core
@@ -42,6 +42,19 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    # Toda porta secundária roda a suíte de conformidade contra o adapter em memória e contra o real (princípio XIII);
+    # o Postgres é o real dos armazenamentos (ADR-015). Sem ele, esses casos seriam pulados e a regra viraria opcional.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: pg
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      AI_CORE_TEST_POSTGRES_DSN: postgresql://postgres:pg@localhost:5432/postgres
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v6

@@ -1,9 +1,10 @@
 # Contrato — comandos de linha de comando da 003
 
-Implementados em `ai_core/assistants/adapters/cli.py` como funções que recebem o serviço já montado, os argumentos e
-a saída, e devolvem o código de saída. **Quem os registra** na raiz `ai-core` é a composition root (011 US4): o
-framework de linha de comando é decisão dela ([research.md](../research.md) R14). Rodam com a mesma configuração e os
-mesmos adapters do servidor, sem abrir a API (011 FR-010, FR-011).
+Implementados em `ai_core/assistants/adapters/cli.py` como funções — `validate_command`, `keys_create_command`,
+`keys_list_command` e `keys_revoke_command`, assíncronas, e `validate_config_error`, síncrona — que recebem o serviço
+já montado, os argumentos e a saída, e devolvem o código de saída. **Quem os registra** na raiz `ai-core` é a
+composition root (011 US4): o framework de linha de comando é decisão dela ([research.md](../research.md) R14). Rodam
+com a mesma configuração e os mesmos adapters do servidor, sem abrir a API (011 FR-010, FR-011).
 
 ## `ai-core assistants validate`
 
@@ -19,7 +20,7 @@ interno      system  indisponível  packs: pack 'financeiro' não está habilita
 
 | Situação | Código de saída |
 |---|---|
-| todos disponíveis | 0 |
+| todos disponíveis (última linha: `N Assistants disponíveis`) | 0 |
 | algum indisponível | 1 |
 | erro de arquivo no `assistants.yaml` | 2, com a mensagem que nomeia o campo |
 
