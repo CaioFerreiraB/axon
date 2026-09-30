@@ -147,3 +147,204 @@ só o modelo é simulado.
 
 **Alternatives considered**: duplo do motor (testaria a tradução contra a ideia que a API faz do motor, e não contra o
 motor); servidor de verdade em porta local (mais lento e mais frágil, sem cobrir nada a mais).
+
+---
+
+# Fase 2 (2026-09-30): US2, US3, US4 (Assistants), US5 (packs, chaves, saúde) e US7
+
+As cinco clarificações de 2026-09-30 estão na spec e aparecem aqui em R12, R16, R19, R20 e R14. A numeração segue a
+da Fase 1 (o R11 citado no plano da Fase 1 são os contratos de import-linter).
+
+## R12 — Escopo da Fase 2
+
+**Decision**: entram a listagem de modelos (US2), a requisição nativa (US3), o CRUD de Assistants de usuário (US4, a
+metade de Assistants), a superfície privada — introspecção de packs, administração de chaves e saúde (US5) — e as
+conversas no servidor (US7), com exclusão e expiração. **Não** entram: endpoints de MCP (Fase 3, com a 007 —
+clarificação 1), fila, limite de concorrência e progresso de tool (US6, Fase 7) e Open WebUI (US8, Fase 7).
+
+**Rationale** (`docs/roadmap.md`: "008 · US2, US3, US4, US5, US7"; clarificação de 2026-09-30): sem o registry da 007
+os endpoints de MCP não teriam onde gravar nem o que validar.
+
+**Alternatives considered**: endpoints de MCP respondendo 501 (rota sem dono dos dados); porta com registry vazio
+(código que a 007 substituiria inteiro).
+
+## R13 — A troca para os seams da 003 é atômica: API e composition root no mesmo passo
+
+**Decision**: `http/ports.py` deixa de declarar `Principal`, `Authenticator`, `GrantResolver` e `AssistantNotFound`; a
+API passa a importá-los, com `AssistantDirectory`, `ApiKeyAdmin` e os erros, de `ai_core.assistants.api` (a seta
+`008 → 003` do grafo). Na mesma passada, a composition root (011) é ajustada no estritamente necessário para continuar
+montando a plataforma: constrói `AssistantsService` e `AccessService` da 003 com os adapters em memória, entrega-os à
+app, acrescenta a etapa de boot "validação de Assistants" (011 FR-002) no lugar do `validate_flows` provisório, e
+remove `bootstrap/grants.py`. O autenticador dos perfis `memory` e `test` continua o anônimo de desenvolvimento, agora
+produzindo um `Principal` da 003 (`user:anonymous`, esquema da superfície). O que é da 011 na Fase 2 — perfil
+persistente, autenticação real nos perfis, subcomandos, saúde agregada, agendamento da expiração — fica na passada dela.
+
+**Rationale** (003 research R2; 011 plan, "Seam Notes": "o bootstrap troca o adapter e a etapa de validação de
+Assistants entra na lista"): a composition root importa hoje as portas provisórias da 008 (`AssistantNotFound`,
+`Principal`, `DevelopmentPrincipal`). Trocar o tipo na 008 sem trocar o adapter no boot deixaria a plataforma sem
+montar entre duas passadas; e as rotas novas (modelos, CRUD, chaves) só funcionam com os serviços reais da 003. A
+exceção fica declarada no gate de fronteira, limitada aos arquivos listados no plano.
+
+**Alternatives considered**: passar a 011 antes (a 011 dependeria de rotas e portas que só existem depois desta
+passada); manter as portas provisórias com adaptadores de tradução no boot (código de transição sem dono, que teria de
+traduzir exceções e tipos de Principal nos dois sentidos).
+
+## R14 — Erros no formato da OpenAI, com um status por causa
+
+**Decision**: todo erro sai como `{"error": {"message", "type", "param", "code"}}`, o envelope da OpenAI, com o
+identificador de requisição no cabeçalho `X-Request-Id` quando houver:
+
+| Causa | Status | `type` / `code` |
+|---|---|---|
+| credencial ausente ou recusada | 401 | `authentication_error` |
+| inexistente **ou** não autorizado (Assistant, conversa, recurso administrativo) | 404 | `not_found_error` — mesmo corpo nos dois casos |
+| campo inválido, de ampliação, de data de referência, modelo fora da allowlist, rascunho fora da política | 400 | `invalid_request_error`, `param` = o campo |
+| nome de Assistant de usuário já usado pelo dono | 409 | `conflict` |
+| Assistant autorizado, mas indisponível (clarificação 4) | 424 | `assistant_unavailable`, com `x_ai_core.reasons` |
+| cota do par (Principal, Assistant) | 429 + `Retry-After` (segundos, arredondado para cima) | `rate_limit_exceeded` |
+
+**Rationale** (FR-009, FR-020, SC-004): clientes da OpenAI leem esse envelope; o `{"detail": ...}` da Fase 1 era o
+padrão do framework, não o formato prometido. O 424 não é repetido pelos SDKs (que repetem 409, 429 e 5xx) e não se
+confunde com a sobrecarga (503, Fase 7).
+
+**Alternatives considered**: manter `{"detail": ...}` (clientes da OpenAI perdem a mensagem estruturada); 503 para
+indisponível (rejeitado na clarificação).
+
+## R15 — A credencial é o token do cabeçalho `Authorization: Bearer`
+
+**Decision**: o adapter extrai o token de `Authorization: Bearer <token>` e o entrega a `authenticate` (003 recebe o
+token puro). Cabeçalho ausente, outro esquema ou token vazio → `credential=None` → 401. O mesmo cabeçalho nas duas
+superfícies: é o que os SDKs da OpenAI enviam com `api_key`.
+
+**Rationale** (003 contrato do `Authenticator`: "extrair o token do cabeçalho é da 008"; SC-004): um cabeçalho só
+para OIDC e chave de API deixa qualquer cliente OpenAI usar as duas superfícies sem adaptação.
+
+**Alternatives considered**: `X-API-Key` na superfície privada (cliente OpenAI não o envia).
+
+## R16 — `/v1/models`: uma entrada por Assistant, id curto
+
+**Decision**: `GET /v1/models` e `GET /private/v1/models` devolvem `{"object": "list", "data": [...]}` com uma entrada
+por item de `AssistantDirectory.discover(principal)`: `id` = nome do Assistant (`geral`, `~meu-rag`), `object` =
+`"model"`, `created` = instante da listagem (porta `Clock`), `owned_by` = `"system"` ou o subject do dono, e
+`x_ai_core` = `{generation, description, origin, allow}`.
+
+**Rationale** (clarificação 2; FR-003; 003 R12): id estável quando o operador troca o modelo, inequívoco com modelos
+que contêm `/`, sem rede na listagem. Pedir outro modelo da allowlist continua possível pelo id completo (003 R5).
+
+**Alternatives considered**: ver a clarificação 2.
+
+## R17 — Requisição nativa: outro formato de pedido, a mesma resposta
+
+**Decision**: `POST /v1/chat` e `POST /private/v1/chat` recebem `{"assistant", "model"?, "messages", "stream"?,
+"conversation_id"?}`. `model` é só a parte que restringe (`qwen3:8b` ou `ollama/qwen3:8b`), combinada com `assistant`
+no id que a 003 resolve. Campo desconhecido é recusado nomeando o campo (400); `WIDENING_FIELDS` da 003 é recusado com
+a mensagem de ampliação; data de referência, com a da FR-012. A resposta é a mesma da compat (chunks SSE ou
+`chat.completion`).
+
+**Rationale** (US3; FR-004; 003 R13): a requisição nativa existe para deixar explícito na interface que ela só nomeia
+e restringe — por isso é estrita, enquanto a compat tolera campos da OpenAI que ignora. Um segundo formato de
+resposta seria mais uma superfície para manter, sem consumidor que precise dele.
+
+**Alternatives considered**: formato de evento próprio na resposta (dois formatos para os mesmos eventos); rota
+`/v1/assistants/{nome}/chat` (o nome do Assistant iria na URL e na conversa ao mesmo tempo).
+
+## R18 — A compat também recusa a lista da 003
+
+**Decision**: a lista de campos recusados na compat passa a ser `WIDENING_FIELDS` da 003 — a do Phase 1 (`tools`,
+`functions`, `tool_choice`, `function_call`) está contida nela. Campos desconhecidos continuam tolerados na compat.
+
+**Rationale** (003 R13: "a lista é da 003, a aplicação é da borda"): uma fonte só para uma regra de segurança.
+
+**Alternatives considered**: manter a lista própria (duas fontes que divergiriam).
+
+## R19 — Assistants de usuário: CRUD na superfície pública, sobre o `AssistantDirectory`
+
+**Decision**: `GET /v1/assistants` (os próprios, com estado), `POST /v1/assistants`, `GET|PUT|DELETE
+/v1/assistants/{nome}` (com ou sem `~`). O corpo espelha o `UserAssistantDraft` da 003, com modelos em texto
+`provider/modelo`. As rotas só fazem o mapeamento JSON ⇄ rascunho (`domain/assistant_body.py`, puro) e chamam o seam.
+Só na superfície pública (FR-006).
+
+**Rationale** (US4; 003 contrato do `AssistantDirectory`): regras — política, prefixo, 404 para nome alheio — são da
+003; a API não repete nenhuma.
+
+**Alternatives considered**: CRUD também na privada (a FR-006 o põe na pública; serviços não criam Assistants de
+usuário).
+
+## R20 — Superfície privada: packs e chaves só para administradores, saúde para qualquer chave
+
+**Decision**: `GET /private/v1/packs` (entradas do Pack Registry) e `POST|GET /private/v1/admin/keys`,
+`DELETE /private/v1/admin/keys/{key_id}` (sobre o `ApiKeyAdmin`) respondem só ao grupo de administração, com 404 para
+os demais; `GET /private/v1/health` responde a qualquer chave válida, com 200 quando tudo está saudável e 503 quando
+algum item não está. A checagem de administrador para os packs entra por uma porta que esta spec declara —
+`AdminGate.is_admin(principal)` —, satisfeita pelo `AccessService` da 003, que já tem a regra.
+
+**Rationale** (clarificação 5; 003 FR-015): a regra "chave de API **e** grupo de administração" é da 003; declarar a
+forma exigida e deixar a 003 cumpri-la repete o arranjo da Fase 1 (a 008 declara, a 003 cumpre) sem duplicar a regra
+nem mudar o seam `ApiKeyAdmin`. 503 na saúde é o que balanceadores e monitores esperam.
+
+**Alternatives considered**: repetir a regra do grupo aqui (duas fontes para uma regra de acesso); acrescentar o método
+ao seam `ApiKeyAdmin` (mudaria um seam da 003).
+
+## R21 — Conversas no servidor: porta `ConversationStore`, dono = subject
+
+**Decision**: a porta guarda conversas por (subject do dono, id). Id `conv_<hex>` gerado por uma instância própria da
+porta `RequestIds`. Fluxo por requisição de chat:
+
+1. **com `conversation_id`**: a conversa precisa ser do subject (senão 404) e do mesmo Assistant (senão 400 com
+   `param = conversation_id`); o histórico armazenado mais a **última** mensagem de usuário do pedido formam as
+   mensagens da execução — mensagens de assistente ou de tool vindas do cliente são descartadas (SC-005);
+2. **sem `conversation_id`**: a execução usa as mensagens do pedido (padrão da OpenAI) e uma conversa nova é criada
+   antes da execução, para que o id saia no primeiro chunk;
+3. **no evento final sem erro**: grava-se a troca — a última mensagem de usuário e a resposta, com `request_id`,
+   citações e marcações — e atualiza-se a última atividade. Se a conversa foi apagada no meio, a gravação não
+   acontece (FR-018). Execução que falhou não grava a troca.
+
+Compat: `conversation_id` como campo extra do corpo; a resposta devolve o id no cabeçalho `X-Conversation-Id` e em
+`x_ai_core.conversation_id` (no primeiro chunk, em streaming). Rotas `GET /v1/conversations` (paginada por cursor),
+`GET|DELETE /v1/conversations/{id}`, e as mesmas em `/private/v1` — o mesmo subject as alcança pelas duas superfícies
+(clarificação 3). Expiração: `ConversationService.expire()` apaga as inativas há mais que o prazo (180 dias por
+padrão), a partir do relógio da porta; quem agenda é a 011.
+
+**Rationale** (US7; FR-008, FR-013–FR-015, FR-018, FR-019; `design.md`, "Conversas no servidor"): na criação só a
+troca é gravada, e não o histórico que o cliente mandou — senão uma mensagem de assistente forjada no primeiro pedido
+entraria nas execuções seguintes pelo id. Criar antes de executar é o que permite devolver o id já no primeiro chunk.
+
+**Alternatives considered**: criar a conversa só depois do sucesso (o id não sairia no primeiro chunk); gravar todo o
+histórico enviado na criação (quebraria a SC-005).
+
+## R22 — Postgres das conversas: schema `http`, mesmo padrão da 003
+
+**Decision**: `adapters/conversations_postgres.py` com as tabelas `http.conversations` e `http.messages` (mensagens com
+`seq` por conversa e `ON DELETE CASCADE`), migrações em `adapters/sql/` aplicadas por `migrate(pool, now=…)` sob trava
+consultiva — o mesmo desenho do adapter da 003 (ADR-015). Conformidade memória × Postgres com
+`AI_CORE_TEST_POSTGRES_DSN`.
+
+**Rationale** (ADR-015; design.md, "Persistência"): a convenção já está fixada; repeti-la aqui é seguir o ADR, não
+decidir de novo.
+
+**Alternatives considered**: nenhuma além do ADR-015.
+
+## R23 — Portas novas e retiradas
+
+**Decision**: `ports.py` fica com `RequestIds`, `Clock`, `ConversationStore`, `HealthProvider` e `AdminGate`. Saem
+`Principal`, `Authenticator`, `GrantResolver` e `AssistantNotFound`, que agora são da 003 (R13). `HealthProvider.health()`
+devolve um `HealthReport` (itens com nome, estado e detalhe) que a 011 monta (US5 dela); até lá, a composition root
+entrega um provedor mínimo a partir do relatório de boot.
+
+**Rationale** (princípio XIII; design.md, "Portas e adapters"): cada porta tem I/O, não-determinismo ou troca prevista
+— armazenamento, saúde agregada montada fora do módulo, regra de acesso de outro módulo.
+
+**Alternatives considered**: a 008 calcular a saúde (conheceria os demais módulos, o que o design proíbe).
+
+## R24 — Testes
+
+**Decision**: `domain/` puro (corpos da requisição nativa e do rascunho, envelope de erro, entrada de modelo);
+`contract/` por grupo de rotas, com os serviços **reais** da 003 sobre adapters em memória (principals de teste com
+`StaticOidcVerifier` e chaves semeadas), e a conformidade da `ConversationStore` em memória × Postgres; `integration/`
+com a conversa atravessando um "reinício" — um serviço novo sobre o mesmo armazenamento — e a suíte ponta a ponta da
+011 no perfil `test`.
+
+**Rationale** (R10 da Fase 1; SC-002, SC-005, SC-007): as regras de acesso são da 003, e testá-las contra dublês
+testaria a ideia que a API faz delas.
+
+**Alternatives considered**: dublês da 003 (não pegariam divergência de tipo nem de exceção).

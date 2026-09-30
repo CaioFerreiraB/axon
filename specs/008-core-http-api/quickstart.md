@@ -101,3 +101,24 @@ for chunk in client.chat.completions.create(model="geral", messages=[...], strea
 ```
 
 O SDK já está no ambiente (é o adapter da 006), o que torna esse exercício barato quando houver um servidor no ar.
+
+---
+
+## Fase 2 (US2, US3, US4, US5, US7)
+
+Comandos a partir de `ai-core/`. Para a conformidade da `ConversationStore` contra Postgres, defina
+`AI_CORE_TEST_POSTGRES_DSN` como no quickstart da 003.
+
+```bash
+uv run pytest packages/core/tests/http -v
+```
+
+| Cenário | Suíte | Esperado |
+|---|---|---|
+| Listagem de modelos (US2) | `contract/test_models_route.py` | listas diferem exatamente pela ACL; id curto; o id listado resolve no chat |
+| Requisição nativa (US3) | `contract/test_native_route.py` | `mcp_servers`, `packs`, `tools`, `provider` recusados nomeando o campo, antes de executar |
+| Assistants de usuário (US4) | `contract/test_user_assistants_routes.py` | CRUD completo; outro usuário recebe 404; criado aparece em `/v1/models` |
+| Superfície privada (US5) | `contract/test_private_routes.py` | packs e chaves só para o grupo de administração (404 para os demais); saúde com qualquer chave, 503 quando degradada |
+| Conversas (US7) | `contract/test_conversation_routes.py`, `integration/test_conversation_restart.py`, `unit/test_conversation_expiry.py` | continuação pelo id nas duas superfícies; reinício preserva o histórico; mensagem de assistente do cliente nunca entra; exclusão e expiração tornam o id 404 |
+| Erros (R14) | `unit/test_errors.py` e todas as rotas | envelope da OpenAI; 424 para indisponível; 429 com `Retry-After` |
+| Plataforma inteira (011, perfil `test`) | `uv run pytest packages/core/tests/bootstrap` | a conversa ponta a ponta continua funcionando com os serviços da 003 e o autenticador anônimo |

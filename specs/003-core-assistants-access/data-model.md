@@ -129,7 +129,7 @@ da emissão.
 |---|---|---|
 | `NotFound` (base, `LookupError`) | recurso inexistente **ou** não visível ao Principal | 404 |
 | `AssistantNotFound(NotFound)` | Assistant inexistente ou ACL recusada — mesma mensagem nos dois casos | 404 |
-| `AssistantUnavailable` | autorizado, mas indisponível; carrega `reasons` | 503 |
+| `AssistantUnavailable` | autorizado, mas indisponível; carrega `reasons` | 424 (008, clarificação de 2026-09-30) |
 | `RequestRejected` (`ValueError`) | pedido fora do permitido; carrega `field` (ex.: `model`) | 400 |
 | `PolicyViolation(RequestRejected)` | rascunho de Assistant de usuário fora da política; `field` nomeia o campo | 400 |
 | `NoApplicablePolicy(RequestRejected)` | Principal sem política aplicável tenta criar Assistant (US6 cen. 6) | 400 |

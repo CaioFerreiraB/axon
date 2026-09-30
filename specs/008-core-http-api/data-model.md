@@ -88,3 +88,56 @@ Todo chunk repete `id`, `object`, `created` e `model`.
 | Execução falha depois do stream aberto | chunk final com `finish_reason="error"`, motivos em `x_ai_core.errors`, e `[DONE]`; conexão fecha limpa (R6) |
 | Execução falha sem streaming | **502** com os motivos e o texto parcial no corpo. Sem streaming ainda dá para escolher o status, e 200 com marcador de erro seria degradação silenciosa, que o princípio VII proíbe — em streaming o 200 já foi enviado e o chunk com desfecho de erro é o melhor possível |
 | Cliente desconecta no meio do stream | o iterador do motor é fechado e a execução cancelada (005) |
+
+---
+
+# Fase 2 (2026-09-30)
+
+Os tipos de Principal, grant e erros de acesso agora são da 003 (`ai_core.assistants.api`, research R13). Os tipos
+abaixo são desta spec: os de armazenamento em `ports.py`, os de formato em `domain/`.
+
+## Conversa (US7)
+
+### `Conversation`
+
+| Campo | Tipo | Regra |
+|---|---|---|
+| `id` | `str` | `conv_<hex>`, gerado pela porta `RequestIds` (instância própria) |
+| `owner` | `str` | subject do Principal (clarificação 3); o mesmo subject a alcança pelas duas superfícies |
+| `assistant` | `str` | nome resolvido (`geral`, `~meu-rag`); a conversa só continua com o mesmo Assistant |
+| `model` | `str` | o id pedido na abertura (`geral`, `geral/ollama/qwen3:8b`) |
+| `created_at`, `last_activity_at` | `datetime` | da porta `Clock`; a expiração usa `last_activity_at` |
+| `message_count` | `int` | mensagens gravadas |
+
+### `StoredMessage`
+
+| Campo | Tipo | Regra |
+|---|---|---|
+| `role` | `"user" \| "assistant"` | só esses dois são gravados |
+| `content` | `str` | texto da mensagem |
+| `at` | `datetime` | da porta `Clock` |
+| `request_id` | `str` | a requisição que a produziu (liga a conversa ao trace, 009) |
+| `citations` | `tuple[JSONValue, ...]` | nas respostas: as citações do `FinalEvent` |
+| `flags` | `tuple[str, ...]` | nas respostas: as marcações do `FinalEvent` |
+
+`ConversationPage(items: tuple[Conversation, ...], next_cursor: str | None)` — listagem por última atividade, mais
+recente primeiro; o cursor é opaco.
+
+**Ciclo de vida**: `aberta` (antes da primeira execução) → `com trocas` (a cada evento final sem erro) → `apagada`
+(pelo dono, ou pela expiração após o prazo sem atividade). Apagada é terminal: listagem, leitura e continuação
+respondem 404 (FR-018).
+
+## Saúde (US5)
+
+`HealthReport(ok: bool, items: tuple[HealthItem, ...])`, `HealthItem(name: str, ok: bool, detail: str | None)`. Montado
+fora do módulo (011); a API só o serializa (200 se `ok`, 503 se não).
+
+## Formatos de fio
+
+- **Entrada da listagem de modelos** (R16): `{"id": "<assistant>", "object": "model", "created": <epoch>, "owned_by":
+  "system" | "<subject>", "x_ai_core": {"generation": "ollama/qwen3:1.7b", "description": …, "origin": "system" |
+  "user", "allow": […]}}`.
+- **Requisição nativa** (R17): `{"assistant", "model"?, "messages", "stream"?, "conversation_id"?}` — nada além disso.
+- **Rascunho de Assistant de usuário** (R19): os campos do `UserAssistantDraft` da 003, com `models` como
+  `{"generation": "ollama/qwen3:1.7b", …}` e `limits` opcional.
+- **Envelope de erro** (R14): `{"error": {"message", "type", "param", "code"}}`, com `x_ai_core.reasons` no 424.

@@ -196,3 +196,120 @@ Reavaliado com [data-model.md](data-model.md), [contracts/](contracts/) e [quick
 | Porta `RequestIds` para gerar identificador (R7) | o identificador aparece na resposta e é a chave do trace; aleatoriedade é porta por princípio XIII | gerar no adapter deixaria a suíte casando por expressão regular e o elo resposta↔trace sem verificação exata |
 | `Principal` e `GrantResolver` como `Protocol` daqui (R1, R2) | os donos são da 003, que é Fase 2 | montar o grant na API poria a fronteira de isolamento no adapter primário; antecipar a 003 criaria código sem spec |
 | Construção de chunk separada da escrita (R4) | as regras de formato que quebram cliente são puras e merecem teste sem servidor | tudo no adapter exigiria subir servidor para verificar cada regra de formato |
+
+---
+
+# Fase 2 (2026-09-30): US2, US3, US4 (Assistants), US5 (packs, chaves, saúde), US7
+
+Insumos: as cinco clarificações de 2026-09-30 da spec; a 003 implementada (`ai_core.assistants.api`); a US4 da 002;
+ADR-015 (Postgres por módulo) e ADR-016. Decisões em [research.md](research.md) R12–R24. **Sem divergência do
+`design.md`** além do que as clarificações fixaram: endpoints de MCP na Fase 3, id curto em `/v1/models`, 424 para
+Assistant indisponível e a checagem de administrador por porta (R20).
+
+## Summary (Fase 2)
+
+A API passa a consumir os seams da 003 diretamente — autenticação real, grant, diretório e administração de chaves —
+e ganha a listagem de modelos (id curto por Assistant), a requisição nativa estrita, o CRUD de Assistants de usuário,
+a superfície privada (packs e chaves para administradores, saúde para qualquer chave) e as conversas no servidor, com
+dono = subject, continuação pelo id, exclusão e expiração, em memória e em Postgres (schema `http`). Todo erro sai no
+envelope da OpenAI. A troca de tipos na API e a troca de adapter na composition root acontecem juntas (R13).
+
+## Technical Context (Fase 2)
+
+**Primary Dependencies**: + `ai_core.assistants.api` (003) e `ai_core.packs.api` (002, já consumido pelo motor);
+`psycopg`/`psycopg-pool` (já no workspace pela 003), confinados a `http/adapters/`
+
+**Storage**: conversas — memória (perfis `memory` e `test`) e Postgres no schema `http` (ADR-015; o perfil
+persistente é da 011)
+
+**Testing**: rotas com os serviços reais da 003 sobre adapters em memória; `ConversationStore` em memória × Postgres
+(`AI_CORE_TEST_POSTGRES_DSN`); reinício simulado por serviço novo sobre o mesmo armazenamento (R24)
+
+**Constraints**: toda regra de acesso é da 003 (a API não repete nenhuma); 404 idêntico para inexistente e não
+autorizado em Assistants, conversas e rotas administrativas; nenhuma mensagem de assistente do cliente entra numa
+execução com id de conversa (SC-005); tempo e ids por porta
+
+**Scale/Scope**: ~14 rotas novas; portas `ConversationStore`, `HealthProvider`, `AdminGate`; `domain/` com os corpos
+nativo e de rascunho, o envelope de erro e as regras de conversa
+
+## Constitution Check (Fase 2)
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| II. Seams | ✅ | Consome `api.py` de 003, 002 e 005; a seta 008 → 003 é a do grafo. A troca na composition root é exceção declarada abaixo (R13) |
+| IV. Assistant é a fronteira | ✅ | Listagem = o que o Principal resolve; campos de ampliação recusados nas duas rotas de chat; 404 em Assistants, conversas e rotas de administração |
+| VI. Conteúdo externo | ✅ | O histórico armazenado é a fonte de verdade; o que o cliente manda como resposta anterior é descartado (R21) |
+| VII. Falha fechada | ✅ | Toda recusa (401, 404, 400, 409, 424, 429) acontece antes de qualquer chamada de modelo; conversa apagada não recebe troca |
+| XI. Independência da interface | ✅ | Envelope e formatos da OpenAI; nenhuma lógica de agente na API |
+| XII. Simplicidade | ✅ | Uma resposta só para compat e nativa (R17); sem MCP, fila nem progresso de tool nesta fase |
+| XIII. Portas e adapters | ✅ | Ver gate abaixo |
+
+**Module boundary gate (Fase 2)**:
+
+- [x] Source changes stay inside this module's paths — `ai_core/http/**` e `tests/http/**`, **mais a exceção declarada
+  do R13**: na composition root, `bootstrap/wiring.py` e `bootstrap/profiles.py` (construir os serviços da 003, a
+  `ConversationStore` em memória e o provedor mínimo de saúde; nova etapa de validação de Assistants), a remoção de
+  `bootstrap/grants.py`, e os testes e o `assistants.yaml` das suítes de `tests/bootstrap/` no formato da 003; na 003,
+  um método público `AccessService.is_admin` (a regra já existe como `_require_admin`, R20); e `pyproject.toml`
+  (import-linter)
+- [x] Every consumed seam is listed with its owner spec — 003 (`Authenticator`, `GrantResolver`, `AssistantDirectory`,
+  `ApiKeyAdmin`, `Principal`, erros, `WIDENING_FIELDS`), 002 (`PackRegistry`), 005 (`ExecutionEngine`)
+- [x] Every seam this module exposes has a conformance test planned — a API HTTP: uma suíte por grupo de rotas
+  (contracts/*.md)
+- [x] No seam changes — nenhum seam muda; a API passa a consumir os seams da 003 como a Fase 1 previa (R1, R2)
+- [x] Import boundaries cover the new code — `psycopg` só em `http/adapters/`; a API só vê `assistants.api`
+
+**Ports & adapters gate (Fase 2)**:
+
+- [x] `ConversationStore` (I/O, troca memória → Postgres), `HealthProvider` (montada fora do módulo), `AdminGate` (regra
+  de outro módulo, R20) — cada uma com adapter em memória ou de teste e conformidade; Postgres contra o real na CI
+- [x] `domain/` puro: corpos, envelope de erro, regras de conversa (qual mensagem entra, quando gravar)
+- [x] nenhum framework HTTP nem driver fora de `adapters/`
+
+**Resultado do gate (Fase 2)**: PASS.
+
+## Project Structure (Fase 2)
+
+```text
+ai-core/packages/core/src/ai_core/http/
+├── ports.py                     # − Principal/Authenticator/GrantResolver/AssistantNotFound; + ConversationStore,
+│                                #   HealthProvider, AdminGate, Conversation, StoredMessage, ConversationPage, HealthReport
+├── service.py                   # ChatService com conversas; ConversationService (listar, ler, apagar, expirar)
+├── domain/
+│   ├── chat_request.py          # compat: recusa WIDENING_FIELDS (R18); conversation_id
+│   ├── native_request.py        # requisição nativa estrita (R17)
+│   ├── assistant_body.py        # JSON ⇄ UserAssistantDraft (R19)
+│   ├── conversations.py         # mensagens da execução a partir do histórico (R21)
+│   ├── errors.py                # envelope da OpenAI e tabela de status (R14)
+│   └── openai_chunks.py         # + conversation_id no primeiro chunk e na completion
+└── adapters/
+    ├── app.py                   # create_app com os seams da 003, 002 e as portas novas
+    ├── auth.py                  # Bearer → authenticate (R15)
+    ├── chat.py                  # compat e nativa
+    ├── models.py                # /models
+    ├── user_assistants.py       # CRUD /v1/assistants
+    ├── private.py               # packs, admin/keys, health
+    ├── conversations.py         # /conversations
+    ├── errors.py                # exceções → envelope + status
+    ├── development.py           # AnonymousAuthenticator com o Principal da 003
+    ├── conversations_memory.py
+    ├── conversations_postgres.py
+    ├── postgres_schema.py       # migrate(pool, now=…) do schema http
+    └── sql/001_conversations.sql
+```
+
+## Seam Notes for Consumers (Fase 2)
+
+| Consumidor | O que precisa saber |
+|---|---|
+| 011 (passada da Fase 2) | A app agora recebe `Authenticator`, `GrantResolver`, `AssistantDirectory`, `ApiKeyAdmin` (003), `PackRegistry` (002), `AdminGate`, `ConversationStore`, `HealthProvider` e duas instâncias de `RequestIds`. Esta passada já monta a plataforma com os serviços da 003 em memória e o autenticador anônimo (R13); à 011 cabem o perfil persistente (pool, `migrate` de `assistants` e `http`), a autenticação real nos perfis, o agregador de saúde, o agendamento de `ConversationService.expire()` e o registro dos subcomandos |
+| Clientes | Erros no envelope da OpenAI; `x_ai_core.conversation_id` e `X-Conversation-Id` em toda resposta de chat; `/v1/models` com id curto |
+| 007 (Fase 3) | Os endpoints de MCP entram nesta spec na Fase 3, sobre o seam MCP Registry |
+
+## Complexity Tracking (Fase 2)
+
+| Complexidade | Why Needed | Simpler Alternative Rejected Because |
+|---|---|---|
+| Troca atômica na composition root dentro desta passada (R13) | a composition root importa as portas provisórias da 008; trocar só a API deixaria a plataforma sem montar | passar a 011 antes inverteria a dependência entre as passadas; tradutores de tipo no boot seriam código de transição sem dono |
+| Conversa criada antes de executar (R21) | o id precisa sair no primeiro chunk (FR-014) | criar só depois do sucesso esconderia o id do cliente em streaming |
+| Porta `AdminGate` (R20) | a regra de administrador é da 003, e a introspecção de packs precisa dela | repetir a regra aqui duplicaria uma regra de acesso; mudar o seam `ApiKeyAdmin` pediria ADR |

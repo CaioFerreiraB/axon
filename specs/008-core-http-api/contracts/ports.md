@@ -79,3 +79,37 @@ de ignorar o campo.
 
 `ConversationStore` e `HealthProvider` estão no `design.md` e entram na Fase 2, com conversas e saúde agregada:
 declará-las agora seria porta sem consumidor (princípio XIII, [research.md](../research.md) R9).
+
+---
+
+## Fase 2 (2026-09-30) — portas que saem e que entram
+
+**Saem** (research R13): `Principal`, `Authenticator`, `GrantResolver` e `AssistantNotFound`. A API passa a importá-los de
+`ai_core.assistants.api`, com `AssistantDirectory`, `ApiKeyAdmin` e os erros da 003. O `AnonymousAuthenticator` de
+desenvolvimento continua aqui, agora produzindo o `Principal` da 003 (`user:anonymous`, esquema da superfície).
+
+**Entram**:
+
+```python
+class ConversationStore(Protocol):
+    async def create(self, conversation: Conversation) -> None: ...
+    async def get(self, owner: str, conversation_id: str) -> Conversation | None: ...        # None → 404
+    async def messages(self, owner: str, conversation_id: str) -> Sequence[StoredMessage] | None: ...
+    async def append(self, owner: str, conversation_id: str, messages: Sequence[StoredMessage], *, at: datetime) -> bool: ...
+    async def list(self, owner: str, *, limit: int, cursor: str | None) -> ConversationPage: ...
+    async def delete(self, owner: str, conversation_id: str) -> bool: ...                      # False → 404
+    async def delete_inactive(self, *, before: datetime) -> int: ...
+
+class HealthProvider(Protocol):
+    async def health(self) -> HealthReport: ...
+
+class AdminGate(Protocol):
+    def is_admin(self, principal: Principal) -> bool: ...     # satisfeita pelo AccessService da 003 (R20)
+```
+
+| Porta | Adapters | Conformidade |
+|---|---|---|
+| `ConversationStore` | `InMemoryConversationStore` (`adapters/conversations_memory.py`), `PostgresConversationStore` (`adapters/conversations_postgres.py`, schema `http`, ADR-015) | `tests/http/contract/test_conversation_store.py`, memória × Postgres: isolamento por dono, ordem das mensagens, `append` em conversa apagada devolve `False`, `delete_inactive` pelo instante, paginação estável, sobrevive a um armazenamento novo |
+| `HealthProvider` | provedor mínimo da composition root (a partir do relatório de boot) até a 011 US5; `StaticHealthProvider` nos testes | a rota responde 200/503 conforme `ok` |
+| `AdminGate` | `AccessService` da 003 | a rota de packs responde 404 a quem a porta recusa |
+| `RequestIds` | uma instância para requisições, outra para conversas | ids distintos e previsíveis nos testes |
