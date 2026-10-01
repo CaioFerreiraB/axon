@@ -19,6 +19,17 @@
 - **Substituição**: preservar o registry por alias e o cliente restrito; transporte e armazenamento podem mudar (são adapters).
 - **Insumo técnico**: [design.md](design.md); [ADR-003](../../docs/adr/ADR-003-mcp-usuario-pack-operador.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md).
 
+## Clarifications
+
+### Session 2026-10-01
+
+- Q: Por qual canal o operador registra MCPs globais, em especial os de transporte `stdio` (que executam um comando no host do core)? → A: `http` e `sse` globais pela superfície privada, ao vivo e sem restart; `stdio` só pelo arquivo de configuração do operador, montado na imagem e lido no boot (mudar exige restart), nunca pela API, em escopo nenhum. É a tabela do ADR-003: servidor remoto é dado; comando no host é nível de operador.
+- Q: O bloqueio de `localhost` e de faixas de IP privadas vale também para os MCPs globais do operador, que costumam rodar na rede interna? → A: Vale para todos. O operador libera hosts internos específicos pela configuração da imagem (ambiente ou arquivo), nunca pela API; só MCPs globais alcançam um host liberado, e MCP de usuário nunca. A API, mesmo com chave de administração, não amplia a rede alcançável.
+- Q: Como um MCP de usuário que exige autenticação recebe a credencial, se o registry não guarda segredos e o usuário não tem acesso ao secret store do servidor? → A: Não recebe, na Fase 3: MCP de usuário é só sem autenticação, com endpoint sem credencial embutida (sem usuário e senha na URL), e nunca referencia credencial. Autenticação por usuário (segredo cifrado ou OAuth) é decisão de uma fase futura.
+- Q: Quais MCPs globais um usuário pode referenciar nos Assistants próprios? → A: Só os marcados, servidor a servidor, como liberados a usuários — marca no MCP global, desligada por padrão. A 003 continua consultando apenas a porta que já declarou (aliases do dono e globais liberados a usuários).
+- Q: Como se evita que o alias de um MCP de usuário colida com o de um MCP global? → A: Alias de usuário leva o prefixo reservado `~` (ex.: `~drive`), único por dono; alias global nunca começa com `~` e é único entre os globais. Os dois espaços nunca se cruzam, nada sombreia nada — a regra dos Assistants de usuário da 003 (FR-017).
+- Alinhamento com o princípio VI da constituição (achado C1 do `/speckit-analyze`, sem pergunta nova): além da exceção de hosts internos, o operador pode definir na configuração da imagem uma **allowlist de hosts de destino**, opcional. Definida, todo destino fora dos hosts internos — de MCP global ou de usuário — precisa casar com ela (nome exato ou `*.domínio`); ausente, vale qualquer host público. É a "allowlist de hosts" que o princípio VI exige do cliente MCP.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Operador registra um MCP global sem código nem restart (Priority: P1)
@@ -33,6 +44,7 @@ O operador registra um servidor MCP com alias, transporte, endpoint, tipo de aut
 
 1. **Given** um MCP recém-registrado, **When** uma execução nova começa, **Then** as tools permitidas são descobertas e disponibilizadas.
 2. **Given** um MCP desabilitado no registry, **When** a validação de Assistants roda, **Then** os Assistants que o referenciam são sinalizados com erro explícito.
+3. **Given** uma chave do grupo de administração, **When** tenta registrar pela API um MCP com transporte `stdio`, **Then** o registro é recusado nomeando o campo; **Given** um MCP `stdio` no arquivo de configuração do operador, **When** a plataforma sobe, **Then** ele aparece no registry como global e somente leitura.
 
 ---
 
@@ -77,6 +89,9 @@ Um usuário registra servidores MCP de escopo `user`, visíveis apenas para ele 
 
 1. **Given** um MCP de escopo `user` de A, **When** B lista MCPs, **Then** não o vê.
 2. **Given** um usuário, **When** tenta registrar MCP com transporte `stdio`, **Then** é rejeitado — `stdio` executaria comando no host do core.
+3. **Given** um usuário, **When** tenta registrar MCP com referência de credencial, tipo de autenticação diferente de nenhum ou endpoint com usuário e senha na URL, **Then** é rejeitado nomeando o campo — referenciar segredos do servidor permitiria enviá-los a um endpoint do próprio usuário.
+4. **Given** um MCP global não liberado a usuários, **When** um usuário cria um Assistant que o referencia, **Then** a criação é rejeitada como referência inexistente; **Given** o mesmo MCP liberado a usuários, **When** cria, **Then** é aceita.
+5. **Given** um MCP global `drive`, **When** um usuário registra um MCP próprio, **Then** o alias dele é `~drive` — os dois coexistem sem ambiguidade; **Given** um registro global com alias começando por `~`, ou de usuário sem o prefixo, **When** enviado, **Then** é recusado nomeando o alias.
 
 ---
 
@@ -96,7 +111,7 @@ Cada servidor tem política: timeout, tamanho máximo de resposta, allowlist de 
 
 ### User Story 6 - Proteções de rede (Priority: P2)
 
-O cliente aplica allowlist de hosts, bloqueia `localhost` e faixas de IP privadas (inclusive quando alcançadas por DNS ou redirecionamento), e aplica timeout e limite de tamanho.
+O cliente bloqueia `localhost` e faixas de IP privadas para todo MCP (inclusive quando alcançadas por DNS ou redirecionamento), com exceção apenas dos hosts internos que o operador libera na configuração da imagem, válida só para MCPs globais; e, quando o operador define uma allowlist de hosts de destino, só alcança os hosts que casam com ela.
 
 **Why this priority**: Qualquer pessoa poderá instalar a plataforma; SSRF é o ataque óbvio contra MCPs de usuário.
 
@@ -106,6 +121,9 @@ O cliente aplica allowlist de hosts, bloqueia `localhost` e faixas de IP privada
 
 1. **Given** um MCP de usuário cujo host resolve para faixa privada, **When** o cliente conecta, **Then** a conexão é bloqueada.
 2. **Given** um redirecionamento para `localhost`, **When** seguido, **Then** é bloqueado.
+3. **Given** um host interno liberado na configuração do operador, **When** um MCP global aponta para ele, **Then** a conexão é feita; **When** um MCP de usuário aponta para o mesmo host, **Then** é bloqueada.
+4. **Given** um MCP global registrado pela API apontando para faixa privada não liberada (ex.: o endpoint de metadados da nuvem), **When** o cliente conecta, **Then** a conexão é bloqueada.
+5. **Given** uma allowlist de hosts de destino com `*.empresa.example`, **When** um MCP (de usuário ou global) aponta para um host público fora dela, **Then** a conexão é bloqueada; **When** aponta para `mcp.empresa.example`, **Then** passa às demais regras.
 
 ---
 
@@ -114,28 +132,31 @@ O cliente aplica allowlist de hosts, bloqueia `localhost` e faixas de IP privada
 - Servidor fora do ar na descoberta: tools ausentes naquela execução, fato registrado e sinalizado (spec 004).
 - Servidor muda a lista de tools: reflete após expirar o cache; tools fora da allowlist continuam ausentes.
 - Referência de credencial inválida: erro explícito na chamada e no health check do registry.
-- Operador registra MCP `stdio` global: permitido (o operador é a fronteira de confiança), com o comando fixado no registro.
+- Operador declara MCP `stdio` global: permitido só no arquivo de configuração do operador (o operador é a fronteira de confiança), com o comando fixado ali. Tentativa de registrar `stdio` pela API, mesmo com chave do grupo de administração, é recusada nomeando o campo — seria execução remota de comando por construção (ADR-003).
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: O registry DEVE armazenar por servidor: alias, transporte (`stdio`, `http`, `sse`), endpoint, tipo de autenticação, referência de credencial, dono, escopo (`global`, `user`), habilitado e política (timeout, tamanho máximo, allowlist de tools, tools de escrita).
-- **FR-002**: Adicionar, alterar ou desabilitar um servidor NÃO DEVE exigir código nem restart.
+- **FR-001**: O registry DEVE armazenar por servidor: alias, transporte (`stdio`, `http`, `sse`), endpoint, tipo de autenticação, referência de credencial, dono, escopo (`global`, `user`), habilitado, liberado a usuários (só globais; desligado por padrão) e política (timeout, tamanho máximo, allowlist de tools, tools de escrita).
+- **FR-002**: Adicionar, alterar ou desabilitar um servidor `http` ou `sse` NÃO DEVE exigir código nem restart. Servidores `stdio` vêm só do arquivo de configuração do operador, lido no boot: mudá-los exige restart.
 - **FR-003**: O registry NÃO DEVE armazenar segredos; apenas referências resolvidas no servidor.
 - **FR-004**: Credenciais NÃO DEVEM trafegar em requisições de usuário nem aparecer em trace ou log.
 - **FR-005**: O cliente DEVE aceitar apenas aliases autorizados pelo grant e resolver endpoint e credencial no servidor.
-- **FR-006**: MCPs de escopo `user` DEVEM ser visíveis e utilizáveis apenas pelo dono.
+- **FR-006**: MCPs de escopo `user` DEVEM ser visíveis e utilizáveis apenas pelo dono. Um Assistant de usuário DEVE poder referenciar apenas os MCPs do próprio dono e os globais liberados a usuários; um Assistant de sistema, apenas globais.
 - **FR-007**: A descoberta DEVE retornar apenas as tools da allowlist do servidor, marcando as de escrita.
 - **FR-008**: O cliente DEVE aplicar timeout e tamanho máximo por chamada.
-- **FR-009**: O cliente DEVE aplicar allowlist de hosts e bloquear localhost e faixas privadas, inclusive via DNS e redirecionamento.
+- **FR-009**: O cliente DEVE bloquear localhost, faixas privadas, link-local e de metadados para todo MCP, conferindo o IP resolvido a cada conexão e a cada redirecionamento. A única exceção é a allowlist de hosts internos do operador, definida na configuração da imagem (nunca pela API), e ela vale só para MCPs globais — MCP de usuário nunca alcança um host liberado. Além disso, o cliente DEVE aplicar a allowlist de hosts de destino do operador, quando definida na configuração da imagem: destino fora dos hosts internos que não casa com ela (nome exato ou `*.domínio`) é bloqueado, para MCPs globais e de usuário.
 - **FR-010**: A descoberta DEVE usar cache com tempo de vida configurável.
 - **FR-011**: O registry DEVE oferecer health check por servidor.
-- **FR-012**: MCPs de escopo `user` NÃO DEVEM usar transporte `stdio`.
+- **FR-012**: MCPs de escopo `user` NÃO DEVEM usar transporte `stdio` — corolário do ADR-003; o FR-013 o generaliza para todo registro pela API.
+- **FR-013**: O registro pela API — em qualquer escopo — NÃO DEVE aceitar transporte `stdio`; servidores `stdio` existem só no arquivo de configuração do operador, e a API os mostra como somente leitura.
+- **FR-014**: MCPs de escopo `user` NÃO DEVEM ter autenticação nem referência de credencial, e o endpoint NÃO DEVE conter credencial embutida (usuário e senha na URL); autenticação de MCP de usuário fica fora da Fase 3.
+- **FR-015**: Alias de MCP de escopo `user` DEVE começar com o prefixo reservado `~` e ser único por dono; alias global NÃO DEVE começar com `~` e DEVE ser único entre os globais. Registro que viole a regra é recusado nomeando o campo.
 
 ### Key Entities
 
-- **MCP Server**: alias, transporte, endpoint, autenticação, referência de credencial, dono, escopo, habilitado, política.
+- **MCP Server**: alias (`~` reservado aos de usuário, único por dono; global único entre globais), transporte, endpoint, autenticação, referência de credencial, dono, escopo, habilitado, liberado a usuários (globais), política.
 - **Security Policy**: timeout, tamanho máximo, allowlist de tools, tools de escrita.
 - **Credential Reference**: ponteiro para o secret store.
 
@@ -151,5 +172,6 @@ O cliente aplica allowlist de hosts, bloqueia `localhost` e faixas de IP privada
 ## Assumptions
 
 - O secret store é fornecido pela instalação (variáveis de ambiente ou serviço de segredos), por uma porta de segredos; a escolha do adapter fica no plano e o wiring na composition root (011).
-- MCPs globais são registrados pela superfície privada (spec 008); MCPs de usuário, pela pública.
+- MCPs globais `http`/`sse` são registrados pela superfície privada (spec 008), e os `stdio`, pelo arquivo de configuração do operador; MCPs de usuário, pela superfície pública.
 - O registry usa armazenamento persistente a partir da Fase 3 (adapter Postgres; em memória antes).
+- Fora do escopo da Fase 3: autenticação de MCP de usuário (segredo por usuário cifrado ou OAuth). Até lá, MCP de usuário é sem autenticação (FR-014).
