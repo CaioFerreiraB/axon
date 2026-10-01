@@ -74,3 +74,26 @@ A API recebe `<assistant>` ou `<assistant>/<modelo>` e pede o grant.
 7. id com a parte do modelo troca só o papel `generation` e preserva a allowlist;
 8. Assistant desconhecido levanta o erro que a API traduz em 404;
 9. Assistant cujo pack não está disponível fica indisponível, e os demais continuam resolvendo.
+
+---
+
+## Fase 2 (2026-09-30): variáveis novas (research R18)
+
+| Variável | Default | Significado |
+|---|---|---|
+| `AI_CORE_PROFILE` | `memory` | agora `memory`, `persistent` ou `test` |
+| `AI_CORE_DATABASE_URL` | — | **segredo**; obrigatória no `persistent`; nunca impressa |
+| `AI_CORE_DEV_API_KEY` | — | **segredo**; chave de desenvolvimento do `memory` (`aic_<16 hex>_<segredo>`); recusada no `persistent` |
+| `AI_CORE_OIDC_ISSUER` | — | emissor OIDC; sem ele, a superfície pública recusa toda credencial |
+| `AI_CORE_OIDC_AUDIENCE` | — | obrigatória quando há emissor |
+| `AI_CORE_OIDC_JWKS_URL` | — | opcional; sem ela, descoberta em `<emissor>/.well-known/openid-configuration` |
+| `AI_CORE_OIDC_SUBJECT_CLAIM` | `sub` | claim que vira `user:<valor>` |
+| `AI_CORE_OIDC_GROUPS_CLAIM` | `groups` | claim dos grupos |
+| `AI_CORE_CONVERSATION_RETENTION_DAYS` | `180` | prazo de retenção de conversas sem atividade (008 FR-019) |
+| `AI_CORE_CONVERSATION_EXPIRY_INTERVAL` | `3600` | segundos entre execuções da expiração |
+
+O `assistants.yaml` é da 003 desde a Fase 2 (formato em `specs/003-core-assistants-access/contracts/assistants-yaml.md`);
+a seção acima sobre ele descreve a Fase 1.
+
+Conformidade (`tests/bootstrap/unit/test_settings.py`): cada variável nova com default e recusa nomeando a variável;
+mensagens de erro de segredo nunca contêm o valor.

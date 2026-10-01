@@ -186,3 +186,82 @@ Reavaliado com [data-model.md](data-model.md), [contracts/](contracts/) e [quick
 | Etapas de boot como valores (R1) | a ordem e a política de falha são requisito (FR-002, FR-003) e precisam ser verificáveis sem plataforma | função linear espalharia a política pelas chamadas e seria reescrita a cada fase |
 | Perfil como conjunto de fábricas, com lista de portas exigidas (R6) | FR-004 manda invalidar perfil incompleto **antes** do boot | confiar no erro de construção faria a falha aparecer tarde e sem nomear a porta |
 | `assistants.yaml` lido aqui antes de a 003 existir (R4) | a API resolve `<assistant>/<modelo>` desde a Fase 1 | Assistant em código contraria o princípio IV; por ambiente, o formato seria reinventado na Fase 2 |
+
+---
+
+# Fase 2 (2026-09-30): US2 (persistente), US4 (CLI), US5 (saúde) e autenticação real
+
+Insumos: as duas clarificações de 2026-09-30; 002 US4, 003 e 008 Fase 2 implementadas; ADR-015. Decisões em
+[research.md](research.md) R11–R20. **Sem divergência do `design.md`**: os três perfis, `health.py`, a raiz com os
+subcomandos dos módulos e as tarefas periódicas agendadas no boot são os que ele descreve.
+
+## Summary (Fase 2)
+
+A composition root passa a montar a plataforma de produção: o perfil `persistent` com Postgres (pool aberto no ciclo
+de vida da app, migrações de `assistants` e `http` conferidas no boot), autenticação real nos três perfis — o anônimo
+sai —, a raiz `ai-core` com `packs`, `assistants validate`, `keys` e `health`, a saúde agregada que só responde 503
+quando algo crítico falha, e a expiração periódica das conversas.
+
+## Technical Context (Fase 2)
+
+**Primary Dependencies**: + `psycopg_pool` (o pool, já no workspace), `httpx` (cliente do JWKS, já no workspace), os
+`adapters/` da 003 e da 008 que a fase liga; nenhuma dependência nova
+
+**Storage**: Postgres no `persistent` — schemas `assistants` e `http` (ADR-015); memória nos outros
+
+**Testing**: perfis e saúde com checagens falsas; subcomandos por `main(argv)`; o `persistent` contra Postgres real com
+`AI_CORE_TEST_POSTGRES_DSN` (R20)
+
+**Constraints**: nenhum segredo em log, relatório ou erro (FR-009); nenhum perfil sem autenticação (FR-015); só item
+crítico derruba a saúde (FR-012); trocar de perfil não toca módulo (FR-005)
+
+## Constitution Check (Fase 2)
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| II. Seams | ✅ | Continua consumindo `api.py`, `service.py` e `adapters/` dos módulos (exceção do princípio XIII); os toques na 008 são aditivos e declarados abaixo |
+| IV. Assistant é a fronteira | ✅ | Autenticação real nos três perfis: nenhuma requisição chega à resolução sem Principal verificado |
+| VI. Conteúdo externo | ✅ | Segredos (`AI_CORE_DATABASE_URL`, `AI_CORE_DEV_API_KEY`) nunca impressos |
+| VII. Falha fechada | ✅ | Banco inacessível ou migração quebrada param o boot nomeando porta e adapter; item não crítico degrada sem derrubar |
+| XII. Simplicidade | ✅ | argparse; cache de saúde simples; nenhuma dependência nova |
+| XIII. Portas e adapters | ✅ | A escolha de adapter por porta continua sendo dado (R12) |
+
+**Module boundary gate (Fase 2)**:
+
+- [x] Source changes stay inside this module's paths — `ai_core/bootstrap/**` e `tests/bootstrap/**`, **mais** dois
+  toques aditivos e declarados na 008: `HealthItem.critical` e `HealthReport.status` (`domain/records.py`,
+  `domain/private.py`, rota de saúde — 503 só em `down`, clarificação 2) e o parâmetro opcional `lifespan` de
+  `create_app` (R14); e as suítes da 008 que conferem a saúde
+- [x] Every consumed seam is listed — 002 (`PackRegistry`, CLI), 003 (serviços, adapters, CLI), 005, 006
+  (`ModelRouting.check`), 008 (app, portas), 009
+- [x] No seam changes — os toques na 008 são em portas e tipos internos dela, de forma aditiva
+- [x] Import boundaries — nenhum módulo importa `ai_core.bootstrap` (contrato existente)
+
+**Resultado do gate (Fase 2)**: PASS.
+
+## Project Structure (Fase 2)
+
+```text
+ai-core/packages/core/src/ai_core/bootstrap/
+├── settings.py     # variáveis novas; segredos fora do repr
+├── profiles.py     # três perfis; fábricas com as partes já construídas; credenciais do perfil test
+├── wiring.py       # Platform com assistants/access/routing/conversations; ciclo de vida da app (pool, tarefas)
+├── health.py       # PlatformHealth: itens críticos e não críticos, cache, timeout
+├── lifecycle.py    # sem mudança de contrato
+└── cli.py          # raiz ai-core: serve, packs, assistants validate, keys, health
+```
+
+## Seam Notes for Consumers (Fase 2)
+
+| Consumidor | O que precisa saber |
+|---|---|
+| Operador | `AI_CORE_PROFILE=persistent` + `AI_CORE_DATABASE_URL`; a primeira chave sai de `ai-core keys create`; OIDC por `AI_CORE_OIDC_*`. No `memory`, `AI_CORE_DEV_API_KEY` |
+| Suítes de packs externos | O perfil `test` exige credencial: `Authorization: Bearer <TEST_OIDC_TOKEN>` (ou `<TEST_API_KEY>` na privada), de `ai_core.bootstrap.profiles` |
+| Monitoramento | `GET /private/v1/health` com qualquer chave: 503 só quando algo crítico (banco) falha |
+
+## Complexity Tracking (Fase 2)
+
+| Complexidade | Why Needed | Simpler Alternative Rejected Because |
+|---|---|---|
+| Pool conferido no boot e aberto no ciclo de vida da app (R13) | o pool do psycopg pertence ao laço em que abre; o boot e o servidor rodam em laços diferentes | abrir no boot quebraria ao servir; só abrir no servidor deixaria a falha de banco aparecer depois de a API existir |
+| Cache de 15 s na saúde (R16) | o monitor consulta a saúde com frequência e cada consulta tocaria o provider | sem cache, a saúde vira carga sobre o modelo local |

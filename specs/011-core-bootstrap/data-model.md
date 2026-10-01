@@ -129,3 +129,15 @@ assistants:
 | Assistant que referencia pack indisponível | resolução daquele Assistant falha; os demais atendem |
 | Falha em etapa crítica | boot interrompido; as etapas já concluídas são desfeitas na ordem inversa |
 | Sinal de parada | a porta fecha, as execuções em andamento têm até `shutdown_grace_seconds`, e os recursos são liberados na ordem inversa |
+
+---
+
+## Fase 2 (2026-09-30)
+
+- **Profile** ganha o terceiro perfil (`persistent`) e as portas novas (contracts/profiles.md); as fábricas recebem
+  as partes já construídas.
+- **Settings** ganha as variáveis de contracts/configuration.md, "Fase 2"; segredos (`database_url`, `dev_api_key`)
+  nunca entram em `repr`, log ou mensagem de erro.
+- **Health Report** (Key Entity da spec): `HealthReport(items)` da 008, com `HealthItem(name, ok, critical, detail)` e
+  `status` = `ok` | `degraded` | `down` (contracts/health.md).
+- **Platform** ganha `assistants`, `access`, `routing`, `conversations` e o ciclo de vida da app (pool e tarefas).

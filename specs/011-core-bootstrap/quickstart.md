@@ -107,3 +107,28 @@ cliente = TestClient(plataforma.app)
 ```
 
 É assim que a suíte de um pack externo testa o pack contra a plataforma de verdade, sem copiar montagem.
+
+---
+
+## Fase 2 (US2, US4, US5, autenticação real)
+
+```bash
+uv run pytest packages/core/tests/bootstrap -v                     # perfis, saúde, CLI, plataforma no test
+AI_CORE_TEST_POSTGRES_DSN=postgresql://postgres:pg@localhost:55432/postgres \
+  uv run pytest packages/core/tests/bootstrap -k persistent -v     # perfil persistente contra Postgres
+```
+
+Esperado: os três perfis atendem todas as portas; sem credencial, 401 em qualquer perfil; no `test`, as credenciais
+exportadas conversam; no `persistent`, o boot migra `assistants` e `http`, uma chave emitida por `ai-core keys create`
+autentica na API e uma conversa sobrevive a uma plataforma nova sobre o mesmo banco; banco inacessível para o boot
+nomeando `database` sem imprimir a URL; a saúde é `degraded` (200) com um modelo fora do ar e `down` (503) com o banco
+fora; `ai-core --help` lista todos os subcomandos ([contracts/cli.md](contracts/cli.md)).
+
+Manual, com Postgres local e Ollama:
+
+```bash
+export AI_CORE_PROFILE=persistent AI_CORE_DATABASE_URL=postgresql://postgres:pg@localhost:55432/postgres
+export AI_CORE_PACKS_FILE=packs.yaml AI_CORE_ASSISTANTS_FILE=assistants.yaml
+uv run ai-core keys create --subject user:caio --group operadores   # a chave sai na última linha
+uv run ai-core serve
+```

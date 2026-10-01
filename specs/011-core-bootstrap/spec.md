@@ -28,6 +28,11 @@
 - Q: A API resolve `<assistant>/<modelo>` num grant, e até a 003 existir quem monta isso é esta spec. De onde vem a configuração? → A: De um `assistants.yaml` mínimo — nome do Assistant → packs, flow e modelo por papel —, como o `design.md` já previa ao dar YAML ao armazenamento de Assistants de sistema. A composition root o lê e monta o resolvedor de grant; quando a 003 chegar, ela assume o arquivo e esta spec passa a consumir o seam dela. O formato nasce aqui e é herdado, em vez de inventado duas vezes.
 - Q: O perfil de teste que sobe a plataforma inteira em memória é código distribuído ou das suítes? → A: Da distribuição. O perfil vive no próprio módulo, e qualquer suíte monta a plataforma com uma chamada — inclusive a de um pack externo, que passa a poder testar seu pack contra a plataforma de verdade. É o que a SC-003 mede, e evita que cada spec remonte tudo à mão.
 
+### Session 2026-09-30
+
+- Q: Como cada perfil autentica, agora que a 003 existe? → A: Com a verificação real nos três, e o autenticador anônimo sai. `persistent`: OIDC por JWKS e chaves de API no Postgres. `memory`: OIDC quando configurado e uma chave de desenvolvimento lida do ambiente, no grupo de administração. `test`: verificador OIDC estático e chave semeada, com credenciais conhecidas exportadas para as suítes.
+- Q: O que faz a saúde agregada responder 503 (fora do ar), e o que só a marca como degradada, com 200? → A: Só item **crítico** leva a 503 — armazenamento persistente inacessível ou etapa crítica do boot que falhou. Pack em erro, Assistant indisponível e modelo fora do ar são itens não saudáveis de um resultado `degraded`, com 200 e o item nomeado: a instância continua atendendo o resto.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Operador sobe a plataforma e o boot segue uma ordem fixa (Priority: P1)
@@ -62,6 +67,7 @@ O operador escolhe, por configuração, qual adapter atende cada porta. Na Fase 
 2. **Given** o perfil persistente com o armazenamento indisponível, **When** o serviço sobe, **Then** o boot falha com erro que nomeia a porta e o adapter.
 3. **Given** um perfil em que uma porta declarada por algum módulo não tem adapter, **When** a configuração é validada, **Then** o perfil é rejeitado antes do boot, com erro que nomeia a porta.
 4. **Given** a checagem de fronteiras de import do CI, **When** ela roda, **Then** nenhum módulo além deste importa adapters de outro módulo.
+5. **Given** qualquer perfil, **When** uma requisição chega sem credencial, **Then** é recusada (401); **Given** o perfil `test`, **When** a suíte usa as credenciais exportadas pela distribuição, **Then** a conversa atravessa a plataforma (FR-015).
 
 ---
 
@@ -106,7 +112,8 @@ A verificação de saúde reúne o estado de cada módulo — packs carregados e
 
 **Acceptance Scenarios**:
 
-1. **Given** o provider local fora do ar, **When** a saúde é consultada, **Then** o resultado nomeia o provider e o modelo indisponíveis, e os demais itens aparecem saudáveis.
+1. **Given** o provider local fora do ar, **When** a saúde é consultada, **Then** o resultado é `degraded` (200), nomeia o provider e o modelo indisponíveis, e os demais itens aparecem saudáveis.
+3. **Given** o perfil persistente com o banco inacessível depois do boot, **When** a saúde é consultada, **Then** o resultado é `down` (503) e nomeia o armazenamento.
 2. **Given** todos os itens disponíveis, **When** a saúde é consultada, **Then** o resultado é saudável.
 
 ---
@@ -118,6 +125,7 @@ A verificação de saúde reúne o estado de cada módulo — packs carregados e
 - Armazenamento do registry MCP indisponível (a partir da Fase 3): Assistants que usam MCP ficam indisponíveis com erro explícito; os demais atendem.
 - Sinal de parada durante o boot: as etapas já concluídas são desfeitas na ordem inversa.
 - Referência de segredo ausente no ambiente: o adapter que precisa dela falha na inicialização com erro que nomeia a referência, nunca o valor.
+- Perfil `memory` sem chave de desenvolvimento nem OIDC configurados: o boot conclui, toda credencial é recusada (401), e o relatório de boot diz isso em destaque — nunca uma plataforma aberta por falta de configuração.
 
 ## Requirements *(mandatory)*
 
@@ -134,9 +142,10 @@ A verificação de saúde reúne o estado de cada módulo — packs carregados e
 - **FR-009**: Um único adapter de segredos DEVE atender todos os módulos que declaram porta de segredos; valores de segredo NÃO DEVEM aparecer em configuração versionada, logs ou mensagens de erro.
 - **FR-010**: O sistema DEVE oferecer um único comando de linha de comando com os subcomandos contribuídos por cada módulo — no mínimo `serve`, `packs list`, `packs check` e `assistants validate` —, usando a mesma configuração e os mesmos adapters do servidor.
 - **FR-011**: Subcomandos de validação DEVEM rodar sem abrir a API e sair com código não zero em caso de erro.
-- **FR-012**: O sistema DEVE agregar a saúde de todos os módulos num único resultado, com o estado e o motivo de cada item, consumido pela superfície privada (008) e pela linha de comando.
+- **FR-012**: O sistema DEVE agregar a saúde de todos os módulos num único resultado, com o estado e o motivo de cada item, consumido pela superfície privada (008) e pela linha de comando. Cada item é crítico ou não: o resultado é `down` se algum item crítico falha (armazenamento persistente inacessível, etapa crítica do boot), `degraded` se só itens não críticos falham (pack em erro, Assistant indisponível, modelo fora do ar) e `ok` se nenhum falha; só `down` é 503 na superfície privada.
 - **FR-013**: No encerramento, o sistema DEVE parar de aceitar requisições, aguardar as execuções em andamento até um prazo configurável e liberar os recursos na ordem inversa do boot.
 - **FR-014**: O perfil de teste DEVE subir a plataforma inteira sem nenhum serviço externo (armazenamento, vetores, rede, provider de modelo real), e DEVE fazer parte da distribuição, para que a suíte de qualquer pack possa montar a plataforma de verdade.
+- **FR-015**: Todo perfil DEVE autenticar com o verificador real da 003 — nenhum perfil aceita requisição sem credencial. O `persistent` verifica OIDC pelo JWKS do emissor configurado e chaves de API no armazenamento persistente; o `memory`, OIDC quando configurado e uma chave de desenvolvimento lida do ambiente, no grupo de administração; o `test`, um verificador OIDC estático e uma chave semeada, cujas credenciais a distribuição exporta para as suítes.
 
 ### Key Entities
 

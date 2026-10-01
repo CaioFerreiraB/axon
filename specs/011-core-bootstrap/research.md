@@ -137,3 +137,163 @@ morrer.
 
 **Alternatives considered**: testar só pela plataforma montada (a ordem e as políticas de falha ficariam dependentes
 de injetar defeito em módulos reais, o que é caro e frágil).
+
+---
+
+# Fase 2 (2026-09-30): US2 (perfil persistente), US4 (CLI), US5 (saúde agregada) e autenticação real
+
+As duas clarificações de 2026-09-30 estão em R15 e R16. Herdados das passadas da 003 e da 008: autenticação real nos
+perfis, migrações no boot (ADR-015), agendamento da expiração de conversas e o id de conversa do perfil de teste.
+
+## R11 — Escopo da Fase 2
+
+**Decision**: perfil `persistent` (US2), a raiz `ai-core` com os subcomandos dos módulos (US4), a saúde agregada (US5),
+a autenticação real nos três perfis (FR-015), as migrações de `assistants` e `http` no boot e a expiração periódica das
+conversas. Registry MCP, auditoria e checkpoint continuam na Fase 3.
+
+**Rationale** (`docs/roadmap.md`: "011 · US2 (perfil persistente), US4, US5"; 003 e 008 R13: o que ficou para a
+011): é a passada que liga, na plataforma em execução, o que as passadas anteriores entregaram como módulo.
+
+**Alternatives considered**: deixar a autenticação real para depois (o `memory` continuaria aberto — rejeitado na
+clarificação 1).
+
+## R12 — Perfil como fábricas que veem o que já foi construído
+
+**Decision**: a lista de portas exigidas passa a ser `clock`, `trace`, `providers`, `pack_source`, `request_ids`,
+`conversation_ids`, `database`, `api_keys`, `oidc`, `user_assistants` e `conversations`. Cada fábrica recebe a
+configuração **e as partes já construídas**, porque as de armazenamento do perfil `persistent` precisam do pool
+(`database`). `memory` e `test` têm `database = None` e armazenamentos em memória; `persistent` tem o pool e os
+adapters Postgres de 003 e 008. A validação de perfil incompleto continua a mesma (FR-004).
+
+**Rationale** (R6 da Fase 1; FR-004, FR-005, SC-001): o perfil continua sendo dado — trocar de perfil não toca módulo
+nenhum —, e a ordem das portas na lista é a ordem de construção.
+
+**Alternatives considered**: um campo `storage: memory | postgres` decidido no `wiring.py` (a escolha de adapter sairia
+do perfil e voltaria a ser código).
+
+## R13 — Postgres no perfil persistente: conferido no boot, aberto no ciclo de vida da app
+
+**Decision**: `AI_CORE_DATABASE_URL` é obrigatória no `persistent` e tratada como segredo — nunca aparece em log, em
+relatório nem em mensagem de erro. Na etapa de adapters (crítica), um pool temporário, no laço do próprio boot, confere
+a conexão e roda `migrate` de `assistants` e de `http` (ADR-015); falha para o boot nomeando a porta (`database`), o
+adapter (Postgres) e, numa migração, o módulo e o arquivo. O pool de serviço é criado fechado e aberto no início do
+ciclo de vida da app, no laço do servidor; fecha no fim dele. A linha de comando abre e fecha o seu no próprio laço.
+
+**Rationale** (US2 cen. 2; FR-009; ADR-015): o pool do psycopg pertence ao laço de eventos em que é aberto, e o boot
+roda antes do servidor, noutro laço. Conferir e migrar no boot mantém a falha fechada antes de a API existir (SC-002);
+abrir o pool de serviço no laço do servidor é o que funciona.
+
+*Na implementação*: a etapa `assistants` do boot também lê o banco (a validação percorre os Assistants de usuário), e a
+linha de comando precisa de chaves, Assistants e saúde. Os três usam a mesma **sessão de armazenamento**
+(`wiring.storage`): pool temporário no laço corrente e as portas de `STORAGE_PORTS` refeitas sobre ele pelas fábricas
+do perfil. Sem banco, a sessão devolve as portas da plataforma. Um pool não reabre depois de fechado: a app de uma
+plataforma persistente serve uma vez.
+
+**Alternatives considered**: abrir o pool no boot e reaproveitá-lo no servidor (quebra ao trocar de laço); migrar só
+por comando (o boot subiria sobre um schema desatualizado).
+
+## R14 — Ciclo de vida da app: pool e tarefas periódicas
+
+**Decision**: `create_app` (008) ganha um parâmetro opcional `lifespan`, aditivo. A composition root entrega um ciclo de
+vida que, no início, abre o pool de serviço e agenda as tarefas periódicas declaradas — hoje, `ConversationService.expire`
+a cada `AI_CORE_CONVERSATION_EXPIRY_INTERVAL` segundos (default 3600) — e, no fim, cancela as tarefas e fecha o pool. O
+prazo de retenção vem de `AI_CORE_CONVERSATION_RETENTION_DAYS` (default 180) e chega à app como
+`conversation_retention`.
+
+**Rationale** (design.md: "tarefas periódicas declaradas pelos módulos são agendadas ao fim do boot e canceladas no
+encerramento"; 008 FR-019): o ciclo de vida da app é o único lugar com o laço do servidor em execução.
+
+**Alternatives considered**: expiração por comando externo (cron) — dependeria de algo fora da imagem para cumprir um
+requisito da plataforma.
+
+## R15 — Autenticação real em todos os perfis (clarificação 1, FR-015)
+
+**Decision**:
+
+| Perfil | Chaves de API | OIDC | Credencial pronta |
+|---|---|---|---|
+| `persistent` | Postgres (emitidas pela CLI) | JWKS do emissor, se `AI_CORE_OIDC_ISSUER` estiver definida; senão recusa | — |
+| `memory` | memória, semeada com `AI_CORE_DEV_API_KEY` | idem | a chave de desenvolvimento: `user:dev`, no grupo de administração do `assistants.yaml` |
+| `test` | memória, semeada | verificador estático | `TEST_API_KEY` e `TEST_OIDC_TOKEN`, de `user:test`, exportadas por `ai_core.bootstrap.profiles` |
+
+`AI_CORE_DEV_API_KEY` precisa ter o formato de chave (`aic_<16 hex>_<segredo>`) e é recusada no `persistent`, onde
+chaves saem da CLI. Sem chave de desenvolvimento nem OIDC, o `memory` sobe, mas recusa toda credencial, e o relatório
+de boot diz isso. O autenticador anônimo sai dos perfis (continua só nas suítes da 008).
+
+**Rationale** (clarificação 1; princípio VII): o perfil que mais parece produção deixa de aceitar qualquer requisição;
+o de teste passa a exercitar a autenticação real. A chave de desenvolvimento é segredo de ambiente, como o
+`design.md` prevê para o perfil `memory`.
+
+**Alternatives considered**: ver a clarificação.
+
+## R16 — Saúde agregada: itens críticos e não críticos (clarificação 2, FR-012)
+
+**Decision**: `bootstrap/health.py` implementa a porta `HealthProvider` da 008 com os itens:
+
+| Item | Crítico | Fonte |
+|---|---|---|
+| `database` | sim | `SELECT 1` no pool (só no `persistent`) |
+| `boot:<etapa>` degradada | não | relatório de boot |
+| `pack:<nome>` em erro | não | Pack Registry (002) |
+| `assistant:<nome>` indisponível | não | `AssistantsService.validate()` (003) |
+| `model:<provider/modelo>` | não | `ModelRouting.check` (006) sobre os modelos declarados pelos Assistants de sistema |
+
+O resultado é `down` se algum crítico falha, `degraded` se só não críticos falham, `ok` se nenhum. Cada consulta tem
+timeout de 3 s por item e o resultado fica em cache por 15 s. Na 008, `HealthItem` ganha `critical` e
+`HealthReport.status`, e a rota responde 503 só em `down` — ajuste declarado nesta passada.
+
+**Rationale** (clarificação 2; US5): o monitor não tira do ar uma instância que atende o resto; o cache e o timeout
+impedem que a consulta frequente de saúde vire carga sobre o provider local ou pendure quando ele cai.
+
+**Alternatives considered**: saúde sem cache (o monitor de 10 em 10 s faria o provider responder a cada vez); checar
+todos os modelos da allowlist (padrões, não modelos — não há o que enumerar).
+
+## R17 — Raiz `ai-core`: argparse, com os comandos dos módulos registrados como dado
+
+**Decision**: a raiz continua na biblioteca padrão. Subcomandos: `serve`, `packs list|check` (002), `assistants
+validate` (003), `keys create|list|revoke` (003) e `health` (011). Cada um chama as funções que o módulo dono oferece
+no próprio `adapters/cli.py`; a 011 só monta o parser, a configuração e os adapters. Nenhum abre a porta HTTP:
+`packs` roda só configuração, adapters e carga de packs (é o que distingue `packs.yaml` malformado, código 2);
+`assistants validate` e `health` montam a plataforma; `keys` abre o armazenamento de chaves no próprio laço e avisa
+quando o perfil não é persistente.
+
+**Rationale** (FR-010, FR-011; 002 R15 e 003 R14: o framework de linha de comando é decisão da 011): os módulos já
+entregaram as funções; acrescentar um módulo é acrescentar uma entrada à lista de registro.
+
+**Alternatives considered**: click/typer (uma dependência para seis comandos); cada módulo registrando o próprio
+parser (a 011 deixaria de saber o que a raiz oferece).
+
+## R18 — Configuração nova
+
+**Decision**: variáveis `AI_CORE_DATABASE_URL` (segredo), `AI_CORE_DEV_API_KEY` (segredo), `AI_CORE_OIDC_ISSUER`,
+`AI_CORE_OIDC_AUDIENCE`, `AI_CORE_OIDC_JWKS_URL`, `AI_CORE_OIDC_SUBJECT_CLAIM` (`sub`), `AI_CORE_OIDC_GROUPS_CLAIM`
+(`groups`), `AI_CORE_CONVERSATION_RETENTION_DAYS` (180), `AI_CORE_CONVERSATION_EXPIRY_INTERVAL` (3600). Validadas antes
+de qualquer etapa, com erro que nomeia a variável e nunca o valor de um segredo; `AI_CORE_OIDC_ISSUER` sem
+`AI_CORE_OIDC_AUDIENCE` é recusada.
+
+**Rationale** (FR-001, FR-009): mesmas regras da configuração da Fase 1.
+
+**Alternatives considered**: arquivo de configuração próprio (as variáveis já são o canal do template de instalação).
+
+## R19 — Id de conversa no perfil de teste
+
+**Decision**: a porta `conversation_ids` ganha fábrica própria em cada perfil — aleatória em `memory` e `persistent`,
+sequencial com prefixo `t` no `test` (`conv_t-1`).
+
+**Rationale**: o perfil de teste reaproveitava a fábrica de requisição (`conv_req-1`), o que confundia os dois ids.
+
+**Alternatives considered**: nenhuma relevante.
+
+## R20 — Testes
+
+**Decision**: `unit/` — configuração (variáveis novas, segredo nunca na mensagem), perfis (portas exigidas, fábricas
+do `persistent` construídas sem conectar), saúde (crítico × não crítico, cache, timeout) com checagens falsas;
+`contract/` — cada subcomando por `main(argv)` com servidor e saída injetados, códigos de saída e mensagens;
+`integration/` — perfil `test` com as credenciais exportadas (401 sem credencial) e perfil `persistent` contra
+Postgres real (`AI_CORE_TEST_POSTGRES_DSN`): o boot migra, uma chave emitida pela CLI autentica pela API, uma conversa
+sobrevive a uma plataforma nova sobre o mesmo banco, e o boot falha sem expor a URL quando o banco não responde.
+
+**Rationale** (SC-001, SC-002, SC-003, SC-005): é o que prova que trocar de perfil não muda módulo e que a falha
+fechada vale para o armazenamento.
+
+**Alternatives considered**: nenhuma relevante.

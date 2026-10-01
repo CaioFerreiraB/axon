@@ -42,7 +42,7 @@
 - Q: Que entradas o `/v1/models` devolve para cada Assistant que o Principal resolve? → A: Uma por Assistant, com id curto `<assistant>` (ex.: `geral`, `~meu-rag`), que significa "o modelo de geração declarado"; o modelo de geração e a descrição vão em campos extras que clientes padrão ignoram. O id não muda quando o operador troca o modelo. Os outros modelos da allowlist continuam aceitos no pedido (`<assistant>/<modelo>` ou `<assistant>/<provider>/<modelo>`, 003 research R5), só não são listados.
 - Q: Uma conversa pertence ao subject — visível nas duas superfícies para o mesmo subject — ou ao par (subject, esquema)? → A: Ao subject (`user:caio`, `svc:…`), como os Assistants de usuário da 003: o mesmo subject lista, lê, continua e apaga as próprias conversas por qualquer das duas superfícies; qualquer outro subject recebe 404.
 - Q: Que status a API devolve quando o Principal pode usar o Assistant, mas ele está indisponível (pack em erro, flow inexistente, MCP ou coleção fora do catálogo, política de usuário não atendida)? → A: 424, no formato de erro da OpenAI, com código `assistant_unavailable` e os motivos. Os SDKs não repetem 424, e ele não se confunde com sobrecarga (503) nem com cota (429). Quem não pode usar o Assistant continua recebendo 404.
-- Q: Na superfície privada, quem acessa a introspecção de packs e a saúde? → A: A saúde responde a qualquer chave de API válida — o monitoramento não precisa ser administrador. A introspecção de packs, como a administração de chaves, é só do grupo de administração, com 404 para os demais.
+- Q: Na superfície privada, quem acessa a introspecção de packs e a saúde? → A: A saúde responde a qualquer chave de API válida — o monitoramento não precisa ser administrador. A introspecção de packs, como a administração de chaves, é só do grupo de administração, com 404 para os demais. *(Status refinado pela clarificação de 2026-09-30 da 011: só item crítico leva a 503; pack, Assistant ou modelo com problema dão 200 com `degraded`.)*
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -118,7 +118,7 @@ Na superfície privada, o operador consulta packs (introspecção), administra c
 
 1. **Given** um pack em erro, **When** o operador consulta packs com uma chave do grupo de administração, **Then** vê status e mensagem de erro; **Given** uma chave fora do grupo, **When** consulta packs, **Then** recebe 404.
 2. **Given** uma chave do grupo de administração, **When** o operador emite, lista ou revoga chaves pela API, **Then** a operação segue a 003 — a chave em claro aparece só na emissão, e a revogada é recusada na requisição seguinte; uma chave fora do grupo recebe 404.
-3. **Given** qualquer chave de API válida, **When** consulta a saúde, **Then** recebe o estado agregado da plataforma (011).
+3. **Given** qualquer chave de API válida, **When** consulta a saúde, **Then** recebe o estado agregado da plataforma (011): 200 quando `ok` ou `degraded`, 503 quando `down` (011 FR-012).
 
 ---
 

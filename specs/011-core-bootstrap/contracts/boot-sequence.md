@@ -71,3 +71,16 @@ E `packages/core/tests/bootstrap/contract/test_cli_serve.py`, para o comando:
 3. o relatório avisa que a autenticação é anônima;
 4. configuração inválida faz o comando sair com código não zero **sem** chamar o servidor;
 5. a ajuda lista o subcomando.
+
+---
+
+## Fase 2 (2026-09-30)
+
+Etapas registradas: `configuration` → `adapters` → `packs` → `engine` → `assistants` (validação de Assistants, 003;
+degradável) → `api`. No perfil `persistent`, a etapa `adapters` (crítica) confere a conexão com o banco e roda as
+migrações de `assistants` e `http` num pool temporário; falha para o boot nomeando a porta `database`, o adapter e,
+numa migração, o módulo e o arquivo — nunca a URL.
+
+**Ciclo de vida da app** (research R14): no início, abre o pool de serviço e agenda as tarefas periódicas (expiração
+de conversas); no fim, cancela as tarefas e fecha o pool. O encerramento do processo continua liberando os recursos do
+boot na ordem inversa (FR-013).

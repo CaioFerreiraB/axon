@@ -64,3 +64,36 @@ respostas verificáveis.
 Nesta fase, os dois perfis usam autenticação **anônima**: a real chega com a 003. O perfil `memory` é o que mais
 parece produção, então o relatório de boot avisa em destaque que a plataforma está sem autenticação. É o tipo de
 engano que sai caro e que uma linha impede.
+
+---
+
+## Fase 2 (2026-09-30): três perfis e autenticação real (research R12, R15)
+
+| Porta exigida | `memory` | `persistent` | `test` |
+|---|---|---|---|
+| `clock` | relógio do sistema | relógio do sistema | relógio fixo |
+| `trace` | JSONL ou memória | JSONL ou memória | memória |
+| `providers` | Ollama | Ollama | provider simulado |
+| `pack_source` | entry points | entry points | entry points |
+| `request_ids` | aleatório | aleatório | sequencial (`req-N`) |
+| `conversation_ids` | aleatório | aleatório | sequencial (`t-N`) |
+| `database` | — | pool Postgres (`AI_CORE_DATABASE_URL`), aberto no ciclo de vida da app | — |
+| `api_keys` | memória + `AI_CORE_DEV_API_KEY` | Postgres (003) | memória + `TEST_API_KEY` |
+| `oidc` | JWKS se configurado; senão recusa | JWKS se configurado; senão recusa | estático com `TEST_OIDC_TOKEN` |
+| `user_assistants` | memória | Postgres (003) | memória |
+| `conversations` | memória | Postgres (008) | memória |
+
+As fábricas recebem a configuração e as partes já construídas (`database` antes das de armazenamento). O autenticador
+anônimo sai dos perfis.
+
+**Credenciais do perfil `test`** (exportadas por `ai_core.bootstrap.profiles`): `TEST_SUBJECT = "user:test"`,
+`TEST_OIDC_TOKEN`, `TEST_API_KEY` (no grupo `TEST_ADMIN_GROUP = "admin"`). A suíte de um pack externo envia
+`Authorization: Bearer <TEST_OIDC_TOKEN>` em `/v1` ou `Bearer <TEST_API_KEY>` em `/private/v1`.
+
+**Regras novas**: nenhum perfil aceita requisição sem credencial (FR-015); `persistent` sem `AI_CORE_DATABASE_URL` é
+configuração inválida; `AI_CORE_DEV_API_KEY` no `persistent` é recusada; o relatório de boot avisa quando o `memory`
+não tem chave de desenvolvimento nem OIDC.
+
+Conformidade (`tests/bootstrap/unit/test_profiles.py`): os três perfis atendem todas as portas exigidas; as fábricas do
+`persistent` constroem o pool fechado e os adapters Postgres sem conectar; o `test` não instancia nada que fale com
+rede.
