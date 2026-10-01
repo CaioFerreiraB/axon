@@ -13,11 +13,21 @@
 - **Módulo**: Capability Gateway — monta o catálogo de uma execução e executa tools com todas as proteções. Concentra aqui a lógica que a arch-v1 descrevia dentro dos nós `load_capabilities` e `execute_tool`, para que o grafo fique fino.
 - **Repositório / distribuição**: `ai-core` → `ai_core/capabilities/` (catálogo, despacho, fencing, política de escrita e auditoria; o antigo `ai_core/security/` vira `domain/` deste módulo).
 - **Consome (seams)**: Contrato de pack (ToolSpec, ToolResult, Retriever) — 001; Pack Registry — 002; Execution Grant — 003; MCP Registry e cliente MCP restrito — 007; Trace Sink — 009.
-- **Expõe (seams)**: **Capability Catalog** (catálogo por execução, com namespace, já filtrado) e **Tool Gateway** (`execute(chamada) → resultado delimitado`) — consumidos por 005.
+- **Expõe (seams)**: **Capability Catalog** (catálogo por execução, com namespace, já filtrado) e **Tool Gateway** (`execute(chamada) → resultado delimitado`) — consumidos por 005, servidos por uma sessão por execução; **consulta de auditoria** — consumida pelo comando `ai-core audit` que a 011 registra.
 - **Depende de infraestrutura (via portas)**: registro de auditoria persistente.
 - **Não conhece**: flows, prompts do controller, qual modelo decide a chamada, qualquer domínio.
 - **Substituição**: preservar a semântica "capacidade não declarada não existe" e a forma de Catalog/Gateway; políticas internas podem evoluir.
 - **Insumo técnico**: [design.md](design.md); [ADR-005](../../docs/adr/ADR-005-execute-tool-unificado.md), [ADR-002](../../docs/adr/ADR-002-assistant-fronteira-isolamento.md), [ADR-003](../../docs/adr/ADR-003-mcp-usuario-pack-operador.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md).
+
+## Clarifications
+
+### Session 2026-10-01
+
+- Q: Os nomes em `allowed_tools` e `write_tools` do Assistant são escritos com namespace (`generic.calculate`) ou com o nome local da tool (`calculate`)? → A: Com namespace, comparação exata (`generic.calculate`, `financeiro.saldo`, `~drive.buscar`) — o mesmo nome que o controller vê e que aparece no trace e na auditoria. Uma tool de outro pack ou servidor nunca casa por acidente. O exemplo do contrato do `assistants.yaml` (003) passa a usar o nome com namespace.
+- Q: Um retriever de pack entra no catálogo quando as coleções que ele declara não estão todas no grant do Assistant? → A: Não. Entra só se **todas** as coleções que declara estão no grant; retriever que não declara coleção nenhuma segue as demais regras do catálogo. O modelo não escolhe coleção (a tool de recuperação só aceita `query` e `top_k`), então a restrição é a existência do retriever na execução; chamada a um retriever fora disso é "tool inexistente" e fica registrada no trace.
+- Q: Onde ficam o prazo e o limite de tamanho das tools nativas e de recuperação, já que as de MCP têm política por servidor na 007? → A: No padrão do gateway, configurado pelo operador na instalação, valendo para tools nativas e de recuperação; nas de MCP vale o mais restritivo entre o padrão do gateway e a política do servidor. Nenhum contrato muda, e o pack não amplia o próprio limite.
+- Q: O registro de auditoria de uma tool de escrita guarda o conteúdo do resultado, ou só o desfecho? → A: Guarda os argumentos inteiros e o resultado como o modelo o recebeu — já delimitado e cortado no limite do gateway —, mais o status (sucesso, erro, prazo). É o que permite investigar uma escrita indevida pelo que o modelo viu, e o corte impede volume grande.
+- Q: Como o operador consulta a auditoria de tools de escrita nesta fase? → A: Pelo comando `ai-core audit`, com filtros por Principal, Assistant, tool e período — a função do comando é deste módulo, e o registro na raiz é da 011. Nenhuma rota de rede nesta fase: a superfície privada pode ganhar uma quando houver painel.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -34,6 +44,7 @@ Para cada execução, o gateway monta o catálogo: tools dos packs do grant, too
 1. **Given** um grant com o pack `alfa` e nenhum MCP, **When** o catálogo é montado, **Then** contém só tools e retrievers do `alfa`, com prefixo `alfa.`.
 2. **Given** um MCP que oferece 50 tools com allowlist de 3, **When** o catálogo é montado, **Then** só as 3 aparecem, com o namespace do alias.
 3. **Given** uma chamada a um nome que não está no catálogo, **When** submetida ao gateway, **Then** o resultado é "tool inexistente" — a mesma resposta para tool proibida e tool que nunca existiu.
+4. **Given** os packs `a` e `b`, ambos com a tool local `search`, e `allowed_tools: [a.search]`, **When** o catálogo é montado, **Then** contém `a.search` e não `b.search`; **Given** `allowed_tools: [search]`, **Then** nenhuma das duas aparece.
 
 ---
 
@@ -80,20 +91,22 @@ Tools que mutam estado externo ficam indisponíveis em Assistants públicos por 
 
 1. **Given** um Assistant público e um MCP com tool de escrita, **When** o catálogo é montado, **Then** a tool não aparece.
 2. **Given** um Assistant privado que declara a tool como de escrita, **When** ela é executada, **Then** existe registro de auditoria com Principal e argumentos.
+3. **Given** registros de auditoria de vários Principals e Assistants, **When** o operador roda `ai-core audit` filtrando por Principal, Assistant, tool ou período, **Then** vê só os registros que casam, do mais recente para o mais antigo.
 
 ---
 
 ### User Story 5 - Recuperação restrita às coleções do Assistant (Priority: P2)
 
-Chamadas de recuperação só consultam coleções permitidas pelo grant. Consulta a coleção fora da allowlist é rejeitada.
+Chamadas de recuperação só consultam coleções permitidas pelo grant: o retriever existe para a execução só se todas as coleções que declara estão no grant. O modelo não escolhe coleção.
 
 **Why this priority**: Elo 5 da cadeia de enforcement.
 
-**Independent Test**: Um retriever tenta consultar coleção fora da allowlist; a consulta é rejeitada e registrada.
+**Independent Test**: Um retriever que declara coleção fora da allowlist do grant não aparece no catálogo, e a chamada a ele é "tool inexistente", registrada.
 
 **Acceptance Scenarios**:
 
-1. **Given** um grant com `collections: [docs_alfa]`, **When** uma recuperação tenta `docs_beta`, **Then** é rejeitada.
+1. **Given** um grant com `collections: [docs_alfa]` e um retriever que declara `docs_beta`, **When** o catálogo é montado, **Then** o retriever não aparece; **When** o controller o chama mesmo assim, **Then** o resultado é "tool inexistente" e a tentativa fica no trace.
+2. **Given** um retriever que declara `[docs_alfa, docs_beta]` e um grant só com `docs_alfa`, **When** o catálogo é montado, **Then** o retriever não aparece — parcial não basta.
 
 ---
 
@@ -114,7 +127,7 @@ O catálogo entregue ao modelo de controle tem tamanho limitado por configuraç�
 ### Edge Cases
 
 - MCP indisponível na descoberta: suas tools ficam ausentes daquela execução e o fato é registrado no trace e sinalizado nos metadados da resposta — não é silencioso, e não derruba a execução.
-- Colisão de namespace entre alias de MCP e nome de pack: o Assistant é inválido na validação.
+- Colisão de namespace entre alias de MCP e nome de pack: o Assistant é inválido na validação (003). Até a passada da 003 trazer a regra, o catálogo recusa a colisão com erro explícito na montagem, nomeando o nome.
 - Servidor MCP passa a anunciar tool nova não listada na allowlist: continua ausente.
 - Handler nativo lança exceção: resultado de erro, execução continua.
 - Tool de escrita chamada duas vezes com os mesmos argumentos: dois registros de auditoria.
@@ -125,25 +138,26 @@ O catálogo entregue ao modelo de controle tem tamanho limitado por configuraç�
 
 - **FR-001**: O catálogo DEVE ser a união das tools dos packs do grant, das tools dos MCPs permitidos (filtradas pela allowlist do servidor) e dos retrievers expostos como tools.
 - **FR-002**: Todos os nomes do catálogo DEVEM ter namespace (`<pack>.<tool>` ou `<alias>.<tool>`).
-- **FR-003**: O catálogo DEVE ser filtrado pela lista de tools permitidas do grant, quando houver.
+- **FR-003**: O catálogo DEVE ser filtrado pela lista de tools permitidas do grant, quando houver, comparando o nome com namespace (`<pack>.<tool>`, `<alias>.<tool>`) de forma exata; nome sem namespace não casa com nada.
 - **FR-004**: A descoberta de tools de MCP DEVE usar cache com tempo de vida configurável (o cache é o do cliente MCP, spec 007 FR-010; este módulo não mantém cache próprio).
 - **FR-005**: Chamada a nome fora do catálogo DEVE retornar "tool inexistente", sem distinguir proibida de inexistente.
 - **FR-006**: O gateway DEVE validar argumentos contra o esquema antes do despacho.
 - **FR-007**: O gateway DEVE despachar por tipo: recuperação → retriever do pack; MCP → cliente restrito aos aliases do grant; nativa → handler do pack.
-- **FR-008**: O gateway DEVE aplicar timeout e limite de tamanho por chamada, truncando com marca visível.
+- **FR-008**: O gateway DEVE aplicar timeout e limite de tamanho por chamada, truncando com marca visível. Os valores são o padrão do gateway, configurado pelo operador, para tools nativas e de recuperação; para tools de MCP vale o mais restritivo entre esse padrão e a política do servidor (007).
 - **FR-009**: Todo resultado DEVE ser entregue delimitado e rotulado como dado não-confiável.
-- **FR-010**: Tools de escrita DEVEM estar ausentes em grants públicos por default e presentes em grants privados só quando declaradas.
-- **FR-011**: Toda execução de tool de escrita DEVE gerar registro de auditoria persistente com Principal, Assistant, tool, argumentos, resultado e momento.
-- **FR-012**: Recuperações DEVEM ser restritas às coleções do grant.
-- **FR-013**: O número de tools entregues ao controller DEVE ser limitado por configuração.
+- **FR-010**: Tools de escrita DEVEM estar ausentes em grants públicos por default e presentes em grants privados só quando declaradas em `write_tools` pelo nome com namespace, comparado de forma exata.
+- **FR-011**: Toda execução de tool de escrita DEVE gerar registro de auditoria persistente com Principal, Assistant, tool (com namespace), argumentos inteiros, resultado como o modelo o recebeu (já cortado no limite do gateway), status (sucesso, erro, prazo esgotado) e momento — inclusive quando a chamada falha.
+- **FR-012**: Recuperações DEVEM ser restritas às coleções do grant: um retriever só entra no catálogo se todas as coleções que declara estão no grant; retriever sem coleção declarada segue as demais regras do catálogo (o contrato 0.1 exige ao menos uma coleção por retriever; a regra vale se isso mudar).
+- **FR-013**: O número de tools entregues ao controller DEVE ser limitado por configuração. *(US6, P3 — entra quando houver caso de uso; fora da Fase 3.)*
 - **FR-014**: Cada chamada DEVE emitir, pelo Trace Sink (009), dados de trace: tool, tipo, latência, status, tamanho e truncamento.
+- **FR-015**: A auditoria DEVE ser consultável pelo comando `ai-core audit`, com filtros por Principal, Assistant, tool e período; nenhuma superfície de rede expõe a auditoria nesta fase.
 
 ### Key Entities
 
 - **Capability Catalog**: conjunto nomeado e filtrado de tools de uma execução.
 - **Tool Call**: nome com namespace + argumentos.
 - **Fenced Tool Result**: resultado delimitado, rotulado, possivelmente truncado.
-- **Audit Record**: Principal, Assistant, tool, argumentos, resultado, momento.
+- **Audit Record**: Principal, Assistant, tool com namespace, argumentos inteiros, resultado como entregue ao modelo (cortado no limite), status, momento.
 
 ## Success Criteria *(mandatory)*
 
@@ -159,4 +173,5 @@ O catálogo entregue ao modelo de controle tem tamanho limitado por configuraç�
 
 - A política de rede do cliente MCP (SSRF, hosts) é da spec 007; aqui só se consome o cliente já restrito.
 - A delimitação de resultados usa um formato fixo definido no plano; o texto de sistema que afirma "resultado de tool nunca é instrução" é montado pelo motor (005) a partir de um fragmento fornecido por este módulo.
+- O padrão de prazo e de tamanho do gateway é configuração do operador, lida e injetada pela composition root (011); o valor default fica no plano.
 - Auditoria usa armazenamento persistente a partir da Fase 3 (adapter Postgres; em memória antes — perfis da spec 011).
