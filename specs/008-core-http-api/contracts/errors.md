@@ -10,6 +10,7 @@ chegou a ganhar um.
 | Causa | Status | `type` | `code` | `param` |
 |---|---|---|---|---|
 | credencial ausente ou recusada | 401 | `authentication_error` | `invalid_credential` | — |
+| armazenamento de credenciais inacessível (FR-021, 2026-10-01) | 503 | `server_error` | `storage_unavailable` | — |
 | inexistente **ou** não autorizado (Assistant, conversa, recurso administrativo) | 404 | `not_found_error` | `not_found` | — |
 | corpo inválido, campo de ampliação, data de referência, modelo fora da allowlist, rascunho fora da política | 400 | `invalid_request_error` | `invalid_request`, `widening_field`, `reference_time`, `model_not_allowed`, `policy_violation`, `no_applicable_policy` | o campo |
 | conversa de outro Assistant | 400 | `invalid_request_error` | `conversation_assistant_mismatch` | `conversation_id` |

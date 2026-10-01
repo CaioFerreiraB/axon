@@ -125,3 +125,24 @@ def test_rotas_privadas_nao_existem_na_publica_nem_sem_credencial(client: TestCl
     assert client.get("/v1/health", headers=bearer(ANA_TOKEN)).status_code == 404
     assert client.get("/private/v1/health").status_code == 401
     assert client.get("/private/v1/health", headers=bearer(ANA_TOKEN)).status_code == 401
+
+
+# --- armazenamento de credenciais fora (FR-021) -----------------------------------------------------------------------
+
+
+class _StorageDown:
+    """Autenticador cujo armazenamento caiu: a 003 levanta em vez de devolver `None` (credencial não é o problema)."""
+
+    async def authenticate(self, *, surface: str, credential: str | None) -> None:
+        raise ConnectionError("connection to server at 10.0.0.7, port 5432 failed")
+
+
+@pytest.mark.parametrize(("path", "token"), [("/private/v1/health", SVC_KEY), ("/v1/models", ANA_TOKEN)])
+def test_armazenamento_de_credenciais_fora_e_503_nas_duas_superficies(path: str, token: str) -> None:
+    plataforma = Platform()
+    plataforma.app.state.authenticator = _StorageDown()
+    response = TestClient(plataforma.app).get(path, headers=bearer(token))
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "storage_unavailable"
+    assert "10.0.0.7" not in response.text and "5432" not in response.text, "sem detalhe de infraestrutura"

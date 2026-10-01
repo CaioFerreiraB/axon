@@ -287,6 +287,20 @@ packages/core/tests/http/integration/test_conversation_restart.py`.
 
 ---
 
+## Ajuste de 2026-10-01 — falha do armazenamento de credenciais (FR-021)
+
+Clarificação de 2026-10-01: a autenticação que não consegue consultar o armazenamento responde 503
+`storage_unavailable`, não 500. A 003 garante que `authenticate` só levanta nesse caso (credencial ruim devolve `None`).
+
+- [X] T043 [P] Estender `tests/http/unit/test_errors.py` (503 `storage_unavailable`, `server_error`, mensagem fixa) e
+  `tests/http/contract/test_private_routes.py`: autenticador que levanta → 503 nas duas superfícies, sem o texto da
+  exceção no corpo; e, na 011, `tests/bootstrap/integration/test_persistent_profile.py` — saúde com o banco fora por
+  HTTP é 503
+- [X] T044 Implementar `storage_unavailable()` em `src/ai_core/http/domain/errors.py` e, em
+  `src/ai_core/http/adapters/auth.py`, a tradução de exceção do autenticador em 503, registrando a causa em log
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

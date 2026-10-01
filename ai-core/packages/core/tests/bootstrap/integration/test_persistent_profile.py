@@ -169,8 +169,8 @@ async def test_saude_com_o_banco_e_com_o_banco_fora_depois_do_boot(
 ) -> None:
     """US5 cen. 3: o banco é item crítico — fora do ar depois do boot, a saúde é `down` e o nomeia.
 
-    Com o banco fora, a rota HTTP nem chega à saúde: a chave de API mora no mesmo banco, e a autenticação falha antes.
-    Por isso a queda é conferida no provedor de saúde da plataforma, com o pool real fechado.
+    Por HTTP, a chave do monitor mora no mesmo banco: a autenticação falha antes da saúde e responde 503
+    `storage_unavailable` (008 FR-021). O provedor de saúde, com o pool real fechado, diz qual item caiu.
     """
     plataforma = _platform(tmp_path, banco_limpo)
     async with serving(plataforma) as client:
@@ -184,6 +184,9 @@ async def test_saude_com_o_banco_e_com_o_banco_fora_depois_do_boot(
         health = plataforma.parts["health"]
         health._cached = None  # a janela de cache esconderia a queda por 15 s
         await plataforma.parts["database"].close()
+        por_http = await client.get("/private/v1/health", headers={"Authorization": f"Bearer {chave.plaintext}"})
+        assert por_http.status_code == 503
+        assert por_http.json()["error"]["code"] == "storage_unavailable"
         fora = await health.health()
 
     assert fora.status == "down"

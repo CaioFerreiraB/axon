@@ -74,6 +74,16 @@ def unauthenticated() -> ErrorResponse:
     )
 
 
+def storage_unavailable() -> ErrorResponse:
+    """O armazenamento de credenciais não respondeu (FR-021). Mensagem fixa: nada da infraestrutura vai ao cliente."""
+    return ErrorResponse(
+        status=503,
+        type="server_error",
+        code="storage_unavailable",
+        message="armazenamento de credenciais indisponível; tente de novo",
+    )
+
+
 def error_for(error: BaseException) -> ErrorResponse | None:
     """A resposta de uma exceção conhecida, ou `None` — erro inesperado continua sendo 500 do framework."""
     message = str(error)

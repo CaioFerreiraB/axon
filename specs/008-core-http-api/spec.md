@@ -44,6 +44,10 @@
 - Q: Que status a API devolve quando o Principal pode usar o Assistant, mas ele está indisponível (pack em erro, flow inexistente, MCP ou coleção fora do catálogo, política de usuário não atendida)? → A: 424, no formato de erro da OpenAI, com código `assistant_unavailable` e os motivos. Os SDKs não repetem 424, e ele não se confunde com sobrecarga (503) nem com cota (429). Quem não pode usar o Assistant continua recebendo 404.
 - Q: Na superfície privada, quem acessa a introspecção de packs e a saúde? → A: A saúde responde a qualquer chave de API válida — o monitoramento não precisa ser administrador. A introspecção de packs, como a administração de chaves, é só do grupo de administração, com 404 para os demais. *(Status refinado pela clarificação de 2026-09-30 da 011: só item crítico leva a 503; pack, Assistant ou modelo com problema dão 200 com `degraded`.)*
 
+### Session 2026-10-01
+
+- Q: Quando a autenticação não consegue consultar o armazenamento de credenciais (o banco do perfil persistente fora do ar), o que a API responde? → A: 503, no formato de erro da OpenAI, com código `storage_unavailable` e mensagem fixa que nomeia o armazenamento, sem detalhe de infraestrutura. Nunca 401 — culparia a credencial — nem o 500 genérico do framework. Vale para as duas superfícies, e é o que faz a saúde de uma instância persistente com o banco fora responder 503 (011 US5 cen. 3), já que a chave do monitor mora no mesmo banco.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Cliente compatível com OpenAI conversa em streaming (Priority: P1)
@@ -119,6 +123,7 @@ Na superfície privada, o operador consulta packs (introspecção), administra c
 1. **Given** um pack em erro, **When** o operador consulta packs com uma chave do grupo de administração, **Then** vê status e mensagem de erro; **Given** uma chave fora do grupo, **When** consulta packs, **Then** recebe 404.
 2. **Given** uma chave do grupo de administração, **When** o operador emite, lista ou revoga chaves pela API, **Then** a operação segue a 003 — a chave em claro aparece só na emissão, e a revogada é recusada na requisição seguinte; uma chave fora do grupo recebe 404.
 3. **Given** qualquer chave de API válida, **When** consulta a saúde, **Then** recebe o estado agregado da plataforma (011): 200 quando `ok` ou `degraded`, 503 quando `down` (011 FR-012).
+4. **Given** o armazenamento de credenciais inacessível, **When** qualquer requisição chega — inclusive a de saúde —, **Then** recebe 503 com código `storage_unavailable`, e não 401 (FR-021).
 
 ---
 
@@ -215,6 +220,7 @@ Open WebUI se conecta pela compat OpenAI; os Assistants permitidos ao usuário a
 - **FR-018**: Cada Principal DEVE poder apagar as próprias conversas; a exclusão é definitiva e remove estado e mensagens.
 - **FR-019**: Conversas sem atividade por mais tempo que o prazo de retenção DEVEM ser apagadas automaticamente; o prazo é configurável pelo operador, com padrão de 180 dias.
 - **FR-020**: Assistant que o Principal resolve, mas que está indisponível, DEVE responder 424 no formato de erro da OpenAI, com código `assistant_unavailable` e os motivos, antes de qualquer execução; o 424 nunca é devolvido a quem não resolveria o Assistant (FR-009).
+- **FR-021**: Falha do armazenamento de credenciais durante a autenticação DEVE responder 503 no formato de erro da OpenAI, com código `storage_unavailable`, antes de qualquer outra verificação; a mensagem nomeia o armazenamento e não expõe detalhe de infraestrutura (endereço, driver, mensagem do banco).
 
 ### Key Entities
 

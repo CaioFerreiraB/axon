@@ -19,6 +19,7 @@ from ai_core.http.domain.errors import (
     ConversationMismatch,
     InvalidRequest,
     error_for,
+    storage_unavailable,
     unauthenticated,
 )
 
@@ -97,6 +98,15 @@ def test_credencial_recusada_e_401() -> None:
     response = unauthenticated()
     assert response.status == 401
     assert response.body()["error"]["type"] == "authentication_error"
+
+
+def test_armazenamento_de_credenciais_fora_e_503() -> None:
+    """FR-021: nunca 401 — culparia a credencial — nem o 500 genérico."""
+    response = storage_unavailable()
+    assert response.status == 503
+    assert response.body()["error"]["type"] == "server_error"
+    assert response.body()["error"]["code"] == "storage_unavailable"
+    assert "armazenamento" in response.message
 
 
 def test_excecao_desconhecida_nao_tem_traducao() -> None:
