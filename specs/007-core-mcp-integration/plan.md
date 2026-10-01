@@ -194,7 +194,8 @@ Contratos novos em `ai-core/pyproject.toml`, no padrão dos módulos já impleme
    proibidos);
 6. nenhum outro módulo importa internals da 007 (`mcp.domain`, `.ports`, `.service`, `.adapters`) — só a composition
    root;
-7. o SDK de MCP (`mcp`, `mcp_types`, `httpx2`, `httpcore2`) não aparece fora de `ai_core.mcp.adapters`.
+7. o SDK de MCP (`mcp`, `mcp_types`) não aparece fora de `ai_core.mcp.adapters` — `httpx2`/`httpcore2` também são a
+   pilha HTTP do SDK do provider (006), então só o contrato 4 os proíbe no núcleo da 007.
 
 E a 007 entra na lista de origem dos contratos já existentes: "nenhum módulo do core importa a API" e "nenhum módulo
 importa a composition root".
@@ -228,7 +229,7 @@ Reavaliado com [data-model.md](data-model.md), [contracts/](contracts/) e [quick
 
 | Complexidade | Why Needed | Simpler Alternative Rejected Because |
 |---|---|---|
-| Dependência do SDK de MCP, com uma segunda pilha HTTP (`httpx2`) ao lado do `httpx` do workspace (R6) | o protocolo tem negociação de versão, sessão e dois formatos de resposta; o SDK é a implementação de referência | implementar o protocolo à mão seria código de protocolo para manter; a pilha extra fica confinada a `adapters/` |
+| Dependência do SDK de MCP (R6) | o protocolo tem negociação de versão, sessão e dois formatos de resposta; o SDK é a implementação de referência. A pilha HTTP dele (`httpx2`) já vinha com o SDK do provider (006); o que entra de novo é `mcp`, `mcp-types`, `sse-starlette` e `opentelemetry-api` | implementar o protocolo à mão seria código de protocolo para manter; o SDK fica confinado a `adapters/` |
 | Backend de rede próprio que fixa a conexão no IP validado (R5) | SC-002 inclui DNS que resolve para privada e redirecionamento; conferir e deixar a biblioteca resolver de novo abre a janela de rebinding | checar só no registro ou só o nome não pega DNS que muda nem resposta mista |
 | Duas origens de MCP global — arquivo e armazenamento — com precedência do arquivo (R3) | clarificação 1: `stdio` só por configuração do operador, `http`/`sse` ao vivo pela API | uma origem só obrigaria a escolher entre execução de comando pela API e restart para todo MCP global |
 | Cache negativo de 30 s (R8) | sem ele, cada execução espera o prazo inteiro de um servidor fora do ar | só o cache positivo deixaria a latência de toda execução refém do pior servidor |

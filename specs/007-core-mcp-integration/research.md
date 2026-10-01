@@ -195,9 +195,10 @@ mensagem para inexistente e não autorizado.
   entra em `unavailable` com o motivo. `discover_tools` (contrato 001) devolve só as tools.
 - `execute(alias, tool, arguments)` → `ToolResult(untrusted=True)`: tool fora da allowlist é recusada sem tocar no
   servidor; prazo e teto de bytes da política; resultado de erro do servidor, prazo esgotado ou destino bloqueado viram
-  `ToolResult(error=...)` — a 004 captura e registra. Conteúdo: o `structured_content` quando houver; senão os textos
-  concatenados, com marcador para partes não textuais. Acima de `max_response_bytes`, o texto é cortado com marca visível
-  e `truncated=True` (princípio VI).
+  `ToolResult(error=...)` — a 004 captura e registra. Conteúdo: os textos concatenados, com marcador para partes não
+  textuais; o `structured_content` só quando não há texto — o protocolo pede que o servidor repita em texto o que
+  devolve estruturado, e o SDK embrulha o retorno de uma tool simples em `{"result": ...}` (visto no protótipo da
+  implementação). Acima de `max_response_bytes`, o texto é cortado com marca visível e `truncated=True` (princípio VI).
 
 **Rationale** (US3; elo 4 da cadeia de enforcement; contrato 001: tools de MCP têm `kind="mcp"` e nenhum handler;
 004 FR-007): o cliente não aceita endereço — só alias — e não confia que o grant continue válido: conferir de novo a

@@ -85,7 +85,7 @@ motivo, e fora de `aliases`.
 | `RemoteTool` (interno, `ports.py`) | `name`, `description`, `input_schema` — como o servidor anuncia |
 | `RemoteResult` (interno, `ports.py`) | `parts` (texto ou marcador de parte não textual), `structured`, `is_error` |
 | `Discovery` | `tools: tuple[ToolSpec, ...]` (nome local, `kind="mcp"`, `mutates` por `write_tools`, sem handler); `unavailable: Mapping[str, str]` (alias → motivo) |
-| `ToolResult` (001) | `content` (`structured` ou textos concatenados), `untrusted=True`, `truncated`, `error` (resultado de erro, prazo, destino bloqueado, credencial ausente) |
+| `ToolResult` (001) | `content` (textos concatenados; `structured` só quando não há texto), `untrusted=True`, `truncated`, `error` (resultado de erro, prazo, destino bloqueado, credencial ausente) |
 | `ServerHealth` | `alias`, `ok`, `detail`, `tools` (o que o servidor anuncia), `missing` (da allowlist, não anunciadas) |
 
 ## Cache de descoberta

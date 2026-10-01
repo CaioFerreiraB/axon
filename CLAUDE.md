@@ -102,6 +102,16 @@ validate`, `keys create|list|revoke` e `health`, registrados numa lista em `boot
 ciclo de vida da app. O pool do psycopg pertence ao laço em que abre: o de serviço abre no ciclo de vida da app, e o
 boot e a CLI usam uma sessão de armazenamento própria (`wiring.storage`).
 
+**Fase 3 em andamento.** O registry e o cliente MCP (`ai_core/mcp/`, spec 007, US1–US6) existem como módulo: servidores
+por alias — globais pela API (`http`/`sse`) ou pelo arquivo do operador `mcp.yaml` (único lugar de `stdio` e dos hosts
+internos e da allowlist de hosts de destino), e de usuário com prefixo `~`, sempre `https` e sem credencial —, política por
+servidor com allowlist de tools obrigatória, credencial só por referência (`AI_CORE_MCP_SECRET_<REF>`), descoberta com
+cache por TTL e o cliente restrito ao grant (`client_for(grant)`, com `discover` que devolve também os servidores com
+falha). O SDK oficial `mcp` (2.x, com `httpx2`) fica em `adapters/`; o transporte HTTP aplica a política de rede a cada
+conexão, conectando no IP validado (fecha DNS rebinding). Postgres no schema `mcp` (ADR-015). Falta ligar: a 011
+(perfis, `AI_CORE_MCP_FILE`, etapa `mcp_registry` antes de `assistants`, o serviço no lugar do `McpDirectory` vazio),
+a 008 (CRUD em `/v1` e `/private/v1`, saúde por servidor) e a 004 (catálogo e execução de tools).
+
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
 true }`, suíte de conformidade nos próprios testes e zero import do core (import-linter, nas duas direções). Ele é

@@ -7,7 +7,7 @@ rede — e uma suíte de conformidade que roda contra ele e contra o adapter rea
 | Porta | Motivo | Em memória | Real | Conformidade |
 |---|---|---|---|---|
 | `McpServerStore` | banco | dicionário por `(owner, alias)` | `registry_postgres.py`, schema `mcp` (ADR-015) | `contract/test_store.py`, com Postgres por `AI_CORE_TEST_POSTGRES_DSN` |
-| `McpConfigSource` | arquivo | configuração já carregada | `config_yaml.py` (`mcp.yaml`) | `contract/test_config_source.py` |
+| `McpConfigSource` | arquivo | configuração já carregada | `config_yaml.py` (`mcp.yaml`) | `contract/test_mcp_config_source.py` |
 | `McpTransport` | rede e processo | servidores programados (tools, resultados, falhas, atraso) | `transport_http.py` (`http`, `sse`), `transport_stdio.py` | `contract/test_transport.py` contra o servidor MCP do SDK em `127.0.0.1` e um servidor `stdio` em script |
 | `DnsResolver` | rede (DNS) | mapa nome → IPs | `dns_system.py` (`getaddrinfo`) | `contract/test_dns.py` |
 | `SecretResolver` | segredos | dicionário | `secrets_env.py` (`AI_CORE_MCP_SECRET_<REF>`) | `contract/test_secrets.py` |
@@ -55,7 +55,7 @@ são uma exceção do módulo (`TransportFailure(reason)`) cuja mensagem nunca c
 |---|---|---|
 | `McpServerStore` | `insert` duplicado devolve `False` sem alterar; `replace`/`delete` de inexistente devolvem `False`; `list(None)` só globais, `list(X)` só de X | `test_store.py` (memória × Postgres) |
 | `McpServerStore` | só a referência da credencial é gravada; varredura do schema depois de operações não acha valor de segredo | `integration/test_secret_scan.py` |
-| `McpConfigSource` | erro de arquivo → `McpConfigError` nomeando o caminho; erro de entrada → entrada indisponível com motivo | `test_config_source.py` |
+| `McpConfigSource` | erro de arquivo → `McpConfigError` nomeando o caminho; erro de entrada → entrada indisponível com motivo | `test_mcp_config_source.py` |
 | `McpTransport` | lista as tools e chama uma tool de um servidor de verdade, com cabeçalho `Authorization` quando `bearer` | `test_transport.py` |
 | `McpTransport` | o prazo de `OperationLimits` vale para a operação inteira e é aplicado **pelo transporte** — o serviço não tem segunda camada; esgotado, vira `TransportFailure` com motivo | idem |
 | `McpTransport` (`http`/`sse`) | teto de bytes lidos por sessão (`OperationLimits.max_bytes`); passou, `TransportFailure`. No `stdio` não há teto no transporte (R6) | idem |

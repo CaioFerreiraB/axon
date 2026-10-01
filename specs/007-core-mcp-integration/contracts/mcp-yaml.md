@@ -67,4 +67,4 @@ IP literal.
 003: alias fora da gramática, transporte desconhecido, campo proibido para o transporte, política inválida, chave
 desconhecida no servidor. Os demais servidores atendem (princípio VII).
 
-Conformidade: `contract/test_config_source.py` e `unit/test_servers.py`.
+Conformidade: `contract/test_mcp_config_source.py` e `unit/test_servers.py`.

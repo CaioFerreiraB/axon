@@ -23,6 +23,8 @@ dependencies = [
     # Spec 003 (research R8, ADR-015): driver e pool do Postgres, confinados aos adapters de cada módulo.
     "psycopg[binary]>=3.2,<4",
     "psycopg-pool>=3.2,<4",
+    # Spec 007 (research R6): SDK oficial de MCP — traz httpx2/httpcore2 —, confinado a ai_core/mcp/adapters/.
+    "mcp>=2.2,<3",
 ]
 
 [project.scripts]
