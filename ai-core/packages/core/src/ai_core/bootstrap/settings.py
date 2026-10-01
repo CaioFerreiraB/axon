@@ -8,18 +8,23 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
 
+from ai_core.assistants.domain.keys import parse_key
+
 MEMORY_PROFILE: Final = "memory"
+PERSISTENT_PROFILE: Final = "persistent"
 TEST_PROFILE: Final = "test"
-PROFILES: Final = (MEMORY_PROFILE, TEST_PROFILE)
+PROFILES: Final = (MEMORY_PROFILE, PERSISTENT_PROFILE, TEST_PROFILE)
 
 DEFAULT_OLLAMA_BASE_URL: Final = "http://localhost:11434/v1"
 DEFAULT_HOST: Final = "127.0.0.1"
 DEFAULT_PORT: Final = 8000
 DEFAULT_SHUTDOWN_GRACE: Final = 10.0
+DEFAULT_RETENTION_DAYS: Final = 180
+DEFAULT_EXPIRY_INTERVAL: Final = 3600.0
 
 PREFIX: Final = "AI_CORE_"
 
@@ -40,6 +45,17 @@ class Settings:
     host: str = DEFAULT_HOST
     port: int = DEFAULT_PORT
     shutdown_grace_seconds: float = DEFAULT_SHUTDOWN_GRACE
+    database_url: str | None = field(default=None, repr=False)
+    """Segredo: nunca entra em `repr`, log, relatório ou mensagem de erro (FR-009)."""
+    dev_api_key: str | None = field(default=None, repr=False)
+    """Segredo: a chave de desenvolvimento do perfil `memory` (FR-015)."""
+    oidc_issuer: str | None = None
+    oidc_audience: str | None = None
+    oidc_jwks_url: str | None = None
+    oidc_subject_claim: str = "sub"
+    oidc_groups_claim: str = "groups"
+    conversation_retention_days: int = DEFAULT_RETENTION_DAYS
+    conversation_expiry_interval: float = DEFAULT_EXPIRY_INTERVAL
 
     def __post_init__(self) -> None:
         if self.profile not in PROFILES:
@@ -53,6 +69,22 @@ class Settings:
             )
         if not self.ollama_base_url.strip():
             raise ConfigurationError(f"{PREFIX}OLLAMA_BASE_URL não pode ser vazio")
+        # As mensagens abaixo nomeiam a variável e nunca repetem o valor: são segredos (FR-009).
+        if self.profile == PERSISTENT_PROFILE and not self.database_url:
+            raise ConfigurationError(f"{PREFIX}DATABASE_URL: obrigatória no perfil '{PERSISTENT_PROFILE}'")
+        if self.dev_api_key is not None:
+            if self.profile == PERSISTENT_PROFILE:
+                raise ConfigurationError(
+                    f"{PREFIX}DEV_API_KEY: não vale no perfil '{PERSISTENT_PROFILE}' — emita chaves com `ai-core keys`"
+                )
+            if parse_key(self.dev_api_key) is None:
+                raise ConfigurationError(f"{PREFIX}DEV_API_KEY: precisa ter o formato aic_<16 hex>_<…>")
+        if self.oidc_issuer and not self.oidc_audience:
+            raise ConfigurationError(f"{PREFIX}OIDC_AUDIENCE: obrigatória quando {PREFIX}OIDC_ISSUER está definida")
+        if self.conversation_retention_days < 1:
+            raise ConfigurationError(f"{PREFIX}CONVERSATION_RETENTION_DAYS: precisa ser ao menos 1")
+        if self.conversation_expiry_interval <= 0:
+            raise ConfigurationError(f"{PREFIX}CONVERSATION_EXPIRY_INTERVAL: precisa ser positivo")
 
 
 class InMemoryConfigSource:
@@ -81,7 +113,20 @@ class EnvConfigSource:
             host=self._text("HOST", DEFAULT_HOST),
             port=self._int("PORT", DEFAULT_PORT),
             shutdown_grace_seconds=self._float("SHUTDOWN_GRACE_SECONDS", DEFAULT_SHUTDOWN_GRACE),
+            database_url=self._optional("DATABASE_URL"),
+            dev_api_key=self._optional("DEV_API_KEY"),
+            oidc_issuer=self._optional("OIDC_ISSUER"),
+            oidc_audience=self._optional("OIDC_AUDIENCE"),
+            oidc_jwks_url=self._optional("OIDC_JWKS_URL"),
+            oidc_subject_claim=self._text("OIDC_SUBJECT_CLAIM", "sub"),
+            oidc_groups_claim=self._text("OIDC_GROUPS_CLAIM", "groups"),
+            conversation_retention_days=self._int("CONVERSATION_RETENTION_DAYS", DEFAULT_RETENTION_DAYS),
+            conversation_expiry_interval=self._float("CONVERSATION_EXPIRY_INTERVAL", DEFAULT_EXPIRY_INTERVAL),
         )
+
+    def _optional(self, name: str) -> str | None:
+        raw = self._environ.get(f"{PREFIX}{name}")
+        return raw if raw else None
 
     def _text(self, name: str, default: str) -> str:
         return self._environ.get(f"{PREFIX}{name}", default)

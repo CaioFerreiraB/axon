@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Final
 
 from ai_core.bootstrap.lifecycle import BootContext, Stage
+from ai_core.bootstrap.profiles import TEST_ADMIN_GROUP, TEST_API_KEY, TEST_OIDC_TOKEN
 from ai_core.bootstrap.settings import TEST_PROFILE, Settings
 
 ASSISTANT: Final = "geral"
@@ -32,7 +33,21 @@ PUBLICO: Final = """
     auth:
       schemes: [oidc, api_key]
       allow: ["*"]"""
-"""ACL de um Assistant público: o autenticador anônimo dos perfis é `user:anonymous`, e só `*` o deixa entrar."""
+"""ACL de um Assistant público: `*` deixa entrar o `user:test` das credenciais exportadas pelo perfil de teste."""
+
+USER_ASSISTANTS_E_ADMIN: Final = f"""
+user_assistants:
+  policies:
+    - match: "*"
+      packs: [generic]
+      flows: [chat]
+      models:
+        allow: ["ollama/*"]
+      limits: {{ rpm: 30 }}
+api_keys:
+  admin_group: {TEST_ADMIN_GROUP}
+"""
+"""Qualquer Principal cria Assistants de usuário, e a chave de teste administra (grupo `admin`)."""
 
 ASSISTANTS_YAML: Final = f"""
 assistants:
@@ -42,7 +57,7 @@ assistants:
     models:
       generation: ollama/{MODEL}
       allow: ["ollama/*"]
-"""
+{USER_ASSISTANTS_E_ADMIN}"""
 
 ASSISTANTS_YAML_SEM_PACK: Final = f"""
 assistants:
@@ -105,6 +120,17 @@ def write_config(tmp_path: Path, *, packs: str = PACKS_YAML, assistants: str = A
     packs_file.write_text(packs, encoding="utf-8")
     assistants_file.write_text(assistants, encoding="utf-8")
     return Settings(profile=TEST_PROFILE, packs_file=packs_file, assistants_file=assistants_file)
+
+
+def bearer(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+OIDC: Final = bearer(TEST_OIDC_TOKEN)
+"""Cabeçalho da superfície pública (`/v1`) no perfil de teste."""
+
+CHAVE: Final = bearer(TEST_API_KEY)
+"""Cabeçalho da superfície privada (`/private/v1`) no perfil de teste."""
 
 
 def body(**overrides: Any) -> dict[str, Any]:

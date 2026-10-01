@@ -11,6 +11,7 @@ from pathlib import Path
 from bootstrap_testkit import (
     ASSISTANTS_YAML_QUEBRADO,
     ASSISTANTS_YAML_SEM_PACK,
+    OIDC,
     PACKS_YAML_COM_QUEBRADO,
     PUBLICO,
     MemoryConfig,
@@ -40,8 +41,8 @@ def test_o_assistant_que_nao_depende_do_pack_quebrado_atende(tmp_path: Path) -> 
     plataforma = platform(config=MemoryConfig(settings))
 
     with TestClient(plataforma.app) as client:
-        assert client.post("/v1/chat/completions", json=body()).status_code == 200
-        orfao = client.post("/v1/chat/completions", json=body(model="orfao"))
+        assert client.post("/v1/chat/completions", headers=OIDC, json=body()).status_code == 200
+        orfao = client.post("/v1/chat/completions", headers=OIDC, json=body(model="orfao"))
         assert orfao.status_code == 424, "autorizado, mas indisponível: 424 com o motivo (008 FR-020)"
         assert any("inexistente" in motivo for motivo in orfao.json()["x_ai_core"]["reasons"])
 
@@ -85,7 +86,7 @@ def test_flow_inexistente_deixa_so_aquele_assistant_indisponivel(tmp_path: Path)
     detalhe = next(o.detail for o in plataforma.report.stages if o.name == "assistants")
     assert detalhe is not None and "'x'" in detalhe and "agentic" in detalhe
     with TestClient(plataforma.app) as client:
-        assert client.post("/v1/chat/completions", json=body(model="x")).status_code == 424
+        assert client.post("/v1/chat/completions", headers=OIDC, json=body(model="x")).status_code == 424
 
 
 def test_perfil_desconhecido_impede_o_boot() -> None:

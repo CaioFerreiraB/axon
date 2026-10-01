@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from bootstrap_testkit import MODEL_ID, MemoryConfig, body, write_config
+from bootstrap_testkit import CHAVE, MODEL_ID, OIDC, MemoryConfig, body, write_config
 from fastapi.testclient import TestClient
 
 from ai_core.bootstrap.profiles import FIXED_TIME
@@ -50,7 +50,7 @@ def test_o_pack_de_referencia_e_carregado(tmp_path: Path) -> None:
 def test_conversa_sem_streaming_pela_api(tmp_path: Path) -> None:
     plataforma = built(tmp_path)
     with TestClient(plataforma.app) as client:
-        response = client.post("/v1/chat/completions", json=body())
+        response = client.post("/v1/chat/completions", headers=OIDC, json=body())
 
     assert response.status_code == 200
     payload = response.json()
@@ -62,7 +62,7 @@ def test_conversa_sem_streaming_pela_api(tmp_path: Path) -> None:
 def test_conversa_em_streaming_pela_api(tmp_path: Path) -> None:
     plataforma = built(tmp_path)
     with TestClient(plataforma.app) as client:
-        response = client.post("/v1/chat/completions", json=body(stream=True))
+        response = client.post("/v1/chat/completions", headers=OIDC, json=body(stream=True))
 
     assert response.status_code == 200
     pedacos = [
@@ -78,7 +78,7 @@ def test_conversa_em_streaming_pela_api(tmp_path: Path) -> None:
 def test_o_trace_da_requisicao_atravessa_a_plataforma(tmp_path: Path) -> None:
     plataforma = built(tmp_path)
     with TestClient(plataforma.app) as client:
-        response = client.post("/v1/chat/completions", json=body())
+        response = client.post("/v1/chat/completions", headers=OIDC, json=body())
 
     assert plataforma.trace is not None
     trace = plataforma.trace.trace(response.headers["x-request-id"])
@@ -92,7 +92,7 @@ def test_a_mesma_data_de_referencia_em_toda_a_execucao(tmp_path: Path) -> None:
     """ADR-013 e FR-008: um relógio só para motor, API e trace."""
     plataforma = built(tmp_path)
     with TestClient(plataforma.app) as client:
-        response = client.post("/v1/chat/completions", json=body())
+        response = client.post("/v1/chat/completions", headers=OIDC, json=body())
 
     assert plataforma.trace is not None
     trace = plataforma.trace.trace(response.headers["x-request-id"])
@@ -103,10 +103,63 @@ def test_a_mesma_data_de_referencia_em_toda_a_execucao(tmp_path: Path) -> None:
 def test_assistant_desconhecido_responde_404(tmp_path: Path) -> None:
     plataforma = built(tmp_path)
     with TestClient(plataforma.app) as client:
-        assert client.post("/v1/chat/completions", json=body(model="outro")).status_code == 404
+        assert client.post("/v1/chat/completions", headers=OIDC, json=body(model="outro")).status_code == 404
 
 
 def test_encerrar_a_plataforma_nao_levanta(tmp_path: Path) -> None:
     plataforma = built(tmp_path)
     plataforma.aclose()
     plataforma.aclose()
+
+
+# --- Fase 2: autenticação real no perfil de teste (T026; FR-015, US2 cen. 5) -----------------------------------------
+
+
+def test_sem_credencial_e_401_nas_duas_superficies(tmp_path: Path) -> None:
+    plataforma = built(tmp_path)
+    with TestClient(plataforma.app) as client:
+        assert client.post("/v1/chat/completions", json=body()).status_code == 401
+        assert client.post("/private/v1/chat/completions", json=body()).status_code == 401
+        assert client.post("/v1/chat/completions", headers=CHAVE, json=body()).status_code == 401, (
+            "a superfície pública aceita só OIDC"
+        )
+        assert client.post("/private/v1/chat/completions", headers=OIDC, json=body()).status_code == 401, (
+            "a privada aceita só chave de API"
+        )
+
+
+def test_a_chave_exportada_conversa_pela_superficie_privada(tmp_path: Path) -> None:
+    plataforma = built(tmp_path)
+    with TestClient(plataforma.app) as client:
+        response = client.post("/private/v1/chat/completions", headers=CHAVE, json=body())
+    assert response.status_code == 200
+    assert response.json()["choices"][0]["message"]["content"] == "Brasília"
+
+
+def test_a_chave_exportada_administra_quando_o_grupo_e_declarado(tmp_path: Path) -> None:
+    plataforma = built(tmp_path)
+    with TestClient(plataforma.app) as client:
+        assert client.get("/private/v1/packs", headers=CHAVE).status_code == 200
+
+
+def test_ids_de_conversa_do_perfil_de_teste(tmp_path: Path) -> None:
+    """R19: `conv_t-1`, e não `conv_req-1`."""
+    plataforma = built(tmp_path)
+    with TestClient(plataforma.app) as client:
+        response = client.post("/v1/chat/completions", headers=OIDC, json=body())
+    assert response.headers["x-conversation-id"] == "conv_t-1"
+    assert response.headers["x-request-id"] == "req-1"
+
+
+def test_saude_agregada_pela_superficie_privada(tmp_path: Path) -> None:
+    """US5 cen. 2: todos os itens disponíveis → `ok`, e os itens saudáveis também aparecem (SC-005)."""
+    plataforma = built(tmp_path)
+    with TestClient(plataforma.app) as client:
+        response = client.get("/private/v1/health", headers=CHAVE)
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ok"
+    nomes = {item["name"] for item in payload["items"]}
+    assert {"boot:configuration", "boot:api", "pack:generic", "assistant:geral", "model:ollama/qwen3:1.7b"} <= nomes
+    assert "database" not in nomes, "sem banco no perfil de teste"

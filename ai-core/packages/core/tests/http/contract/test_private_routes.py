@@ -92,13 +92,32 @@ def test_saude_responde_a_qualquer_chave(client: TestClient) -> None:
         assert response.status_code == 200 and response.json() == {"status": "ok", "items": []}
 
 
-def test_saude_degradada_e_503_com_os_itens() -> None:
+def test_saude_degradada_e_200_com_os_itens() -> None:
+    """011 FR-012 (clarificação de 2026-09-30): item não crítico fora degrada, mas a instância atende o resto."""
     health = StaticHealthProvider(HealthItem(name="packs", ok=True), HealthItem(name="ollama", ok=False, detail="fora"))
     client = TestClient(Platform(health=health).app)
     response = client.get("/private/v1/health", headers=bearer(SVC_KEY))
-    assert response.status_code == 503
+    assert response.status_code == 200
     assert response.json()["status"] == "degraded"
-    assert {"name": "ollama", "ok": False, "detail": "fora"} in response.json()["items"]
+    assert {"name": "ollama", "ok": False, "critical": False, "detail": "fora"} in response.json()["items"]
+
+
+def test_saude_com_item_critico_fora_e_503() -> None:
+    health = StaticHealthProvider(
+        HealthItem(name="database", ok=False, critical=True, detail="recusada"),
+        HealthItem(name="ollama", ok=False, detail="fora"),
+    )
+    client = TestClient(Platform(health=health).app)
+    response = client.get("/private/v1/health", headers=bearer(SVC_KEY))
+    assert response.status_code == 503
+    assert response.json()["status"] == "down"
+    assert {"name": "database", "ok": False, "critical": True, "detail": "recusada"} in response.json()["items"]
+
+
+def test_item_critico_saudavel_nao_derruba() -> None:
+    health = StaticHealthProvider(HealthItem(name="database", ok=True, critical=True))
+    response = TestClient(Platform(health=health).app).get("/private/v1/health", headers=bearer(SVC_KEY))
+    assert response.status_code == 200 and response.json()["status"] == "ok"
 
 
 def test_rotas_privadas_nao_existem_na_publica_nem_sem_credencial(client: TestClient) -> None:

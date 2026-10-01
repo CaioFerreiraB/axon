@@ -58,6 +58,9 @@ def key_json(info: ApiKeyInfo) -> dict[str, Any]:
 
 def health_json(report: HealthReport) -> dict[str, Any]:
     return {
-        "status": "ok" if report.ok else "degraded",
-        "items": [{"name": item.name, "ok": item.ok, "detail": item.detail} for item in report.items],
+        "status": report.status,
+        "items": [
+            {"name": item.name, "ok": item.ok, "critical": item.critical, "detail": item.detail}
+            for item in report.items
+        ],
     }

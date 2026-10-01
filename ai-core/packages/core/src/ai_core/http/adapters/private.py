@@ -54,7 +54,8 @@ def private_router() -> APIRouter:
         await authenticated(request, PRIVATE_SURFACE)
         provider: HealthProvider = request.app.state.health
         report = await provider.health()
-        return JSONResponse(status_code=200 if report.ok else 503, content=health_json(report))
+        # Só item crítico tira a instância do ar: pack, Assistant ou modelo com problema é 200 `degraded` (011 FR-012).
+        return JSONResponse(status_code=503 if report.status == "down" else 200, content=health_json(report))
 
     return router
 

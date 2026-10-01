@@ -81,3 +81,81 @@ def test_settings_e_imutavel() -> None:
     settings = Settings()
     with pytest.raises(AttributeError):
         settings.port = 1  # type: ignore[misc]
+
+
+# --- Fase 2 (T021; contracts/configuration.md, "Fase 2") -------------------------------------------------------------
+
+DSN = "postgresql://ai:segredo-do-banco@db.interno:5432/ai"
+DEV_KEY = "aic_0123456789abcdef_segredo-dev"
+
+
+def test_variaveis_novas_tem_defaults() -> None:
+    settings = EnvConfigSource({}).load()
+    assert settings.database_url is None and settings.dev_api_key is None
+    assert settings.oidc_issuer is None and settings.oidc_audience is None and settings.oidc_jwks_url is None
+    assert (settings.oidc_subject_claim, settings.oidc_groups_claim) == ("sub", "groups")
+    assert settings.conversation_retention_days == 180
+    assert settings.conversation_expiry_interval == 3600.0
+
+
+def test_variaveis_novas_sao_lidas() -> None:
+    settings = EnvConfigSource(
+        {
+            "AI_CORE_PROFILE": "persistent",
+            "AI_CORE_DATABASE_URL": DSN,
+            "AI_CORE_OIDC_ISSUER": "https://idp.exemplo.test",
+            "AI_CORE_OIDC_AUDIENCE": "ai-core",
+            "AI_CORE_OIDC_JWKS_URL": "https://idp.exemplo.test/jwks",
+            "AI_CORE_OIDC_SUBJECT_CLAIM": "preferred_username",
+            "AI_CORE_OIDC_GROUPS_CLAIM": "roles",
+            "AI_CORE_CONVERSATION_RETENTION_DAYS": "30",
+            "AI_CORE_CONVERSATION_EXPIRY_INTERVAL": "60",
+        }
+    ).load()
+    assert settings.profile == "persistent" and settings.database_url == DSN
+    assert (settings.oidc_issuer, settings.oidc_audience) == ("https://idp.exemplo.test", "ai-core")
+    assert settings.oidc_jwks_url == "https://idp.exemplo.test/jwks"
+    assert (settings.oidc_subject_claim, settings.oidc_groups_claim) == ("preferred_username", "roles")
+    assert (settings.conversation_retention_days, settings.conversation_expiry_interval) == (30, 60.0)
+
+
+def test_chave_de_desenvolvimento_no_memory() -> None:
+    assert EnvConfigSource({"AI_CORE_DEV_API_KEY": DEV_KEY}).load().dev_api_key == DEV_KEY
+
+
+@pytest.mark.parametrize(
+    ("environ", "variable"),
+    [
+        ({"AI_CORE_PROFILE": "persistent"}, "AI_CORE_DATABASE_URL"),
+        ({"AI_CORE_OIDC_ISSUER": "https://idp"}, "AI_CORE_OIDC_AUDIENCE"),
+        ({"AI_CORE_DEV_API_KEY": "nao-e-chave"}, "AI_CORE_DEV_API_KEY"),
+        ({"AI_CORE_PROFILE": "persistent", "AI_CORE_DATABASE_URL": DSN, "AI_CORE_DEV_API_KEY": DEV_KEY},
+         "AI_CORE_DEV_API_KEY"),
+        ({"AI_CORE_CONVERSATION_RETENTION_DAYS": "0"}, "AI_CORE_CONVERSATION_RETENTION_DAYS"),
+        ({"AI_CORE_CONVERSATION_EXPIRY_INTERVAL": "-5"}, "AI_CORE_CONVERSATION_EXPIRY_INTERVAL"),
+    ],
+)
+def test_recusas_nomeiam_a_variavel(environ: dict[str, str], variable: str) -> None:
+    with pytest.raises(ConfigurationError, match=variable):
+        EnvConfigSource(environ).load()
+
+
+@pytest.mark.parametrize(
+    "environ",
+    [
+        {"AI_CORE_DEV_API_KEY": "nao-e-chave-segredo-123"},
+        {"AI_CORE_PROFILE": "persistent", "AI_CORE_DATABASE_URL": DSN, "AI_CORE_DEV_API_KEY": DEV_KEY},
+    ],
+)
+def test_mensagem_de_erro_nunca_contem_segredo(environ: dict[str, str]) -> None:
+    with pytest.raises(ConfigurationError) as caught:
+        EnvConfigSource(environ).load()
+    for secret in (DSN, DEV_KEY, "nao-e-chave-segredo-123", "segredo"):
+        assert secret not in str(caught.value)
+
+
+def test_repr_nao_mostra_segredos() -> None:
+    settings = Settings(profile="persistent", database_url=DSN)
+    memoria = Settings(profile="memory", dev_api_key=DEV_KEY)
+    for texto in (repr(settings), str(settings), repr(memoria)):
+        assert "segredo" not in texto

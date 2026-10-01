@@ -1,6 +1,6 @@
 ---
 
-description: "Task list for 011 — bootstrap e composition root, Fase 1"
+description: "Task list for 011 — bootstrap e composition root, Fases 1 e 2"
 ---
 
 # Tasks: Bootstrap e composition root — boot, perfis e plataforma em memória
@@ -167,9 +167,95 @@ não muda módulo nenhum.
 
 ---
 
+## Fase 2 (2026-09-30): US2 (persistente), US4 (CLI), US5 (saúde) e autenticação real (FR-015)
+
+Decisões em [plan.md](plan.md) ("Fase 2") e [research.md](research.md) R11–R20. Caminhos relativos a
+`ai-core/packages/core/`; `bootstrap/` = `src/ai_core/bootstrap/`.
+
+## Phase 7: Foundational da Fase 2 — configuração e perfis
+
+- [X] T021 [P] Estender `tests/bootstrap/unit/test_settings.py` (contracts/configuration.md, "Fase 2"): cada variável
+  nova com default; `persistent` sem `AI_CORE_DATABASE_URL`, `AI_CORE_OIDC_ISSUER` sem `AI_CORE_OIDC_AUDIENCE`,
+  `AI_CORE_DEV_API_KEY` fora do formato `aic_<16 hex>_<segredo>` e `AI_CORE_DEV_API_KEY` no `persistent` recusados
+  nomeando a variável — e nenhuma mensagem nem `repr(Settings)` contém o valor de um segredo
+- [X] T022 Implementar em `bootstrap/settings.py` as variáveis de R18, o perfil `persistent`, as validações do T021 e
+  `repr` sem segredos
+- [X] T023 [P] Estender `tests/bootstrap/unit/test_profiles.py` (contracts/profiles.md, "Fase 2"): os três perfis
+  atendem as portas exigidas; as fábricas do `persistent` constroem o pool **fechado** e os adapters Postgres sem
+  conectar; o `test` não instancia nada que fale com rede; as credenciais exportadas (`TEST_SUBJECT`,
+  `TEST_OIDC_TOKEN`, `TEST_API_KEY`, `TEST_ADMIN_GROUP`) autenticam pelos adapters do perfil
+- [X] T024 Implementar em `bootstrap/profiles.py` a lista nova de portas exigidas, fábricas que recebem a configuração e
+  as partes já construídas, os três perfis da tabela de contracts/profiles.md, as credenciais do perfil `test` (claims
+  válidas no instante do relógio fixo) e a fábrica `conversation_ids` (R19); remover `ANONYMOUS_WARNING` e
+  `anonymous_auth`
+
+## Phase 8: User Story 2 — perfil persistente e autenticação real (Priority: P1)
+
+**Independent Test**: `AI_CORE_TEST_POSTGRES_DSN=… uv run pytest packages/core/tests/bootstrap -k persistent`.
+
+- [X] T025 [P] [US2] Criar `tests/bootstrap/integration/test_persistent_profile.py` (pulado sem
+  `AI_CORE_TEST_POSTGRES_DSN`): o boot migra `assistants` e `http` e conclui; uma chave emitida por `AccessService`
+  sobre o Postgres autentica numa plataforma **nova** sobre o mesmo banco; uma conversa aberta numa plataforma continua
+  noutra; um Assistant de usuário criado sobrevive; com a URL apontando para uma porta fechada, o boot falha na etapa
+  `adapters` nomeando `database` e o adapter, e nem o relatório nem a mensagem contêm a URL (US2 cen. 2) — usando
+  `httpx.AsyncClient` com o ciclo de vida da app no laço do teste
+- [X] T026 [P] [US2] Atualizar as suítes de `tests/bootstrap/` para a autenticação real: `test_platform_test_profile.py`
+  e `test_boot_degradado.py` mandam `Authorization` com as credenciais exportadas; sem credencial é 401 (US2 cen. 5);
+  `test_cli_serve.py` troca o aviso de anônimo pelo aviso de "sem chave de desenvolvimento nem OIDC" no `memory`
+- [X] T027 [US2] Implementar em `bootstrap/wiring.py`: os armazenamentos e o verificador OIDC vindos do perfil;
+  `AccessService` com eles e o `admin_group` do `assistants.yaml`; a chave de desenvolvimento semeada no `memory`;
+  na etapa `adapters` do `persistent`, conferência de conexão e `migrate` de `assistants` e `http` num pool temporário
+  (falha nomeia porta e adapter, sem a URL); o ciclo de vida da app — abrir o pool de serviço, agendar
+  `ConversationService.expire` a cada `AI_CORE_CONVERSATION_EXPIRY_INTERVAL` segundos, cancelar e fechar no fim — e
+  `conversation_retention` dos dias configurados; `Platform` com `assistants`, `access`, `routing` e `conversations`;
+  e em `src/ai_core/http/adapters/app.py` o parâmetro opcional `lifespan` de `create_app` (toque declarado na 008, R14)
+- [X] T028 [US2] Atualizar `bootstrap/cli.py` (`serve`): avisar em destaque quando o `memory` sobe sem chave de
+  desenvolvimento nem OIDC; nenhum segredo em saída
+
+## Phase 9: User Story 5 — saúde agregada (Priority: P2)
+
+**Independent Test**: `uv run pytest packages/core/tests/bootstrap/unit/test_health.py`.
+
+- [X] T029 [P] [US5] Criar `tests/bootstrap/unit/test_health.py` (contracts/health.md) com checagens falsas: provider
+  fora do ar → `degraded` nomeando o modelo e os demais saudáveis (US5 cen. 1); tudo bem → `ok` (cen. 2); banco fora →
+  `down` (cen. 3); checagem que passa de 3 s vira item não saudável; segunda consulta em 15 s não repete checagens; e
+  atualizar `tests/http/contract/test_private_routes.py` — 503 só em `down`, 200 em `degraded`
+- [X] T030 [US5] Implementar `bootstrap/health.py` (`PlatformHealth`: itens `database`, `boot:*`, `pack:*`,
+  `assistant:*`, `model:*`, timeout de 3 s por item, cache de 15 s) e, na 008 (toque declarado),
+  `HealthItem.critical`, `HealthReport.status` (`ok`/`degraded`/`down`) em `src/ai_core/http/domain/records.py`, o JSON
+  com `critical` em `domain/private.py` e a rota de saúde em `adapters/private.py` respondendo 503 só em `down`
+
+## Phase 10: User Story 4 — linha de comando única (Priority: P2)
+
+**Independent Test**: `uv run pytest packages/core/tests/bootstrap/contract/test_cli_commands.py`.
+
+- [X] T031 [P] [US4] Criar `tests/bootstrap/contract/test_cli_commands.py` (contracts/cli.md): `--help` lista todos os
+  subcomandos (US4 cen. 1); `packs check` com pack incompatível sai com 1 e com `packs.yaml` malformado com 2;
+  `assistants validate` com Assistant inválido sai com 1 e com `assistants.yaml` malformado com 2 (US4 cen. 2 e
+  Independent Test); `keys create` imprime a chave e avisa que o perfil não é persistente; `health` sai com 0/1/2;
+  nenhum subcomando além de `serve` chama o servidor injetado
+- [X] T032 [US4] Implementar em `bootstrap/cli.py` a raiz com a lista de registro dos subcomandos (R17), chamando as
+  funções de `ai_core.packs.adapters.cli`, `ai_core.assistants.adapters.cli` e `bootstrap/health.py`; `packs` monta só
+  configuração, adapters e packs; `keys` abre e fecha o armazenamento no próprio laço
+
+## Phase 11: Polish da Fase 2
+
+- [X] T033 Rodar a seção "Fase 2" do [quickstart.md](quickstart.md) e a verificação completa (`uv run pytest` com e sem
+  `AI_CORE_TEST_POSTGRES_DSN`, `uv run mypy`, `uv run ruff check packages`, `uv run lint-imports`), incluindo o roteiro
+  manual com `ai-core keys create` e `ai-core serve` no `persistent`
+- [X] T034 [P] Atualizar `CLAUDE.md` ("Código"), a linha da 011 em `specs/README.md` e `docs/roadmap.md` (a Fase 2 fica
+  concluída: 003 US1–US7, 002 US4, 008 US2–US5 e US7, 011 US2, US4, US5)
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
+
+**Fase 2**: T021 → T022; T023 → T024 (depois de T022) — bloqueiam as stories. US2: T025 ∥ T026, depois T027 → T028;
+US5: T029 → T030 (depois de T027, que monta a plataforma com `routing` e `access`); US4: T031 → T032 (depois de T028 e
+T030, mesmo `cli.py`). Polish por último.
+
 
 - **Setup (Phase 1)**: T001 e T002 primeiro; T003 em paralelo
 - **Foundational (Phase 2)**: T004 → T005; T006 em paralelo com os dois

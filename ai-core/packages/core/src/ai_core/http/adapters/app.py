@@ -6,6 +6,8 @@ recebe tudo pronto: os seams da 003, 002 e 005 e os adapters das portas deste m�
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from contextlib import AbstractAsyncContextManager
 from datetime import timedelta
 
 from fastapi import FastAPI
@@ -32,6 +34,9 @@ from ai_core.packs.api import PackRegistry
 PUBLIC_PREFIX = "/v1"
 PRIVATE_PREFIX = "/private/v1"
 
+type Lifespan = Callable[[FastAPI], AbstractAsyncContextManager[None]]
+"""Início e fim da app no laço do servidor. É da composition root: pool de banco e tarefas periódicas (011 R14)."""
+
 
 def create_app(
     *,
@@ -48,9 +53,10 @@ def create_app(
     conversation_ids: RequestIds,
     clock: Clock,
     conversation_retention: timedelta = DEFAULT_RETENTION,
+    lifespan: Lifespan | None = None,
 ) -> FastAPI:
     """Monta a app com os seams já injetados. A API não instancia nada de outro módulo (princípio XIII)."""
-    app = FastAPI(title="ai-core", version="0.1.0")
+    app = FastAPI(title="ai-core", version="0.1.0", lifespan=lifespan)
     app.state.chat_service = ChatService(
         engine=engine,
         grants=grants,

@@ -52,10 +52,16 @@ class ConversationPage:
     next_cursor: str | None = None
 
 
+type HealthStatus = Literal["ok", "degraded", "down"]
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class HealthItem:
+    """Um item conferido. `critical`: se falha, a instância está fora do ar — não só degradada (011 FR-012)."""
+
     name: str
     ok: bool
+    critical: bool = False
     detail: str | None = None
 
 
@@ -68,3 +74,10 @@ class HealthReport:
     @property
     def ok(self) -> bool:
         return all(item.ok for item in self.items)
+
+    @property
+    def status(self) -> HealthStatus:
+        """`down` se algum item crítico falha; `degraded` se só não críticos; `ok` se nenhum (011 FR-012)."""
+        if any(item.critical and not item.ok for item in self.items):
+            return "down"
+        return "ok" if self.ok else "degraded"

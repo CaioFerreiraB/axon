@@ -11,7 +11,7 @@ import pytest
 from bootstrap_testkit import ASSISTANTS_YAML, ASSISTANTS_YAML_QUEBRADO, PACKS_YAML, FakeServer
 
 from ai_core.bootstrap import cli
-from ai_core.bootstrap.profiles import ANONYMOUS_WARNING
+from ai_core.bootstrap.profiles import NO_CREDENTIALS_WARNING
 
 
 @pytest.fixture
@@ -50,13 +50,35 @@ def test_serve_imprime_o_relatorio_de_boot(
     assert "9123" in saida
 
 
-def test_serve_avisa_que_a_autenticacao_e_anonima(
-    ambiente: Path, server: FakeServer, capsys: pytest.CaptureFixture[str]
+def test_serve_avisa_quando_o_memory_nao_tem_chave_nem_oidc(
+    ambiente: Path, monkeypatch: pytest.MonkeyPatch, server: FakeServer, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """O perfil que mais parece produção é o que não tem autenticação; o aviso evita o engano caro."""
-    cli.main(["serve"], server=server)
+    """Falha fechada por falta de configuração: o boot conclui, mas toda credencial será recusada — e isso é dito alto
+    (spec, Edge Cases). O `memory` usa o Ollama, mas construir o provider não conecta."""
+    monkeypatch.setenv("AI_CORE_PROFILE", "memory")
+    for name in ("AI_CORE_DEV_API_KEY", "AI_CORE_OIDC_ISSUER", "AI_CORE_OIDC_AUDIENCE"):
+        monkeypatch.delenv(name, raising=False)
 
-    assert ANONYMOUS_WARNING in capsys.readouterr().err
+    assert cli.main(["serve"], server=server) == 0
+    assert NO_CREDENTIALS_WARNING in capsys.readouterr().err
+
+
+def test_serve_nao_avisa_com_chave_de_desenvolvimento_nem_imprime_segredo(
+    ambiente: Path, monkeypatch: pytest.MonkeyPatch, server: FakeServer, capsys: pytest.CaptureFixture[str]
+) -> None:
+    chave = "aic_0123456789abcdef_segredo-dev"
+    monkeypatch.setenv("AI_CORE_PROFILE", "memory")
+    monkeypatch.setenv("AI_CORE_DEV_API_KEY", chave)
+
+    assert cli.main(["serve"], server=server) == 0
+    saida = capsys.readouterr()
+    assert NO_CREDENTIALS_WARNING not in saida.err
+    assert "segredo-dev" not in saida.out + saida.err
+
+
+def test_o_perfil_de_teste_nao_avisa(ambiente: Path, server: FakeServer, capsys: pytest.CaptureFixture[str]) -> None:
+    cli.main(["serve"], server=server)
+    assert NO_CREDENTIALS_WARNING not in capsys.readouterr().err
 
 
 def test_configuracao_invalida_sai_com_codigo_nao_zero_sem_chamar_o_servidor(
