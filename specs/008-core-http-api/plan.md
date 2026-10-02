@@ -313,3 +313,62 @@ ai-core/packages/core/src/ai_core/http/
 | Troca atômica na composition root dentro desta passada (R13) | a composition root importa as portas provisórias da 008; trocar só a API deixaria a plataforma sem montar | passar a 011 antes inverteria a dependência entre as passadas; tradutores de tipo no boot seriam código de transição sem dono |
 | Conversa criada antes de executar (R21) | o id precisa sair no primeiro chunk (FR-014) | criar só depois do sucesso esconderia o id do cliente em streaming |
 | Porta `AdminGate` (R20) | a regra de administrador é da 003, e a introspecção de packs precisa dela | repetir a regra aqui duplicaria uma regra de acesso; mudar o seam `ApiKeyAdmin` pediria ADR |
+
+---
+
+# Fase 3 (2026-10-02): passada de encaixe — MCP e desfecho por gravidade
+
+Insumos: a clarificação de 2026-10-02 (FR-022); a nota para a 008 no plano da 007; ADR-018. Decisões em
+[research.md](research.md) R25–R32. **Sem divergência do `design.md`**: rotas de MCP nas duas superfícies, como ele
+prevê, sobre o seam da 007.
+
+## Summary (Fase 3)
+
+A API ganha o CRUD de servidores MCP — do usuário em `/v1/mcp` (com `available` e saúde do próprio servidor) e globais
+em `/private/v1/mcp`, só para o grupo de administração —, no formato do `mcp.yaml` da 007. O desfecho de uma execução
+passa a ser decidido pela gravidade dos registros (ADR-018): só `notice` é sucesso; algum `error` é falha, e a falha
+sem streaming (502) leva `x-should-retry: false` para que o SDK oficial não reexecute o loop. Toque declarado na 011:
+`create_app(mcp=…)`.
+
+## Technical Context (Fase 3)
+
+**Dependências**: nenhuma nova. Seam novo consumido: `McpRegistry` (007, `ai_core.mcp.api`).
+**Storage**: sem mudança (o registry persiste pela 007). **Testing**: rotas com o `McpService` da 007 em memória e a
+003 real; desfecho com o motor real e o provider simulado.
+**Constraints**: nenhum valor de credencial em resposta; 404 idêntico para MCP alheio e inexistente; a API não conhece
+`kind` da 005.
+
+## Constitution Check (Fase 3)
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| II. Seams | ✅ | Só `ai_core.mcp.api`; as regras de escopo e de rede ficam na 007; a 008 só traduz JSON e erros |
+| IV. Assistant é a fronteira | ✅ | MCP de usuário só no escopo do dono; globais só para o grupo de administração (AdminGate da 003) |
+| VI. Conteúdo externo | ✅ | Resposta nunca traz valor de credencial; `stdio` recusado pela API (só arquivo do operador) |
+| VII. Falha fechada | ✅ | Falha de execução continua explícita (502 / `finish_reason: "error"`), agora sem reexecução automática; registro `notice` não vira falha |
+| XIII. Portas e adapters | ✅ | Registry injetado como seam opcional; nenhuma porta nova |
+
+**Module boundary gate (Fase 3)**: `ai_core/http/**` e `tests/http/**`; toque declarado na 011
+(`wiring._api` passa `mcp=parts["mcp"]`); import-linter: `ai_core.http` já só enxerga a 007 pelo `api.py` (contrato
+existente). **Resultado**: PASS.
+
+## Project Structure (Fase 3)
+
+```text
+ai-core/packages/core/src/ai_core/http/
+├── adapters/mcp_routes.py      # NOVO: /v1/mcp e /private/v1/mcp sobre o McpRegistry
+├── adapters/app.py             # + mcp opcional; monta as rotas
+├── adapters/chat.py            # + x-should-retry: false no 502
+├── domain/mcp_body.py          # NOVO: corpo ⇄ McpServerDraft; servidor, resumo e saúde em JSON
+├── domain/errors.py            # McpConflict → 409 com param "alias"
+└── domain/openai_chunks.py     # finish_reason por severity
+```
+
+## Seam Notes for Consumers (Fase 3)
+
+| Consumidor | O que precisa saber |
+|---|---|
+| Clientes OpenAI | Execução truncada pelo limite ou com corte de contexto agora é `stop` (200); falha (`error`) sem streaming é 502 com `x-should-retry: false` |
+| Operador | Servidores MCP globais pela API em `/private/v1/mcp` (chave do grupo de administração); os do `mcp.yaml` aparecem na listagem, somente leitura |
+| 011 | `create_app(..., mcp=parts["mcp"])` |
+

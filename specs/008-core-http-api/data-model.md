@@ -141,3 +141,29 @@ fora do módulo (011); a API só o serializa (200 se `ok`, 503 se não).
 - **Rascunho de Assistant de usuário** (R19): os campos do `UserAssistantDraft` da 003, com `models` como
   `{"generation": "ollama/qwen3:1.7b", …}` e `limits` opcional.
 - **Envelope de erro** (R14): `{"error": {"message", "type", "param", "code"}}`, com `x_ai_core.reasons` no 424.
+
+---
+
+## Fase 3 (2026-10-02): MCP e desfecho por gravidade (research R25–R32)
+
+### `create_app` — parâmetro novo
+
+`mcp: McpRegistry | None = None` — o seam da 007; sem ele, as rotas de MCP não são montadas.
+
+### Corpo de servidor MCP (`domain/mcp_body.py`)
+
+`draft_from_json(body, *, scope, alias=None) -> McpServerDraft`: a forma do `mcp.yaml` (007) — `alias`, `transport`,
+`endpoint`, `description`, `auth: {type, credential}`, `enabled`, `user_access`, `policy: {allowed_tools, write_tools,
+timeout_ms, max_response_bytes}`; chave desconhecida → `InvalidRequest` nomeando o campo; `alias` do caminho prevalece e,
+no escopo de usuário, ganha `~` se vier sem. `server_json(McpServer)`, `summary_json(McpSummary)` e
+`health_json(ServerHealth)` — nunca com valor de credencial, só o nome da referência. Formatos em
+[contracts/mcp-routes.md](contracts/mcp-routes.md).
+
+### Desfecho
+
+| Registros do `FinalEvent` | Stream | Sem streaming |
+|---|---|---|
+| nenhum, ou só `notice` | `finish_reason: "stop"` | 200 |
+| algum `error` | `finish_reason: "error"` | 502 + `x-should-retry: false` |
+
+`VALIDATOR_ISSUE` sai de `domain/openai_chunks.py`: a API não conhece mais `kind` nenhum da 005.

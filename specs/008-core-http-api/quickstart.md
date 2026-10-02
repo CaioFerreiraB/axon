@@ -122,3 +122,26 @@ uv run pytest packages/core/tests/http -v
 | Conversas (US7) | `contract/test_conversation_routes.py`, `integration/test_conversation_restart.py`, `unit/test_conversation_expiry.py` | continuação pelo id nas duas superfícies; reinício preserva o histórico; mensagem de assistente do cliente nunca entra; exclusão e expiração tornam o id 404 |
 | Erros (R14) | `unit/test_errors.py` e todas as rotas | envelope da OpenAI; 424 para indisponível; 429 com `Retry-After` |
 | Plataforma inteira (011, perfil `test`) | `uv run pytest packages/core/tests/bootstrap` | a conversa ponta a ponta continua funcionando com os serviços da 003 e o autenticador anônimo |
+
+## Fase 3 (2026-10-02): MCP e desfecho por gravidade
+
+```bash
+uv run pytest packages/core/tests/http -m "us4 or us5 or us6" -v
+```
+
+Esperado ([contracts/mcp-routes.md](contracts/mcp-routes.md), itens 1–7, e [contracts/errors.md](contracts/errors.md),
+"Fase 3"): CRUD de MCP do usuário isolado por dono; globais só para o grupo de administração (404 para os demais); MCP
+próprio + Assistant que o usa aparece em `/v1/models`; execução só com `notice` → 200 `stop`; com `error` → 502 e
+`x-should-retry: false`; progresso de `execute_tool` com o nome da tool no stream.
+
+Pela plataforma (perfil `test`), com a chave de teste do grupo de administração:
+
+```bash
+curl -s -X POST localhost:8000/private/v1/mcp -H "Authorization: Bearer $TEST_API_KEY" \
+  -H 'content-type: application/json' \
+  -d '{"alias":"demo","transport":"http","endpoint":"https://demo.test/mcp","policy":{"allowed_tools":["eco"]}}'
+curl -s localhost:8000/private/v1/mcp -H "Authorization: Bearer $TEST_API_KEY" | jq '.data[].alias'
+```
+
+Esperado: 201 e depois `"demo"` na listagem; sem servidor programado, `GET /private/v1/mcp/demo/health` responde `ok:
+false` com o motivo.

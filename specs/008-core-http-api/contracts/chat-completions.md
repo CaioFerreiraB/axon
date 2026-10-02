@@ -68,8 +68,10 @@ provider simulado (research R10):
 10. a rota responde igual em `/v1` e em `/private/v1`;
 11. falha de execução depois do stream aberto → chunk final com `finish_reason: "error"`, motivos no campo extra e
     `[DONE]`, sem exceção vazando e sem conexão pendurada;
-12. falha de execução sem streaming → **502** com os motivos e o texto parcial no corpo, nunca 200 com marcador de
-    erro (princípio VII);
+12. falha de execução sem streaming → **502** com os motivos e o texto parcial no corpo e o cabeçalho
+    `x-should-retry: false`, nunca 200 com marcador de erro (princípio VII). Falha = algum registro com gravidade
+    `error`; só `notice` (limite de iterações, ação inválida, corte de contexto, apontamento de validator) é sucesso,
+    200 com `finish_reason: "stop"` (ADR-018, FR-022);
 13. um cliente OpenAI padrão, apontado para a app em processo, conversa em streaming sem nenhuma adaptação — é a
     prova direta da SC-004.
 

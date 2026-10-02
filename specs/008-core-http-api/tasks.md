@@ -1,6 +1,6 @@
 ---
 
-description: "Task list for 008 — Fase 1 (US1) e Fase 2 (US2, US3, US4, US5, US7)"
+description: "Task list for 008 — Fase 1 (US1), Fase 2 (US2, US3, US4, US5, US7) e Fase 3 (MCP, desfecho)"
 ---
 
 # Tasks: API HTTP — chat completions compatível com OpenAI
@@ -301,7 +301,109 @@ Clarificação de 2026-10-01: a autenticação que não consegue consultar o arm
 
 ---
 
+## Fase 3 (2026-10-02): passada de encaixe — MCP e desfecho por gravidade (research R25–R32)
+
+Caminhos relativos a `ai-core/packages/core/`. Testes primeiro; marcas `us4` (MCP do usuário), `us5` (MCP globais) e
+`us6` (progresso de tool); o desfecho por gravidade é transversal (sem marca de história).
+
+## Phase 12: Foundational da Fase 3 — desfecho por gravidade (FR-022, ADR-018)
+
+- [ ] T045 [P] Estender `tests/http/unit/test_openai_chunks.py`: `finish_reason` é `"stop"` sem registros e com só
+  registros `severity="notice"` de qualquer `kind` (`IterationLimit`, `ContextTrimmed`, `ValidatorIssue`), e `"error"`
+  com algum `severity="error"`; e `tests/http/contract/test_chat_completions.py` (com o motor real): execução cujo
+  `FinalEvent` só tem `notice` → 200 e `finish_reason: "stop"` sem streaming; com `error` → 502, corpo com a resposta e
+  os motivos, e cabeçalho `x-should-retry: false`; erro anterior à execução (Assistant indisponível, 424) → **sem** o
+  cabeçalho. Para produzir os registros, um `ScriptedHooks` cujo validator aponta (notice) e um provider que falha no meio
+  (error)
+- [ ] T046 Em `src/ai_core/http/domain/openai_chunks.py`, `finish_reason` decide por `issue.severity` e
+  `VALIDATOR_ISSUE` sai; em `src/ai_core/http/adapters/chat.py`, a resposta 502 de falha de execução ganha
+  `x-should-retry: false` (constante `NO_RETRY_HEADER` no módulo) (depende de T045)
+
+**Checkpoint**: execução truncada é sucesso; falha sem streaming não é repetida pelo SDK
+
+---
+
+## Phase 13: User Story 4 — MCPs próprios (Priority: P2 — Fase 3)
+
+**Goal**: o usuário gerencia os próprios servidores MCP em `/v1/mcp` e os usa num Assistant próprio (US4 cen. 1).
+
+**Independent Test**: `uv run pytest packages/core/tests/http -m us4 -k mcp`.
+
+- [ ] T047 [P] [US4] Criar `tests/http/unit/test_mcp_body.py`: `draft_from_json` na forma do `mcp.yaml` (`alias`,
+  `transport`, `endpoint`, `description`, `auth: {type, credential}`, `enabled`, `user_access`, `policy: {allowed_tools,
+  write_tools, timeout_ms, max_response_bytes}`); chave desconhecida no topo, em `auth` ou em `policy` → `InvalidRequest`
+  nomeando o campo; tipo errado (lista onde se espera texto) → idem; `alias` do caminho prevalece e, no escopo `user`,
+  ganha `~` se vier sem; `server_json` com todos os campos de contracts/mcp-routes.md e só o **nome** da referência de
+  credencial; `summary_json` sem endpoint nem política; `health_json` com `ok`, `detail`, `tools`, `missing`
+- [ ] T048 [P] [US4] Criar `tests/http/contract/test_mcp_routes.py` (parte do usuário, itens 1–4, 6 e 7 de
+  [contracts/mcp-routes.md](contracts/mcp-routes.md)), com o `McpService` da 007 em memória (`InMemoryServerStore`,
+  `ScriptedMcpTransport` com um servidor em `https://agenda.example/mcp` anunciando `listar` e `marcar`,
+  `InMemorySecretResolver`, `InMemoryDiscoveryCache`, `FixedDnsResolver`) e os serviços da 003: ciclo criar → ler →
+  atualizar → listar → saúde → remover (com e sem `~` no caminho); MCP de A → 404 para B com a mesma mensagem;
+  `available` com próprios e globais liberados, sem endpoint nem política de global; recusas da 007 com `param` (`http`
+  em MCP de usuário, `stdio`, `policy.allowed_tools` vazia) e campo desconhecido → 400; **US4 cen. 1**: MCP `~agenda`
+  criado por `POST /v1/mcp` e Assistant de usuário com `mcp: ["~agenda"]` criado por `POST /v1/assistants` → aparece em
+  `GET /v1/models` do dono; nenhuma resposta contém valor de credencial
+- [ ] T049 [US4] Criar `src/ai_core/http/domain/mcp_body.py` (`draft_from_json(body, *, scope, alias=None)`,
+  `server_json`, `summary_json`, `health_json`) — faz T047 passar
+- [ ] T050 [US4] Criar `src/ai_core/http/adapters/mcp_routes.py` com `user_mcp_router()` (rotas de R26; `available`
+  declarada antes de `{alias}`) e, em `src/ai_core/http/adapters/app.py`, `create_app(..., mcp: McpRegistry | None =
+  None)` guardando `app.state.mcp` e montando o roteador em `/v1` só com registry; em `src/ai_core/http/domain/errors.py`,
+  `McpConflict` → 409 com `param: "alias"` (antes do caso genérico de `Conflict`) e `UnknownServer` → 404 (depende de
+  T049; faz T048 passar)
+
+---
+
+## Phase 14: User Story 5 — MCPs globais na superfície privada (Priority: P2 — Fase 3)
+
+**Goal**: o operador gerencia os MCPs globais em `/private/v1/mcp`, só com chave do grupo de administração.
+
+**Independent Test**: `uv run pytest packages/core/tests/http -m us5 -k mcp`.
+
+- [ ] T051 [P] [US5] Estender `tests/http/contract/test_mcp_routes.py` (item 5): chave fora do grupo de administração →
+  404 de recurso inexistente em todas as rotas `/private/v1/mcp*`, sem tocar o registry; administrador cria (com `auth`
+  bearer e `user_access`), lê, atualiza, lista e remove; entrada vinda do arquivo do operador (`McpConfig` com uma
+  entrada) aparece na listagem com `origin: "file"` e `PUT`/`DELETE` nela → 409 com `param: "alias"`; saúde de um global
+  com o servidor programado e com ele fora (`ok: false`, `detail`)
+- [ ] T052 [US5] Em `src/ai_core/http/adapters/mcp_routes.py`, `global_mcp_router()` (rotas de R27, `_require_admin`
+  antes de tudo — o mesmo da superfície privada) montado em `/private/v1` em `create_app` (depende de T050; faz T051
+  passar)
+
+---
+
+## Phase 15: User Story 6 — progresso de tool (Priority: P2 — Fase 3, cen. 1)
+
+- [ ] T053 [P] [US6] Estender `tests/http/contract/test_chat_completions.py`: com um motor `agentic` montado por
+  `graph_testkit.engine(capabilities=FakeCapabilities(), controller=ScriptedController([tool_action("generic.calculate",
+  expression="2+2"), ANSWER]))`, a app de `app_with(motor, …)` e um grant `agentic` de `graph_testkit.agentic()`, e
+  streaming, o stream contém, antes do primeiro token, um chunk de progresso com `stage: "execute_tool"` e `detail:
+  "generic.calculate"`, e o cliente OpenAI padrão ainda lê a resposta (US6 cen. 1) — sem código novo se passar
+
+---
+
+## Phase 16: Polish da Fase 3
+
+- [ ] T054 Toque declarado na 011: `src/ai_core/bootstrap/wiring.py` (`_api`) passa `mcp=parts["mcp"]` a `create_app`;
+  em `tests/bootstrap/integration/test_platform_agentic_mcp.py`, (a) um teste que cria um MCP global por `POST
+  /private/v1/mcp` com `TEST_API_KEY` e o vê em `GET /private/v1/mcp`; e (b) o **Independent Test da US4**, no perfil
+  `test` com controller e transporte trocados (`ScriptedMcpTransport` com um servidor em `https://agenda.example/mcp`
+  anunciando `listar`): `POST /v1/mcp` cria `~agenda` com `TEST_OIDC_TOKEN`, `POST /v1/assistants` cria `~pesquisa`
+  (`flow: agentic`, `mcp: ["~agenda"]`, `models` com `controller`), e uma conversa com `model: "~pesquisa"` faz o
+  controller programado pedir `~agenda.listar` — o transporte recebe `call_tool:listar` e a resposta chega com 200. A
+  política de usuário do `assistants.yaml` do teste libera o flow `agentic`
+- [ ] T055 Rodar a seção "Fase 3" de [quickstart.md](quickstart.md) e corrigir divergências
+- [ ] T056 [P] Atualizar a seção "Código" de `CLAUDE.md` (rotas de MCP; desfecho por gravidade; `x-should-retry`) e a
+  linha da 008 em `specs/README.md`; e a linha da 007 ("falta a passada da 008" sai)
+- [ ] T057 Verificação completa a partir de `ai-core/`: `uv run pytest` (com e sem `AI_CORE_TEST_POSTGRES_DSN`),
+  `uv run mypy`, `uv run ruff check packages`, `uv run lint-imports`
+
+---
+
 ## Dependencies & Execution Order
+
+**Fase 3**: T045 → T046 (desfecho); US4: T047 ∥ T048, depois T049 → T050; US5: T051 → T052 (depois de T050, mesmo
+arquivo); US6: T053 a qualquer momento depois de T046; Polish: T054 depois de T052; T055 e T057 por último; T056 em
+paralelo.
 
 ### Phase Dependencies
 

@@ -348,3 +348,119 @@ com a conversa atravessando um "reinício" — um serviço novo sobre o mesmo ar
 testaria a ideia que a API faz delas.
 
 **Alternatives considered**: dublês da 003 (não pegariam divergência de tipo nem de exceção).
+
+---
+
+# Fase 3 (2026-10-02): passada de encaixe
+
+Insumos: a clarificação de 2026-10-02 (FR-022); a nota para a 008 no plano da
+[007](../007-core-mcp-integration/plan.md) ("Seam Notes": CRUD de usuário em `/v1`, globais em `/private/v1` com
+`AdminGate`, saúde com `check`, erros que herdam da 003); [ADR-018](../../docs/adr/ADR-018-seam-execution-engine-fase-3.md)
+(gravidade dos registros); a 011, que já expõe o registry em `Platform.mcp`.
+
+## R25 — Escopo da passada
+
+**Decision**: rotas de MCP do usuário (`/v1/mcp`) e globais (`/private/v1/mcp`, grupo de administração) sobre o seam
+`McpRegistry` da 007, com saúde por servidor; desfecho da execução por gravidade (FR-022) e o cabeçalho
+`x-should-retry: false` nas falhas de execução; a US6 cen. 1 (progresso de tool) e a US4 cen. 1 (MCP próprio + Assistant
+que o usa nos modelos) cobertas por teste. Toque declarado na 011: passar o registry a `create_app`. **Fora**: fila e
+limite de execuções simultâneas (FR-016/FR-017, Fase 7), Open WebUI (US8).
+
+**Rationale**: é o que a 007 e o ADR-018 deixaram para a 008 na Fase 3.
+
+**Alternatives considered**: deixar o CRUD de MCP para a Fase 7 (os MCPs de usuário são a extensão do usuário prevista
+pelo ADR-003, e a 007 já os oferece).
+
+## R26 — Rotas de MCP do usuário, só na superfície pública
+
+**Decision**:
+
+| Rota | Seam (007) | Sucesso |
+|---|---|---|
+| `GET /v1/mcp` | `mine(principal)` | 200, lista |
+| `POST /v1/mcp` | `create_mine` | 201 |
+| `GET /v1/mcp/available` | `available(principal)` | 200, o que o Principal pode referenciar (próprios e globais liberados), sem endpoint nem política de global |
+| `GET /v1/mcp/{alias}` | `get_mine` | 200 |
+| `PUT /v1/mcp/{alias}` | `update_mine` | 200 |
+| `DELETE /v1/mcp/{alias}` | `delete_mine` | 204 |
+| `GET /v1/mcp/{alias}/health` | `check(alias, owner=subject)` | 200, saúde do servidor do próprio usuário |
+
+`{alias}` aceita com ou sem `~` (como os Assistants de usuário); `available` é rota literal, antes de `{alias}`. O corpo
+segue a forma do `mcp.yaml` (007), para que o operador e o usuário escrevam o mesmo formato: `alias`, `transport`,
+`endpoint`, `description`, `auth: {type, credential}`, `enabled`, `user_access`, `policy: {allowed_tools, write_tools,
+timeout_ms, max_response_bytes}`. Campo desconhecido → 400. As regras de escopo (sempre `https`, sem autenticação, sem
+`user_access`, `~` obrigatório) são da 007, que recusa com `McpRejected`.
+
+**Rationale**: nota da 007; FR-006; o molde das rotas de Assistants de usuário (R19).
+
+**Alternatives considered**: corpo plano com os campos do `McpServerDraft` (dois formatos para o mesmo dado, arquivo e
+API).
+
+## R27 — Rotas de MCP globais, só para o grupo de administração
+
+**Decision**: `GET/POST /private/v1/mcp`, `GET/PUT/DELETE /private/v1/mcp/{alias}` e `GET /private/v1/mcp/{alias}/health`
+sobre `globals`, `create_global`, `get_global`, `update_global`, `delete_global` e `check(alias)`. Antes de tudo,
+`AdminGate.is_admin(principal)`; quem não administra recebe o mesmo 404 de recurso inexistente (como `/packs` e
+`/admin/keys`, R20). A saúde por servidor global é de administração; a agregada (`/private/v1/health`) já traz um item
+não crítico por servidor global para qualquer chave (011).
+
+**Rationale**: nota da 007; FR-007; a regra de quem administra é da 003 (R20).
+
+**Alternatives considered**: saúde por servidor para qualquer chave (expõe as tools anunciadas por um servidor do
+operador a quem não administra).
+
+## R28 — Erros de MCP
+
+**Decision**: `McpNotFound` → 404 (herda de `NotFound`, mensagem fixa), `McpRejected` → 400 com `param` = campo (herda
+de `RequestRejected`), `McpConflict` → 409 com `param: "alias"` (herda de `Conflict`; o caso genérico continua com
+`param: "name"`), `UnknownServer` → 404. Entrada do arquivo do operador alterada pela API → 409 (somente leitura, 007).
+
+**Rationale**: a tabela de erros da 008 já traduz a hierarquia da 003 (R12); só o `param` do conflito muda de nome.
+
+**Alternatives considered**: tradução própria para cada erro da 007 (duplicaria a tabela).
+
+## R29 — O registry chega a `create_app` como seam opcional
+
+**Decision**: `create_app(..., mcp: McpRegistry | None = None)`; sem registry, as rotas de MCP não são montadas (404).
+A 011 passa `parts["mcp"]` (toque declarado). As rotas importam só `ai_core.mcp.api`.
+
+**Rationale**: o padrão dos seams da 003 na Fase 2 (R23); a API não instancia nada (princípio XIII).
+
+**Alternatives considered**: registry obrigatório (quebraria as suítes da 008 que não precisam de MCP).
+
+## R30 — Desfecho pela gravidade (FR-022, ADR-018)
+
+**Decision**: `finish_reason(event)` = `"error"` se algum registro tem `severity == "error"`, senão `"stop"`; `failed`
+(sem streaming → 502) segue o mesmo critério. A constante `VALIDATOR_ISSUE` da 008 sai: a API não conhece mais nenhum
+`kind` da 005.
+
+**Rationale**: ADR-018; FR-022. Antes, uma execução `agentic` truncada (só `notice`) saía com `finish_reason: "error"` e
+502.
+
+**Alternatives considered**: ver ADR-018.
+
+## R31 — `x-should-retry: false` nas falhas de execução
+
+**Decision**: a resposta 502 de falha de execução sem streaming leva `x-should-retry: false`. Em streaming o status já é
+200 (nenhum cliente repete), e erros **anteriores** à execução — 4xx, 503 de armazenamento — não levam o cabeçalho: ali
+nada rodou, e repetir é seguro.
+
+**Rationale** (clarificação de 2026-10-02): o SDK oficial da OpenAI repete 5xx automaticamente e obedece a esse
+cabeçalho; cada repetição rodaria o loop `agentic` de novo, inclusive tools de escrita (auditadas, mas executadas de
+novo).
+
+**Alternatives considered**: ver a clarificação.
+
+## R32 — Testes
+
+**Decision**: `tests/http/contract/test_mcp_routes.py` (usuário: ciclo criar → ler → atualizar → listar → saúde →
+remover, isolamento entre donos, `available`, recusas da 007 com o campo; globais: 404 para não administrador, ciclo
+para administrador, entrada do arquivo → 409, saúde), com o `McpService` da 007 em memória (transporte programado) e a
+003 real; US4 cen. 1: MCP próprio criado pela API + Assistant de usuário que o usa → aparece em `/v1/models` do dono;
+desfecho: execução só com `notice` → 200 e `finish_reason: "stop"` (com e sem streaming), com `error` → 502 e
+`x-should-retry: false`; US6 cen. 1: execução `agentic` com tool emite chunk de progresso com `stage: "execute_tool"` e o
+nome. Marcas `us4`, `us5`, `us6`.
+
+**Rationale**: o padrão da R24 (a 003 real, nada de dublê do que se integra).
+
+**Alternatives considered**: dublê do registry (não pegaria divergência de tipo nem de exceção da 007).

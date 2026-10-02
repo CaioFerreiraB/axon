@@ -48,6 +48,10 @@
 
 - Q: Quando a autenticação não consegue consultar o armazenamento de credenciais (o banco do perfil persistente fora do ar), o que a API responde? → A: 503, no formato de erro da OpenAI, com código `storage_unavailable` e mensagem fixa que nomeia o armazenamento, sem detalhe de infraestrutura. Nunca 401 — culparia a credencial — nem o 500 genérico do framework. Vale para as duas superfícies, e é o que faz a saúde de uma instância persistente com o banco fora responder 503 (011 US5 cen. 3), já que a chave do monitor mora no mesmo banco.
 
+### Session 2026-10-02
+
+- Q: Quando uma execução sem streaming termina com registro `error` (MCP fora do ar, falha do controller) e a resposta foi gerada, que status a API devolve? → A: Continua 502, com a resposta e os motivos no corpo — falha explícita (princípio VII) —, e **toda** resposta de falha de execução leva o cabeçalho `x-should-retry: false`: o SDK oficial da OpenAI repete 5xx automaticamente, e cada repetição rodaria o loop `agentic` de novo, inclusive tools de escrita. Execução só com registros `notice` (limite de iterações, ação inválida, corte de contexto, apontamento de validator) é sucesso: 200 com `finish_reason: "stop"`, pela gravidade do ADR-018 — em streaming e sem streaming.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Cliente compatível com OpenAI conversa em streaming (Priority: P1)
@@ -124,6 +128,7 @@ Na superfície privada, o operador consulta packs (introspecção), administra c
 2. **Given** uma chave do grupo de administração, **When** o operador emite, lista ou revoga chaves pela API, **Then** a operação segue a 003 — a chave em claro aparece só na emissão, e a revogada é recusada na requisição seguinte; uma chave fora do grupo recebe 404.
 3. **Given** qualquer chave de API válida, **When** consulta a saúde, **Then** recebe o estado agregado da plataforma (011): 200 quando `ok` ou `degraded`, 503 quando `down` (011 FR-012).
 4. **Given** o armazenamento de credenciais inacessível, **When** qualquer requisição chega — inclusive a de saúde —, **Then** recebe 503 com código `storage_unavailable`, e não 401 (FR-021).
+5. **Given** uma chave do grupo de administração, **When** o operador cria, lista, altera e remove MCPs globais pela API, **Then** a operação segue a 007 e os servidores do arquivo do operador aparecem como somente leitura (409 ao alterar); **Given** uma chave fora do grupo, **When** usa qualquer rota de MCP global, **Then** recebe 404 (Fase 3).
 
 ---
 
@@ -179,6 +184,7 @@ Open WebUI se conecta pela compat OpenAI; os Assistants permitidos ao usuário a
 
 ### Edge Cases
 
+- Execução sem streaming com MCP do Assistant fora do ar: a resposta é gerada sem a tool, o registro `McpUnavailable` é `error`, e a API responde 502 com a resposta, os motivos e `x-should-retry: false` — o SDK oficial não repete.
 - Cliente desconecta no meio do stream: a execução é cancelada (spec 005).
 - Requisição OpenAI com `tools`/`functions`: rejeitada (ampliação de capacidade).
 - Parâmetros de amostragem: aceitos dentro dos limites do Assistant.
@@ -221,6 +227,7 @@ Open WebUI se conecta pela compat OpenAI; os Assistants permitidos ao usuário a
 - **FR-019**: Conversas sem atividade por mais tempo que o prazo de retenção DEVEM ser apagadas automaticamente; o prazo é configurável pelo operador, com padrão de 180 dias.
 - **FR-020**: Assistant que o Principal resolve, mas que está indisponível, DEVE responder 424 no formato de erro da OpenAI, com código `assistant_unavailable` e os motivos, antes de qualquer execução; o 424 nunca é devolvido a quem não resolveria o Assistant (FR-009).
 - **FR-021**: Falha do armazenamento de credenciais durante a autenticação DEVE responder 503 no formato de erro da OpenAI, com código `storage_unavailable`, antes de qualquer outra verificação; a mensagem nomeia o armazenamento e não expõe detalhe de infraestrutura (endereço, driver, mensagem do banco).
+- **FR-022**: O desfecho de uma execução DEVE ser decidido pela gravidade dos registros do evento final (005, ADR-018), nunca pelo tipo: só registros `notice` → sucesso (`finish_reason: "stop"`, 200 sem streaming); algum registro `error` → falha (`finish_reason: "error"` no stream; 502 sem streaming, com a resposta e os motivos no corpo). Toda resposta de falha de execução DEVE levar o cabeçalho `x-should-retry: false`, para que clientes que repetem 5xx automaticamente não reexecutem o loop nem tools de escrita.
 
 ### Key Entities
 
