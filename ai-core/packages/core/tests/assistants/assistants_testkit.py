@@ -29,6 +29,7 @@ from ai_core.packs.api import (
     PackCapabilities,
     PackEntry,
     PackStatus,
+    RetrieverCapability,
 )
 
 T0 = datetime(2026, 9, 30, 12, tzinfo=UTC)
@@ -129,11 +130,13 @@ def pack_entry(
     status: PackStatus = PackStatus.ENABLED,
     preferred_flow: str | None = None,
     error: str | None = None,
+    tools: Sequence[str] = (),
+    retrievers: Sequence[str] = (),
 ) -> PackEntry:
     capabilities = PackCapabilities(
         system_prompt=True,
-        tools=(),
-        retrievers=(),
+        tools=tuple(tools),
+        retrievers=tuple(RetrieverCapability(name=name, collections=frozenset({"docs"})) for name in retrievers),
         reranker=False,
         validators=(),
         preferred_flow=preferred_flow,
@@ -178,9 +181,10 @@ class FakePackRegistry:
 
 
 def default_registry() -> FakePackRegistry:
-    """`generic` (sem flow preferido), `rag` (prefere `agentic`), `financeiro` (em erro)."""
+    """`generic` (sem flow preferido; tools `calculate` e `buscar`, como as referências com namespace da Fase 3 pedem),
+    `rag` (prefere `agentic`), `financeiro` (em erro)."""
     return FakePackRegistry(
-        pack_entry("generic"),
+        pack_entry("generic", tools=("calculate", "buscar")),
         pack_entry("rag", preferred_flow="agentic"),
         pack_entry("financeiro", status=PackStatus.ERROR, error="contrato incompatível"),
     )
@@ -310,6 +314,7 @@ def assistants_service(
     mcp: Any = None,
     collections: Any = None,
     rate: Any = None,
+    flow_roles: Any = None,
 ) -> Any:
     """`AssistantsService` com os adapters em memória, a partir do mapeamento de um `assistants.yaml`."""
     from ai_core.assistants.adapters.catalogs import EmptyCollectionCatalog, EmptyMcpDirectory
@@ -326,6 +331,7 @@ def assistants_service(
         collections=collections if collections is not None else EmptyCollectionCatalog(),
         rate=rate if rate is not None else InMemoryRateCounterStore(),
         clock=clock or MutableClock(),
+        flow_roles=flow_roles,
     )
 
 

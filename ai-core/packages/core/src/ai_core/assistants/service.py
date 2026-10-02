@@ -51,7 +51,7 @@ from ai_core.assistants.domain.resolution import (
     select_models,
     split_model_id,
 )
-from ai_core.assistants.domain.validation import reference_reasons, status_of
+from ai_core.assistants.domain.validation import FlowRoles, reference_reasons, static_reasons, status_of
 from ai_core.assistants.ports import (
     ApiKeyStore,
     Clock,
@@ -117,10 +117,12 @@ class AssistantsService:
         collections: CollectionCatalog,
         rate: RateCounterStore,
         clock: Clock,
+        flow_roles: FlowRoles | None = None,
     ) -> None:
         self._config = config
         self._packs = packs
         self._flows = frozenset(flows)
+        self._flow_roles = flow_roles
         self._users = users
         self._mcp = mcp
         self._collections = collections
@@ -276,7 +278,18 @@ class AssistantsService:
         if policy is None:
             raise NoApplicablePolicy(NO_POLICY, field="policy")
         mcp = await self._mcp.aliases(owner=principal.subject) if draft.mcp else frozenset[str]()
-        return conform(draft, policy, owner=principal.subject, mcp_aliases=mcp, preferred=self._preferred_flow)
+        definition = conform(draft, policy, owner=principal.subject, mcp_aliases=mcp, preferred=self._preferred_flow)
+        # As regras da Fase 3 também valem na escrita: o usuário fica sabendo agora, não na primeira resolução (R22).
+        reasons = static_reasons(
+            definition,
+            flow=effective_flow(definition, self._preferred_flow),
+            flow_roles=self._flow_roles,
+            pack_tools=self._pack_tools(definition.packs),
+        )
+        if reasons:
+            field, _, _ = reasons[0].partition(":")
+            raise RequestRejected(reasons[0], field=field)
+        return definition
 
     async def _view(self, stored: StoredUserAssistant, principal: Principal) -> UserAssistant:
         definition = await self._user_definition(stored, principal)
@@ -306,8 +319,20 @@ class AssistantsService:
             composition_error=composition_error,
             mcp_aliases=mcp,
             collections=collections,
+            flow_roles=self._flow_roles,
+            pack_tools=self._pack_tools(definition.packs),
         )
         return _Availability(reasons=reasons, flow=flow, composition=composition)
+
+    def _pack_tools(self, packs: Sequence[str]) -> dict[str, frozenset[str]]:
+        """Por pack com capacidades, as tools nativas e os retrievers que oferece — coletados na carga (002)."""
+        offered: dict[str, frozenset[str]] = {}
+        for name in packs:
+            entry = self._packs.entry(name)
+            if entry is not None and entry.capabilities is not None:
+                capabilities = entry.capabilities
+                offered[name] = frozenset((*capabilities.tools, *(r.name for r in capabilities.retrievers)))
+        return offered
 
     def _preferred_flow(self, pack: str) -> str | None:
         entry = self._packs.entry(pack)

@@ -84,6 +84,7 @@ pack `ai-generic` e o provider simulado da 006 (R13):
 | Regra | Origem | Verificada por |
 |---|---|---|
 | `flows()` inclui `agentic` só quando o motor tem `Capabilities`; sem ela, grant `agentic` → `UnknownFlow` na chamada | R16 | conformidade do registro |
+| `flow_roles()`: para cada flow de `flows()`, os papéis que `run` confere (`chat`: `generation`; `agentic`: `controller`, `generation`); flow sem regra → `()`. Consumido pela 003 na validação | [ADR-019](../../../docs/adr/ADR-019-papeis-por-flow-no-seam-execution-engine.md) | conformidade do registro |
 | Os papéis do flow (`agentic`: `controller` e `generation`) são resolvidos na chamada de `run`; papel ausente ou fora da allowlist → `ExecutionRequestInvalid` nomeando o papel | FR-013, R25 | conformidade do seam |
 | `ExecutionIssue.severity` (`"error"` \| `"notice"`, default `"error"`): `notice` é resultado de política (limite, ação inválida, teto, validator), `error` é falha de dependência (inclusive MCP indisponível); `ExecutionFinished.ok` = nenhum `error` | R23, ADR-018 | unidade de `domain/outcome.py` + conformidade |
 | Apontamento de validator sai com `severity="notice"` (o `kind` continua `ValidatorIssue`) | R23 | idem |

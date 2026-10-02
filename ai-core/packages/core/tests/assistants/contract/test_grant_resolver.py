@@ -102,7 +102,7 @@ async def test_us1_grant_tem_o_que_o_motor_le() -> None:
                 "geral": assistant(
                     models={"generation": "ollama/qwen3:1.7b", "controller": "ollama/qwen3:8b", "allow": ["ollama/*"]},
                     limits={"rpm": 20, "max_iterations": 4},
-                    allowed_tools=["calculate"],
+                    allowed_tools=["generic.calculate"],
                 )
             }
         )
@@ -120,7 +120,7 @@ async def test_us1_grant_tem_o_que_o_motor_le() -> None:
         allow=("ollama/*",),
     )
     assert grant.limits == Limits(rpm=20, max_iterations=4)
-    assert grant.allowed_tools == frozenset({"calculate"})
+    assert grant.allowed_tools == frozenset({"generic.calculate"})
     assert grant.write_tools == frozenset()
 
 

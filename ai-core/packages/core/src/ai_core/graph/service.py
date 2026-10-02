@@ -7,7 +7,7 @@ reescrita do grafo uma troca de objeto injetado (ADR-011, SC-001). Não importa 
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 
 from ai_core.capabilities.api import Capabilities
 from ai_core.graph.api import (
@@ -21,7 +21,7 @@ from ai_core.graph.domain.limits import effective_limit
 from ai_core.graph.domain.outcome import succeeded
 from ai_core.graph.domain.request import TOOL_FLOWS, offered, required_roles, validate
 from ai_core.graph.ports import Clock, ExecutionPlan, FlowRuntime
-from ai_core.llm.api import ModelRouter, ModelRouting, ModelRoutingError
+from ai_core.llm.api import ModelRole, ModelRouter, ModelRouting, ModelRoutingError
 from ai_core.observability.api import ExecutionFinished, ExecutionStarted, TraceSink
 from ai_core.packs.api import PackHooks
 
@@ -52,6 +52,10 @@ class ExecutionService:
         """Nomes de flow disponíveis; `assistants validate` (003) os usa como dado. Sem o gateway de tools da 004, os
         flows que dependem dele não são oferecidos (research R16)."""
         return offered(self._flows.names(), tools=self._capabilities is not None)
+
+    def flow_roles(self) -> Mapping[str, tuple[ModelRole, ...]]:
+        """Os papéis por flow oferecido, da mesma regra que `run` aplica (`domain/request.py`, ADR-019)."""
+        return {name: required_roles(name) for name in sorted(self.flows())}
 
     def run(self, grant: ExecutionGrant, request: ExecutionRequest) -> AsyncIterator[ExecutionEvent]:
         """Valida e devolve o fluxo de eventos.

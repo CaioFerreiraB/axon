@@ -250,3 +250,54 @@ async def test_servico_novo_sobre_o_mesmo_armazenamento_continua_resolvendo(user
     assert (await novo.resolve(model="~meu-rag/qwen3:8b", principal=ANA)).models.roles["generation"] == ModelRef(
         provider="ollama", model="qwen3:8b"
     )
+
+
+# --- Fase 3 (T060; research R22): as regras novas na criação e na atualização ----------------------------------------
+
+FLOW_ROLES = {"chat": ("generation",), "agentic": ("controller", "generation")}
+def _regras() -> Any:
+    return assistants_service(
+        config(policies=[policy(match="*", flows=["chat", "agentic"], write_tools=True)]),
+        mcp=InMemoryMcpDirectory(by_owner={"user:ana": {"generic", "agenda"}}),
+        flow_roles=FLOW_ROLES,
+    )
+
+
+VIOLACOES = [
+    ({"flow": "agentic"}, "models"),
+    ({"allowed_tools": ("calculate",)}, "allowed_tools"),
+    ({"write_tools": ("outro.x",)}, "write_tools"),
+    ({"mcp": ("generic",)}, "mcp"),
+]
+
+
+@pytest.mark.us6
+@pytest.mark.parametrize(("overrides", "field"), VIOLACOES)
+async def test_regra_da_fase_3_recusa_a_criacao_nomeando_o_campo(overrides: dict[str, Any], field: str) -> None:
+    with pytest.raises(RequestRejected) as recusa:
+        await _regras().create(ANA, draft(**overrides))
+    assert recusa.value.field == field
+
+
+@pytest.mark.us6
+@pytest.mark.parametrize(("overrides", "field"), VIOLACOES)
+async def test_regra_da_fase_3_recusa_a_atualizacao_nomeando_o_campo(overrides: dict[str, Any], field: str) -> None:
+    service = _regras()
+    await service.create(ANA, draft())
+    with pytest.raises(RequestRejected) as recusa:
+        await service.update(ANA, "~meu-rag", draft(**overrides))
+    assert recusa.value.field == field
+
+
+@pytest.mark.us6
+async def test_regra_da_fase_3_aceita_o_rascunho_valido() -> None:
+    criado = await _regras().create(
+        ANA,
+        draft(
+            flow="agentic",
+            models={"generation": "ollama/qwen3:1.7b", "controller": "ollama/qwen3:1.7b"},
+            mcp=("agenda",),
+            allowed_tools=("generic.calculate", "agenda.marcar"),
+        ),
+    )
+    assert criado.status.available, criado.status.reasons

@@ -61,3 +61,24 @@ def test_sem_gateway_o_agentic_nao_e_oferecido() -> None:
 def test_com_gateway_o_agentic_e_oferecido() -> None:
     assert engine(capabilities=FakeCapabilities()).flows() == frozenset({"chat", "agentic"})
 
+
+
+# --- ADR-019 (003, passada de encaixe da Fase 3; T053): papéis por flow como dado ------------------------------------
+
+
+@pytest.mark.us2
+def test_papeis_por_flow_sem_gateway() -> None:
+    assert engine().flow_roles() == {"chat": ("generation",)}
+
+
+@pytest.mark.us2
+def test_papeis_por_flow_com_gateway() -> None:
+    motor = engine(capabilities=FakeCapabilities())
+    assert motor.flow_roles() == {"chat": ("generation",), "agentic": ("controller", "generation")}
+    assert set(motor.flow_roles()) == set(motor.flows())
+
+
+@pytest.mark.us2
+def test_flow_sem_regra_de_papeis_nao_exige_nenhum(trace: Any) -> None:
+    motor = engine(flows=SpyRuntime(frozenset({"chat", "experimental"})), trace=trace)
+    assert motor.flow_roles() == {"chat": ("generation",), "experimental": ()}

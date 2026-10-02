@@ -119,7 +119,11 @@ em esquema de MCP; prazo e tamanho do gateway; resultado cercado em `<tool_resul
 de escrita é auditada **antes** de executar (sem auditoria, não executa), em memória ou Postgres (schema
 `capabilities`); `audit_command` em `adapters/cli.py`. Cada chamada vira o evento `tool_call` da 009 (acrescentado
 nesta passada). A 002 já expõe o seam **Pack Toolset** (`PackRuntime.toolset(composition)`, US3 cen. 1), que cumpre
-a porta `PackToolSource` da 004. Falta: a 003 (exemplo com namespace e a regra de colisão alias × pack).
+a porta `PackToolSource` da 004. A 003 (passada de encaixe da Fase 3) valida as referências que o loop usa: papéis de
+modelo exigidos pelo flow — o motor os publica em `ExecutionEngine.flow_roles()` (ADR-019) e a 011 os injeta, então um
+Assistant `agentic` sem `controller` fica indisponível (424 pela API) —, entradas de `allowed_tools`/`write_tools`
+sempre com namespace, de um pack ou MCP do próprio Assistant e, para pack, de tool que ele oferece, e a colisão de alias
+MCP com pack; Assistant de usuário que viole uma delas é recusado na criação e na atualização, nomeando o campo.
 O motor tem o flow `agentic` (spec 005, US2): a sessão de tools da 004 abre depois da preparação; a cada iteração o
 papel `controller` devolve uma ação por `response_format` (um ramo `anyOf` por tool do catálogo, parâmetros sem regex),
 o gateway executa e o resultado cercado volta pelo formato nativo de tool (`assistant` com `tool_calls` + `tool`), com

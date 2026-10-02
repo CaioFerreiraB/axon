@@ -461,17 +461,17 @@ Caminhos relativos a `ai-core/packages/core/`. Testes primeiro; marca `us8` na v
 
 **⚠️ CRITICAL**: a regra de papéis da 003 depende deste dado
 
-- [ ] T053 [P] Toque declarado na 005: estender `tests/graph/contract/test_flow_registry.py` — motor sem `capabilities`:
+- [X] T053 [P] Toque declarado na 005: estender `tests/graph/contract/test_flow_registry.py` — motor sem `capabilities`:
   `flow_roles() == {"chat": ("generation",)}`; com `FakeCapabilities`: `{"chat": ("generation",), "agentic":
   ("controller", "generation")}`; as chaves de `flow_roles()` são sempre as de `flows()`; flow sem regra (o
   `experimental` do `SpyRuntime`) → `()`. Marca `us2`
-- [ ] T054 Toque declarado na 005: `src/ai_core/graph/api.py` — `flow_roles(self) -> Mapping[str, tuple[ModelRole,
+- [X] T054 Toque declarado na 005: `src/ai_core/graph/api.py` — `flow_roles(self) -> Mapping[str, tuple[ModelRole,
   ...]]` no `Protocol` `ExecutionEngine`, com docstring citando ADR-019 (importa `ModelRole` de `ai_core.llm.api`);
   `src/ai_core/graph/service.py` — `flow_roles()` = `{name: required_roles(name) for name in self.flows()}`;
   `specs/005-core-execution-engine/contracts/execution-engine.md` — o método na superfície e a regra "papéis de
   `flow_roles()` == papéis que `run` confere"; a linha do seam Execution Engine em `specs/README.md` cita os papéis por
   flow como dado consumido pela 003 (depende de T053)
-- [ ] T055 [P] Em `ai-core/pyproject.toml`, a marca `us8: 003 US8 — validação de Assistants` na lista `markers`, e a
+- [X] T055 [P] Em `ai-core/pyproject.toml`, a marca `us8: 003 US8 — validação de Assistants` na lista `markers`, e a
   descrição de `us6` passa a citar também "003 US6 — Assistants de usuário"
 
 **Checkpoint**: o motor publica os papéis por flow
@@ -487,7 +487,7 @@ indisponível com o motivo (US8 cen. 2–4).
 
 ### Tests for User Story 8 ⚠️
 
-- [ ] T056 [P] [US8] Criar `tests/assistants/unit/test_assistants_reference_rules.py`, com as mensagens **exatas** de
+- [X] T056 [P] [US8] Criar `tests/assistants/unit/test_assistants_reference_rules.py`, com as mensagens **exatas** de
   [contracts/assistants-yaml.md](contracts/assistants-yaml.md), "Fase 3": `role_reasons` — `agentic` sem
   `controller` → um motivo; com `controller` → nenhum; flow sem entrada no mapeamento ou `flow_roles=None` → nenhum;
   flow `None` → nenhum; `tool_reasons` — `calculate` (sem namespace), `outro.x` (fora dos packs e MCPs), `generic.nao_existe`
@@ -497,7 +497,7 @@ indisponível com o motivo (US8 cen. 2–4).
   `Generic.calculate` (caixa) → "não é pack nem MCP deste Assistant", como no gateway da 004; pack sem capacidades (em erro) → nenhum motivo de
   tool; `allowed_tools=None` → nenhum; `collision_reasons` — `packs=[generic]` + `mcp=[generic]` → um motivo; sem
   colisão → nenhum
-- [ ] T057 [P] [US8] Estender `tests/assistants/contract/test_validation.py`: com `flow_roles` = `{"chat":
+- [X] T057 [P] [US8] Estender `tests/assistants/contract/test_validation.py`: com `flow_roles` = `{"chat":
   ("generation",), "agentic": ("controller", "generation")}` e o pack `generic` oferecendo `calculate`, um Assistant
   `agentic` sem `controller`, um com `allowed_tools: [calculate]`, um com `write_tools: [outro.x]` (privado), um com
   `packs: [generic]` + `mcp: [generic]` (com `generic` no diretório MCP falso) → indisponíveis com o motivo e os demais
@@ -506,11 +506,11 @@ indisponível com o motivo (US8 cen. 2–4).
 
 ### Implementation for User Story 8
 
-- [ ] T058 [US8] Em `src/ai_core/assistants/domain/validation.py` (R19–R21): `role_reasons(definition, *, flow,
+- [X] T058 [US8] Em `src/ai_core/assistants/domain/validation.py` (R19–R21): `role_reasons(definition, *, flow,
   flow_roles)`, `tool_reasons(definition, *, pack_tools: Mapping[str, frozenset[str]])` e `collision_reasons(definition)`,
   puras; `reference_reasons` ganha `flow_roles: Mapping[str, Sequence[ModelRole]] | None = None` e `pack_tools:
   Mapping[str, frozenset[str]] | None = None` e acrescenta os motivos das três (faz T056 passar)
-- [ ] T059 [US8] Em `src/ai_core/assistants/service.py` (R19, R22): `AssistantsService(..., flow_roles=None)`;
+- [X] T059 [US8] Em `src/ai_core/assistants/service.py` (R19, R22): `AssistantsService(..., flow_roles=None)`;
   `_pack_tools(packs)` = por pack com capacidades, os nomes de `capabilities.tools` e de `capabilities.retrievers`;
   `_availability` passa `flow_roles` e `pack_tools` a `reference_reasons`; em `tests/assistants/assistants_testkit.py`,
   `pack_entry(..., tools=(), retrievers=())` e `assistants_service(..., flow_roles=None)` (depende de T058; faz T057
@@ -527,13 +527,13 @@ indisponível com o motivo (US8 cen. 2–4).
 
 **Independent Test**: `uv run pytest packages/core/tests/assistants -m us6 -k regra`.
 
-- [ ] T060 [P] [US6] Estender `tests/assistants/contract/test_directory.py` (testes com `regra` no nome): com a política
+- [X] T060 [P] [US6] Estender `tests/assistants/contract/test_directory.py` (testes com `regra` no nome): com a política
   `*` permitindo `generic` e os flows `chat` e `agentic`, `create` de rascunho `agentic` sem `controller` →
   `RequestRejected` com `field == "models"`; `allowed_tools=("calculate",)` → `field == "allowed_tools"`;
   `write_tools=("outro.x",)` numa política com `write_tools: true` → `field == "write_tools"`; `mcp=("generic",)` com o
   pack `generic` → `field == "mcp"`; e o mesmo para `update` de um Assistant existente; um rascunho válido continua
   criado
-- [ ] T061 [US6] Em `src/ai_core/assistants/service.py`, `_conform` aplica `role_reasons`, `tool_reasons` e
+- [X] T061 [US6] Em `src/ai_core/assistants/service.py`, `_conform` aplica `role_reasons`, `tool_reasons` e
   `collision_reasons` à definição conformada e, se houver motivo, levanta `RequestRejected(<primeiro motivo>,
   field=<campo do motivo>)` — o campo é o prefixo do motivo antes de `:` (depende de T059; faz T060 passar)
 
@@ -541,16 +541,16 @@ indisponível com o motivo (US8 cen. 2–4).
 
 ## Phase 14: Polish da Fase 3
 
-- [ ] T062 Toque declarado na 011: `src/ai_core/bootstrap/wiring.py` — `assistants_service` passa
+- [X] T062 Toque declarado na 011: `src/ai_core/bootstrap/wiring.py` — `assistants_service` passa
   `flow_roles=parts["engine"].flow_roles()`; teste em `tests/bootstrap/contract/test_boot_sequence.py` (marca `us8`): um
   Assistant `agentic` sem `controller` no `assistants.yaml` → a etapa `assistants` degrada nomeando o papel, e uma
   requisição a ele pela API responde 424 com o motivo (antes, 400 do motor); e, em
   `tests/bootstrap/bootstrap_testkit.py`, o `perdido` e o `pesquisador` continuam declarando `controller`
-- [ ] T063 Rodar a seção "Fase 3" de [quickstart.md](quickstart.md) (inclusive `ai-core assistants validate` pela
+- [X] T063 Rodar a seção "Fase 3" de [quickstart.md](quickstart.md) (inclusive `ai-core assistants validate` pela
   plataforma de verdade, esperando código 1 e o motivo do papel)
-- [ ] T064 [P] Atualizar a seção "Código" de `CLAUDE.md` (a 003 valida papéis por flow, entradas de tool com namespace e
+- [X] T064 [P] Atualizar a seção "Código" de `CLAUDE.md` (a 003 valida papéis por flow, entradas de tool com namespace e
   colisão alias × pack; o motor publica `flow_roles()`, ADR-019) e a linha da 003 em `specs/README.md`
-- [ ] T065 Verificação completa a partir de `ai-core/`: `uv run pytest` (com e sem `AI_CORE_TEST_POSTGRES_DSN`),
+- [X] T065 Verificação completa a partir de `ai-core/`: `uv run pytest` (com e sem `AI_CORE_TEST_POSTGRES_DSN`),
   `uv run mypy`, `uv run ruff check packages`, `uv run lint-imports`
 
 ---

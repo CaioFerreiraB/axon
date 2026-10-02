@@ -15,10 +15,13 @@ from bootstrap_testkit import (
     MCP_YAML,
     MCP_YAML_COM_CREDENCIAL,
     MCP_YAML_COM_PROBLEMA,
+    OIDC,
     MemoryConfig,
     Recorder,
+    body,
     write_config,
 )
+from fastapi.testclient import TestClient
 
 from ai_core.bootstrap.lifecycle import BootContext, StageStatus, run_stages, shutdown
 from ai_core.bootstrap.wiring import Platform, platform
@@ -193,3 +196,21 @@ def test_19_credencial_ausente_degrada_sem_vazar_segredo(tmp_path: Path, monkeyp
     assert etapa.status is StageStatus.DEGRADED
     assert "cofre" in (etapa.detail or "") and "falta" in (etapa.detail or "")
     assert "segredo-outra" not in plataforma.report.render()
+
+
+@pytest.mark.us8
+def test_agentic_sem_controller_fica_indisponivel_no_boot_e_responde_424(tmp_path: Path) -> None:
+    """003 Fase 3 (ADR-019): o motor publica os papéis por flow, a 011 os injeta, e a 003 recusa antes de servir — a
+    requisição recebe 424 com o motivo, não mais o 400 que o motor dava na chamada."""
+    sem_controller = AGENTIC_ASSISTANTS_YAML.replace(
+        "    mcp: [demo]\n    models:\n      generation: ollama/qwen3:1.7b\n      controller: ollama/qwen3:1.7b\n",
+        "    models:\n      generation: ollama/qwen3:1.7b\n",
+        1,
+    )
+    plataforma = _boot(tmp_path, assistants=sem_controller)
+    (etapa,) = [o for o in plataforma.report.stages if o.name == "assistants"]
+    assert "pesquisador" in (etapa.detail or "") and "controller" in (etapa.detail or "")
+    with TestClient(plataforma.app) as client:
+        response = client.post("/v1/chat/completions", headers=OIDC, json=body(model="pesquisador"))
+    assert response.status_code == 424
+    assert "controller" in response.text

@@ -364,6 +364,7 @@ def assistants_service(parts: Mapping[str, Any], *, users: Any, mcp: Any) -> Ass
         config=parts["assistants_config"],
         packs=parts["packs"],
         flows=parts["engine"].flows(),
+        flow_roles=parts["engine"].flow_roles(),
         users=users,
         mcp=mcp,
         collections=EmptyCollectionCatalog(),

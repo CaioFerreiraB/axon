@@ -44,7 +44,8 @@ markers = [
     "us3: 007 US3 — cliente restrito ao grant",
     "us4: 007 US4 — MCPs de usuário",
     "us5: 007 US5 — política por servidor",
-    "us6: 007 US6 — proteções de rede",
+    "us6: 007 US6 — proteções de rede; 003 US6 — Assistants de usuário",
+    "us8: 003 US8 — validação de Assistants",
 ]
 asyncio_default_fixture_loop_scope = "function"
 # estende os padrões do pytest; o pack de teste (fixtures/) roda no próprio ambiente limpo

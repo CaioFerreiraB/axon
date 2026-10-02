@@ -9,12 +9,13 @@ exigem: trocar o framework não pode mudar o que a 008 e o harness leem.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Final, Literal, Protocol
 
 from ai_core.assistants.api import ExecutionGrant
+from ai_core.llm.api import ModelRole
 from ai_core_contracts import Citation, Message
 
 __all__ = [
@@ -149,6 +150,14 @@ class ExecutionEngine(Protocol):
 
     def flows(self) -> frozenset[str]:
         """Nomes de flow disponíveis. Dado, não código: `assistants validate` (003) os usa."""
+        ...
+
+    def flow_roles(self) -> Mapping[str, tuple[ModelRole, ...]]:
+        """Para cada flow de `flows()`, os papéis de modelo que uma execução dele resolve — os mesmos que `run` confere.
+
+        Dado, como os nomes de flow: a 003 recusa, antes de servir, o Assistant que não declara um papel exigido pelo
+        flow dele (ADR-019).
+        """
         ...
 
     def run(self, grant: ExecutionGrant, request: ExecutionRequest) -> AsyncIterator[ExecutionEvent]:

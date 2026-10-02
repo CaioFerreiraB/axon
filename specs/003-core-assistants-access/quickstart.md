@@ -151,7 +151,9 @@ assistants:
     packs: [generic]
     models: { generation: ollama/qwen3:1.7b, allow: ["ollama/*"] }
 YAML
-AI_CORE_PROFILE=test AI_CORE_ASSISTANTS_FILE=/tmp/assistants.yaml uv run ai-core assistants validate; echo $?
+printf 'packs:\n  generic:\n    enabled: true\n' > /tmp/packs.yaml
+AI_CORE_PROFILE=test AI_CORE_PACKS_FILE=/tmp/packs.yaml AI_CORE_ASSISTANTS_FILE=/tmp/assistants.yaml \
+  uv run ai-core assistants validate; echo $?
 ```
 
 Esperado: código 1 e a linha de `sem-controller` dizendo `models: o flow 'agentic' exige o papel 'controller', que o
