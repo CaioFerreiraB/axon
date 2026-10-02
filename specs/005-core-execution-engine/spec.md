@@ -12,9 +12,9 @@
 
 - **Módulo**: Execution Engine — orquestra uma execução: ordena as chamadas aos serviços do core e aos hooks de pack segundo um flow nomeado, e emite um fluxo de eventos. **Esta spec é desenhada para ser reescrita.**
 - **Repositório / distribuição**: `ai-core` → `ai_core/graph/` (seam em `api.py`, políticas em `domain/`, framework de grafo e estado interno em `adapters/`).
-- **Consome (seams)**: Turn View e PackRoutine — 001; Pack Hooks — 002; Execution Grant — 003, pela forma que este módulo publica como `Protocol` (satisfeita estruturalmente pelo grant da 003 a partir da Fase 2); Capability Catalog e Tool Gateway — 004; Model Router — 006; Trace Sink — 009.
+- **Consome (seams)**: Turn View e PackRoutine — 001; Pack Hooks — 002; Execution Grant — 003 (nas Fases 1 e 2, pela forma que este módulo publicava como `Protocol`; a partir da Fase 3, o value object da 003, que o motor entrega à 004); Capability Catalog e Tool Gateway — 004; Model Router — 006; Trace Sink — 009.
 - **Expõe (seams)**: **Execution Engine** — `run(grant, requisição) → fluxo de eventos` — consumido por 008 e 009; **nomes de flow** (`chat`, `agentic`, `rag_first`) — consumidos como dado por 003 (validação) e por manifests de pack.
-- **Depende de infraestrutura (via portas)**: relógio (data de referência) e, a partir da Fase 3, armazenamento de checkpoint de execução. O framework de grafo é adapter interno.
+- **Depende de infraestrutura (via portas)**: relógio (data de referência) e, quando houver retomada de execução, armazenamento de checkpoint (FR-014). O framework de grafo é adapter interno.
 - **Não conhece**: HTTP, autenticação, quais packs existem ou seu domínio, como tools são executadas ou protegidas, quais providers existem.
 - **Substituição**: qualquer implementação que honre os dois seams expostos e consuma apenas os seams listados é válida. **Nomes de nós, forma do estado interno e o framework de grafo não são contrato** (ADR-011). Reescrever o grafo troca o adapter de fluxo e preserva as políticas de `domain/` com seus testes (ADR-012). Renomear ou remover um flow é permitido; `assistants validate` (003) aponta as referências pendentes.
 - **Insumo técnico**: [design.md](design.md); [ADR-001](../../docs/adr/ADR-001-topologia-fixa.md), [ADR-005](../../docs/adr/ADR-005-execute-tool-unificado.md), [ADR-006](../../docs/adr/ADR-006-rag-first-default-scouting.md), [ADR-007](../../docs/adr/ADR-007-citacao-mecanica.md), [ADR-010](../../docs/adr/ADR-010-temporal-fora.md), [ADR-011](../../docs/adr/ADR-011-contratos-independentes-do-motor.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md).
@@ -27,6 +27,14 @@
 - Q: O seam é `run(grant, requisição)`, mas o Execution Grant pertence à 003, que é Fase 2. Como o motor recebe o grant na Fase 1? → A: O `api.py` deste módulo publica um `Protocol` que descreve apenas o que o motor lê do grant (assistant, flow, packs, política de modelos, limites). Na Fase 2 o Execution Grant concreto da 003 o satisfaz estruturalmente, sem import e sem inverter a direção `005 → 003` do grafo de dependências; o seam é o mesmo nas duas fases. Na Fase 1, quem constrói um objeto que cumpre o Protocol é a composition root (011).
 - Q: Uma falha chega ao consumidor como evento ou como exceção? → A: Depende de quando acontece. A validação da requisição — parâmetros, flow inexistente, orçamento — levanta exceção tipada **antes** do primeiro evento, para que a 008 responda 4xx sem abrir o stream e sem custo (princípio VII: 4xx antes de qualquer custo). Depois que o fluxo começou, toda falha vira evento final com erros, porque o consumidor já está lendo um stream e os tokens já emitidos não podem ser perdidos.
 - Q: A porta de checkpoint (FR-014) entra na Fase 1? → A: Não. Nesta fase nada retoma execução: o `chat` roda do começo ao fim dentro de uma requisição. Declarar a porta agora seria porta sem consumidor, contra o princípio XIII. Ela entra na Fase 3, junto com o loop, que é quando reter estado entre passos passa a significar alguma coisa.
+
+### Session 2026-10-01
+
+- Q: A porta de checkpoint do estado de execução entra nesta passada da Fase 3, mesmo sem nenhum fluxo que retome uma execução interrompida? → A: Não; adiada de novo. Na Fase 3 o loop roda inteiro dentro de uma requisição, o estado entre iterações vive na própria execução e o trace registra cada passo (FR-016). Nada lê o estado de volta — não há aprovação humana nem retomada após queda —, então a porta seria porta sem consumidor (princípio XIII). Ela entra junto com o primeiro consumidor de retomada, e o roadmap deixa de prever "memória → Postgres na Fase 3".
+- Q: Quando a chamada ao modelo do papel `controller` falha no meio do loop (provider fora do ar, limite de taxa, stream travado), a execução segue para a geração ou encerra com erro? → A: Segue para a geração com o que já acumulou, registra o erro em erros (estágio do controller, nomeando provider e modelo) e não tenta de novo — a mesma regra do limite de iterações, sem fallback automático (006 FR-007). Erros de configuração do papel (não declarado, fora da allowlist) não chegam aqui: são pegos antes do primeiro evento (FR-013).
+- Q: Qual limite de iterações o motor aplica quando o Assistant não declara `limits.max_iterations`, e o operador pode mudar esse padrão? → A: 3, constante na política do motor (`domain/`), sem configuração global. Quem precisa de mais declara no Assistant (`assistants.yaml` ou o rascunho do Assistant de usuário, sob o teto da política do grupo — 003). Com 3, o acumulado de resultados de tool fica em no máximo ~48 KB pelo limite de 16 KB por resultado da 004.
+- Q: Como cada decisão do controller (chamar tool, responder, ação inválida, limite atingido) aparece no trace da 009? → A: Como evento novo e aditivo da 009 — decisão do controller com iteração, ação, nome da tool pedida e motivo quando inválida, **sem argumentos** (a mesma regra de privacidade do `ToolCall` da 004) —, acompanhado de um ADR que regulariza o crescimento do Trace Sink por eventos aditivos e cobre também o `ToolCall` já entregue. A chamada de modelo continua sendo o `ModelCall` da 006 e a execução de tool, o `ToolCall` da 004; falha do controller e truncamento também vão a erros.
+- Q: O teto de tokens de contexto do grant (`limits.max_context_tokens`) vale já no loop `agentic` desta fase ou fica para a Fase 5? → A: Já na Fase 3, quando o grant declara teto. Tokens são estimados por caracteres (sem tokenizador). Se o próximo passo do loop passaria do teto, o loop para e segue para a geração, registrando o truncamento; se a geração ainda passar, os resultados de tool mais antigos saem do contexto com marca de omissão e a redução é registrada. Grant sem teto não sofre corte — o limite de iterações é a proteção. O corte de chunks por rank do `rag_first` continua na Fase 5, pela mesma política.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -127,7 +135,8 @@ Quando o catálogo inclui a rotina de um pack, o controller pode invocá-la como
 
 - Cliente desconecta no meio do streaming: a execução é cancelada e os recursos liberados.
 - Falha do provider no meio da geração: o fluxo termina com evento de erro explícito.
-- Contexto excede o teto de tokens do grant: é reduzido por prioridade (chunks de menor rank primeiro) e a redução é registrada.
+- Falha do modelo do `controller` no meio do loop: a execução segue para a geração com o que acumulou, sem nova tentativa, e o erro — estágio do controller, provider e modelo — fica em erros do evento final.
+- Contexto excede o teto de tokens do grant: é reduzido por prioridade — chunks de menor rank primeiro (`rag_first`, Fase 5), resultados de tool mais antigos primeiro (`agentic`) — e a redução é registrada.
 - Todas as citações removidas pelos validators: a marcação "não fundamentada" do validator chega ao evento final.
 - Execução concorrente de ramos (se um flow futuro paralelizar): dados acumulados não se perdem.
 - Hook de pack lança exceção: a execução termina com erro explícito que nomeia o pack (spec 002, FR-011).
@@ -141,24 +150,25 @@ Quando o catálogo inclui a rotina de um pack, o controller pode invocá-la como
 - **FR-003**: O motor DEVE oferecer os flows `chat`, `agentic` e `rag_first` num registro nomeado; flows novos são decisão arquitetural registrada em ADR.
 - **FR-004**: Packs NÃO DEVEM poder criar, alterar ou inspecionar flows.
 - **FR-005**: No flow `agentic`, o controller DEVE emitir exatamente uma ação estruturada por iteração, sob restrição de formato de saída.
-- **FR-006**: Toda execução DEVE ter contador de iterações e respeitar o limite do grant; ao atingi-lo, DEVE seguir para a geração e registrar o truncamento.
+- **FR-006**: Toda execução DEVE ter contador de iterações e respeitar o limite do grant; ao atingi-lo, DEVE seguir para a geração e registrar o truncamento. Sem limite declarado no grant, o limite é **3** — constante do motor, não configurável pelo operador.
+- **FR-006a**: No flow `agentic`, falha da chamada ao modelo do `controller` depois do primeiro evento NÃO DEVE encerrar a execução nem ser repetida: o motor DEVE seguir para a geração com o que acumulou e registrar o erro, nomeando provider e modelo.
 - **FR-007**: No flow `rag_first`, o portão de cobertura DEVE ser determinístico: melhor score abaixo de limiar configurável ou nenhum resultado após filtros → escalar; caso contrário → gerar.
 - **FR-008**: O motor DEVE repassar de forma opaca aos retrievers de um pack os filtros de recuperação que esse pack publicou.
 - **FR-009**: Mensagens, chamadas de tool, resultados de tool e erros DEVEM acumular sem perda entre iterações e ramos.
 - **FR-010**: O motor DEVE produzir, para os hooks de pack, a Turn View definida em 001, incluindo o conjunto exato de chunks entregues à geração.
-- **FR-011**: O contexto enviado a modelos DEVE respeitar o teto de tokens do grant.
+- **FR-011**: O contexto enviado a modelos DEVE respeitar o teto de tokens do grant, quando declarado, com tokens estimados de forma determinística (sem tokenizador). Na Fase 3 o teto vale no flow `agentic`; no `chat` e no `rag_first`, entra com o corte de histórico e de chunks (Fase 5). No loop `agentic`: passo que levaria o contexto acima do teto não acontece — a execução segue para a geração e registra o truncamento —, e, se a geração ainda passar do teto, os resultados de tool mais antigos saem do contexto com marca de omissão, com a redução registrada. Sem teto no grant, não há corte.
 - **FR-012**: O motor DEVE emitir eventos de progresso (tool chamada, recuperação em curso) e de token durante a geração.
 - **FR-013**: A validação da requisição (parâmetros, modelo, orçamento) DEVE ocorrer antes de qualquer chamada de modelo e antes do primeiro evento, levantando exceção tipada que nomeia o que está errado.
-- **FR-014**: O estado de execução DEVE poder ser registrado por checkpoint, separado do histórico de conversa. A porta entra na Fase 3, com o loop: antes disso nenhuma execução é retomada (clarificação de 2026-09-21).
+- **FR-014**: O estado de execução DEVE poder ser registrado por checkpoint, separado do histórico de conversa, quando houver um consumidor de retomada (ex.: aprovação humana de tool de escrita, retomada após queda). A porta entra com esse consumidor, não com o loop: na Fase 3 nenhuma execução é retomada (clarificações de 2026-09-21 e 2026-10-01).
 - **FR-015**: A rotina isolada de pack DEVE ser executada como passo único, com entradas e saídas restritas ao declarado e limites herdados.
-- **FR-016**: Cada iteração, decisão do controller, chamada de tool e validação DEVE emitir dados de trace pelo Trace Sink (009).
+- **FR-016**: Cada iteração, decisão do controller, chamada de tool e validação DEVE emitir dados de trace pelo Trace Sink (009). A decisão do controller é um evento próprio — iteração, ação (`tool`, `answer`, inválida, limite atingido), nome da tool pedida e motivo quando inválida —, NUNCA com os argumentos; a chamada de tool é o evento que o gateway (004) emite.
 - **FR-017**: O motor DEVE fixar, no início de cada execução, a data de referência — pelo relógio ou, numa execução de avaliação, pelo valor fixado (ADR-013) — e entregá-la em toda Turn View daquela execução.
 
 ### Key Entities
 
 - **Execution Request**: mensagens, streaming sim/não, restrições válidas e, só em execução de avaliação, data de referência fixa (ADR-013) — preenchida apenas pelo harness em processo, nunca pela API HTTP (008 FR-012).
 - **Execution Event**: token, progresso ou final (resposta, citações, erros, marcações).
-- **Execution Grant (forma exigida)**: o que o motor lê do grant — assistant, flow, packs, política de modelos e limites. Publicado por este módulo como `Protocol`; a 003 produz o valor que o satisfaz.
+- **Execution Grant**: o value object da 003. O motor lê assistant, flow, composição, política de modelos e limites (iterações e teto de contexto), e o entrega inteiro à 004 ao abrir a sessão de tools. Nas Fases 1 e 2 chegava por um `Protocol` publicado aqui.
 - **Flow**: topologia nomeada.
 - **Controller Action**: `{action: tool, name, arguments}` ou `{action: answer}`.
 - **Internal State**: privado do motor; não é seam.
@@ -178,5 +188,5 @@ Quando o catálogo inclui a rotina de um pack, o controller pode invocá-la como
 - ADR-011 aceito: o estado interno é privado e os packs recebem a Turn View.
 - O contexto de cada execução é montado pelo próprio motor, a partir do grant, com os seams que a composition root (011) injeta no boot.
 - Na composição de vários packs em `rag_first`, a recuperação consulta os retrievers de todos os packs do grant e une os resultados por score; se isso se mostrar inadequado, a regra muda aqui sem afetar packs.
-- Defaults do hardware alvo: limite de iterações baixo (3–4) e catálogo mínimo em contexto.
+- Defaults do hardware alvo: limite de iterações 3 quando o Assistant não declara outro (FR-006) e catálogo mínimo em contexto.
 - O limiar do portão de cobertura é calibrado na Fase 6 (spec 105), não aqui.

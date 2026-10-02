@@ -113,3 +113,105 @@ retrieval, e é o campo que os validators leem para verificar citação (ADR-007
 | Provider fora do ar na geração | `FinalEvent` com `kind="ModelCallFailed"`, provider e modelo na mensagem | idem (o `ModelCall` da falha já vem da 006) |
 | Validator devolve `ok=False` | execução **não** falha: `answer`, `citations` e `flags` do validator vão ao `FinalEvent`, e cada `issue` vira um `ExecutionIssue` | `ValidationRun` por validator |
 | Cliente desiste no meio do streaming | o iterador é fechado, o grafo é cancelado e os recursos liberados; nenhum evento a mais | `ExecutionFinished(ok=False, reason="cancelled")` |
+
+## Fase 3 (US2, flow `agentic`) — 2026-10-01
+
+O que muda no que é publicado ([research.md](research.md) R14–R33). As duas mudanças de seam — o tipo do grant (R15)
+e a gravidade dos registros (R23) — estão no [ADR-018](../../docs/adr/ADR-018-seam-execution-engine-fase-3.md); a
+assinatura de `run` não muda.
+
+### `ExecutionGrant` — agora o da 003
+
+`ai_core.graph.api.ExecutionGrant` é o `ExecutionGrant` de `ai_core.assistants.api`, reexportado. O motor lê dele:
+
+| Campo (003) | Uso no motor |
+|---|---|
+| `assistant`, `flow`, `composition`, `models` | como na Fase 1 |
+| `limits.max_iterations` | limite do loop; `None` → `DEFAULT_MAX_ITERATIONS = 3` (FR-006) |
+| `limits.max_context_tokens` | teto de contexto do loop e da geração; `None` → sem corte (FR-011) |
+| o grant inteiro | entregue a `Capabilities.open(grant, contexto)` (004) — o motor não lê `principal`, `mcp_aliases`, `collections`, `allowed_tools` nem `write_tools` |
+
+### Nomes de flow
+
+| Constante | Valor | Disponível quando |
+|---|---|---|
+| `FLOW_CHAT` | `"chat"` | sempre |
+| `FLOW_AGENTIC` | `"agentic"` | o motor foi montado com `Capabilities` (R16) |
+
+### `ExecutionIssue` — campo novo ([ADR-018](../../docs/adr/ADR-018-seam-execution-engine-fase-3.md))
+
+| Campo | Tipo | Regra |
+|---|---|---|
+| `severity` | `Literal["error", "notice"]` | default `"error"`. `notice` = registrado, mas não é falha da execução (R23) |
+
+`kind`s acrescentados pelo `agentic`:
+
+| `stage` | `kind` | `severity` | Quando | Mensagem contém |
+|---|---|---|---|---|
+| `load_capabilities` | `McpUnavailable` | `error` | um MCP do grant falhou na descoberta (`session.unavailable`) | alias e motivo |
+| `controller` | `InvalidAction` | `notice` | a saída do controller não é uma ação (R18) | iteração e motivo |
+| `controller` | `IterationLimit` | `notice` | o limite foi atingido sem `answer` (FR-006) | o limite |
+| `controller` | `ContextLimit` | `notice` | a próxima chamada ao controller passaria do teto (FR-011) | teto e estimativa |
+| `controller` | `ModelCallFailed` | `error` | a chamada ao controller falhou (FR-006a) | provider e modelo |
+| `generate` | `ContextTrimmed` | `notice` | resultados de tool omitidos para caber no teto | quantos e o teto |
+| `generate` | `ContextOverflow` | `notice` | nem sem resultados coube no teto | teto e estimativa |
+| `validate_answer` | `ValidatorIssue` | `notice` | apontamento de validator (já existia; agora com `severity`) | pack.validator: apontamento |
+
+`ExecutionFinished.ok` (009) = nenhum registro `error` no `FinalEvent`.
+
+### `ProgressEvent.stage` — valores acrescentados
+
+| `stage` | `detail` |
+|---|---|
+| `load_capabilities` | `None` |
+| `controller` | `"iteração <n>"` |
+| `execute_tool` | o nome que o controller pediu |
+
+### Ação do controller (`domain/actions.py`, interno)
+
+| Tipo | Campos | Origem |
+|---|---|---|
+| `ToolAction` | `name: str`, `arguments: Mapping[str, JSONValue]` | `{"action": "tool", "name": …, "arguments": {…}}` |
+| `AnswerAction` | — | `{"action": "answer"}` |
+| `InvalidAction` | `reason: str` (texto do motor, nunca da saída do modelo) | qualquer outra coisa |
+
+Esquema enviado em `response_format`: `anyOf` com um ramo `answer` e um ramo por tool do catálogo, com o nome como
+`const` e os parâmetros saneados (sem `pattern`/`patternProperties`; `$ref` → `{"type": "object"}`) — R17.
+
+### Evento novo na 009 (toque declarado, ADR-017)
+
+`ControllerDecision`:
+
+| Campo | Tipo | Regra |
+|---|---|---|
+| `request_id` | `str` | não vazio |
+| `iteration` | `int` | ≥ 1; 0 só em `limit` antes da primeira chamada |
+| `action` | `Literal["tool", "answer", "invalid", "limit"]` | — |
+| `tool` | `str \| None` | obrigatório em `tool`, ausente nos outros |
+| `reason` | `str \| None` | obrigatório em `invalid` e em `limit` (`"iterations"` ou `"context"`) |
+
+Nunca argumentos nem saída do modelo. Tipo no registro: `controller_decision`.
+
+### Estado interno — o que o loop acrescenta (privado, ADR-011)
+
+`AgentState` ganha `iteration`, `limit`, `ceiling`, `next_action`, e os acumuladores com reducer `steps` (cada tool
+executada com o `ToolCall` e o `FencedToolResult` da 004, ou cada ação inválida com o motivo) e `decisions`, além do
+`errors` que já existia. O `AgentContext` ganha `capabilities`, o grant,
+e um compartimento para a `ToolSession` aberta no passo `load_capabilities`. A Turn View (`view.py`) passa a projetar
+`tool_results`, `retrieved` e `generation_context` como no R26.
+
+### Modos de falha do `agentic`
+
+| Situação | Resultado | Trace |
+|---|---|---|
+| Grant `agentic` sem papel `controller`, ou fora da allowlist | `ExecutionRequestInvalid` na chamada de `run`, nomeando o papel (R25) | nenhum |
+| Motor sem `Capabilities` e grant `agentic` | `UnknownFlow` na chamada de `run` (R16) | nenhum |
+| `CatalogConflict` ao abrir a sessão | `FinalEvent` com `kind="CatalogConflict"`, `stage="load_capabilities"`, sem geração | `ExecutionError` + `ExecutionFinished(ok=False)` |
+| MCP indisponível na descoberta | segue com o catálogo que há; `McpUnavailable` (`error`: degradação explícita, princípio VII) | `ExecutionError(stage="catalog")` emitido pela 004 |
+| Catálogo vazio | direto à geração, sem controller (R27) | — |
+| Ação malformada | conta como iteração, `InvalidAction`, volta ao controller (ou à geração no limite) | `ControllerDecision(action="invalid")` |
+| Tool fora do catálogo | o gateway devolve "tool inexistente", que volta ao controller; conta como iteração | `ControllerDecision(action="tool")` + `ToolCall(status="unknown")` |
+| Limite atingido | geração com o que há; `IterationLimit` | `ControllerDecision(action="limit", reason="iterations")` |
+| Teto de contexto | loop para (`ContextLimit`) ou resultados antigos omitidos (`ContextTrimmed`) | `ControllerDecision(action="limit", reason="context")` quando para |
+| Falha do controller | geração com o que há; `ModelCallFailed` (`error`) | `ExecutionError(stage="controller")`; o `ModelCall` da falha vem da 006 |
+| Tool que falha, estoura prazo ou volta grande | resultado cercado com o status da 004, que volta ao controller | `ToolCall` (004) |

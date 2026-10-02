@@ -41,7 +41,7 @@ Cada linha é uma troca de adapter atrás de uma porta (ADR-012); quem escolhe o
 
 | Dado | Porta | Adapter | Fase | Spec |
 |---|---|---|---|---|
-| Checkpoint de execução | `CheckpointStore` | memória → Postgres | 1 → 3 | 005 |
+| Checkpoint de execução | `CheckpointStore` | quando houver retomada (FR-014; adiada em 2026-10-01) | — | 005 |
 | Histórico de conversa | `ConversationStore` | memória → Postgres | 1 → 2 | 008 |
 | Assistants de usuário | `AssistantStore` | memória → Postgres | 1 → 2 | 003 |
 | Contadores de rate limit | `RateCounterStore` | memória (processo único) | 2 | 003 |

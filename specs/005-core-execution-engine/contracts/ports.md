@@ -33,5 +33,12 @@ como as portas de 005, 006 e 009 são estruturais, um único adapter com `now()`
 
 ## Porta adiada
 
-`CheckpointStore` está no `design.md` e entra na Fase 3, com o loop: nesta fase nenhuma execução é retomada, e uma
-porta sem consumidor contraria o princípio XIII ([research.md](../research.md) R7).
+`CheckpointStore` está no `design.md`. Não nasceu na Fase 1 (R7) nem na Fase 3 (clarificação de 2026-10-01, R30): o
+loop roda inteiro dentro de uma requisição e nada lê o estado de volta. Entra com o primeiro consumidor de retomada
+(FR-014) — porta sem consumidor contraria o princípio XIII.
+
+## Fase 3 — sem porta nova
+
+O `agentic` não acrescenta porta secundária: tools chegam pelo seam da 004 (`Capabilities`), o controller pelo da 006
+e o trace pelo da 009 — todos montados pela composition root. A política nova (ação, limite, teto, transcrição) é pura,
+em `domain/`.

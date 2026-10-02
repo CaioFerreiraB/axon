@@ -1,4 +1,4 @@
-# Implementation Plan: Motor de execução — flow `chat`
+# Implementation Plan: Motor de execução — flows `chat` e `agentic`
 
 **Branch**: `005-core-execution-engine` | **Date**: 2026-09-21 | **Spec**: [spec.md](spec.md)
 
@@ -32,6 +32,15 @@ erros e marcações); erro de requisição levanta antes do primeiro evento, err
 adapter interno em LangGraph, e nada dele atravessa o seam. Escopo da Fase 1: **US1**, mais o registro de flows da US5.
 `agentic`, `rag_first`, rotina de pack, checkpoint e corte por orçamento ficam para as fases deles
 ([research.md](research.md) R11).
+
+**Fase 3 (2026-10-01): US2, flow `agentic`.** O loop do controller sobre o grafo existente: a sessão de tools da 004
+abre depois da preparação; a cada iteração o papel `controller` (006) devolve uma ação estruturada por
+`response_format` — um ramo por tool do catálogo —, o gateway executa e o resultado cercado volta ao controller pelo
+formato nativo de tool; limite do grant ou **3**, teto de contexto do grant aplicado ao loop e à geração, falha do
+controller seguindo para a geração. Registro com gravidade (`ExecutionIssue.severity`, aditivo), decisão do controller
+no trace por um evento novo da 009 sob o [ADR-017](../../docs/adr/ADR-017-trace-sink-cresce-por-eventos-aditivos.md),
+e o grant passa a ser o value object da 003 (fim da ponte do R3). Checkpoint adiado de novo. Decisões em
+[research.md](research.md) R14–R33; topologia em [contracts/agentic-flow.md](contracts/agentic-flow.md).
 
 ## Technical Context
 
@@ -137,7 +146,8 @@ specs/005-core-execution-engine/
 ├── contracts/
 │   ├── execution-engine.md   # seam: run, flows, eventos, erros, forma exigida do grant
 │   ├── ports.md              # Clock e sua conformidade
-│   └── chat-flow.md          # a topologia da fase: etapas, o que cada uma delega, Turn View e trace
+│   ├── chat-flow.md          # a topologia da fase: etapas, o que cada uma delega, Turn View e trace
+│   └── agentic-flow.md       # Fase 3: loop do controller, ação, limite, teto, Turn View e trace
 └── tasks.md             # /speckit-tasks
 ```
 
@@ -206,6 +216,131 @@ Reavaliado com [data-model.md](data-model.md), [contracts/](contracts/) e [quick
 - XI: `contracts/execution-engine.md` fixa que o primeiro `TokenEvent` sai antes de o nó de geração terminar, e a
   suíte de conformidade verifica isso.
 
+## Fase 3 (US2, flow `agentic`) — 2026-10-01
+
+Insumos lidos: [design.md](design.md) ("`agentic`", "Controller", "Nós finos"), ADR-001, ADR-005, ADR-008, ADR-011,
+ADR-012, ADR-013; as cinco clarificações de 2026-10-01; seams consumidos já implementados — `Capabilities`/`ToolSession`,
+`ToolContext`, `ToolCall`, `CatalogTool`, `FencedToolResult`, `FENCE_INSTRUCTION` (004), `ModelRouter.for_role` e
+`BoundModel.complete(response_format=…)` (006), `ExecutionGrant` e `Limits` (003), `TraceSink` (009), `PackHooks`
+(002), `ToolResult`, `ChatMessage` com `tool_calls`/`tool_call_id` e `RETRIEVAL_FILTERS_KEY` (001).
+
+**Divergências do `design.md`, todas abaixo da seção "Seams" (livre) e registradas com nota datada lá**: a porta
+`CheckpointStore` não nasce (clarificação 1, R30); o contexto do controller não traz os prompts de pack, como a tabela
+de nós já indicava (R19). **Mudanças de seam**: `FLOW_AGENTIC` (nome já previsto na FR-003 e no ADR-001); `ExecutionGrant` passa a ser o da
+003, reexportado, sem mudar `run` (R15), e `ExecutionIssue.severity` com default, que muda o significado de
+`ExecutionFinished.ok` (R23) — as duas no [ADR-018](../../docs/adr/ADR-018-seam-execution-engine-fase-3.md), com as
+consumidoras listadas; e, na 009, o evento `ControllerDecision`, sob o ADR-017 (R24).
+
+### Technical Context — o que muda
+
+- **Dependências**: nenhuma nova. Seams novos consumidos: 004 (`ai_core.capabilities.api`) e 003
+  (`ai_core.assistants.api`, o grant).
+- **Storage**: nenhum — o estado do loop vive na execução; checkpoint adiado (R30).
+- **Testing**: controller simulado por um provider de teste com roteiro no testkit, entrando no `ModelRoutingService`
+  real; gateway falso do testkit na conformidade e na propriedade (hypothesis, SC-002/SC-005); `CapabilityService` real
+  com `PackRuntime` e `ai-generic` na integração (R29). Marca `us2`.
+- **Performance**: o controller é uma chamada sem streaming por iteração; o primeiro sinal continua sendo o progresso
+  de `prepare_context` (SC-004). Limite padrão 3 e catálogo enxuto mantêm o custo do loop no hardware alvo (arch-v1 §9).
+- **Constraints**: o motor só alcança tools pela 004 e nunca importa a 007 (R32); a ação nunca leva conteúdo ao trace
+  (ADR-017); nada de domínio no texto do controller (princípio I).
+- **Scale/Scope**: `domain/` ganha `actions.py`, `limits.py`, `budget.py` e `transcript.py`; `adapters/langgraph/`
+  ganha o grafo `agentic`, `nodes/` como pacote e a projeção da Turn View com resultados; `api.py` ganha `FLOW_AGENTIC` e
+  `severity`; 1 flow novo dos 3.
+
+Nenhum `NEEDS CLARIFICATION`: as cinco perguntas de 2026-10-01 estão na spec e em R20–R24/R30.
+
+### Constitution Check — Fase 3
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| I. Núcleo agnóstico | ✅ | A instrução do controller fala de "ferramentas" e "ação", sem assunto; o catálogo vem da 004 |
+| II. Seams | ✅ | Consome 004 e 003 pelos `api.py`; as mudanças no próprio seam (grant da 003, `severity`) estão no ADR-018 com as consumidoras listadas; evento novo na 009 sob o ADR-017, com o toque declarado |
+| III. O core orquestra | ✅ | ADR-001: a topologia `agentic` é a do `design.md`, escrita à mão; ADR-005: toda tool, inclusive recuperação, passa pelo gateway; rota, leitura da ação, limite e teto são funções puras de `domain/` |
+| IV. Assistant é a fronteira | ✅ | O catálogo e a execução vêm da sessão aberta com o grant (004); o motor não filtra nem amplia nada; nome fora do catálogo é "tool inexistente" |
+| V. Determinismo | ✅ | O limite é contador, o teto é estimativa determinística, a rota é tabela; o modelo só escolhe a ação, e a forma dela é restringida |
+| VI. Conteúdo externo | ✅ | Resultado entra cercado e neutralizado (004), no papel `tool`, com a `FENCE_INSTRUCTION` no sistema do controller e da geração; a saída inválida do modelo não volta ao contexto nem ao trace (R18, R19) |
+| VII. Falha fechada | ✅ | Papel ausente e flow sem gateway levantam antes de qualquer custo (R16, R25); `CatalogConflict` encerra sem gerar; falha do controller e MCP indisponível são registrados como `error` — degradação explícita, nunca silenciosa (R21, R23) |
+| VIII. Modelos por papel | ✅ | Controller por `for_role("controller")` com `response_format`; geração por `for_role("generation")`; o motor não escolhe modelo |
+| IX. Proveniência | ✅ | A Turn View de `validate` traz exatamente os resultados e chunks que a geração recebeu (R26) |
+| X. Medir antes de calibrar | ✅ | O 3 é o default do `design.md` ("3–4"), não calibração; a estimativa de tokens é proteção, não métrica |
+| XI. Streaming | ✅ | O progresso sai antes de cada etapa do loop; a geração continua em streaming |
+| XII. Simplicidade | ✅ | Sem checkpoint, sem tokenizador, sem tool calling nativo, sem porta nova (R22, R30) |
+| XIII. Portas e adapters | ✅ | Nenhuma porta nova: tudo que é I/O chega por seam (004, 006, 009); política nova em `domain/` |
+
+**Module boundary gate (Fase 3)**:
+
+- [x] Source changes stay inside this module's paths — `ai_core/graph/**` e `tests/graph/**`; fora dele, os **toques
+  declarados**: na 009 (`observability/api.py`: `ControllerDecision` e o membro da união; o teste de nomes públicos; e
+  `specs/009-…/contracts/{trace-api,record-format}.md` e `data-model.md`), sob o ADR-017; `ai-core/pyproject.toml`
+  (import-linter e a descrição da marca `us2`); e documentação (`docs/roadmap.md`, `docs/adr/`, `specs/README.md`,
+  `CLAUDE.md`)
+- [x] Every consumed seam is listed with its owner spec — 004: `Capabilities`, `ToolSession`, `ToolContext`, `ToolCall`,
+  `CatalogTool`, `FencedToolResult`, `FENCE_INSTRUCTION`, `CatalogConflict`; 003: `ExecutionGrant`, `Limits`; 006:
+  `ModelRouter`, `ModelRoutingError` e subclasses; 001: `ToolResult`, `Chunk`, `ChatMessage`, `RETRIEVAL_FILTERS_KEY`
+- [x] Every seam this module exposes has a conformance test planned — `test_agentic_flow.py` e
+  `test_agentic_properties.py` (itens 13–22 de [contracts/execution-engine.md](contracts/execution-engine.md));
+  `test_flow_registry.py` cobre `agentic` com e sem `Capabilities`
+- [x] Seam changes — com ADR: grant da 003 e `severity` no ADR-018 (consumidoras 008, 009, 011, 003); na 009, o
+  evento novo sob o ADR-017
+- [x] Import boundaries cover the new code — R32: o motor não importa a 007; `capabilities` e `mcp` entram na regra do
+  framework de grafo
+
+**Ports & adapters gate (Fase 3)**: sem porta nova; `domain/` continua sem I/O (os quatro arquivos novos são funções
+puras sobre value objects de 001, 004 e 006); quem monta `Capabilities` é a 011 (pendência dela, R33). **Resultado**:
+PASS.
+
+### Project Structure — Fase 3
+
+```text
+ai-core/packages/core/src/ai_core/graph/
+├── api.py                     # + FLOW_AGENTIC; ExecutionIssue.severity; ExecutionGrant = o da 003 (reexportado)
+├── domain/
+│   ├── request.py             # + papéis exigidos por flow; flows que exigem tools
+│   ├── outcome.py             # severity nos apontamentos; succeeded() = nenhum "error"
+│   ├── actions.py             # NOVO: instrução do controller, esquema anyOf, parse_action
+│   ├── limits.py              # NOVO: DEFAULT_MAX_ITERATIONS = 3; rota depois de cada decisão
+│   ├── budget.py              # NOVO: estimativa de tokens, parada do loop, omissão dos resultados antigos
+│   └── transcript.py          # NOVO: mensagens do controller e da geração (formato nativo de tool)
+├── ports.py                   # ExecutionPlan + grant, capabilities, limite e teto
+├── service.py                 # + capabilities opcional; papéis em run(); flows() sem agentic sem gateway
+└── adapters/langgraph/
+    ├── state.py               # + campos do loop com reducers; AgentContext com a sessão
+    ├── view.py                # + tool_results, retrieved, generation_context
+    ├── nodes/                 # era nodes.py
+    │   ├── common.py          # canais de stream, prepare_context, generate, validate_answer
+    │   └── agentic.py         # load_capabilities, controller, execute_tool
+    ├── flows.py               # + agentic_graph(); registro com os dois
+    └── runtime.py             # issue com stage/kind dos novos erros
+
+ai-core/packages/core/tests/graph/
+├── graph_testkit.py           # + grant da 003, ScriptedController, FakeCapabilities/FakeSession
+├── unit/                      # + test_graph_actions.py, test_graph_limits.py, test_graph_budget.py, test_graph_transcript.py
+├── contract/                  # + test_agentic_flow.py, test_agentic_properties.py
+└── integration/               # + test_agentic_with_generic_pack.py
+```
+
+### Seam Notes for Consumers — Fase 3
+
+| Consumidor | O que precisa saber |
+|---|---|
+| 008 | Nada quebra: o grant que passa já é o da 003. Na passada de encaixe, trocar a regra de `finish_reason` de `kind == "ValidatorIssue"` para `severity == "notice"` (R23); até lá, `agentic` truncado sai com `finish_reason: "error"` e a resposta inteira. Os progressos novos (`load_capabilities`, `controller`, `execute_tool`) passam pelo campo extra que já existe |
+| 011 | Passar `capabilities=<CapabilityService>` ao `ExecutionService` nos perfis; sem isso, `agentic` não está em `flows()` e a validação de Assistants o acusa |
+| 003 | `engine.flows()` passa a ter `agentic` quando a 011 ligar a 004; Assistant `agentic` precisa do papel `controller` — hoje o motor recusa na chamada; a validação pode passar a acusá-lo (R33) |
+| 004 | Consumida como está: `open` depois da preparação, `execute` por iteração, `unavailable` vira aviso, `FENCE_INSTRUCTION` no sistema |
+| 006 | Consumida como está: `complete(..., response_format=…)` no papel `controller`. A US4 dela decide `strict` e a recusa de provider sem suporte |
+| 009 | Recebe `ControllerDecision` (toque desta passada) além dos eventos de sempre; `ExecutionFinished.ok` passa a ignorar registros `notice` |
+
+### Constitution Check — pós-design (Fase 3)
+
+Reavaliado com [data-model.md](data-model.md), [contracts/agentic-flow.md](contracts/agentic-flow.md),
+[contracts/execution-engine.md](contracts/execution-engine.md) e [quickstart.md](quickstart.md): **PASS**.
+
+- III/V: a tabela "Limite" do contrato é a função de rota; nenhuma aresta decide por conta própria.
+- VI: o contrato de mensagens põe conteúdo externo só no papel `tool`, cercado; a saída inválida não volta.
+- VII: a tabela de modos de falha do `data-model.md` cobre os onze casos do loop, cada um com resultado e trace.
+- II: a tabela de seams muda só pelo acréscimo do `ControllerDecision` (009, ADR-017) e pelas duas mudanças do
+  ADR-018 aqui.
+
 ## Complexity Tracking
 
 > Nenhuma violação. Complexidade adicional justificada (princípio XII):
@@ -215,3 +350,5 @@ Reavaliado com [data-model.md](data-model.md), [contracts/](contracts/) e [quick
 | Framework de grafo para uma topologia linear (R1) | é a decisão pré-aprovada, e a tradução do streaming precisa ser provada na fase em que streaming é o requisito | adapter sequencial exigiria ADR, seria escrito duas vezes e adiaria para a Fase 3 a descoberta de como o framework entrega token |
 | `ExecutionGrant` como `Protocol` em vez de tipo concreto (R3) | o dono do value object é a 003, que é Fase 2 | definir o tipo aqui inverteria a posse do seam; antecipar a 003 criaria código sem spec planejada |
 | Dois canais de stream consumidos juntos, `custom` e `values` (R2) | `custom` dá o evento ao vivo, `values` dá o estado final completo | só `custom` obrigaria cada nó a repetir o estado no evento; só `values` entregaria o token depois do nó terminar, matando o streaming |
+| Esquema `anyOf` com um ramo por tool (R17) | é o que transforma a saída estruturada em proteção real no modelo pequeno: nome e forma dos argumentos restringidos | esquema plano deixaria os argumentos livres, que é exatamente onde o arch-v1 §9 diz que o modelo erra |
+| `ExecutionIssue.severity` (R23, ADR-018) | o loop cria seis registros que não são falha; sem gravidade, o sucesso no trace e o `finish_reason` da 008 mentem | lista de `kind`s acoplaria a 008 aos nomes da 005; usar `flags` contraria a US2 cen. 2 |

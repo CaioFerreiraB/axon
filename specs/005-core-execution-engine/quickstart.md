@@ -94,3 +94,57 @@ Para provar que a promessa vale, o exercício é: apagar `adapters/langgraph/`, 
 mesmos eventos e rodar `uv run pytest packages/core/tests/graph/contract packages/core/tests/graph/unit`. As suítes do
 seam e de `domain/` passam sem alteração; só os testes em `tests/graph/unit/test_state_view.py`, que são do adapter,
 acompanham a troca.
+
+## Fase 3 — flow `agentic` (US2)
+
+Sem pré-requisito novo: nenhuma dependência entra, e a suíte continua sem rede — o controller é um provider de teste
+com roteiro, o gateway é o falso do testkit na conformidade e o `CapabilityService` real (004) na integração
+([research.md](research.md) R29).
+
+### Os quatro cenários da US2
+
+```bash
+uv run pytest packages/core/tests/graph -m us2 -v
+```
+
+Esperado ([contracts/execution-engine.md](contracts/execution-engine.md), itens 13–23):
+
+1. controller pede `generic.calculate` e depois responde → uma execução, o resultado cercado na transcrição da geração,
+   `FinalEvent` sem registro `error`;
+2. limite 3 e controller que nunca responde → 3 chamadas ao controller, 3 execuções, geração e `IterationLimit`
+   (`notice`); o mesmo sem limite no grant;
+3. ação malformada → `InvalidAction`, conta como iteração, a execução segue;
+4. tool fora do catálogo → "tool inexistente" volta ao controller e conta como iteração.
+
+### Limite sob controllers adversariais (SC-002, SC-005)
+
+```bash
+uv run pytest packages/core/tests/graph/contract/test_agentic_properties.py -v
+```
+
+Esperado: hypothesis não encontra roteiro que faça o motor passar do limite, perder resultado ou emitir mais de um
+`FinalEvent`.
+
+### Caminho completo com a 004 e o `ai-generic`
+
+```bash
+uv run pytest packages/core/tests/graph/integration/test_agentic_with_generic_pack.py -v
+```
+
+Esperado: o `PackRuntime` real carrega o `ai-generic`, o `CapabilityService` real monta o catálogo `generic.calculate`,
+o controller simulado pede `{"expression": "2+2"}`, a tool nativa responde dentro de `<tool_result …>`, a geração
+recebe a `FENCE_INSTRUCTION` e o resultado, e o trace tem, em ordem: `ExecutionStarted`, `ModelCall(controller)`,
+`ControllerDecision(tool)`, `ToolCall`, `ModelCall(controller)`, `ControllerDecision(answer)`, `ModelCall(generation)`,
+`ValidationRun`, `ExecutionFinished(ok=True)`.
+
+### Como a 011 liga (passada de encaixe dela)
+
+```python
+engine = ExecutionService(
+    flows=langgraph_runtime(), hooks=pack_runtime, routing=model_routing,
+    trace=trace_service, clock=clock,
+    capabilities=capability_service,   # seam da 004; sem ele, `agentic` não aparece em flows()
+)
+```
+
+O `grant` é o `ExecutionGrant` da 003 — o mesmo que a 008 já passa.

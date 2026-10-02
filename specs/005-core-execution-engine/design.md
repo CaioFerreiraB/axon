@@ -218,6 +218,11 @@ flowchart LR
 
 Emite **uma ação estruturada**, nunca um plano textual longo:
 
+> Atualizado em 2026-10-01 (plano da Fase 3, [research.md](research.md) R17–R22): o formato é um `anyOf` com um ramo
+> por tool do catálogo (nome como `const`, parâmetros saneados); a transcrição usa o formato nativo de tool
+> (`assistant` com `tool_calls` + `tool` com o resultado cercado); limite padrão 3; teto de contexto do grant aplicado
+> ao loop e à geração. Detalhes em [contracts/agentic-flow.md](contracts/agentic-flow.md).
+
 ```json
 { "action": "tool", "name": "scouting.search_docs", "arguments": { "query": "..." } }
 ```
@@ -272,6 +277,10 @@ conversation history   → domínio da aplicação, durável (spec 008)
 |---|---|---|---|
 | Checkpoint de execução | `CheckpointStore` | memória → Postgres | Fase 1 → Fase 3 |
 
+> Atualizado em 2026-10-01 (clarificação 1 da Fase 3, [research.md](research.md) R30): a porta não nasceu na Fase 1
+> nem na Fase 3 — o loop roda inteiro dentro de uma requisição e nada lê o estado de volta. Entra com o primeiro
+> consumidor de retomada (FR-014).
+
 Sem motor de workflow durável (ADR-010).
 
 ## Portas e adapters **[ADR-012]**
@@ -280,7 +289,7 @@ Sem motor de workflow durável (ADR-010).
 |---|---|---|---|
 | Execution Engine | primária (seam) | `service.py` + `adapters/langgraph/` | suíte de conformidade do seam (eventos, limites, streaming) |
 | Nomes de flow | primária (dado) | registro de flows do adapter | validação pela 003 |
-| `CheckpointStore` | secundária | memória (Fase 1) → Postgres (Fase 3) | em memória + conformidade contra Postgres |
+| `CheckpointStore` | secundária | adiada até haver retomada (FR-014; nota em "Persistência") | em memória + conformidade contra Postgres |
 | `Clock` | secundária | relógio do sistema (adapter único, injetado pela 011) | relógio fixo |
 
 Consome por seam: Pack Hooks (002), Capability Catalog e Tool Gateway (004), Model Router (006), Trace Sink (009).

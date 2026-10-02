@@ -180,3 +180,349 @@ suíte sem rede e determinística; simular o resto esconderia justamente o que e
 
 **Alternatives considered**: duplos para packs e hooks (testaria o motor contra a ideia que ele faz dos outros módulos,
 não contra eles).
+
+## Decisões da Fase 3 (US2, flow `agentic`) — 2026-10-01
+
+> Insumos: as cinco clarificações de 2026-10-01 (spec), o [design.md](design.md) ("`agentic` — loop de controller",
+> "Controller", "Nós finos") e os ADRs 001, 005, 008, 011, 012, 013 e o novo
+> [ADR-017](../../docs/adr/ADR-017-trace-sink-cresce-por-eventos-aditivos.md). Seams consumidos, já implementados:
+> `Capabilities`/`ToolSession` (004), `ModelRouter` (006), `PackHooks` (002), `TraceSink` (009), `ExecutionGrant` (003).
+
+### R14 — Escopo da passada
+
+**Decision**: US2 inteira, mais o que ela puxa dos requisitos transversais: FR-005 (ação estruturada), FR-006 e
+FR-006a (limite, truncamento, falha do controller), FR-009 (acúmulo sem perda), FR-010 (Turn View com resultados de
+tool), FR-011 na parte do loop, FR-012 (progresso de tool), FR-013 (papéis exigidos pelo flow), FR-016 (decisão do
+controller no trace) e SC-002/SC-005. Ficam fora: US3 e o portão do `rag_first` (Fase 5), US4 no cenário de chunks
+cortados por rank (Fase 5), US6 (P3), a porta de checkpoint (clarificação 1, R30) e o corte de histórico de conversa.
+
+**Rationale**: é a linha da 005 no roadmap da Fase 3 ("005 · US2 (`agentic`)"), com as decisões de 2026-10-01.
+
+**Alternatives considered**: antecipar o `rag_first` (depende de retrievers com coleções, que a 003 só aceita na
+Fase 5).
+
+### R15 — O motor passa a receber o Execution Grant da 003
+
+**Decision** ([ADR-018](../../docs/adr/ADR-018-seam-execution-engine-fase-3.md)): o `Protocol` `ExecutionGrant` do `api.py` sai; `run(grant, request)` recebe o `ExecutionGrant` publicado
+pela 003 (`ai_core.assistants.api`), que o `api.py` da 005 importa e **reexporta com o mesmo nome**. A assinatura do
+seam continua `run(grant, request)`.
+
+**Rationale**: o R3 publicou o `Protocol` "até a 003 existir" — ponte declarada para a Fase 1. Agora o motor precisa
+entregar o grant ao `Capabilities.open(grant, ...)` da 004, que exige o tipo concreto da 003 (principal, aliases de MCP,
+coleções, `allowed_tools`, `write_tools`, limites). Manter o `Protocol` obrigaria a crescer até repetir todos os campos
+da 003, ou a converter tipos na chamada. A seta 005 → 003 já está no grafo de `specs/README.md` e o seam Execution
+Grant já lista a 005 como consumidora; o import-linter já permite `ai_core.graph` → `ai_core.assistants.api`. Todo
+chamador de produção (a 008) já passa o grant da 003, que cumpria o `Protocol` estruturalmente — nada muda para ele. A
+reexportação mantém `from ai_core.graph.api import ExecutionGrant` válido.
+
+**Alternatives considered**: ampliar o `Protocol` com os campos que a 004 lê e mudar a 004 para aceitá-lo (edita outra
+spec e duplica a forma do grant em dois `Protocol`s); `cast` na chamada à 004 (esconde do mypy exatamente a garantia
+que o tipo dá).
+
+### R16 — A sessão de tools abre dentro do flow, depois da preparação; sem `Capabilities`, não há `agentic`
+
+**Decision**: o `ExecutionService` ganha a dependência `capabilities: Capabilities | None = None` (seam da 004). O flow
+`agentic` abre a sessão num passo próprio (`load_capabilities`), **depois** de `prepare_context`, com
+`ToolContext(request_id, reference_time, retrieval_filters)`, em que `retrieval_filters` é, por pack, o valor da chave
+`RETRIEVAL_FILTERS_KEY` (contrato 001) da fatia que o `prepare` devolveu — repassado sem leitura (FR-008). Motor
+montado sem `capabilities` não oferece `agentic`: `flows()` o omite, e um grant com esse flow recebe `UnknownFlow` na
+chamada. Os flows que exigem tools ficam numa constante de `domain/`.
+
+**Rationale**: abrir a sessão faz descoberta de MCP — I/O que não pode acontecer em `run()` (que só valida, sem custo,
+R5) e que precisa das fatias da preparação. É a ordem do `design.md` (`prepare_context → load_capabilities`). A
+dependência opcional deixa a 011 ligar a 004 na passada de encaixe dela sem que esta passada quebre o boot de hoje, e
+falha fechada: sem gateway, o flow simplesmente não existe, e a validação de Assistants (003) já aponta isso.
+
+**Alternatives considered**: abrir a sessão em `run()` (I/O antes do primeiro evento, e sem as fatias); dependência
+obrigatória (obrigaria a 011 a montar 004 e 007 nesta passada); flow `agentic` sempre listado, falhando no meio
+(erro tardio para uma configuração que se conhece no boot).
+
+### R17 — A ação sai por `response_format`, com um ramo por tool do catálogo
+
+**Decision**: o controller é chamado com `for_role("controller").complete(messages, response_format=...)` e o formato é
+`{"type": "json_schema", "json_schema": {"name": "controller_action", "schema": S}}`, sem `strict`. `S` é um `anyOf`
+com um ramo `{"action": "answer"}` e um ramo por tool do catálogo, `{"action": "tool", "name": <const>, "arguments":
+<parâmetros da tool>}`, todos com `required` e `additionalProperties: false`. Os parâmetros entram **saneados**:
+`pattern` e `patternProperties` são removidos, e esquema com `$ref` em qualquer ponto vira `{"type": "object"}`. Tudo
+em `domain/actions.py`, puro.
+
+**Rationale**: `design.md` ("Saída estruturada via `response_format`") e 006 FR-005. No hardware alvo a restrição vira
+gramática no provider local: com um ramo por tool, o modelo pequeno não consegue inventar nome nem errar a forma dos
+argumentos — é o ganho que o `design.md` atribui à saída estruturada. Saneamento: o gateway (004) valida os argumentos
+de verdade, então o esquema no formato serve só para guiar; regex de terceiro vira gramática no provider (o mesmo
+risco que levou a 004 a desligar `pattern` em esquemas de MCP), e `$ref` aninhado dentro de outro esquema passa a
+apontar para a raiz errada. `strict` e a recusa de provider sem suporte ficam com a 006 (US4).
+
+**Alternatives considered**: esquema plano (`action`, `name`, `arguments` livre) — mais curto, mas não restringe os
+argumentos; tool calling nativo do provider (`tools=`) — o `design.md` escolhe `response_format`, e o suporte a tool
+calling nos modelos pequenos é justamente o "nominalmente suportado, não confiável" do arch-v1 §9.
+
+### R18 — Ler a ação: forma no motor, argumentos no gateway
+
+**Decision**: `parse_action(content)` (puro) devolve `ToolAction(name, arguments)`, `AnswerAction` ou
+`InvalidAction(reason)`. Inválida: conteúdo vazio ou ausente, JSON malformado, raiz que não é objeto, `action` fora de
+`tool`/`answer`, `name` vazio ou não texto, `arguments` que não é objeto. Nome fora do catálogo **não** é inválido: vai
+ao gateway, que responde "tool inexistente" (004 FR-005), e o resultado volta ao controller (US2 cen. 4). Argumentos
+não são conferidos contra o esquema aqui — é o gateway que valida e devolve `invalid_arguments`. O motivo da
+invalidade é texto do motor (ex.: "JSON malformado"), nunca trecho do que o modelo escreveu.
+
+**Rationale**: uma regra, um dono — a validação de argumentos é FR-006 da 004, e duplicá-la cria duas respostas
+diferentes para o mesmo erro. Não copiar a saída do modelo para o motivo mantém o evento de trace sem conteúdo
+(ADR-017).
+
+**Alternatives considered**: nome fora do catálogo como ação inválida (o cenário 4 da US2 pede o resultado "tool
+inexistente" de volta ao controller, e o gateway já o produz igual para proibida e inexistente).
+
+### R19 — A transcrição do loop usa o formato nativo de tool
+
+**Decision**: cada iteração de tool acrescenta à conversa enviada aos modelos uma mensagem `assistant` com `tool_calls`
+(id sintético `call-<iteração>`, nome e argumentos em JSON) e uma mensagem `tool` com o mesmo `tool_call_id` e o texto
+**cercado** que o gateway devolveu. Ação inválida acrescenta só uma mensagem `user` do motor ("A ação anterior era
+inválida: <motivo>. Responda com uma ação válida.") — sem repetir a saída do modelo. Mensagens enviadas:
+
+- controller: sistema com a instrução do controller, a lista do catálogo (nome, descrição, parâmetros) e a
+  `FENCE_INSTRUCTION`; depois as mensagens da requisição; depois a transcrição;
+- geração: os fragmentos de `PackHooks.system_prompts` (como no `chat`) e, se houver ao menos um resultado na
+  transcrição, a `FENCE_INSTRUCTION` numa mensagem de sistema a mais; depois as mensagens da requisição e a transcrição.
+
+Os construtores são funções puras em `domain/transcript.py`; com transcrição vazia, a geração recebe exatamente as
+mensagens do `chat` da Fase 1.
+
+**Rationale**: o contrato 001 já tem `tool_calls`/`tool_call_id` e o papel `tool` em `ChatMessage` para isto. Todos os
+providers-alvo (o template de chat do modelo local, OpenAI, OpenRouter) têm um lugar próprio, de menor autoridade, para
+saída de tool — pôr conteúdo externo no papel `user` lhe daria a autoridade do usuário (princípio VI). A instrução da
+cerca vai "no texto de sistema, sem alterar" (004, `contracts/fencing.md`). Pack prompts ficam fora do controller,
+como na tabela "Nós finos" do `design.md`: o controller escolhe tool, a geração fala com a voz do pack.
+
+**Alternatives considered**: resultados como mensagem `user` (autoridade errada para conteúdo externo); um bloco único
+de resultados no sistema (o modelo perde a associação pedido → resultado); repetir a saída inválida do modelo (leva
+para o contexto e para o trace o que ele próprio errou).
+
+### R20 — Contagem, limite e para onde o loop vai
+
+**Decision**: `domain/limits.py`, puro. `DEFAULT_MAX_ITERATIONS = 3` (clarificação 3); o limite efetivo é
+`grant.limits.max_iterations or 3`. Uma **iteração** é uma chamada ao controller. Depois de cada decisão:
+
+| Decisão na iteração `n` | `n < limite` | `n == limite` |
+|---|---|---|
+| `tool` | executa e volta ao controller | executa e vai à geração, registrando o truncamento |
+| inválida | registra e volta ao controller | registra e vai à geração, registrando o truncamento |
+| `answer` | vai à geração | vai à geração (sem truncamento) |
+| falha do modelo | vai à geração, registrando o erro (R21) | idem |
+
+Com limite 3 e um controller que só pede tool: exatamente 3 chamadas ao controller, 3 execuções, geração, truncamento
+registrado — o Independent Test da US2. Catálogo vazio (nenhuma tool, ou todos os MCPs indisponíveis) vai direto à
+geração, sem chamada ao controller e sem consumir iteração (R27).
+
+**Rationale**: FR-006 e o `design.md` ("ao atingir o limite, o controller não falha: transiciona para `agent_generate`
+com o que tem, e registra o truncamento"). A decisão de rota é função pura chamada pelas arestas condicionais — o
+grafo só ordena (ADR-001, SC-001).
+
+**Alternatives considered**: contar execuções de tool em vez de chamadas ao controller (uma ação inválida não
+contaria, e um controller que só erra rodaria sem fim — o cenário 3 da US2 diz que conta).
+
+### R21 — Falha do controller segue para a geração
+
+**Decision** (clarificação 2): `ModelCallFailed` na chamada ao controller encerra o loop e vai à geração com o que há;
+sem nova tentativa (006 FR-007). Registro: `ExecutionIssue(stage="controller", kind="ModelCallFailed",
+severity="error")` com provider e modelo na mensagem, e `ExecutionError` no trace. Papel não configurado ou fora da
+allowlist nunca chega aqui: é verificado em `run()` (R25). Qualquer outra exceção no controller segue a regra geral do
+R6 (evento final com erro).
+
+**Rationale**: a mesma regra do limite, explícita para o usuário (o erro está no evento final) e sem fallback.
+
+**Alternatives considered**: ver a clarificação 2 na spec.
+
+### R22 — Teto de contexto: estimativa por caracteres, parada do loop e omissão dos resultados mais antigos
+
+**Decision** (clarificação 5), em `domain/budget.py`, puro:
+
+- **Estimativa**: `ceil(caracteres / 3) + 4` por mensagem, somando conteúdo e, nas mensagens com `tool_calls`, nome e
+  argumentos. Determinística, sem tokenizador, e conservadora (3 caracteres por token sobrestima português e JSON).
+- **Antes de cada chamada ao controller**: se a estimativa das mensagens do controller passar de
+  `grant.limits.max_context_tokens`, o loop para e vai à geração, com `ExecutionIssue(kind="ContextLimit",
+  severity="notice")` e a decisão `limit` (motivo `context`) no trace.
+- **Antes da geração**: se a estimativa passar do teto, o conteúdo dos resultados de tool mais antigos é trocado, um
+  por vez, pela marca `[resultado omitido: teto de contexto]` até caber; a redução vira
+  `ExecutionIssue(kind="ContextTrimmed", severity="notice")` com quantos saíram. Se nem sem resultados couber, a
+  geração acontece assim mesmo e o excesso é registrado (`kind="ContextOverflow"`, `notice`) — cortar histórico de
+  conversa não é desta passada.
+- **Sem teto no grant**: nada é estimado nem cortado.
+- **Omissão não é perda**: a troca pela marca vale só para as mensagens enviadas ao modelo; os passos acumulados no
+  estado ficam intactos (FR-009, SC-005), e a Turn View de `validate` lista só o que a geração recebeu (R26).
+- **No `chat`**: nada muda — o plano do `chat` não lê `limits` (teto e limite ficam `None`), e as mensagens enviadas
+  são byte a byte as da Fase 1. O teto vale onde a clarificação 5 o pôs: no loop.
+
+**Rationale**: cumpre a FR-011 onde o contexto passa a crescer sem controle do usuário. A regra "o que vale menos sai
+primeiro" é a mesma do corte de chunks por rank da Fase 5, no mesmo arquivo. Omitir o mais antigo preserva a
+transcrição (o par pedido/resultado continua lá, com a marca), e o controller nunca chega a receber um contexto que
+o provider truncaria em silêncio.
+
+**Alternatives considered**: tokenizador real (dependência por modelo e por provider; a estimativa conservadora basta
+para um teto que é proteção, não cobrança); cortar o resultado mais longo primeiro (muda qual informação sai conforme
+o tamanho, não conforme a idade — mais difícil de explicar no registro).
+
+### R23 — Gravidade dos registros: `ExecutionIssue.severity`, aditivo
+
+**Decision** ([ADR-018](../../docs/adr/ADR-018-seam-execution-engine-fase-3.md)): `ExecutionIssue` ganha
+`severity: Literal["error", "notice"] = "error"`. São `notice` os **resultados de política**: apontamentos de
+validator (já eram tratados à parte pelo `kind`), o truncamento por limite (`IterationLimit`), a ação inválida do
+modelo (`InvalidAction`), a parada por teto (`ContextLimit`) e a omissão e o excesso de contexto (`ContextTrimmed`,
+`ContextOverflow`). São `error` as **falhas de dependência**: a falha do controller, o MCP indisponível na montagem
+do catálogo (`McpUnavailable` — princípio VII: degradação nunca silenciosa) e toda falha que já era erro. `succeeded()` passa a ser "nenhum registro `error`" — é o `ok` do
+`ExecutionFinished`.
+
+**Rationale**: até aqui só havia um tipo de registro que não era falha, identificado pelo `kind` — em `domain/outcome.py`
+e, duplicado como texto, em `http/domain/openai_chunks.py` (008). Com o loop, aparecem seis: sem a gravidade, toda
+execução que bate no limite de iterações viraria falha no trace e `finish_reason: "error"` na API, e a 008 teria de
+conhecer cada `kind` da 005. O campo tem default, então nada que já constrói `ExecutionIssue` muda; a 008 continua
+correta para o `chat` e adota `severity` na passada de encaixe dela (até lá, uma execução `agentic` truncada sai com
+`finish_reason: "error"`, com a resposta inteira). Mudança de seam registrada no ADR-018, com as consumidoras
+listadas: nenhum nome existente muda de forma, e o significado de `ExecutionFinished.ok` passa a ignorar `notice`.
+
+**Alternatives considered**: registrar os avisos em `flags` (a US2 cen. 2 diz "registrado em erros"); publicar a lista
+de `kind`s que não são falha (a 008 continuaria acoplada a nomes da 005); deixar como está (métrica de sucesso errada
+na Fase 6).
+
+### R24 — Trace: `ControllerDecision` na 009, sob o ADR-017
+
+**Decision** (clarificação 4): evento novo, aditivo, no `api.py` da 009 — `ControllerDecision(request_id, iteration,
+action, tool=None, reason=None)`, com `action ∈ {"tool", "answer", "invalid", "limit"}`, `iteration ≥ 0` (0 só em
+`limit` antes da primeira chamada), `tool` só em `tool`, `reason` obrigatório em `invalid` e em `limit`
+(`"iterations"` ou `"context"`). Sem argumentos, sem saída do modelo. Quem emite o quê numa execução `agentic`:
+
+| Dado | Quem emite |
+|---|---|
+| `ExecutionStarted`, `ExecutionFinished` | `service.py` (como na Fase 1) |
+| `ModelCall` do controller e da geração | a 006, pelo cliente que devolve |
+| `ExecutionError(stage="catalog")` por MCP indisponível ou tool com esquema inválido | a 004, ao abrir a sessão |
+| `ToolCall` por execução | a 004, no gateway |
+| `ControllerDecision` por decisão e no limite | a 005, no passo do controller |
+| `ExecutionError(stage="controller")` na falha do controller | a 005 |
+| `ValidationRun` | a 005, como na Fase 1 |
+
+Toque declarado na 009: dataclass, membro da união `TraceEvent`, `contracts/trace-api.md`, `contracts/record-format.md`,
+`data-model.md` (que ainda não lista o `ToolCall`, e passa a listar os dois) e o teste de nomes públicos. O tipo no
+registro sai do nome da classe: `controller_decision`.
+
+**Rationale**: FR-016 e ADR-017; o motor não duplica o que 004 e 006 já emitem (como o R10 fez para `ModelCall`).
+
+**Alternatives considered**: ver ADR-017.
+
+### R25 — Papéis exigidos pelo flow são conferidos em `run()`
+
+**Decision**: `domain/request.py` declara os papéis de cada flow (`chat` → `generation`; `agentic` → `controller` e
+`generation`), e `run()` pede `for_role(...)` de cada um ao roteador da execução **antes** de devolver o iterador;
+`RoleNotConfigured`, `ModelNotAllowed` e `UnknownProvider` (006) viram `ExecutionRequestInvalid` nomeando o papel.
+
+**Rationale**: FR-013 ("parâmetros, modelo, orçamento" antes do primeiro evento). `for_role` resolve e confere a
+allowlist sem I/O (contrato da 006), então a checagem não tem custo. Sem ela, um Assistant `agentic` sem `controller`
+descobriria o problema depois de preparar contexto e abrir a sessão de tools. No `chat` muda só o momento do erro de
+um papel `generation` ausente — que a 003 já impede de existir.
+
+**Alternatives considered**: deixar o erro aparecer no passo do controller (custo antes do erro); validar só na 003
+(é a regra dela também, mas a 003 não sabe quais papéis cada flow exige — R33).
+
+### R26 — Turn View no `agentic`
+
+**Decision**: `tool_results` traz, na ordem, um `ToolResult` (001) por resultado **entregue à geração** — conteúdo = o
+texto cercado, `untrusted=True`, `truncated` e `error` do gateway; os omitidos pelo teto não entram. `retrieved` traz os
+chunks de todos os resultados de recuperação; `generation_context`, os chunks dos resultados de recuperação que
+ficaram no contexto da geração; `reranked` fica vazio (o `agentic` não reordena). `prepare` recebe a Turn View sem
+resultados; `validate`, a completa.
+
+**Rationale**: FR-010 e ADR-007 — o validator precisa ver exatamente o que esteve no contexto da geração; a regra é a
+mesma do US4 cen. 2, aplicada a resultados de tool. Na Fase 3 nenhuma tool de recuperação chega ao catálogo (a 003 só
+aceita coleções na Fase 5), mas a projeção já fica certa.
+
+**Alternatives considered**: `tool_results` com todos os resultados, inclusive os omitidos (o validator veria o que a
+geração não viu).
+
+### R27 — Catálogo vazio vai direto à geração
+
+**Decision**: se a sessão abre sem nenhuma tool, o `agentic` pula o controller e gera — como o `chat`, mais os avisos
+de MCP indisponível, se houver. Nenhuma iteração é consumida e nenhuma decisão é emitida.
+
+**Rationale**: um controller sem tools só pode responder; a chamada custaria um modelo (arch-v1 §9) para uma decisão
+determinística.
+
+**Alternatives considered**: chamar o controller assim mesmo (custo sem decisão).
+
+### R28 — Progresso do loop
+
+**Decision**: `ProgressEvent("load_capabilities")` ao abrir a sessão; `ProgressEvent("controller", detail="iteração
+<n>")` antes de cada chamada ao controller; `ProgressEvent("execute_tool", detail=<nome pedido>)` antes de cada
+execução. O nome é o que o controller pediu, inclusive quando não existe no catálogo.
+
+**Rationale**: FR-012 ("tool chamada"). O nome de tool é do catálogo do próprio Assistant — nada que o usuário não
+possa usar; e a 008 já traduz progresso num campo que cliente padrão ignora.
+
+**Alternatives considered**: progresso sem nome (FR-012 pede a tool chamada).
+
+### R29 — Testes: controller simulado no testkit, gateway falso no seam, real na integração
+
+**Decision**:
+
+- **Controller simulado**: `ScriptedController` no `graph_testkit.py`, que cumpre estruturalmente o `ModelProvider` da
+  006 (`name`, `chat`, `probe`) e devolve um roteiro de conteúdos ou exceções, um por chamada, guardando mensagens e
+  `response_format`. Entra no `ModelRoutingService` real como provider do papel `controller`. A 006 não muda.
+- **Gateway**: na conformidade do seam e na suíte de propriedade, `FakeCapabilities`/`FakeSession` no testkit, que
+  cumprem os `Protocol`s da 004 com os value objects dela (`CatalogTool`, `FencedToolResult`); na integração, o
+  `CapabilityService` real com o `PackRuntime` real carregando o `ai-generic` (tool `generic.calculate`), MCP vazio e
+  auditoria em memória.
+- **SC-002 e SC-005**: hypothesis gera roteiros adversariais (tool válida, tool inexistente, ação inválida, resposta,
+  falha) e limites de 1 a 6; propriedades: chamadas ao controller ≤ limite, execuções ≤ limite, um único `FinalEvent`,
+  resultados acumulados = execuções feitas, decisões no trace = chamadas ao controller (+1 no `limit`).
+- **SC-001**: `contract/` e `unit/` continuam sem importar o framework de grafo.
+- O grant dos testes passa a ser o `ExecutionGrant` da 003 (R15), montado por uma fábrica do testkit.
+- Marca `us2` nos testes novos.
+
+**Rationale**: o R13 (caminho real) vale onde há o que provar entre módulos — a integração; a conformidade e a
+propriedade precisam de centenas de execuções rápidas e de controle total do gateway. Simular o controller por um
+provider de teste mantém o roteador da 006 real (inclusive o `ModelCall` do papel `controller` no trace).
+
+**Alternatives considered**: estender o `ScriptedProvider` da 006 com roteiro (toca outro módulo por necessidade de
+teste); gateway falso também na integração (esconderia o encontro 004 × 005).
+
+### R30 — Checkpoint adiado; roadmap e `design.md` anotados
+
+**Decision** (clarificação 1): nenhuma porta `CheckpointStore`. O roadmap ("Persistência por fase") passa de "memória →
+Postgres, 1 → 3" para "quando houver retomada (FR-014)", e o `design.md` recebe uma nota datada nas duas tabelas que
+citam a porta, no mesmo padrão das notas de 2026-09-21.
+
+**Rationale**: princípio XIII — porta sem consumidor.
+
+**Alternatives considered**: ver a clarificação 1.
+
+### R31 — Estrutura do adapter: `nodes/` vira pacote; `flows.py` continua arquivo
+
+**Decision**: `adapters/langgraph/nodes.py` vira `nodes/` com `common.py` (canais de stream, `prepare_context`,
+`generate`, `validate_answer`) e `agentic.py` (`load_capabilities`, `controller`, `execute_tool`). `flows.py` ganha o
+grafo do `agentic` e continua um arquivo; o `AgentState` ganha os campos do loop com reducers (`steps` — cada tool
+executada com o pedido e o resultado, ou cada ação inválida com o motivo —, `decisions` e o `errors` que já existia) e o
+`AgentContext`, a sessão de tools num compartimento preenchido pelo passo de abertura.
+
+**Rationale**: o plano da Fase 1 previu "viram pastas quando `agentic` e `rag_first` chegarem"; os nós dobram, o
+registro de flows ganha só uma função. Tudo isso é interior do adapter (ADR-011).
+
+**Alternatives considered**: `flows/` como pacote já (uma função a mais não justifica; vira pacote com o `rag_first`).
+
+### R32 — Fronteiras de import
+
+**Decision**: contratos novos de import-linter: (1) `ai_core.graph` não importa `ai_core.mcp` (nem o `api.py`) — o
+motor só alcança MCP pelo gateway (FR-002); (2) `ai_core.capabilities` e `ai_core.mcp` entram na lista de módulos que
+não importam `langgraph`/`langchain_core`. Os contratos "só pelo `api.py`" de 003 e 004 já cobrem o motor.
+
+**Rationale**: FR-002 verificável, como o R12 fez com o framework.
+
+**Alternatives considered**: confiar em revisão.
+
+### R33 — Pendências para outros planos
+
+| Spec | O quê |
+|---|---|
+| 011 (passada de encaixe) | montar o `ExecutionService` com `capabilities=<CapabilityService>` nos três perfis — até lá, `agentic` não aparece em `flows()` |
+| 008 (passada de encaixe) | `finish_reason` por `ExecutionIssue.severity` em vez do `kind` `ValidatorIssue` (R23) |
+| 003 (passada de encaixe) | `assistants validate` acusar Assistant `agentic` sem papel `controller`; para isso a 005 pode publicar os papéis por flow como dado (seam aditivo, como os nomes de flow) — decidir na passada da 003 |
+| 006 (US2–US5) | US4: `strict` e recusa explícita de provider sem saída estruturada para o papel `controller`; o motor já envia o `response_format` |
+| 009 | nada além do toque desta passada (R24) |

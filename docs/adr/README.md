@@ -21,6 +21,8 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 | [014](ADR-014-politica-versoes-0x-contratos.md) | Política de versões 0.x de `ai-core-contracts` | Aceita | 001, 002, 101 |
 | [015](ADR-015-persistencia-postgres-por-modulo.md) | Persistência em Postgres por módulo: psycopg 3, schema próprio, migrações no adapter | Aceita | 003, 004, 005, 007, 008, 011 |
 | [016](ADR-016-grant-carrega-politica-de-modelos.md) | O Execution Grant carrega a política de modelos da 006: seta 003 → 006 | Aceita | 003, 005, 006 |
+| [017](ADR-017-trace-sink-cresce-por-eventos-aditivos.md) | O Trace Sink cresce por eventos aditivos | Aceita | 009, 004, 005 |
+| [018](ADR-018-seam-execution-engine-fase-3.md) | Seam Execution Engine na Fase 3: grant da 003 e gravidade dos registros | Aceita | 005, 008, 009, 011, 003 |
 
 ## Modelo para ADR novo
 
