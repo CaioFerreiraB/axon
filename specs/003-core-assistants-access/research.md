@@ -305,3 +305,96 @@ depender dele só por transitividade quebraria no dia em que o SDK trocar de cli
 
 **Alternatives considered**: `urllib` da biblioteca padrão para o JWKS (síncrono, bloquearia o laço de eventos na
 primeira requisição após a rotação de chaves).
+
+---
+
+# Fase 3 (2026-10-02): passada de encaixe
+
+Insumos: as duas clarificações de 2026-10-02; as pendências para a 003 nos planos da 004 ("Seam Notes": exemplo com
+namespace, colisão alias × pack), da 005 (R33: papel `controller`) e da 007 (nada de código: a 011 liga o registry);
+[ADR-019](../../docs/adr/ADR-019-papeis-por-flow-no-seam-execution-engine.md). O registry real da 007 já está ligado
+como `McpDirectory` (passada da 011).
+
+## R18 — Escopo da passada
+
+**Decision**: três regras novas de validação de referências — papéis exigidos pelo flow, entradas de `allowed_tools` e
+`write_tools`, colisão de alias MCP com pack — aplicadas aos Assistants de sistema (boot, `assistants validate`,
+resolução) e de usuário (criação, atualização, resolução); o exemplo de `allowed_tools` com namespace no contrato do
+`assistants.yaml`. Toques declarados: 005 (o método `flow_roles()` no seam, ADR-019) e 011 (injetar o mapeamento).
+
+**Rationale**: é o que as outras specs deixaram para a 003 na Fase 3, com as clarificações.
+
+**Alternatives considered**: deixar para a Fase 5 (o `agentic` já está no ar pela 011; Assistant mal configurado
+apareceria disponível agora).
+
+## R19 — Papéis por flow chegam como dado, como os nomes de flow
+
+**Decision**: `AssistantsService` ganha `flow_roles: Mapping[str, tuple[ModelRole, ...]] | None = None` (ausente =
+nenhuma exigência — as suítes da Fase 2 continuam valendo). Uma função pura, `role_reasons(definition, flow,
+flow_roles)`, devolve `"models: o flow '<flow>' exige o papel '<papel>', que o Assistant não declara"` para cada papel
+exigido pelo **flow efetivo** (o declarado, ou o derivado do pack — `effective_flow`) e ausente de `definition.roles`.
+A 011 passa `engine.flow_roles()`, que a 005 publica (ADR-019).
+
+**Rationale**: ADR-019; a regra vive na 005, a 003 só compara. `ModelRole` é value object da 006, que a 003 já importa
+(ADR-016).
+
+**Alternatives considered**: ver ADR-019.
+
+## R20 — Entradas de `allowed_tools` e `write_tools`
+
+**Decision** (clarificação 2): `tool_reasons(definition, pack_tools)`, pura, para cada entrada das duas listas (o campo
+nomeado no motivo):
+
+| Entrada | Motivo |
+|---|---|
+| sem `.` | `"<campo>: '<entrada>' precisa de namespace: <pack>.<tool> ou <alias>.<tool>"` |
+| namespace (antes do **primeiro** `.`) fora de `packs` e `mcp` do Assistant | `"<campo>: '<entrada>': '<ns>' não é pack nem MCP deste Assistant"` |
+| namespace de pack, e o resto não está entre as tools e os retrievers que o pack oferece | `"<campo>: '<entrada>': o pack '<ns>' não oferece '<tool>'"` |
+| namespace de alias MCP | nenhum — o nome da tool exigiria rede; a 004 responde "tool inexistente" |
+
+`pack_tools`: por pack da composição, os nomes de `PackCapabilities.tools` e dos `retrievers` (o retriever vira a tool
+`<pack>.<retriever>`, 002 seam Pack Toolset). Pack sem capacidades (em erro) é pulado: o erro de composição já está
+nos motivos.
+
+**Rationale**: a comparação da 004 é exata e com namespace (clarificação 1 da 004); entrada que nunca casa é
+configuração que parece funcionar e não funciona. O catálogo do pack está carregado no Pack Registry, que a 003 já
+consome — sem rede e sem o seam Pack Toolset.
+
+**Alternatives considered**: ver a clarificação 2; consultar o Pack Toolset da 002 (a 003 não consome esse seam, e o
+Pack Registry já dá os nomes).
+
+## R21 — Colisão de alias MCP com pack do mesmo Assistant
+
+**Decision**: `collision_reasons(definition)`: para cada alias de `mcp` que é também nome em `packs`, `"mcp: o alias
+'<alias>' colide com o pack '<alias>': as tools '<alias>.<tool>' seriam ambíguas"`.
+
+**Rationale**: nota da 004 ("Seam Notes", 003): o catálogo dela levanta `CatalogConflict` na execução; aqui a mesma
+configuração é recusada antes de servir. Alias de usuário começa com `~` e pack não, então só alias global colide.
+
+**Alternatives considered**: deixar para o `CatalogConflict` na execução (falha tardia).
+
+## R22 — Onde as regras se aplicam
+
+**Decision**: as três funções entram em `reference_reasons` — a mesma usada pela resolução, pelo boot e pelo `assistants
+validate` (R14) —, e também em `_conform` (criação e atualização de Assistant de usuário): ali, o primeiro motivo vira
+`RequestRejected` nomeando o campo (`models`, `allowed_tools`, `write_tools` ou `mcp`), como as violações de política
+já fazem.
+
+**Rationale**: FR-011 e FR-014 ("validado na criação, na atualização e em cada resolução"); uma função só, para que
+validação e resolução nunca discordem.
+Efeito visível: um Assistant `agentic` sem `controller` passa de 400 (o motor recusava na chamada, 005 R25) a 424
+"Assistant indisponível" com o motivo do papel, porque a resolução já o barra — o mesmo tratamento de qualquer
+referência pendente.
+
+**Alternatives considered**: só na validação (o usuário criaria um Assistant que nunca resolve, sem saber por quê).
+
+## R23 — Testes
+
+**Decision**: unidade das três funções (`tests/assistants/unit/`); cenários US8 2–4 na suíte de validação; criação e
+atualização de Assistant de usuário recusadas com o campo; e, nos toques, `flow_roles()` na conformidade do registro de
+flows da 005 (com e sem `capabilities`) e a validação de um Assistant `agentic` sem `controller` pelo boot real
+(`tests/bootstrap`). Marca `us8` na validação e `us6` nos de usuário.
+
+**Rationale**: o padrão das suítes da Fase 2 (R16).
+
+**Alternatives considered**: só unidade (a injeção pela 011 ficaria sem prova).

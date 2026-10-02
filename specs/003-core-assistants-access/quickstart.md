@@ -124,3 +124,35 @@ seguinte ser recusada; ator fora do `admin_group` recebe `NotFound`; `assistants
 | SC-003 — zero código para mudar Assistant; de usuário sem restart | cenários 1 e 6 |
 | SC-004 — 100% das referências pendentes detectadas antes de servir | cenários 1 e 8 (`validate`) |
 | SC-005 — campos de ampliação recusados antes de qualquer modelo | cenário 4 (id de modelo); o corpo da requisição, na 008 com `WIDENING_FIELDS` |
+
+## Fase 3 (2026-10-02): regras de referência novas
+
+### Cenários US8 2–4 e Assistants de usuário
+
+```bash
+uv run pytest packages/core/tests/assistants -m "us8 or us6" -v
+```
+
+Esperado: Assistant `agentic` sem `controller` indisponível nomeando o papel; entradas mortas de `allowed_tools` e
+`write_tools` (sem namespace, namespace fora do Assistant, tool que o pack não oferece) indisponíveis nomeando a
+entrada; alias MCP igual a pack indisponível nomeando a colisão; criação e atualização de Assistant de usuário com
+qualquer uma delas → `RequestRejected` com o campo ([contracts/assistants-yaml.md](contracts/assistants-yaml.md),
+"Fase 3").
+
+### Pela plataforma de verdade
+
+```bash
+cat > /tmp/assistants.yaml <<'YAML'
+assistants:
+  sem-controller:
+    visibility: public
+    auth: { schemes: [oidc, api_key], allow: ["*"] }
+    flow: agentic
+    packs: [generic]
+    models: { generation: ollama/qwen3:1.7b, allow: ["ollama/*"] }
+YAML
+AI_CORE_PROFILE=test AI_CORE_ASSISTANTS_FILE=/tmp/assistants.yaml uv run ai-core assistants validate; echo $?
+```
+
+Esperado: código 1 e a linha de `sem-controller` dizendo `models: o flow 'agentic' exige o papel 'controller', que o
+Assistant não declara`.

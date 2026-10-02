@@ -195,3 +195,31 @@ conformidade verifica nos dois adapters.
 
 Dezenas de Assistants de sistema, centenas de Assistants de usuário, dezenas de chaves por instalação (um operador,
 vários usuários — Assumptions da spec). Nenhuma consulta precisa de paginação nesta fase.
+
+---
+
+## Fase 3 (2026-10-02): regras de referência novas (research R18–R23)
+
+### `AssistantsService` — parâmetro novo
+
+| Parâmetro | Tipo | Origem |
+|---|---|---|
+| `flow_roles` | `Mapping[str, tuple[ModelRole, ...]] \| None` (default `None` = nenhuma exigência) | `ExecutionEngine.flow_roles()` da 005 (ADR-019), injetado pela 011 |
+
+### Funções puras novas (`domain/validation.py`)
+
+| Função | Entrada | Saída |
+|---|---|---|
+| `role_reasons(definition, flow, flow_roles)` | o flow efetivo e o mapeamento | um motivo por papel exigido e não declarado |
+| `tool_reasons(definition, pack_tools)` | `pack_tools`: pack → nomes de tools nativas e retrievers | um motivo por entrada morta de `allowed_tools` e `write_tools` |
+| `collision_reasons(definition)` | — | um motivo por alias MCP igual a pack |
+
+As três entram em `reference_reasons` (resolução, boot, `assistants validate`) e em `_conform` (criação e atualização
+de Assistant de usuário: o primeiro motivo vira `RequestRejected` com `field` = `models`, `allowed_tools`, `write_tools`
+ou `mcp`). Formatos das mensagens em [contracts/assistants-yaml.md](contracts/assistants-yaml.md), "Fase 3".
+
+### Toque declarado na 005 (ADR-019)
+
+`ExecutionEngine.flow_roles() -> Mapping[str, tuple[ModelRole, ...]]`: um item por flow de `flows()`, com os papéis que
+`run` confere para ele (`chat`: `generation`; `agentic`: `controller`, `generation`).
+

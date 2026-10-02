@@ -29,12 +29,15 @@ assistants:
     auth:
       schemes: [api_key]
       allow: ["user:caio", "group:operadores"]
-    flow: chat
+    flow: agentic                          # loop do controller (005, Fase 3): exige o papel `controller`
     packs: [generic]
-    mcp: []                                # aliases MCP (007); vazio até a Fase 3
+    mcp: [financeiro]                      # aliases MCP (007): globais do operador ou da API
     collections: []                        # coleções (Fase 5)
-    allowed_tools: [calculate]             # opcional: filtro final do catálogo (004)
-    write_tools: []                        # opcional; proibido em Assistant público
+    allowed_tools:                         # opcional: filtro final do catálogo (004) — SEMPRE com namespace
+      - generic.calculate                  #   <pack>.<tool>: a tool precisa existir no pack
+      - financeiro.saldo                   #   <alias>.<tool>: o alias precisa estar em `mcp`
+      - financeiro.transferir
+    write_tools: [financeiro.transferir]   # opcional; proibido em Assistant público; mesmas regras de nome
     models:
       generation: ollama/qwen3:1.7b
       controller: ollama/qwen3:1.7b
@@ -87,8 +90,8 @@ Arquivo ausente (variável não definida) é configuração válida: nenhum Assi
 | `packs` | não | lista ordenada; composta pelo Pack Registry (002) |
 | `mcp` | não | aliases ⊆ `McpDirectory.aliases(owner=None)`; vazio até a Fase 3 (clarificação 3) |
 | `collections` | não | ⊆ `CollectionCatalog.names()`; vazio até a Fase 5 |
-| `allowed_tools` | não | lista de nomes de tool; ausente = sem filtro adicional |
-| `write_tools` | não | lista de nomes; não vazia em `public` é inválido (FR-012) |
+| `allowed_tools` | não | lista de nomes de tool **com namespace** (`<pack>.<tool>` ou `<alias>.<tool>`); ausente = sem filtro adicional. Regras de validação em "Fase 3" abaixo |
+| `write_tools` | não | lista de nomes **com namespace**, mesmas regras de `allowed_tools`; não vazia em `public` é inválido (FR-012) |
 | `models.<papel>` | `generation` sim | papéis `controller`, `generation`, `rerank` (ADR-008); valor `provider/modelo`; cada um casa com `models.allow` |
 | `models.allow` | **sim** | padrões `fnmatch` sobre `provider/modelo`; vazio é inválido (edge case) |
 | `limits.rpm` | não | inteiro ≥ 1; default 60 (R9) |
@@ -131,3 +134,27 @@ ser mais permissiva.
 3. cada erro de Assistant deixa só aquele Assistant indisponível, com o motivo, e os demais carregam;
 4. o arquivo da Fase 1 (com `allow` na raiz e sem `auth`) produz, para cada Assistant, os motivos que dizem o que mudar;
 5. os adapters YAML e em memória produzem o mesmo `AssistantsConfig` para a mesma configuração.
+
+---
+
+## Fase 3 (2026-10-02): regras de referência novas (research R19–R22)
+
+Todas tornam o Assistant **indisponível** com o motivo (sistema: boot, `assistants validate`, resolução) e recusam a
+criação ou a atualização de um Assistant de usuário com `400`, nomeando o campo.
+
+| Regra | Exemplo inválido | Motivo |
+|---|---|---|
+| O flow efetivo exige papéis de modelo (publicados pela 005, ADR-019) | `flow: agentic` sem `models.controller` | `models: o flow 'agentic' exige o papel 'controller', que o Assistant não declara` |
+| Entrada de `allowed_tools`/`write_tools` sem namespace | `allowed_tools: [calculate]` | `allowed_tools: 'calculate' precisa de namespace: <pack>.<tool> ou <alias>.<tool>` |
+| Namespace fora dos packs e MCPs do Assistant | `allowed_tools: [outro.x]` | `allowed_tools: 'outro.x': 'outro' não é pack nem MCP deste Assistant` |
+| Tool que o pack não oferece (tools nativas e retrievers) | `allowed_tools: [generic.nao_existe]` | `allowed_tools: 'generic.nao_existe': o pack 'generic' não oferece 'nao_existe'` |
+| Alias MCP igual a nome de pack do mesmo Assistant | `packs: [generic]` + `mcp: [generic]` | `mcp: o alias 'generic' colide com o pack 'generic': as tools 'generic.<tool>' seriam ambíguas` |
+
+Com namespace de alias MCP, só o alias é conferido: o nome da tool exigiria consultar o servidor, e a 004 responde
+"tool inexistente". O namespace é o trecho antes do **primeiro** `.` — nomes de tool de MCP podem ter `.`.
+
+### Conformidade — acréscimos
+
+`tests/assistants/unit/test_assistants_reference_rules.py` (as três funções) e `tests/assistants/contract/` (validação e
+criação/atualização de usuário): cada linha da tabela, e o exemplo completo acima válido com `financeiro` no registry.
+

@@ -252,3 +252,60 @@ Reavaliado com [data-model.md](data-model.md), [contracts/](contracts/) e [quick
 | Verificação de JWT local com JWKS em cache (R6) | a superfície pública precisa de OIDC de verdade, sem rede em toda requisição | introspecção por requisição põe o provedor no caminho de cada chamada |
 | Suíte adversarial com hypothesis | SC-002 é "nenhuma capacidade fora do grant é alcançável" — um enunciado sobre todos os casos | casos escritos à mão cobririam só o que já se imaginou |
 | Serviço Postgres na CI | princípio XIII e governança: a conformidade contra o adapter real roda em todo PR | Postgres só local transformaria a regra em opcional |
+
+---
+
+# Fase 3 (2026-10-02): passada de encaixe
+
+Insumos: as duas clarificações de 2026-10-02; as pendências para a 003 nos planos da 004, da 005 (R33) e da 007;
+[ADR-019](../../docs/adr/ADR-019-papeis-por-flow-no-seam-execution-engine.md). Decisões em [research.md](research.md)
+R18–R23. **Sem divergência do `design.md`**: são regras de validação de referência, no lugar onde as outras já vivem.
+
+## Summary (Fase 3)
+
+A validação de referências (FR-011) ganha três regras: os papéis de modelo que o flow exige — publicados pelo motor
+como dado (ADR-019) —, as entradas de `allowed_tools`/`write_tools` (com namespace, de um pack ou MCP do próprio
+Assistant e, para pack, de tool que ele oferece) e a colisão de alias MCP com pack. Valem para Assistants de sistema e
+de usuário, na mesma função que serve à resolução, ao boot e ao `assistants validate`. O contrato do `assistants.yaml`
+ganha o exemplo com namespace.
+
+## Technical Context (Fase 3)
+
+**Dependências**: nenhuma nova. Seam novo consumido: `ExecutionEngine.flow_roles()` (005, ADR-019), pela 011.
+**Storage**: sem mudança. **Testing**: unidade das três funções; contrato de validação e de criação/atualização de
+usuário; nos toques, a conformidade do registro de flows da 005 e o boot real da 011.
+**Constraints**: nenhuma rede na validação (tool de MCP conferida só pelo alias); a 003 não conhece a regra de papéis da
+005 — só compara com o dado publicado.
+
+## Constitution Check (Fase 3)
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| II. Seams | ✅ | Papéis por flow chegam como dado do seam da 005, sob o ADR-019; a 003 não conhece flow nenhum por dentro |
+| IV. Assistant é a fronteira | ✅ | `allowed_tools`/`write_tools` mortos deixam de "parecer" restringir: o Assistant que não faz o que declara não serve |
+| VII. Falha fechada | ✅ | Tudo vira indisponível com motivo antes de servir; usuário recebe `400` nomeando o campo |
+| XIII. Portas e adapters | ✅ | Regras puras em `domain/validation.py`; nenhuma porta nova |
+
+**Module boundary gate (Fase 3)**: `ai_core/assistants/**` e `tests/assistants/**`; **toques declarados**: 005
+(`api.py`: `flow_roles()` no `Protocol`; `service.py`: a implementação; `contracts/execution-engine.md`; a conformidade
+do registro de flows) e 011 (`wiring.assistants_service` passa `flow_roles`; um teste de boot), ambos sob o ADR-019;
+`ai-core/pyproject.toml` (marca `us8`); `specs/README.md` (linha do seam). **Resultado**: PASS.
+
+## Project Structure (Fase 3)
+
+```text
+ai-core/packages/core/src/ai_core/assistants/
+├── domain/validation.py   # + role_reasons, tool_reasons, collision_reasons; reference_reasons as chama
+└── service.py             # + flow_roles; pack_tools a partir do Pack Registry; _conform aplica as regras
+ai-core/packages/core/src/ai_core/graph/{api,service}.py      # toque: flow_roles() (ADR-019)
+ai-core/packages/core/src/ai_core/bootstrap/wiring.py         # toque: injeta engine.flow_roles()
+```
+
+## Seam Notes for Consumers (Fase 3)
+
+| Consumidor | O que precisa saber |
+|---|---|
+| Operador | `allowed_tools`/`write_tools` sempre com namespace; Assistant `agentic` declara `models.controller`; alias MCP não pode ter o nome de um pack do mesmo Assistant |
+| 008 | Criação/atualização de Assistant de usuário pode recusar com `field` = `models`, `allowed_tools`, `write_tools` ou `mcp` — a tradução para 400 já existe |
+| 011 | Passar `flow_roles=engine.flow_roles()` ao `AssistantsService` |
+
