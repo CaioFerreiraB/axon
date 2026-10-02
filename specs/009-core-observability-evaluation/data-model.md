@@ -60,6 +60,32 @@ porta `Clock` ([research.md](research.md) R3).
 | `duration_ms` | `float` | `>= 0` |
 | `reason` | `str \| None` | por que terminou assim; texto livre → redigido. Deliberadamente livre: o vocabulário de estados é interno da 005 (R2) |
 
+### `ToolCall` — Fase 3, emitido pela 004 ([ADR-017](../../docs/adr/ADR-017-trace-sink-cresce-por-eventos-aditivos.md))
+
+| Campo | Tipo | Regra |
+|---|---|---|
+| `request_id` | `str` | não vazio |
+| `tool` | `str` | não vazio — o nome pedido, com namespace |
+| `kind` | `str \| None` | `native`, `retrieval`, `mcp`; `None` quando a tool não existe no catálogo |
+| `status` | `str` | não vazio — `ok`, `error`, `timeout`, `unknown`, `invalid_arguments` |
+| `duration_ms` | `float` | `>= 0` |
+| `size_bytes` | `int` | `>= 0` — tamanho do conteúdo entregue ao modelo |
+| `truncated` | `bool` | conteúdo cortado no limite |
+
+Sem argumentos nem conteúdo.
+
+### `ControllerDecision` — Fase 3, emitido pela 005 (ADR-017)
+
+| Campo | Tipo | Regra |
+|---|---|---|
+| `request_id` | `str` | não vazio |
+| `iteration` | `int` | `>= 0`; `0` só com `action="limit"` |
+| `action` | `Literal["tool", "answer", "invalid", "limit"]` | — |
+| `tool` | `str \| None` | obrigatório e não vazio em `tool`; ausente nas outras |
+| `reason` | `str \| None` | obrigatório em `invalid` e `limit` (em `limit`: `iterations` ou `context`); ausente nas outras |
+
+Sem argumentos de tool nem saída do modelo — o motivo é texto do motor.
+
 Regra comum: campo `str` marcado como "não vazio" rejeita vazio e só-espaços na construção (`ValueError`), como os
 value objects da 001; campos de texto livre são redigidos na serialização, não na construção.
 

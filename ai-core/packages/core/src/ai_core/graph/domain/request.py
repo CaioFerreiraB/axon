@@ -6,11 +6,41 @@ abrir o stream (research R5). Sobrevive a qualquer reescrita do grafo — é o q
 
 from __future__ import annotations
 
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
+from typing import Final
 
-from ai_core.graph.api import ExecutionGrant, ExecutionRequest, ExecutionRequestInvalid, UnknownFlow
+from ai_core.graph.api import (
+    FLOW_AGENTIC,
+    FLOW_CHAT,
+    ExecutionGrant,
+    ExecutionRequest,
+    ExecutionRequestInvalid,
+    UnknownFlow,
+)
+from ai_core.llm.api import ModelRole
 
 USER_ROLE = "user"
+
+REQUIRED_ROLES: Final[Mapping[str, tuple[ModelRole, ...]]] = {
+    FLOW_CHAT: ("generation",),
+    FLOW_AGENTIC: ("controller", "generation"),
+}
+"""Papéis que cada flow usa. `run()` os resolve antes do primeiro evento (FR-013, research R25): papel ausente ou fora
+da allowlist é erro de requisição, não falha no meio do loop."""
+
+TOOL_FLOWS: Final = frozenset({FLOW_AGENTIC})
+"""Flows que só existem com o gateway de tools da 004 (research R16)."""
+
+
+def required_roles(flow: str) -> tuple[ModelRole, ...]:
+    """Papéis exigidos pelo flow; nenhum para um flow sem entrada (um flow de teste, por exemplo)."""
+    return REQUIRED_ROLES.get(flow, ())
+
+
+def offered(names: Collection[str], *, tools: bool) -> frozenset[str]:
+    """Flows que o motor oferece: sem gateway de tools, os que dependem dele ficam de fora — falha fechada, e a
+    validação de Assistants (003) os acusa."""
+    return frozenset(name for name in names if tools or name not in TOOL_FLOWS)
 
 
 def question_of(request: ExecutionRequest) -> str:

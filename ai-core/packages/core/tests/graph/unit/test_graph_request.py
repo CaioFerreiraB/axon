@@ -7,8 +7,15 @@ from typing import Any
 import pytest
 from graph_testkit import Grant, request
 
-from ai_core.graph.api import ExecutionRequestInvalid, UnknownFlow
-from ai_core.graph.domain.request import question_of, validate
+from ai_core.graph.api import FLOW_AGENTIC, FLOW_CHAT, ExecutionRequestInvalid, UnknownFlow
+from ai_core.graph.domain.request import (
+    REQUIRED_ROLES,
+    TOOL_FLOWS,
+    offered,
+    question_of,
+    required_roles,
+    validate,
+)
 
 FLOWS = frozenset({"chat"})
 
@@ -59,3 +66,26 @@ def test_flow_e_conferido_antes_da_pergunta() -> None:
     messages: list[Any] = [{"role": "system", "content": "sem usuário"}]
     with pytest.raises(UnknownFlow):
         validate(request(messages=messages), Grant(flow="nao-existe"), FLOWS)
+
+
+# --- Fase 3 (T029; research R16, R25) --------------------------------------------------------------------------------
+
+
+@pytest.mark.us2
+def test_papeis_exigidos_por_flow() -> None:
+    assert REQUIRED_ROLES[FLOW_CHAT] == ("generation",)
+    assert REQUIRED_ROLES[FLOW_AGENTIC] == ("controller", "generation")
+    assert required_roles(FLOW_AGENTIC) == ("controller", "generation")
+    assert required_roles("sem_entrada") == ()
+
+
+@pytest.mark.us2
+def test_flows_que_exigem_tools() -> None:
+    assert frozenset({FLOW_AGENTIC}) == TOOL_FLOWS
+
+
+@pytest.mark.us2
+def test_sem_gateway_os_flows_de_tool_nao_sao_oferecidos() -> None:
+    names = frozenset({FLOW_CHAT, FLOW_AGENTIC})
+    assert offered(names, tools=False) == frozenset({FLOW_CHAT})
+    assert offered(names, tools=True) == names

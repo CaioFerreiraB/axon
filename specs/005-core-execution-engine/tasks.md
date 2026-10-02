@@ -192,7 +192,7 @@ Caminhos relativos a `ai-core/packages/core/`.
 
 **⚠️ CRITICAL**: nenhuma tarefa da US2 antes desta fase
 
-- [ ] T027 [P] Toque declarado na 009 (ADR-017, [research.md](research.md) R24). **Teste primeiro**:
+- [X] T027 [P] Toque declarado na 009 (ADR-017, [research.md](research.md) R24). **Teste primeiro**:
   `tests/observability/unit/test_observability_controller_decision.py` — `ControllerDecision(request_id, iteration,
   action, tool=None, reason=None)` aceita `action ∈ {"tool", "answer", "invalid", "limit"}` e recusa outras;
   `request_id` não vazio; `iteration` inteiro `≥ 1`, e `0` **só** com `action="limit"`; `tool` obrigatório (não vazio)
@@ -204,23 +204,23 @@ Caminhos relativos a `ai-core/packages/core/`.
   documentação da 009: `specs/009-core-observability-evaluation/contracts/trace-api.md` (nome público, campos, e a frase
   "mudar qualquer linha exige ADR" anotada com a exceção do ADR-017), `contracts/record-format.md` (um exemplo de
   `controller_decision`) e `data-model.md` (seções `ToolCall` e `ControllerDecision`, que faltavam)
-- [ ] T028 [P] `src/ai_core/graph/api.py` (R15, R23, R16; ADR-018). **Teste primeiro** em `tests/graph/unit/test_graph_api.py`:
+- [X] T028 [P] `src/ai_core/graph/api.py` (R15, R23, R16; ADR-018). **Teste primeiro** em `tests/graph/unit/test_graph_api.py`:
   `FLOW_AGENTIC == "agentic"`; `ExecutionIssue(stage, kind, message)` tem `severity == "error"` por default, aceita
   `"notice"` e recusa outro valor com `ValueError`; `ExecutionGrant is ai_core.assistants.api.ExecutionGrant`; os nomes
   públicos ganham `FLOW_AGENTIC`. Depois: `FLOW_AGENTIC: Final = "agentic"`; `type IssueSeverity = Literal["error",
   "notice"]` e o campo `severity: IssueSeverity = "error"` em `ExecutionIssue` (validado); remover o `Protocol`
   `ExecutionGrant` e importar/reexportar `ExecutionGrant` de `ai_core.assistants.api`; docstrings do módulo e de
   `run` atualizadas (o grant é o da 003; a ponte do R3 terminou)
-- [ ] T029 [P] `src/ai_core/graph/domain/request.py` (R16, R25). **Teste primeiro** em
+- [X] T029 [P] `src/ai_core/graph/domain/request.py` (R16, R25). **Teste primeiro** em
   `tests/graph/unit/test_graph_request.py`: `REQUIRED_ROLES[FLOW_CHAT] == ("generation",)` e
   `REQUIRED_ROLES[FLOW_AGENTIC] == ("controller", "generation")`; `TOOL_FLOWS == frozenset({FLOW_AGENTIC})`;
   `offered(names, *, tools)` devolve os nomes sem os de `TOOL_FLOWS` quando `tools=False`; `required_roles(flow)`
   devolve `()` para flow sem entrada. Depois: as constantes e as duas funções (puras)
-- [ ] T030 [P] `src/ai_core/graph/domain/outcome.py` (R23). **Teste primeiro** em
+- [X] T030 [P] `src/ai_core/graph/domain/outcome.py` (R23). **Teste primeiro** em
   `tests/graph/unit/test_graph_outcome.py`: apontamento de validator sai com `severity="notice"` (o `kind` continua
   `ValidatorIssue`); `succeeded(final)` é `True` com só `notice`s e `False` com qualquer `error`, independentemente do
   `kind`. Depois: `_issues` com `severity="notice"`; `succeeded` por `severity`
-- [ ] T031 `tests/graph/graph_testkit.py` (R29) (depende de T028): `Grant(**overrides)` passa a ser **função** que
+- [X] T031 `tests/graph/graph_testkit.py` (R29) (depende de T028): `Grant(**overrides)` passa a ser **função** que
   devolve o `ExecutionGrant` da 003 — `assistant=ASSISTANT`, `principal=Principal(subject="user:test", ...)`,
   `flow="chat"`, `composition=Composition(packs=("generic",))`, `models` com `generation: ollama/qwen3:1.7b` e
   `controller: ctrl/controlador`, `allow=("ollama/*", "ctrl/*")`, `limits=Limits()` —, aceitando os mesmos nomes por
@@ -255,7 +255,7 @@ limite 3: exatamente 3 chamadas ao controller e 3 execuções, geração e `Iter
 > Escrever primeiro e ver falhar. `tests/graph/contract/` e `tests/graph/unit/` (exceto `test_state_view.py`) não
 > importam `langgraph` (SC-001).
 
-- [ ] T032 [P] [US2] `tests/graph/unit/test_graph_actions.py` (R17, R18): `CONTROLLER_INSTRUCTION` é texto do core, sem
+- [X] T032 [P] [US2] `tests/graph/unit/test_graph_actions.py` (R17, R18): `CONTROLLER_INSTRUCTION` é texto do core, sem
   domínio; `action_schema(tools)` devolve `anyOf` com o ramo `answer` primeiro e um ramo por tool na ordem do
   catálogo — `action` `const "tool"`, `name` `const` com o nome, `arguments` = parâmetros saneados, `required` e
   `additionalProperties: false` em cada ramo; o saneamento remove `pattern` e `patternProperties` em qualquer
@@ -268,18 +268,18 @@ limite 3: exatamente 3 chamadas ao controller e 3 execuções, geração e `Iter
   `AnswerAction`; nome fora de qualquer catálogo → `ToolAction` (o gateway decide); hypothesis: para texto arbitrário,
   `parse_action` nunca levanta e o `reason` de uma `InvalidAction` está no conjunto fixo de motivos (nunca contém o
   texto recebido)
-- [ ] T033 [P] [US2] `tests/graph/unit/test_graph_limits.py` (R20): `DEFAULT_MAX_ITERATIONS == 3`;
+- [X] T033 [P] [US2] `tests/graph/unit/test_graph_limits.py` (R20): `DEFAULT_MAX_ITERATIONS == 3`;
   `effective_limit(None) == 3` e `effective_limit(5) == 5`; `after_decision(kind, iteration, limit)` reproduz a tabela
   "Limite" de [contracts/agentic-flow.md](contracts/agentic-flow.md) — `tool`/`invalid` com `n < limite` → volta ao
   controller; com `n == limite` → geração com truncamento; `answer` → geração sem truncamento; `failed` → geração;
   hypothesis: para qualquer sequência de decisões e limite de 1 a 6, a simulação pura nunca passa de `limite` chamadas
-- [ ] T034 [P] [US2] `tests/graph/unit/test_graph_budget.py` (R22): `estimate_tokens(messages)` = soma de
+- [X] T034 [P] [US2] `tests/graph/unit/test_graph_budget.py` (R22): `estimate_tokens(messages)` = soma de
   `ceil(caracteres / 3) + 4` por mensagem, contando conteúdo e, em `tool_calls`, nome e argumentos; `exceeds(messages,
   None)` é sempre `False`; `trim_results(messages, ceiling)` troca o conteúdo das mensagens `tool` **da mais antiga
   para a mais nova** pela marca exata `[resultado omitido: teto de contexto]`, para assim que cabe e devolve as
   mensagens, quantas saíram e se ainda excede (overflow); sem teto, devolve as mensagens intactas; nunca altera
   mensagens que não são `tool`
-- [ ] T035 [P] [US2] `tests/graph/unit/test_graph_transcript.py` (R19): `controller_messages(...)` = sistema (instrução +
+- [X] T035 [P] [US2] `tests/graph/unit/test_graph_transcript.py` (R19): `controller_messages(...)` = sistema (instrução +
   `catalog_text` + `FENCE_INSTRUCTION` da 004, sem prompts de pack), mensagens da requisição, e a transcrição — por
   tool executada, `assistant` com `content=None` e `tool_calls=[{"id": "call-<n>", "name", "arguments": JSON}]` seguido
   de `tool` com `tool_call_id="call-<n>"` e o texto cercado tal como veio; por ação inválida, um `user` com "A ação
@@ -287,12 +287,12 @@ limite 3: exatamente 3 chamadas ao controller e 3 execuções, geração e `Iter
   com transcrição vazia == exatamente as mensagens do `chat` (um `system` por prompt de pack + mensagens da
   requisição); com ao menos um resultado, a `FENCE_INSTRUCTION` entra como `system` logo depois dos prompts de pack, e
   a transcrição vem depois das mensagens da requisição (sem os avisos de ação inválida)
-- [ ] T036 [P] [US2] Estender `tests/graph/unit/test_state_view.py` (R26): com resultados no estado, a Turn View de
+- [X] T036 [P] [US2] Estender `tests/graph/unit/test_state_view.py` (R26): com resultados no estado, a Turn View de
   `validate` traz um `ToolResult` (001) por resultado entregue à geração, na ordem — `content` = texto cercado,
   `untrusted=True`, `truncated` e `error` do `FencedToolResult` —, sem os omitidos pelo teto; `retrieved` = chunks de
   todos os resultados de recuperação; `generation_context` = chunks dos que ficaram; `reranked` vazio; a view de
   `prepare` não tem resultados
-- [ ] T037 [P] [US2] `tests/graph/contract/test_agentic_flow.py`: os itens 13–23 de
+- [X] T037 [P] [US2] `tests/graph/contract/test_agentic_flow.py`: os itens 13–23 de
   [contracts/execution-engine.md](contracts/execution-engine.md) com `FakeCapabilities`, `ScriptedController` e o
   roteador real — (13) `tool_action("generic.calculate", expression="2+2")` e `ANSWER`: uma execução, o resultado
   cercado na última mensagem `tool` da geração, `FENCE_INSTRUCTION` no sistema da geração, `FinalEvent` sem `error`;
@@ -313,15 +313,15 @@ limite 3: exatamente 3 chamadas ao controller e 3 execuções, geração e `Iter
   `stage="load_capabilities"`, sem geração; `session.unavailable` → um `McpUnavailable` com `severity="error"` por alias, e a execução segue com o catálogo
   que há; (23) fechar o iterador depois do progresso `execute_tool` não levanta, não há nova chamada ao controller nem
   à tool, e o trace fecha com `ExecutionFinished(reason="cancelled")`
-- [ ] T038 [P] [US2] `tests/graph/contract/test_agentic_properties.py` (SC-002, SC-005): hypothesis gera roteiros de 1 a
+- [X] T038 [P] [US2] `tests/graph/contract/test_agentic_properties.py` (SC-002, SC-005): hypothesis gera roteiros de 1 a
   10 itens (tool válida, tool inexistente, JSON malformado, `answer`, `ModelCallFailed`) e limites de 1 a 6;
   propriedades: chamadas ao controller ≤ limite; execuções ≤ limite; exatamente um `FinalEvent`, o último; todo
   resultado executado aparece na transcrição da geração e na Turn View de `validate`, na ordem; `ControllerDecision`s ==
   chamadas ao controller que não falharam (+1 quando o loop termina por limite). Sem teto declarado
-- [ ] T039 [P] [US2] Estender `tests/graph/contract/test_flow_registry.py` (R16): sem `capabilities`, `flows() ==
+- [X] T039 [P] [US2] Estender `tests/graph/contract/test_flow_registry.py` (R16): sem `capabilities`, `flows() ==
   {"chat"}` e um grant `agentic` levanta `UnknownFlow` na chamada; com `FakeCapabilities`, `flows() == {"chat",
   "agentic"}`
-- [ ] T040 [P] [US2] `tests/graph/integration/test_agentic_with_generic_pack.py`: `PackRuntime` real carregando o
+- [X] T040 [P] [US2] `tests/graph/integration/test_agentic_with_generic_pack.py`: `PackRuntime` real carregando o
   `ai-generic` por entry point; `CapabilityService` real (004) com `pack_tools=` o `PackRuntime`, MCP pelo `McpService`
   da 007 em memória sem servidores (o arranjo de `tests/capabilities/integration/test_session_mcp.py`, sem transporte
   de rede), `InMemoryAuditLog`; `ScriptedController` com `tool_action("generic.calculate", expression="2+2")` e
@@ -332,36 +332,36 @@ limite 3: exatamente 3 chamadas ao controller e 3 execuções, geração e `Iter
 
 ### Implementation for User Story 2
 
-- [ ] T041 [P] [US2] `src/ai_core/graph/domain/actions.py` (R17, R18): `CONTROLLER_INSTRUCTION`; `ToolAction(name,
+- [X] T041 [P] [US2] `src/ai_core/graph/domain/actions.py` (R17, R18): `CONTROLLER_INSTRUCTION`; `ToolAction(name,
   arguments)`, `AnswerAction`, `InvalidAction(reason)` (dataclasses congeladas); `sanitize(parameters)`;
   `action_schema(tools)`; `response_format(tools)`; `catalog_text(tools)`; `parse_action(content)`. Recebe
   `CatalogTool` da 004; só stdlib e `api.py`s (faz T032 passar)
-- [ ] T042 [P] [US2] `src/ai_core/graph/domain/limits.py` (R20): `DEFAULT_MAX_ITERATIONS: Final = 3`,
+- [X] T042 [P] [US2] `src/ai_core/graph/domain/limits.py` (R20): `DEFAULT_MAX_ITERATIONS: Final = 3`,
   `effective_limit`, `after_decision` com o resultado `Route(next: Literal["controller", "generate"], truncated: bool)`
   (faz T033 passar)
-- [ ] T043 [P] [US2] `src/ai_core/graph/domain/budget.py` (R22): `CHARS_PER_TOKEN: Final = 3`,
+- [X] T043 [P] [US2] `src/ai_core/graph/domain/budget.py` (R22): `CHARS_PER_TOKEN: Final = 3`,
   `MESSAGE_OVERHEAD: Final = 4`, `OMITTED: Final = "[resultado omitido: teto de contexto]"`, `estimate_tokens`,
   `exceeds`, `trim_results` com resultado `Trimmed(messages, omitted, overflow)` (faz T034 passar)
-- [ ] T044 [US2] `src/ai_core/graph/domain/transcript.py` (R19) (depende de T041): `Step` (tool executada com
+- [X] T044 [US2] `src/ai_core/graph/domain/transcript.py` (R19) (depende de T041): `Step` (tool executada com
   `ToolCall` e `FencedToolResult`, ou ação inválida com motivo), `controller_messages`, `generation_messages` (faz T035
   passar)
-- [ ] T045 [US2] `src/ai_core/graph/ports.py`: `ExecutionPlan` ganha `grant: ExecutionGrant`, `capabilities:
+- [X] T045 [US2] `src/ai_core/graph/ports.py`: `ExecutionPlan` ganha `grant: ExecutionGrant`, `capabilities:
   Capabilities | None`, `max_iterations: int | None` e `max_context_tokens: int | None` (os dois `None` no `chat`, R22)
-- [ ] T046 [US2] `src/ai_core/graph/service.py` (R16, R25) (depende de T029, T045): `capabilities: Capabilities | None
+- [X] T046 [US2] `src/ai_core/graph/service.py` (R16, R25) (depende de T029, T045): `capabilities: Capabilities | None
   = None` no construtor; `flows()` = `offered(runtime.names(), tools=capabilities is not None)`; `run()` valida o flow
   contra `flows()`, resolve `for_role` de cada papel de `required_roles(grant.flow)` no roteador da execução e converte
   `ModelRoutingError` em `ExecutionRequestInvalid("papel '<papel>': <motivo>")`, e só no flow de `TOOL_FLOWS` lê
   `effective_limit(grant.limits.max_iterations)` e `grant.limits.max_context_tokens` para o plano
-- [ ] T047 [US2] `src/ai_core/graph/adapters/langgraph/state.py` e `view.py` (R26, R31): `AgentState` ganha `iteration`,
+- [X] T047 [US2] `src/ai_core/graph/adapters/langgraph/state.py` e `view.py` (R26, R31): `AgentState` ganha `iteration`,
   `limit`, `ceiling`, `next_action`, e os acumuladores com `operator.add` `steps` e `decisions`; `AgentContext` ganha
   `grant`, `capabilities` e um compartimento mutável para a `ToolSession`; `turn_view` projeta `tool_results`,
   `retrieved` e `generation_context` a partir dos passos entregues à geração (faz T036 passar)
-- [ ] T048 [US2] `src/ai_core/graph/adapters/langgraph/nodes/` (R31) (depende de T044, T047): mover `nodes.py` para
+- [X] T048 [US2] `src/ai_core/graph/adapters/langgraph/nodes/` (R31) (depende de T044, T047): mover `nodes.py` para
   `nodes/common.py` (canais `TOKEN`/`PROGRESS`, `prepare_context`, `generate`, `validate_answer`), com `generate`
   montando as mensagens por `generation_messages` e, quando há teto, aplicando `trim_results` e registrando
   `ContextTrimmed`/`ContextOverflow` (`notice`, estágio `generate`); `nodes/__init__.py` só com docstring; ajustar os
   imports de `flows.py` e `runtime.py`
-- [ ] T049 [US2] `src/ai_core/graph/adapters/langgraph/nodes/agentic.py` (R16, R20–R22, R24, R27, R28) (depende de
+- [X] T049 [US2] `src/ai_core/graph/adapters/langgraph/nodes/agentic.py` (R16, R20–R22, R24, R27, R28) (depende de
   T041–T044, T048): `load_capabilities` (progresso; `ToolContext` com `retrieval_filters` = por pack, o valor de
   `RETRIEVAL_FILTERS_KEY` da fatia quando é mapeamento; abre a sessão e guarda no compartimento; um `McpUnavailable`
   `error` por alias de `unavailable`); `controller` (checa o teto pelas `controller_messages` antes de chamar —
@@ -370,14 +370,14 @@ limite 3: exatamente 3 chamadas ao controller e 3 execuções, geração e `Iter
   no trace e rota para a geração; `parse_action`; `ControllerDecision` com `tool`/`answer`/`invalid`; rota por
   `after_decision`, com `IterationLimit` e `ControllerDecision(limit, reason="iterations")` quando trunca);
   `execute_tool` (progresso com o nome; `session.execute(ToolCall(...))`; acumula o passo; rota por `after_decision`)
-- [ ] T050 [US2] `src/ai_core/graph/adapters/langgraph/flows.py` (depende de T049): `agentic_graph()` com
+- [X] T050 [US2] `src/ai_core/graph/adapters/langgraph/flows.py` (depende de T049): `agentic_graph()` com
   `prepare_context → load_capabilities → (controller | generate)`, `controller ⇄ execute_tool`, `→ generate →
   validate_answer`, arestas condicionais chamando só funções de `domain/` (catálogo vazio → `generate`, R27);
   `compiled_flows()` registra `chat` e `agentic`
-- [ ] T051 [US2] `src/ai_core/graph/adapters/langgraph/runtime.py` (depende de T050): estado inicial e `AgentContext`
+- [X] T051 [US2] `src/ai_core/graph/adapters/langgraph/runtime.py` (depende de T050): estado inicial e `AgentContext`
   com os campos do loop vindos do plano; `_issue` mapeia `CatalogConflict` para `stage="load_capabilities"`; o
   `FinalEvent` junta os registros acumulados (com `severity`) e o resultado dos validators
-- [ ] T052 [US2] Rodar `uv run pytest packages/core/tests/graph` a partir de `ai-core/` até T032–T040 passarem (e os
+- [X] T052 [US2] Rodar `uv run pytest packages/core/tests/graph` a partir de `ai-core/` até T032–T040 passarem (e os
   testes da Fase 1 continuarem verdes), com `uv run mypy` e `uv run ruff check packages` limpos
 
 **Checkpoint**: a US2 está completa e testável sozinha, com gateway falso e com o real da 004
@@ -386,18 +386,18 @@ limite 3: exatamente 3 chamadas ao controller e 3 execuções, geração e `Iter
 
 ## Phase 7: Polish da Fase 3
 
-- [ ] T053 Contratos de import-linter de [research.md](research.md) R32 em `ai-core/pyproject.toml`: `ai_core.graph` não
+- [X] T053 Contratos de import-linter de [research.md](research.md) R32 em `ai-core/pyproject.toml`: `ai_core.graph` não
   importa `ai_core.mcp` (nenhum submódulo, nem o `api.py`); `ai_core.capabilities` e `ai_core.mcp` entram nas fontes do
   contrato "o framework de grafo só existe no adapter do motor"; descrição da marca `us2` passa a citar também
   "005 US2 — flow agentic"; `uv run lint-imports` com todos `KEPT`
-- [ ] T054 Executar as seções da Fase 3 de [quickstart.md](quickstart.md) e corrigir divergências entre o resultado e o
+- [X] T054 Executar as seções da Fase 3 de [quickstart.md](quickstart.md) e corrigir divergências entre o resultado e o
   "Esperado"
-- [ ] T055 [P] Documentação: linha da 005 em `specs/README.md` ("Fase 1 implementada (US1: flow `chat`); Fase 3
+- [X] T055 [P] Documentação: linha da 005 em `specs/README.md` ("Fase 1 implementada (US1: flow `chat`); Fase 3
   implementada (US2: flow `agentic`)"), a menção ao ADR-017 na linha do seam Trace Sink e ao ADR-018 na do seam
   Execution Engine; seção "Código" de
   `CLAUDE.md` (o `agentic` existe, o grant é o da 003, o `ExecutionService` aceita `capabilities` e a 011 o liga na
   passada dela; `ControllerDecision` na 009)
-- [ ] T056 Verificação completa a partir de `ai-core/`: `uv run pytest`, `uv run mypy`, `uv run ruff check packages`,
+- [X] T056 Verificação completa a partir de `ai-core/`: `uv run pytest`, `uv run mypy`, `uv run ruff check packages`,
   `uv run lint-imports`, e a suíte com `AI_CORE_TEST_POSTGRES_DSN` apontando para o Postgres de teste
 
 ---

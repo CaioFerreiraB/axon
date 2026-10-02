@@ -67,7 +67,8 @@ saúde sob demanda, trace por chamada e o provider local do Ollama pela camada c
 confinado a `adapters/` por import-linter), mais o provider simulado do perfil de teste; OpenAI e OpenRouter são Fase 3
 — e o motor de execução (`ai_core/graph/`, spec 005, Fase 1: US1) — seam Execution Engine (`run(grant, request)` →
 token, progresso e evento final), o flow `chat` em LangGraph (framework preso a `adapters/langgraph/` por
-import-linter) e o grant chegando como `Protocol` estrutural até a 003 existir; `agentic` e `rag_first` são Fases 3 e 5
+import-linter) e o grant chegando como `Protocol` estrutural até a 003 existir (substituído pelo grant da 003 na Fase 3,
+ADR-018); `agentic` é Fase 3 (abaixo) e `rag_first`, Fase 5
 — e a API HTTP (`ai_core/http/`, spec 008, Fase 1: US1) — chat completions compatível com OpenAI, com e sem streaming
 SSE, nas superfícies `/v1` e `/private/v1`, com autenticação e resolução de Assistant atrás de portas até a 003
 existir; listagem de modelos, conversas e fila são Fases 2 e 7 — e a composition root (`ai_core/bootstrap/`, spec 011,
@@ -119,8 +120,19 @@ em esquema de MCP; prazo e tamanho do gateway; resultado cercado em `<tool_resul
 de escrita é auditada **antes** de executar (sem auditoria, não executa), em memória ou Postgres (schema
 `capabilities`); `audit_command` em `adapters/cli.py`. Cada chamada vira o evento `tool_call` da 009 (acrescentado
 nesta passada). A 002 já expõe o seam **Pack Toolset** (`PackRuntime.toolset(composition)`, US3 cen. 1), que cumpre
-a porta `PackToolSource` da 004. Falta ligar: a 003 (exemplo com namespace e a regra de colisão alias × pack), a 005
-(flow `agentic`) e a 011 (perfis, limites, `ai-core audit`).
+a porta `PackToolSource` da 004. Falta ligar: a 003 (exemplo com namespace e a regra de colisão alias × pack) e a 011
+(perfis, limites, `ai-core audit`).
+O motor tem o flow `agentic` (spec 005, US2): a sessão de tools da 004 abre depois da preparação; a cada iteração o
+papel `controller` devolve uma ação por `response_format` (um ramo `anyOf` por tool do catálogo, parâmetros sem regex),
+o gateway executa e o resultado cercado volta pelo formato nativo de tool (`assistant` com `tool_calls` + `tool`), com
+a `FENCE_INSTRUCTION` no sistema. Limite do grant ou 3; teto de contexto do grant aplicado ao loop e à geração
+(estimativa por caracteres, resultados mais antigos omitidos com marca); falha do controller segue para a geração.
+As políticas são puras em `ai_core/graph/domain/` (`actions`, `limits`, `budget`, `transcript`). Mudanças de seam no
+ADR-018: o motor recebe o `ExecutionGrant` da 003 (reexportado pelo `api.py` da 005) e `ExecutionIssue` tem `severity`
+(`error`/`notice`; `ExecutionFinished.ok` ignora `notice`). A decisão do controller é o evento `controller_decision` da
+009 (ADR-017). O `ExecutionService` aceita `capabilities` (seam da 004): sem ele, `agentic` não está em `flows()` — a
+011 o liga na passada de encaixe dela, e a 008 passa a decidir o `finish_reason` por `severity`. Checkpoint adiado até
+haver retomada (FR-014).
 
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =

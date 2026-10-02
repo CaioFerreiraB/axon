@@ -1,4 +1,4 @@
-"""Nós do grafo: finos por construção.
+"""Nós comuns aos flows: preparação, geração e validação.
 
 Cada nó delega a um seam (002, 006) ou a uma função pura de `domain/` e escreve no canal de stream. É esta magreza que
 torna o grafo reescrevível: a lógica vive nos serviços, o grafo só ordena (ADR-001, SC-001).
@@ -13,8 +13,10 @@ from langgraph.runtime import get_runtime
 
 from ai_core.graph.adapters.langgraph.state import AgentContext, AgentState
 from ai_core.graph.adapters.langgraph.view import turn_view
+from ai_core.graph.api import ExecutionIssue
+from ai_core.graph.domain.budget import Trimmed, estimate_tokens, trim_results
+from ai_core.graph.domain.transcript import generation_messages
 from ai_core.observability.api import ValidationRun
-from ai_core_contracts import ChatMessage
 
 STAGE_PREPARE = "prepare_context"
 STAGE_GENERATE = "generate"
@@ -41,27 +43,55 @@ async def prepare_context(state: AgentState) -> dict[str, Any]:
 
 
 async def generate(state: AgentState) -> dict[str, Any]:
-    """Geração pelo papel `generation` (006), com os fragmentos de instrução dos packs (002).
+    """Geração pelo papel `generation` (006), com os fragmentos de instrução dos packs (002) e, no `agentic`, a
+    transcrição do loop (`domain/transcript.py`).
 
     O progresso sai **antes** da primeira chamada: é o primeiro sinal que a SC-004 mede, e ele chega mesmo quando o
-    modelo demora a produzir o primeiro token.
+    modelo demora a produzir o primeiro token. Com teto de contexto (só no `agentic`), os resultados mais antigos saem
+    antes da chamada (`domain/budget.py`, R22) e a redução fica registrada.
     """
     ctx = _context()
     writer = _writer()
     writer({"kind": PROGRESS, "stage": STAGE_GENERATE})
 
-    messages: list[ChatMessage] = [
-        {"role": "system", "content": prompt} for prompt in ctx.hooks.system_prompts(ctx.composition)
-    ]
-    messages.extend({"role": m["role"], "content": m["content"]} for m in state.get("messages", ()))
+    prompts = ctx.hooks.system_prompts(ctx.composition)
+    full = generation_messages(prompts, state.get("messages", ()), state.get("steps", ()))
+    ceiling = state.get("ceiling")
+    trimmed = trim_results(full, ceiling)
 
     pieces: list[str] = []
-    async for chunk in ctx.router.for_role("generation").stream(messages):
+    async for chunk in ctx.router.for_role("generation").stream(trimmed.messages):
         text = chunk["delta"]
         if text:
             pieces.append(text)
             writer({"kind": TOKEN, "text": text})
-    return {"answer": "".join(pieces)}
+    return {"answer": "".join(pieces), "omitted": trimmed.omitted, "errors": _budget_issues(trimmed, ceiling)}
+
+
+def _budget_issues(trimmed: Trimmed, ceiling: int | None) -> list[ExecutionIssue]:
+    issues: list[ExecutionIssue] = []
+    if trimmed.omitted:
+        issues.append(
+            ExecutionIssue(
+                stage=STAGE_GENERATE,
+                kind="ContextTrimmed",
+                message=f"{trimmed.omitted} resultado(s) de tool omitido(s) para caber no teto de {ceiling} tokens",
+                severity="notice",
+            )
+        )
+    if trimmed.overflow:
+        issues.append(
+            ExecutionIssue(
+                stage=STAGE_GENERATE,
+                kind="ContextOverflow",
+                message=(
+                    f"contexto estimado em {estimate_tokens(trimmed.messages)} tokens, acima do teto de {ceiling}, "
+                    "mesmo sem resultados de tool"
+                ),
+                severity="notice",
+            )
+        )
+    return issues
 
 
 async def validate_answer(state: AgentState) -> dict[str, Any]:

@@ -13,11 +13,13 @@ from __future__ import annotations
 
 import operator
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Annotated, TypedDict
+from typing import Annotated, Literal, TypedDict
 
-from ai_core.graph.api import ExecutionIssue
+from ai_core.capabilities.api import Capabilities, ToolCall, ToolSession
+from ai_core.graph.api import ExecutionGrant, ExecutionIssue
+from ai_core.graph.domain.transcript import Step
 from ai_core.llm.api import ModelRouter
 from ai_core.observability.api import TraceSink
 from ai_core.packs.api import Composition, PackHooks, ValidationOutcome
@@ -27,9 +29,9 @@ from ai_core_contracts import Citation, JSONValue, Message
 class AgentState(TypedDict, total=False):
     """Dados que a execução carrega entre os passos.
 
-    `errors` acumula com reducer — não por necessidade do `chat`, que é linear, mas porque é o que impede perda quando
-    o grafo ganhar loop e ramos na Fase 3 (FR-009, SC-005). Campos de retrieval, catálogo e loop entram nas fases
-    deles; `messages` é lista simples porque as mensagens deste projeto são as do contrato 001, não as do framework.
+    `errors`, `steps` e `decisions` acumulam com reducer: é o que impede perda entre as iterações do loop (FR-009,
+    SC-005). `messages` é lista simples porque as mensagens deste projeto são as do contrato 001, não as do framework.
+    Os campos do loop só existem no `agentic`; o `chat` não os lê.
     """
 
     # identidade — escrita uma vez
@@ -50,15 +52,42 @@ class AgentState(TypedDict, total=False):
     citations: Sequence[Citation]
     validation: ValidationOutcome | None
 
+    # controle do loop (agentic) — research R20, R22
+    iteration: int
+    limit: int | None
+    ceiling: int | None
+    route: Literal["controller", "execute_tool", "generate"]
+    pending: ToolCall | None
+    omitted: int
+
     # acumuladores (reducer obrigatório)
     errors: Annotated[list[ExecutionIssue], operator.add]
+    steps: Annotated[list[Step], operator.add]
+    decisions: Annotated[list[str], operator.add]
+
+
+class ToolSlot:
+    """Compartimento da sessão de tools: a sessão só existe depois da preparação (precisa dos filtros das fatias), e
+    é o passo `load_capabilities` que a abre e a guarda aqui para os passos seguintes da mesma execução."""
+
+    def __init__(self) -> None:
+        self.session: ToolSession | None = None
+
+    def get(self) -> ToolSession:
+        if self.session is None:
+            raise RuntimeError("sessão de tools usada antes de ser aberta")
+        return self.session
 
 
 @dataclass(frozen=True, slots=True)
 class AgentContext:
-    """Serviços de uma execução, já restritos. Chega pronto: nenhum nó resolve política nem filtra capacidade."""
+    """Serviços de uma execução, já restritos. Chega pronto: nenhum nó resolve política nem filtra capacidade — o
+    catálogo é o que a 004 monta com o grant."""
 
     composition: Composition
     hooks: PackHooks
     router: ModelRouter
     trace: TraceSink
+    grant: ExecutionGrant | None = None
+    capabilities: Capabilities | None = None
+    tools: ToolSlot = field(default_factory=ToolSlot)

@@ -6,7 +6,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
-from graph_testkit import Grant, engine, request
+from graph_testkit import FakeCapabilities, Grant, agentic, engine, request
 
 from ai_core.graph.api import ExecutionEvent, FinalEvent, UnknownFlow
 from ai_core.graph.ports import ExecutionPlan
@@ -45,3 +45,19 @@ async def test_registrar_um_flow_novo_nao_exige_mudanca_em_outro_modulo(trace: A
     events = [event async for event in motor.run(Grant(flow="experimental"), request())]
     assert runtime.executed == ["experimental"]
     assert events[-1].answer == "flow experimental"
+
+
+# --- Fase 3 (T039; research R16) ------------------------------------------------------------------------------------
+
+
+@pytest.mark.us2
+def test_sem_gateway_o_agentic_nao_e_oferecido() -> None:
+    assert engine().flows() == frozenset({"chat"})
+    with pytest.raises(UnknownFlow, match="agentic"):
+        engine().run(agentic(), request())
+
+
+@pytest.mark.us2
+def test_com_gateway_o_agentic_e_oferecido() -> None:
+    assert engine(capabilities=FakeCapabilities()).flows() == frozenset({"chat", "agentic"})
+

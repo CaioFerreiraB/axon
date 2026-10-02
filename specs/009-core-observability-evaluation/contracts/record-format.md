@@ -52,9 +52,15 @@ arquivo truncado por queda de processo não impede consultar o resto ([research.
 {"at": "…", "type": "execution_finished", "request_id": "req-7f3a", "ok": true, "duration_ms": 9102.7}
 {"at": "…", "type": "tool_call", "request_id": "req-7f3a", "tool": "financeiro.saldo", "kind": "mcp",
  "status": "ok", "duration_ms": 182.4, "size_bytes": 340, "truncated": false}
+{"at": "…", "type": "controller_decision", "request_id": "req-7f3a", "iteration": 1, "action": "tool",
+ "tool": "financeiro.saldo"}
+{"at": "…", "type": "controller_decision", "request_id": "req-7f3a", "iteration": 3, "action": "limit",
+ "reason": "iterations"}
 ```
 
-No último exemplo, `reason` é `None` e por isso não aparece.
+No exemplo de `execution_finished`, `reason` é `None` e por isso não aparece; o mesmo vale para `tool` e `reason` do
+`controller_decision` quando a ação não os tem. `tool_call` (004) e `controller_decision` (005) entraram na Fase 3 sob o
+[ADR-017](../../../docs/adr/ADR-017-trace-sink-cresce-por-eventos-aditivos.md).
 
 ## Redação no registro
 

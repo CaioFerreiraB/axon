@@ -11,6 +11,7 @@ from typing import Any
 from graph_testkit import (
     MODEL,
     REFERENCE_TIME,
+    Grant,
     RecordingTraceSink,
     provider,
     request,
@@ -20,7 +21,6 @@ from ai_core.graph.adapters.clock import FixedClock
 from ai_core.graph.adapters.langgraph import langgraph_runtime
 from ai_core.graph.api import FinalEvent, ProgressEvent, TokenEvent
 from ai_core.graph.service import ExecutionService
-from ai_core.llm.api import ModelPolicy, ModelRef
 from ai_core.llm.service import ModelRoutingService
 from ai_core.observability.api import ExecutionFinished, ExecutionStarted, ModelCall, ValidationRun
 from ai_core.packs.adapters.entry_points import EntryPointPackSource
@@ -28,18 +28,6 @@ from ai_core.packs.adapters.memory import InMemoryPackConfigSource
 from ai_core.packs.api import PackStatus
 from ai_core.packs.ports import PackSettings
 from ai_core.packs.service import PackRuntime
-
-
-class RealGrant:
-    """O grant que a 011 monta na Fase 1: composição vinda do Pack Registry e política de modelos da 006."""
-
-    def __init__(self, composition: Any) -> None:
-        self.assistant = "geral"
-        self.flow = "chat"
-        self.composition = composition
-        self.models = ModelPolicy(
-            roles={"generation": ModelRef(provider="ollama", model=MODEL)}, allow=("ollama/*",)
-        )
 
 
 def _runtime() -> PackRuntime:
@@ -68,7 +56,7 @@ async def test_conversa_ponta_a_ponta_com_o_pack_de_referencia() -> None:
     llm = provider(deltas=("Bras", "ília"))
     composition = packs.compose(["generic"])
 
-    events = [event async for event in _engine(packs, trace, llm).run(RealGrant(composition), request())]
+    events = [event async for event in _engine(packs, trace, llm).run(Grant(composition=composition), request())]
 
     assert [event.stage for event in events if isinstance(event, ProgressEvent)] == [
         "prepare_context",
@@ -86,7 +74,7 @@ async def test_o_prompt_do_pack_entra_como_mensagem_de_sistema() -> None:
     packs = _runtime()
     llm = provider()
     trace = RecordingTraceSink()
-    async for _ in _engine(packs, trace, llm).run(RealGrant(packs.compose(["generic"])), request()):
+    async for _ in _engine(packs, trace, llm).run(Grant(composition=packs.compose(["generic"])), request()):
         pass
 
     enviadas = llm.calls[0]["messages"]
@@ -98,7 +86,7 @@ async def test_o_prompt_do_pack_entra_como_mensagem_de_sistema() -> None:
 async def test_o_validator_do_pack_roda_e_aparece_no_trace() -> None:
     packs = _runtime()
     trace = RecordingTraceSink()
-    async for _ in _engine(packs, trace, provider()).run(RealGrant(packs.compose(["generic"])), request()):
+    async for _ in _engine(packs, trace, provider()).run(Grant(composition=packs.compose(["generic"])), request()):
         pass
 
     runs = trace.of_type(ValidationRun)
@@ -110,9 +98,8 @@ async def test_resposta_vazia_e_reprovada_pelo_validator_do_pack() -> None:
     packs = _runtime()
     trace = RecordingTraceSink()
     llm = provider(deltas=("",))
-    events = [
-        event async for event in _engine(packs, trace, llm).run(RealGrant(packs.compose(["generic"])), request())
-    ]
+    grant = Grant(composition=packs.compose(["generic"]))
+    events = [event async for event in _engine(packs, trace, llm).run(grant, request())]
 
     final = events[-1]
     assert isinstance(final, FinalEvent)
@@ -125,7 +112,7 @@ async def test_o_trace_da_requisicao_tem_a_execucao_e_a_chamada_de_modelo() -> N
     """A 006 emite a chamada de modelo; a 005 emite começo e fim. Nenhuma das duas duplica a outra."""
     packs = _runtime()
     trace = RecordingTraceSink()
-    async for _ in _engine(packs, trace, provider()).run(RealGrant(packs.compose(["generic"])), request()):
+    async for _ in _engine(packs, trace, provider()).run(Grant(composition=packs.compose(["generic"])), request()):
         pass
 
     assert len(trace.of_type(ExecutionStarted)) == 1

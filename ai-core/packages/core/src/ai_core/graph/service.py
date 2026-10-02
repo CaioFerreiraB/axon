@@ -9,16 +9,19 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 
+from ai_core.capabilities.api import Capabilities
 from ai_core.graph.api import (
     ExecutionEvent,
     ExecutionGrant,
     ExecutionRequest,
+    ExecutionRequestInvalid,
     FinalEvent,
 )
+from ai_core.graph.domain.limits import effective_limit
 from ai_core.graph.domain.outcome import succeeded
-from ai_core.graph.domain.request import validate
+from ai_core.graph.domain.request import TOOL_FLOWS, offered, required_roles, validate
 from ai_core.graph.ports import Clock, ExecutionPlan, FlowRuntime
-from ai_core.llm.api import ModelRouting
+from ai_core.llm.api import ModelRouter, ModelRouting, ModelRoutingError
 from ai_core.observability.api import ExecutionFinished, ExecutionStarted, TraceSink
 from ai_core.packs.api import PackHooks
 
@@ -36,16 +39,19 @@ class ExecutionService:
         routing: ModelRouting,
         trace: TraceSink,
         clock: Clock,
+        capabilities: Capabilities | None = None,
     ) -> None:
         self._flows = flows
         self._hooks = hooks
         self._routing = routing
         self._trace = trace
         self._clock = clock
+        self._capabilities = capabilities
 
     def flows(self) -> frozenset[str]:
-        """Nomes de flow disponíveis; `assistants validate` (003) os usa como dado."""
-        return self._flows.names()
+        """Nomes de flow disponíveis; `assistants validate` (003) os usa como dado. Sem o gateway de tools da 004, os
+        flows que dependem dele não são oferecidos (research R16)."""
+        return offered(self._flows.names(), tools=self._capabilities is not None)
 
     def run(self, grant: ExecutionGrant, request: ExecutionRequest) -> AsyncIterator[ExecutionEvent]:
         """Valida e devolve o fluxo de eventos.
@@ -53,8 +59,11 @@ class ExecutionService:
         Não é gerador de propósito: a validação precisa levantar **nesta chamada**, para que a 008 responda 4xx sem
         abrir o stream e sem custo (research R5).
         """
-        question = validate(request, grant, self._flows.names())
+        question = validate(request, grant, self.flows())
+        router = self._routing.for_execution(policy=grant.models, request_id=request.request_id)
+        _resolve_roles(router, grant.flow)
         reference_time = request.reference_time or self._clock.now()
+        tools = grant.flow in TOOL_FLOWS
         plan = ExecutionPlan(
             flow=grant.flow,
             request_id=request.request_id,
@@ -64,8 +73,12 @@ class ExecutionService:
             messages=request.messages,
             composition=grant.composition,
             hooks=self._hooks,
-            router=self._routing.for_execution(policy=grant.models, request_id=request.request_id),
+            router=router,
             trace=self._trace,
+            grant=grant,
+            capabilities=self._capabilities if tools else None,
+            max_iterations=effective_limit(grant.limits.max_iterations) if tools else None,
+            max_context_tokens=grant.limits.max_context_tokens if tools else None,
         )
         return self._events(plan, stream=request.stream)
 
@@ -97,3 +110,13 @@ class ExecutionService:
                     reason=None if final is not None else CANCELLED,
                 )
             )
+
+
+def _resolve_roles(router: ModelRouter, flow: str) -> None:
+    """Papéis do flow resolvidos antes do primeiro evento (FR-013, research R25). Resolver não faz I/O (006)."""
+    for role in required_roles(flow):
+        try:
+            router.for_role(role)
+        except ModelRoutingError as error:
+            raise ExecutionRequestInvalid(f"papel '{role}': {error}") from error
+

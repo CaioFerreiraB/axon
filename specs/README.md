@@ -176,7 +176,7 @@ Ao criar spec nova, use o próximo número livre **dentro do bloco** (ver [CLAUD
 | [002](002-core-pack-runtime/spec.md) | Descoberta, carga e composição de packs + build da instalação | `ai_core/packs` | 1–4 | Fase 1 implementada (US1, US2, US3 cen. 2–4); Fase 2 (US4) e Fase 3 (US3 cen. 1, Pack Toolset) implementadas |
 | [003](003-core-assistants-access/spec.md) | Assistants, identidade e autorização | `ai_core/assistants` | 2 | Fase 2 implementada (US1–US7) e ligada pela 008 e pela 011 |
 | [004](004-core-capability-gateway/spec.md) | Catálogo de capacidades e execução segura de tools | `ai_core/capabilities` | 3 | Fase 3 implementada (US1–US5); encaixe pela 002, 003, 005 e 011 nas passadas delas |
-| [005](005-core-execution-engine/spec.md) | Motor de execução (flows / grafo) | `ai_core/graph` | 1, 3, 5 | Fase 1 implementada (US1: flow `chat`) |
+| [005](005-core-execution-engine/spec.md) | Motor de execução (flows / grafo) | `ai_core/graph` | 1, 3, 5 | Fase 1 implementada (US1: flow `chat`); Fase 3 implementada (US2: flow `agentic`); encaixe na 011 (`capabilities`) e na 008 (`severity`) nas passadas delas |
 | [006](006-core-llm-providers/spec.md) | Providers de LLM e modelo por papel | `ai_core/llm` | 1, 3 | Fase 1 implementada (US1) |
 | [007](007-core-mcp-integration/spec.md) | Registry e cliente MCP | `ai_core/mcp` | 3 | Fase 3 implementada (US1–US6); encaixe pela 003, 008 e 011 nas passadas delas |
 | [008](008-core-http-api/spec.md) | API HTTP, compat OpenAI, streaming, histórico | `ai_core/http` | 1, 2, 3, 7 | Fases 1 e 2 implementadas (US1; US2, US3, US4 Assistants, US5, US7); MCP na Fase 3; fila e Open WebUI na Fase 7 |
@@ -209,10 +209,10 @@ secundárias (armazenamento, relógio, segredos…) não são seams: são intern
 | **API Key Admin** | 003 | 008 | Emissão, listagem e revogação de chaves de API (superfície privada; a CLI é adapter da própria 003) |
 | **Capability Catalog** + **Tool Gateway** | 004 | 005 | Uma sessão por execução (`Capabilities.open(grant, contexto)`): catálogo com namespace, já filtrado, e execução de tool com validação, timeout, limite, cerca, política de escrita e auditoria antes da escrita |
 | **Consulta de auditoria** | 004 | 011 (`ai-core audit`) | Registros de tools de escrita, filtrados por Principal, Assistant, tool e período |
-| **Execution Engine** (`run(grant, request) → eventos`) + **nomes de flow** | 005 | 008, 009, 003 (valida nomes) | Única porta de entrada para executar; saída é um fluxo de eventos |
+| **Execution Engine** (`run(grant, request) → eventos`) + **nomes de flow** | 005 | 008, 009, 003 (valida nomes) | Única porta de entrada para executar; saída é um fluxo de eventos. O grant é o da 003 e os registros têm gravidade `error`/`notice` ([ADR-018](../docs/adr/ADR-018-seam-execution-engine-fase-3.md)) |
 | **Model Router** | 006 | 005; 003 (só os value objects da política — [ADR-016](../docs/adr/ADR-016-grant-carrega-politica-de-modelos.md)) | Resolve provider+modelo por papel, aplicando allowlist |
 | **MCP Registry** + **catálogo de aliases** + **cliente MCP restrito** | 007 | 003 (catálogo, na forma de `McpDirectory`), 004 (cliente), 008 (registry) | Servidores por alias, escopo e política; cliente limitado aos aliases do grant, com `discover` que devolve também os servidores com falha |
-| **Trace Sink** | 009 | 004, 005, 006 | Porta de emissão de dados de trace por requisição; o backend é adapter ([ADR-013](../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md)) |
+| **Trace Sink** | 009 | 004, 005, 006 | Porta de emissão de dados de trace por requisição; o backend é adapter ([ADR-013](../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md)); cresce por eventos aditivos sem argumento nem conteúdo — `tool_call` (004), `controller_decision` (005) ([ADR-017](../docs/adr/ADR-017-trace-sink-cresce-por-eventos-aditivos.md)) |
 | **Trace** + **Eval Harness** (formato de conjunto dourado) | 009 | 008 (id de requisição), 105, CI | Consulta de trace por requisição; execução de conjuntos dourados, com data de referência por item |
 | **API HTTP** | 008 | clientes externos (Open WebUI) | Superfícies `/v1` e `/private/v1` |
 | **Índice do scouting** (modelo de chunk indexado + porta `ChunkIndex`) | 102 | 103, 106; 104 (só o modelo) | Contrato interno do `ai-scouting`; o schema do Qdrant é detalhe do adapter |

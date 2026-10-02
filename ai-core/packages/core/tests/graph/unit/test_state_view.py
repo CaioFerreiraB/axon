@@ -8,9 +8,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from graph_testkit import ASSISTANT, MESSAGES, REFERENCE_TIME, REQUEST_ID, Grant, ScriptedHooks, engine, request
+import pytest
+from graph_testkit import ASSISTANT, MESSAGES, REFERENCE_TIME, REQUEST_ID, ScriptedHooks, engine, fenced, request
 
+from ai_core.capabilities.api import FencedToolResult, ToolCall
 from ai_core.graph.adapters.langgraph.view import turn_view
+from ai_core.graph.api import ExecutionGrant
+from ai_core.graph.domain.transcript import InvalidStep, ToolStep
+from ai_core_contracts import Chunk, ToolResult
 
 
 def state(**overrides: Any) -> Any:
@@ -47,7 +52,7 @@ def test_resposta_e_citacoes_aparecem_quando_ja_existem() -> None:
     assert tuple(view.citations) == ({"chunk_id": "c1"},)
 
 
-async def test_a_mesma_data_de_referencia_chega_a_todos_os_hooks(grant: Grant) -> None:
+async def test_a_mesma_data_de_referencia_chega_a_todos_os_hooks(grant: ExecutionGrant) -> None:
     hooks = ScriptedHooks()
     async for _ in engine(hooks=hooks).run(grant, request()):
         pass
@@ -55,16 +60,65 @@ async def test_a_mesma_data_de_referencia_chega_a_todos_os_hooks(grant: Grant) -
     assert len(datas) == 1
 
 
-async def test_fatias_devolvidas_por_prepare_chegam_a_validate(grant: Grant) -> None:
+async def test_fatias_devolvidas_por_prepare_chegam_a_validate(grant: ExecutionGrant) -> None:
     hooks = ScriptedHooks(slice_update={"preparado": True})
     async for _ in engine(hooks=hooks).run(grant, request()):
         pass
     assert hooks.validate_slices[0]["generic"] == {"preparado": True}
 
 
-async def test_validate_recebe_a_resposta_gerada(grant: Grant) -> None:
+async def test_validate_recebe_a_resposta_gerada(grant: ExecutionGrant) -> None:
     hooks = ScriptedHooks()
     async for _ in engine(hooks=hooks).run(grant, request()):
         pass
     assert hooks.validate_views[0].answer == "Brasília"
     assert hooks.prepare_views[0].answer is None
+
+
+# --- Fase 3 (T036; research R26): resultados de tool na Turn View --------------------------------------------------
+
+
+def _chunk(n: int) -> Chunk:
+    return Chunk(chunk_id=f"c{n}", text=f"trecho {n}", score=0.9, document=f"doc-{n}")
+
+
+def _tool(iteration: int, name: str, *, chunks: tuple[Chunk, ...] = (), truncated: bool = False) -> ToolStep:
+    result = FencedToolResult(
+        name=name,
+        kind="retrieval" if chunks else "native",
+        status="ok",
+        text=fenced(name, f"resultado {iteration}", truncated=truncated),
+        truncated=truncated,
+        chunks=chunks,
+    )
+    return ToolStep(iteration=iteration, call=ToolCall(name=name), result=result)
+
+
+@pytest.mark.us2
+def test_resultados_entregues_viram_tool_results_na_ordem() -> None:
+    steps = [
+        _tool(1, "generic.calculate"),
+        InvalidStep(iteration=2, reason="JSON malformado"),
+        _tool(3, "x.y", truncated=True),
+    ]
+    view = turn_view(state(flow="agentic", steps=steps))
+    assert tuple(view.tool_results) == (
+        ToolResult(content=steps[0].result.text, untrusted=True, truncated=False, error=None),  # type: ignore[union-attr]
+        ToolResult(content=steps[2].result.text, untrusted=True, truncated=True, error=None),  # type: ignore[union-attr]
+    )
+
+
+@pytest.mark.us2
+def test_omitidos_pelo_teto_nao_entram_na_turn_view() -> None:
+    steps = [_tool(1, "docs.buscar", chunks=(_chunk(1),)), _tool(2, "docs.buscar", chunks=(_chunk(2), _chunk(3)))]
+    view = turn_view(state(flow="agentic", steps=steps, omitted=1))
+    assert [result.content for result in view.tool_results] == [steps[1].result.text]
+    assert tuple(view.retrieved) == (_chunk(1), _chunk(2), _chunk(3))
+    assert tuple(view.generation_context) == (_chunk(2), _chunk(3))
+    assert tuple(view.reranked) == ()
+
+
+@pytest.mark.us2
+def test_sem_passos_nao_ha_resultados() -> None:
+    view = turn_view(state(flow="agentic", steps=[]))
+    assert (tuple(view.tool_results), tuple(view.retrieved), tuple(view.generation_context)) == ((), (), ())

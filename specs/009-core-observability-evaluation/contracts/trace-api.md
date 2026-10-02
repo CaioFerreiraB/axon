@@ -1,14 +1,19 @@
 # Contrato — seams Trace Sink e Trace (`ai_core.observability.api`)
 
 Superfície pública do módulo. Mudar qualquer linha daqui é mudar um seam: exige ADR e atualização das specs
-consumidoras (004, 005, 006, 008, 011). Só importa stdlib e `ai_core_contracts`.
+consumidoras (004, 005, 006, 008, 011) — **com uma exceção**: acrescentar um tipo de evento, sob as condições do
+[ADR-017](../../../docs/adr/ADR-017-trace-sink-cresce-por-eventos-aditivos.md) (nenhum evento ou campo existente muda;
+o evento nunca carrega argumentos, conteúdo, prompt ou credencial; a spec emissora declara o toque e atualiza esta
+pasta). Só importa stdlib e `ai_core_contracts`.
 
 ## Nomes públicos
 
 ```python
 # Eventos (o que se emite)
-ExecutionStarted, ModelCall, ValidationRun, ToolCall, ExecutionError, ExecutionFinished
-type TraceEvent = ExecutionStarted | ModelCall | ValidationRun | ToolCall | ExecutionError | ExecutionFinished
+ExecutionStarted, ModelCall, ValidationRun, ToolCall, ControllerDecision, ExecutionError, ExecutionFinished
+DecisionAction                 # Literal["tool", "answer", "invalid", "limit"]
+type TraceEvent = (ExecutionStarted | ModelCall | ValidationRun | ToolCall | ControllerDecision | ExecutionError
+                   | ExecutionFinished)
 
 # Leitura
 TraceRecord, Trace
@@ -25,6 +30,11 @@ TraceQueryUnavailable          # RuntimeError
 do gateway: um tipo de evento a mais é aditivo — nenhum emissor muda e o registro continua genérico (`type` derivado do
 nome da classe). Campos: `request_id`, `tool`, `kind` (ausente quando a tool não existe), `status`, `duration_ms`,
 `size_bytes`, `truncated` — sem argumentos nem conteúdo.
+
+`ControllerDecision` foi acrescentado pela 005 na Fase 3 (FR-016 dela), sob o ADR-017: uma decisão do controller do
+flow `agentic` por iteração. Campos: `request_id`, `iteration` (inteiro ≥ 0; 0 só em `limit`), `action` (`tool`,
+`answer`, `invalid`, `limit`), `tool` (só em `tool`), `reason` (só em `invalid` e `limit`; em `limit`, `iterations` ou
+`context`) — sem argumentos nem saída do modelo.
 
 Campos de cada evento: [data-model.md](../data-model.md). Todos são dataclasses congeladas, `kw_only`, com validação
 de campo não vazio na construção.

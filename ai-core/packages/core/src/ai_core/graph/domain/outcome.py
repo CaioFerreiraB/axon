@@ -34,12 +34,13 @@ def final_event(
 
 
 def succeeded(final: FinalEvent) -> bool:
-    """A execução deu certo quando nada além de apontamento de validator foi registrado.
+    """A execução deu certo quando nenhum registro tem gravidade `error` (ADR-018, research R23).
 
-    Validator que reprova é achado sobre a resposta, não falha de execução — é a mesma regra que `final_event` aplica
-    ao deixar a resposta sair com a marcação em vez de virar erro.
+    Validator que reprova é achado sobre a resposta, não falha de execução — por isso sai como `notice`, como os
+    resultados de política do loop (limite, ação inválida, teto de contexto). Decidir pelo `kind` acoplaria quem
+    consome a cada nome novo.
     """
-    return all(issue.kind == VALIDATOR_ISSUE for issue in final.errors)
+    return all(issue.severity == "notice" for issue in final.errors)
 
 
 def _issues(outcome: ValidationOutcome) -> tuple[ExecutionIssue, ...]:
@@ -49,6 +50,7 @@ def _issues(outcome: ValidationOutcome) -> tuple[ExecutionIssue, ...]:
             stage=VALIDATION_STAGE,
             kind=VALIDATOR_ISSUE,
             message=f"{run.pack}.{run.validator}: {issue}",
+            severity="notice",
         )
         for run in outcome.runs
         for issue in run.result.issues

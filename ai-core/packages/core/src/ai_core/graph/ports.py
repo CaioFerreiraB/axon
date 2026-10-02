@@ -10,7 +10,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
-from ai_core.graph.api import ExecutionEvent
+from ai_core.capabilities.api import Capabilities
+from ai_core.graph.api import ExecutionEvent, ExecutionGrant
 from ai_core.llm.api import ModelRouter
 from ai_core.observability.api import TraceSink
 from ai_core.packs.api import Composition, PackHooks
@@ -40,7 +41,9 @@ class ExecutionPlan:
 
     Os seams chegam aqui **já restritos** ao que a execução pode usar: o roteador já está ligado à política de modelos
     e ao identificador da requisição, e a composição já foi validada. O filtro por Assistant acontece antes, na
-    construção do plano, nunca dentro de um nó.
+    construção do plano, nunca dentro de um nó — e o catálogo de tools, na abertura da sessão pela 004, com o grant.
+
+    `max_iterations` e `max_context_tokens` só são preenchidos nos flows de tool: o `chat` não lê limites (R22).
     """
 
     flow: str
@@ -53,6 +56,10 @@ class ExecutionPlan:
     hooks: PackHooks
     router: ModelRouter
     trace: TraceSink
+    grant: ExecutionGrant | None = None
+    capabilities: Capabilities | None = None
+    max_iterations: int | None = None
+    max_context_tokens: int | None = None
 
 
 class FlowRuntime(Protocol):

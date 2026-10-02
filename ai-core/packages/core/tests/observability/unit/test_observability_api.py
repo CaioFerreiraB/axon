@@ -17,6 +17,8 @@ EXPECTED_NAMES = {
     "ModelCall",
     "ValidationRun",
     "ToolCall",
+    "ControllerDecision",
+    "DecisionAction",
     "ExecutionError",
     "ExecutionFinished",
     "TraceEvent",
@@ -100,7 +102,7 @@ def test_collections_are_immutable() -> None:
 
 def test_public_names_match_the_contract() -> None:
     public = {name for name in vars(api_module) if not name.startswith("_")}
-    imported = {"Mapping", "dataclass", "datetime", "Protocol", "JSONValue", "annotations"}
+    imported = {"Mapping", "dataclass", "datetime", "Final", "Literal", "Protocol", "JSONValue", "annotations"}
     assert public - imported == EXPECTED_NAMES
 
 

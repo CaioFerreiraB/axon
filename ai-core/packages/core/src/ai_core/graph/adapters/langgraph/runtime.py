@@ -10,8 +10,10 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Mapping
 from typing import Any, Final, Literal, cast
 
+from ai_core.capabilities.api import CatalogConflict
 from ai_core.graph.adapters.langgraph.flows import FlowGraph, compiled_flows
-from ai_core.graph.adapters.langgraph.nodes import PROGRESS, TOKEN
+from ai_core.graph.adapters.langgraph.nodes.agentic import STAGE_LOAD
+from ai_core.graph.adapters.langgraph.nodes.common import PROGRESS, TOKEN
 from ai_core.graph.adapters.langgraph.state import AgentContext, AgentState
 from ai_core.graph.api import ExecutionEvent, ExecutionIssue, FinalEvent, ProgressEvent, TokenEvent
 from ai_core.graph.domain.outcome import final_event
@@ -45,9 +47,21 @@ class LangGraphRuntime:
             "messages": tuple(plan.messages),
             "packs": {},
             "errors": [],
+            "steps": [],
+            "decisions": [],
+            "iteration": 0,
+            "limit": plan.max_iterations,
+            "ceiling": plan.max_context_tokens,
+            "pending": None,
+            "omitted": 0,
         }
         context = AgentContext(
-            composition=plan.composition, hooks=plan.hooks, router=plan.router, trace=plan.trace
+            composition=plan.composition,
+            hooks=plan.hooks,
+            router=plan.router,
+            trace=plan.trace,
+            grant=plan.grant,
+            capabilities=plan.capabilities,
         )
 
         generated = ""
@@ -73,7 +87,8 @@ class LangGraphRuntime:
                     message=issue.message,
                 )
             )
-            yield FinalEvent(answer=generated, errors=(issue,))
+            accumulated = tuple(last.get("errors", ())) if last is not None else ()
+            yield FinalEvent(answer=generated, errors=(*accumulated, issue))
             return
 
         yield _final(last, generated)
@@ -98,7 +113,10 @@ def _final(last: AgentState | None, generated: str) -> FinalEvent:
 
 
 def _issue(error: Exception) -> ExecutionIssue:
-    """Erro de outro módulo vira erro nomeado: o pack que falhou, ou o provider e o modelo que não responderam."""
+    """Erro de outro módulo vira erro nomeado: o pack que falhou, o provider e o modelo que não responderam, ou o nome
+    em conflito no catálogo de tools (004)."""
+    if isinstance(error, CatalogConflict):
+        return ExecutionIssue(stage=STAGE_LOAD, kind=type(error).__name__, message=str(error))
     if isinstance(error, PackHookError):
         return ExecutionIssue(
             stage=error.hook, kind=type(error).__name__, message=f"pack '{error.pack}': {error}"

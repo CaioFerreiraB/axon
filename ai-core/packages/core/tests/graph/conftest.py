@@ -6,6 +6,7 @@ import pytest
 from graph_testkit import REFERENCE_TIME, Grant, RecordingTraceSink, ScriptedHooks
 
 from ai_core.graph.adapters.clock import FixedClock
+from ai_core.graph.api import ExecutionGrant
 
 
 @pytest.fixture
@@ -20,7 +21,7 @@ def clock() -> FixedClock:
 
 
 @pytest.fixture
-def grant() -> Grant:
+def grant() -> ExecutionGrant:
     return Grant()
 
 

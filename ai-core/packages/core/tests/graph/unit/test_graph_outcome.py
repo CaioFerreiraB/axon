@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import pytest
 from graph_testkit import outcome
 
-from ai_core.graph.api import ExecutionIssue
+from ai_core.graph.api import ExecutionIssue, FinalEvent
 from ai_core.graph.domain.outcome import final_event, succeeded
 
 CITATION = {"chunk_id": "c1", "document": "doc"}
@@ -63,3 +64,24 @@ def test_erro_de_execucao_torna_a_execucao_falha() -> None:
         errors=[ExecutionIssue(stage="generate", kind="ModelCallFailed", message="provider caiu")],
     )
     assert succeeded(final) is False
+
+
+# --- Fase 3 (T030; research R23, ADR-018) ----------------------------------------------------------------------------
+
+
+@pytest.mark.us2
+def test_apontamento_de_validator_sai_como_aviso() -> None:
+    final = final_event(generated="x", outcome=outcome(ok=False, issues=("sem citação",)))
+    (issue,) = final.errors
+    assert issue.kind == "ValidatorIssue"
+    assert issue.severity == "notice"
+
+
+@pytest.mark.us2
+def test_sucesso_e_decidido_pela_gravidade_e_nao_pelo_kind() -> None:
+    aviso = ExecutionIssue(stage="controller", kind="IterationLimit", message="limite 3", severity="notice")
+    falha = ExecutionIssue(stage="controller", kind="ModelCallFailed", message="ctrl/x: fora do ar")
+    assert succeeded(FinalEvent(answer="x", errors=(aviso,)))
+    assert not succeeded(FinalEvent(answer="x", errors=(aviso, falha)))
+    sem_gravidade = ExecutionIssue(stage="s", kind="ValidatorIssue", message="m")
+    assert not succeeded(FinalEvent(answer="x", errors=(sem_gravidade,)))

@@ -2,8 +2,8 @@
 
 Contrato em specs/005-core-execution-engine/contracts/execution-engine.md.
 
-Único módulo da 005 que outros módulos importam. Depende só da stdlib, de `ai_core_contracts` e dos `api.py` de 002 e
-006. **Nenhum tipo de framework de grafo, de estado interno ou de HTTP aparece aqui** — é o que o ADR-011 e o SC-001
+Único módulo da 005 que outros módulos importam. Depende só da stdlib, de `ai_core_contracts` e do `api.py` da 003 (o
+grant). **Nenhum tipo de framework de grafo, de estado interno ou de HTTP aparece aqui** — é o que o ADR-011 e o SC-001
 exigem: trocar o framework não pode mudar o que a 008 e o harness leem.
 """
 
@@ -12,14 +12,33 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Final, Protocol
+from typing import Final, Literal, Protocol
 
-from ai_core.llm.api import ModelPolicy
-from ai_core.packs.api import Composition
+from ai_core.assistants.api import ExecutionGrant
 from ai_core_contracts import Citation, Message
 
+__all__ = [
+    "FLOW_AGENTIC",
+    "FLOW_CHAT",
+    "ExecutionEngine",
+    "ExecutionError",
+    "ExecutionEvent",
+    "ExecutionGrant",
+    "ExecutionIssue",
+    "ExecutionRequest",
+    "ExecutionRequestInvalid",
+    "FinalEvent",
+    "IssueSeverity",
+    "ProgressEvent",
+    "TokenEvent",
+    "UnknownFlow",
+]
+
 FLOW_CHAT: Final = "chat"
-"""Conversa direta, sem tools e sem retrieval. Os outros nomes (`agentic`, `rag_first`) chegam nas fases deles."""
+"""Conversa direta, sem tools e sem retrieval."""
+
+FLOW_AGENTIC: Final = "agentic"
+"""Loop do controller sobre o catálogo de tools da execução (US2, Fase 3). Só existe com o gateway da 004 ligado."""
 
 
 def _require_text(field_name: str, value: str) -> None:
@@ -59,33 +78,9 @@ class ExecutionRequest:
         object.__setattr__(self, "messages", tuple(self.messages))
 
 
-class ExecutionGrant(Protocol):
-    """A forma que o motor exige do Execution Grant.
-
-    O valor é produzido pela 003 a partir da Fase 2 e pela composition root (011) na Fase 1; qualquer objeto com estes
-    quatro atributos serve, o que mantém a direção `005 → 003` do grafo de dependências sem import nenhum
-    (research R3). Cresce de forma aditiva: limites de iteração na Fase 3, teto de contexto na Fase 5.
-    """
-
-    @property
-    def assistant(self) -> str:
-        """Nome do Assistant resolvido."""
-        ...
-
-    @property
-    def flow(self) -> str:
-        """Nome do flow a executar."""
-        ...
-
-    @property
-    def composition(self) -> Composition:
-        """Packs da execução, já compostos e validados pela 002."""
-        ...
-
-    @property
-    def models(self) -> ModelPolicy:
-        """Modelo por papel e allowlist (006)."""
-        ...
+# `ExecutionGrant` é o value object da 003, reexportado (ADR-018, research R15): o motor lê `assistant`, `flow`,
+# `composition`, `models` e `limits`, e entrega o grant inteiro à 004 ao abrir a sessão de tools. Nas Fases 1 e 2 ele
+# chegava por um `Protocol` publicado aqui — a ponte do R3, que terminou quando a 004 passou a exigir o tipo concreto.
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -106,17 +101,28 @@ class ProgressEvent:
         _require_text("stage", self.stage)
 
 
+type IssueSeverity = Literal["error", "notice"]
+"""`error`: falha da execução ou de uma dependência. `notice`: registrado, mas não é falha — resultado de política
+(limite, ação inválida, teto de contexto) ou apontamento de validator (ADR-018, research R23)."""
+
+_SEVERITIES: Final = frozenset({"error", "notice"})
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ExecutionIssue:
-    """Um problema registrado na execução. `message` é texto livre — a 009 o redige antes de gravar."""
+    """Um registro da execução. `message` é texto livre — a 009 o redige antes de gravar. Quem consome decide sucesso
+    por `severity`, nunca pelo `kind`."""
 
     stage: str
     kind: str
     message: str
+    severity: IssueSeverity = "error"
 
     def __post_init__(self) -> None:
         _require_text("stage", self.stage)
         _require_text("kind", self.kind)
+        if self.severity not in _SEVERITIES:
+            raise ValueError(f"severity precisa ser 'error' ou 'notice': {self.severity!r}")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -150,6 +156,7 @@ class ExecutionEngine(Protocol):
 
         **Não** é gerador: valida requisição, flow e grant de forma síncrona e levanta `ExecutionRequestInvalid` ou
         `UnknownFlow` na própria chamada, para que a 008 responda 4xx sem abrir o stream e sem custo (research R5).
-        Depois do primeiro evento nada levanta: falha vira `FinalEvent` com erros (research R6).
+        Depois do primeiro evento nada levanta: falha vira `FinalEvent` com erros (research R6). O grant é o da 003
+        (ADR-018).
         """
         ...

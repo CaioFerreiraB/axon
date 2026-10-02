@@ -40,7 +40,7 @@ asyncio_mode = "auto"
 # Spec 007: uma marca por user story, para rodar `-k us1` … `-k us6` (tasks.md, "Independent Test").
 markers = [
     "us1: 007 US1 — MCP global sem código nem restart",
-    "us2: 007 US2 — credencial por referência",
+    "us2: 007 US2 — credencial por referência; 005 US2 — flow agentic",
     "us3: 007 US3 — cliente restrito ao grant",
     "us4: 007 US4 — MCPs de usuário",
     "us5: 007 US5 — política por servidor",
@@ -226,8 +226,17 @@ source_modules = [
     "ai_core.llm",
     "ai_core.observability",
     "ai_core.assistants",
+    "ai_core.capabilities",
+    "ai_core.mcp",
 ]
 forbidden_modules = ["langgraph", "langchain_core"]
+
+# 005 FR-002 (research R32): o motor alcança tools só pelo gateway da 004 — nem o api.py da 007 ele importa.
+[[tool.importlinter.contracts]]
+name = "o motor só alcança MCP pelo gateway da 004"
+type = "forbidden"
+source_modules = ["ai_core.graph"]
+forbidden_modules = ["ai_core.mcp"]
 
 [[tool.importlinter.contracts]]
 name = "o motor só enxerga outros módulos pelo api.py"

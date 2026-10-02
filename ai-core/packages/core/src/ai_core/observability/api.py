@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol
+from typing import Final, Literal, Protocol
 
 from ai_core_contracts import JSONValue
 
@@ -146,7 +146,50 @@ class ToolCall:
         _require_non_negative("size_bytes", self.size_bytes)
 
 
-type TraceEvent = ExecutionStarted | ModelCall | ValidationRun | ToolCall | ExecutionError | ExecutionFinished
+type DecisionAction = Literal["tool", "answer", "invalid", "limit"]
+
+_DECISION_ACTIONS: Final[frozenset[str]] = frozenset({"tool", "answer", "invalid", "limit"})
+_LIMIT_REASONS: Final[frozenset[str]] = frozenset({"iterations", "context"})
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ControllerDecision:
+    """Uma decisão do controller no loop `agentic` (005 FR-016), acrescentada sob o ADR-017.
+
+    Nunca leva argumentos de tool nem saída do modelo: só a iteração, a ação, o nome pedido (em `tool`) e um motivo
+    curto escrito pelo motor (em `invalid` e `limit`). `iteration` 0 só existe em `limit`, quando o teto de contexto
+    impede até a primeira chamada.
+    """
+
+    request_id: str
+    iteration: int
+    action: DecisionAction
+    tool: str | None = None
+    reason: str | None = None
+
+    def __post_init__(self) -> None:
+        _require_text("request_id", self.request_id)
+        if self.action not in _DECISION_ACTIONS:
+            raise ValueError(f"ação desconhecida: {self.action!r}")
+        if isinstance(self.iteration, bool) or not isinstance(self.iteration, int) or self.iteration < 0:
+            raise ValueError(f"iteration precisa ser inteiro não negativo: {self.iteration!r}")
+        if self.iteration == 0 and self.action != "limit":
+            raise ValueError("iteration 0 só existe na ação limit")
+        if (self.action == "tool") != (self.tool is not None):
+            raise ValueError("tool é obrigatório na ação tool e ausente nas outras")
+        if self.tool is not None:
+            _require_text("tool", self.tool)
+        if (self.action in ("invalid", "limit")) != (self.reason is not None):
+            raise ValueError("reason é obrigatório nas ações invalid e limit e ausente nas outras")
+        if self.reason is not None:
+            _require_text("reason", self.reason)
+        if self.action == "limit" and self.reason not in _LIMIT_REASONS:
+            raise ValueError(f"motivo de limite desconhecido: {self.reason!r}")
+
+
+type TraceEvent = (
+    ExecutionStarted | ModelCall | ValidationRun | ToolCall | ControllerDecision | ExecutionError | ExecutionFinished
+)
 """Dados de trace que os emissores mandam. Tipo novo entra aqui sem mudar o seam."""
 
 

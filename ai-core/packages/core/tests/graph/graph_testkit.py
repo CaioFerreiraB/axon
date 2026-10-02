@@ -1,31 +1,41 @@
-"""Fábricas dos testes da 005 (T007): grant, hooks programáveis e a montagem do motor.
+"""Fábricas dos testes da 005 (T007, T031): grant, hooks programáveis, controller e gateway simulados e o motor.
 
 A construção do motor está num **único** helper (`engine`): é o único ponto do testkit que conhece o adapter de fluxo,
 e é o que faz valer a promessa do SC-001 de que as suítes de conformidade e de `domain/` sobrevivem à troca do grafo.
+
+Fase 3 (research R29): o controller é um provider de teste com roteiro (`ScriptedController`), que entra no roteador
+real da 006 sob o provider `ctrl`; o gateway é um falso (`FakeCapabilities`/`FakeSession`) que cumpre os `Protocol`s da
+004 com os value objects dela. O grant é o da 003 (ADR-018).
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from dataclasses import dataclass, field
+import json
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
-from typing import Any, Final
+from typing import Any, Final, Literal
 
+from ai_core.assistants.api import ExecutionGrant, Limits, Principal
+from ai_core.capabilities.api import CatalogTool, FencedToolResult, ToolCall, ToolContext
 from ai_core.graph.adapters.clock import FixedClock
 from ai_core.graph.adapters.langgraph import langgraph_runtime
 from ai_core.graph.api import ExecutionRequest
 from ai_core.graph.ports import FlowRuntime
 from ai_core.graph.service import ExecutionService
 from ai_core.llm.adapters.fake import ScriptedProvider
-from ai_core.llm.api import ModelPolicy, ModelRef
+from ai_core.llm.api import ModelCallFailed, ModelPolicy, ModelRef
+from ai_core.llm.ports import ProbeResult
 from ai_core.llm.service import ModelRoutingService
 from ai_core.observability.api import TraceEvent
 from ai_core.packs.api import Composition, Slices, ValidationOutcome, ValidatorRun
-from ai_core_contracts import Citation, Message, TurnView, ValidationResult
+from ai_core_contracts import ChatMessage, ChatResponse, Chunk, Citation, JSONValue, Message, TurnView, ValidationResult
 
 REQUEST_ID: Final = "req-005-1"
 ASSISTANT: Final = "geral"
 MODEL: Final = "qwen3:1.7b"
+CONTROLLER_PROVIDER: Final = "ctrl"
+CONTROLLER_MODEL: Final = "controlador"
+PRINCIPAL: Final = Principal(subject="user:test", scheme="oidc")
 REFERENCE_TIME: Final = datetime(2026, 9, 21, 12, tzinfo=UTC)
 
 MESSAGES: Final[tuple[Message, ...]] = ({"role": "user", "content": "qual é a capital?"},)
@@ -44,18 +54,29 @@ class RecordingTraceSink:
         return [event for event in self.events if isinstance(event, kind)]
 
 
-@dataclass(frozen=True, slots=True)
-class Grant:
-    """Objeto que cumpre o `Protocol` `ExecutionGrant` — é o que a 011 monta na Fase 1 e a 003 produzirá na Fase 2."""
+def models(*, controller: bool = True) -> ModelPolicy:
+    """Geração local e, por default, o controller no provider de teste `ctrl`."""
+    roles: dict[Any, ModelRef] = {"generation": ModelRef(provider="ollama", model=MODEL)}
+    if controller:
+        roles["controller"] = ModelRef(provider=CONTROLLER_PROVIDER, model=CONTROLLER_MODEL)
+    return ModelPolicy(roles=roles, allow=("ollama/*", f"{CONTROLLER_PROVIDER}/*"))
 
-    assistant: str = ASSISTANT
-    flow: str = "chat"
-    composition: Composition = field(default_factory=lambda: Composition(packs=("generic",)))
-    models: ModelPolicy = field(
-        default_factory=lambda: ModelPolicy(
-            roles={"generation": ModelRef(provider="ollama", model=MODEL)}, allow=("ollama/*",)
-        )
-    )
+
+def Grant(**overrides: Any) -> ExecutionGrant:
+    """O `ExecutionGrant` da 003, como a resolução de Assistant o produz (ADR-018). Qualquer campo pode ser trocado."""
+    fields: dict[str, Any] = {
+        "assistant": ASSISTANT,
+        "principal": PRINCIPAL,
+        "flow": "chat",
+        "composition": Composition(packs=("generic",)),
+        "models": models(),
+        "limits": Limits(),
+    }
+    return ExecutionGrant(**(fields | overrides))
+
+
+def agentic(**overrides: Any) -> ExecutionGrant:
+    return Grant(**({"flow": "agentic"} | overrides))
 
 
 class ScriptedHooks:
@@ -130,22 +151,163 @@ def engine(
     trace: RecordingTraceSink | None = None,
     clock: FixedClock | None = None,
     flows: FlowRuntime | None = None,
+    capabilities: Any = None,
+    controller: ScriptedController | None = None,
 ) -> ExecutionService:
     """Monta o motor com o adapter de fluxo real. Trocar o grafo é trocar `flows` — e só isto muda nos testes."""
     sink = trace or RecordingTraceSink()
+    extra: dict[str, Any] = {} if capabilities is None else {"capabilities": capabilities}
     return ExecutionService(
         flows=flows or langgraph_runtime(),
         hooks=hooks or ScriptedHooks(),
         routing=ModelRoutingService(
-            providers={"ollama": llm or provider()},
+            providers={"ollama": llm or provider(), CONTROLLER_PROVIDER: controller or ScriptedController(())},
             trace=sink,
             clock=clock or FixedClock(REFERENCE_TIME),
         ),
         trace=sink,
         clock=clock or FixedClock(REFERENCE_TIME),
+        **extra,
     )
 
 
 def request(**overrides: Any) -> ExecutionRequest:
     fields: dict[str, Any] = {"request_id": REQUEST_ID, "messages": MESSAGES}
     return ExecutionRequest(**(fields | overrides))
+
+
+# --- Fase 3: controller e gateway simulados (T031, research R29) ----------------------------------------------------
+
+ANSWER: Final = '{"action": "answer"}'
+
+
+def tool_action(name: str, **arguments: JSONValue) -> str:
+    """A saída de um controller que pede `name` com `arguments`."""
+    return json.dumps({"action": "tool", "name": name, "arguments": arguments}, ensure_ascii=False)
+
+
+type Line = str | BaseException | None
+"""Um item do roteiro do controller: o conteúdo que ele devolve, `None` (sem conteúdo) ou a exceção que levanta."""
+
+
+class ScriptedController:
+    """Provider de teste do papel `controller`: cumpre o `ModelProvider` da 006 estruturalmente.
+
+    Cada chamada consome o próximo item do roteiro; chamar além do roteiro é erro de teste — é o que prova que o motor
+    nunca passa do limite.
+    """
+
+    def __init__(self, script: Sequence[Line]) -> None:
+        self._script = list(script)
+        self.calls: list[dict[str, Any]] = []
+
+    @property
+    def name(self) -> str:
+        return CONTROLLER_PROVIDER
+
+    async def chat(
+        self,
+        messages: Sequence[ChatMessage],
+        model: str,
+        *,
+        tools: Any = None,
+        response_format: Mapping[str, JSONValue] | None = None,
+        stream: bool = False,
+    ) -> ChatResponse:
+        assert not stream, "o controller é chamado sem streaming"
+        self.calls.append({"model": model, "messages": list(messages), "response_format": response_format})
+        assert self._script, f"controller chamado além do roteiro (chamada {len(self.calls)})"
+        line = self._script.pop(0)
+        if isinstance(line, BaseException):
+            raise line
+        return {"message": {"role": "assistant", "content": line}, "finish_reason": "stop", "model": model}
+
+    async def probe(self, model: str) -> ProbeResult:
+        return ProbeResult(available=True)
+
+
+def controller_down() -> ModelCallFailed:
+    return ModelCallFailed(provider=CONTROLLER_PROVIDER, model=CONTROLLER_MODEL, reason="fora do ar")
+
+
+TEXT_PARAMETERS: Final[Mapping[str, JSONValue]] = {
+    "type": "object",
+    "properties": {"expression": {"type": "string"}},
+    "required": ["expression"],
+}
+
+
+def catalog_tool(
+    name: str = "generic.calculate",
+    *,
+    description: str = "Calcula uma expressão aritmética.",
+    parameters: Mapping[str, JSONValue] = TEXT_PARAMETERS,
+    kind: Literal["native", "retrieval", "mcp"] = "native",
+) -> CatalogTool:
+    return CatalogTool(name=name, description=description, parameters=parameters, kind=kind)
+
+
+def fenced(name: str, text: str, *, status: str = "ok", truncated: bool = False) -> str:
+    """O formato da cerca da 004 (contracts/fencing.md), para o gateway falso produzir o mesmo que o real."""
+    return (
+        f'<tool_result name="{name}" status="{status}" truncated="{str(truncated).lower()}">\n{text}\n</tool_result>'
+    )
+
+
+class FakeSession:
+    """`ToolSession` da 004 programável: catálogo, indisponíveis e o conteúdo de cada tool; guarda as chamadas."""
+
+    def __init__(
+        self,
+        tools: Sequence[CatalogTool] = (),
+        *,
+        results: Mapping[str, str] | None = None,
+        chunks: Mapping[str, Sequence[Chunk]] | None = None,
+        unavailable: Mapping[str, str] | None = None,
+    ) -> None:
+        self._tools = {tool.name: tool for tool in tools}
+        self._results = dict(results or {})
+        self._chunks = dict(chunks or {})
+        self._unavailable = dict(unavailable or {})
+        self.calls: list[ToolCall] = []
+
+    @property
+    def tools(self) -> Mapping[str, CatalogTool]:
+        return self._tools
+
+    @property
+    def unavailable(self) -> Mapping[str, str]:
+        return self._unavailable
+
+    async def execute(self, call: ToolCall) -> FencedToolResult:
+        self.calls.append(call)
+        tool = self._tools.get(call.name)
+        if tool is None:
+            text = f"tool inexistente: {call.name}"
+            return FencedToolResult(
+                name=call.name, kind=None, status="unknown", text=fenced(call.name, text, status="unknown"), error=text
+            )
+        content = self._results.get(call.name, f"resultado {len(self.calls)}")
+        return FencedToolResult(
+            name=call.name,
+            kind=tool.kind,
+            status="ok",
+            text=fenced(call.name, content),
+            chunks=tuple(self._chunks.get(call.name, ())),
+        )
+
+
+class FakeCapabilities:
+    """`Capabilities` da 004: devolve a sessão programada ou levanta o erro programado; guarda o que recebeu."""
+
+    def __init__(self, session: FakeSession | None = None, *, error: Exception | None = None) -> None:
+        self.session = session or FakeSession((catalog_tool(),))
+        self._error = error
+        self.opened: list[tuple[ExecutionGrant, ToolContext]] = []
+
+    async def open(self, grant: ExecutionGrant, context: ToolContext) -> FakeSession:
+        self.opened.append((grant, context))
+        if self._error is not None:
+            raise self._error
+        return self.session
+
