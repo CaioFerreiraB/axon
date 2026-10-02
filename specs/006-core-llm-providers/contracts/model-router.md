@@ -76,6 +76,32 @@ for health in await routing.check(policy):
 
 - Não escolhe modelo, não reordena papéis e não tem default (princípio VIII).
 - Não repete chamada, não troca de provider e não degrada para texto livre (FR-007; a degradação é proibida pela FR-005,
-  cuja verificação chega com a US4, na Fase 3).
+  cuja verificação chega com a US4, na Fase 3 — abaixo).
 - Não interpreta o conteúdo da resposta: tool calls e validação de formato são de quem chama.
 - Não conhece Assistant, grant, flow, pack nem HTTP.
+
+---
+
+## Fase 3 (2026-10-02): o que o seam passa a garantir
+
+Assinaturas inalteradas ([research.md](../research.md) R16, R17). Regras novas:
+
+| Regra | Origem | Verificada por |
+|---|---|---|
+| `ModelRef` com provider `openrouter` e modelo `auto` (forma curta) ou do namespace `openrouter/…` levanta `ValueError` pedindo modelo explícito; sufixos de variante (`:free`, `:nitro`, `:floor`) passam | FR-004, US3 | `tests/llm/unit/test_llm_api.py` |
+| A allowlist não libera roteamento automático: a recusa acontece antes, na construção da referência | FR-004, US3 cen. 2 | idem |
+| Chamada do papel `controller` sem `response_format` de esquema (`json_schema` com `schema`) levanta `ModelCallFailed` antes do provider, e emite um `ModelCall` com `finish_reason="error"` | FR-005, US4 cen. 3, SC-003 | conformidade do seam |
+| A restrição chega ao provider na forma mais rígida dele (`strict: true`; no OpenRouter, `require_parameters`) | FR-005, US4 cen. 1 | [remote-adapters.md](remote-adapters.md) |
+| Recusa da restrição pelo provider vira `ModelCallFailed` com provider e modelo; nenhuma segunda chamada | FR-005, US4 cen. 2 | idem |
+| Provider remoto sem credencial: `check` → `available=False`, "sem credencial: defina AI_CORE_…"; chamada → `ModelCallFailed` antes da rede | FR-011 | conformidade do seam + [remote-adapters.md](remote-adapters.md) |
+| Papéis da mesma política em providers diferentes resolvem cada um para o seu, com um `ModelCall` por papel no provider certo | US2 cen. 1 | conformidade do seam |
+| `allow: ["ollama/*"]` e papel em `openai/…` → `ModelNotAllowed` | US5 cen. 1 | conformidade do seam |
+
+### Suíte de conformidade — casos novos
+
+11. `controller` sem `response_format`, com `json_object` e com `json_schema` sem `schema` → `ModelCallFailed` sem
+    tocar o provider, e um `ModelCall` de erro;
+12. `generation` sem `response_format` continua aceito;
+13. política com `controller` em `openrouter` e `generation` em `ollama` (dois simulados) → cada `BoundModel` no seu
+    provider, e os `ModelCall` com o provider certo por papel;
+14. `check` com um remoto sem credencial → `available=False` com o nome da variável.

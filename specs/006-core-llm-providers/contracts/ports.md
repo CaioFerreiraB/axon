@@ -67,3 +67,36 @@ tempo (011 FR-008).
 
 `SecretResolver` (credenciais de providers remotos) está no `design.md` e entra na Fase 3, junto com os adapters que
 precisam dela: declará-la agora seria porta sem uso, contra o princípio XIII ([research.md](../research.md) R8, R14).
+*Entrou na Fase 3 — seção abaixo.*
+
+---
+
+## Fase 3 (2026-10-02): `SecretResolver` — credenciais dos providers remotos
+
+```python
+class SecretResolver(Protocol):
+    def resolve(self, name: str) -> str | None:
+        """Valor da credencial pelo nome, ou None quando ausente ou vazia. Nunca levanta."""
+```
+
+- Quem chama são os adapters remotos ([remote-adapters.md](remote-adapters.md)), uma vez, na construção, com um dos dois
+  nomes fixos: `AI_CORE_OPENAI_API_KEY` e `AI_CORE_OPENROUTER_API_KEY`. Nenhum nome vem de entrada
+  ([research.md](../research.md) R21).
+- Adapters: `EnvSecretResolver(environ=None)` (ambiente do processo; perfis `memory` e `persistent`) e
+  `InMemorySecretResolver(values=None)` (perfil `test` e suítes), em `adapters/secrets.py`. A 011 escolhe qual, pela
+  porta `llm_secrets`.
+
+### Conformidade (`tests/llm/contract/test_secret_resolver_port.py`)
+
+Parametrizada pelos dois adapters (o de ambiente sobre um dicionário injetado):
+
+1. nome presente devolve o valor exato;
+2. nome ausente devolve `None`;
+3. valor vazio ou só espaços devolve `None`;
+4. nunca levanta, nem para nome vazio.
+
+### `ModelProvider` — o que muda
+
+Nada na forma da porta. Os remotos entram como adapters dela, e a suíte de conformidade da porta passa a ser
+parametrizada também por eles (com transporte HTTP falso). Um remoto **sem credencial** cumpre a porta assim: `chat`
+levanta `ModelCallFailed` antes da rede, e `probe` devolve `available=False` com o motivo — continua sem levantar.

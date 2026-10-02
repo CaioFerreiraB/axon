@@ -145,3 +145,79 @@ chamada nunca emite dois eventos, e uma chamada que falha também emite: é o qu
 | Stream para de entregar pedaços | `ModelCallFailed` por inatividade após `idle_seconds` (FR-010) | idem |
 | Modelo declarado não existe no provider | `check` devolve `available=False` com o motivo; a chamada falha com `ModelCallFailed` | evento só na chamada |
 | Trace Sink levanta | impossível por contrato da 009 (`emit` nunca levanta); mesmo assim a emissão é o último passo, depois do resultado pronto | — |
+
+---
+
+# Fase 3 (2026-10-02): US2–US5
+
+Decisões em [research.md](research.md) R15–R26. Nenhum value object, Protocol de seam ou erro novo: muda uma invariante
+do `ModelRef` e o que o `ModelCallFailed` pode relatar.
+
+## `ModelRef` — invariante nova (FR-004, R16)
+
+| Regra | Exemplo recusado | Exemplo aceito |
+|---|---|---|
+| No provider `openrouter`, a base do modelo (minúsculas, antes do primeiro `:`) não pode ser `auto` | `openrouter/auto`, `openrouter/AUTO`, `openrouter/auto:free` | — |
+| No provider `openrouter`, a base do modelo não pode começar com `openrouter/` | `openrouter/openrouter/auto`, `openrouter/openrouter/qualquer` | `openrouter/qwen/qwen3-8b`, `openrouter/qwen/qwen3-8b:free`, `…:nitro`, `…:floor` |
+| Outros providers não são afetados | — | `ollama/auto`, `openai/gpt-4o-mini` |
+
+Recusa = `ValueError("'<provider/modelo>' é roteamento automático, que escolhe o modelo sozinho: declare um modelo
+explícito (autor/modelo)")`, levantado na construção — `ModelRef(...)` e `ModelRef.parse(...)` —, antes da allowlist.
+
+## Restrição de formato do `controller` (FR-005, R17)
+
+`domain/output.py`:
+
+| Entrada (`role`, `response_format`) | `constraint_problem` |
+|---|---|
+| `generation`/`rerank`, qualquer | `None` |
+| `controller`, `{"type": "json_schema", "json_schema": {"name": …, "schema": {…}}}` | `None` |
+| `controller`, `None` | "o papel 'controller' exige response_format com esquema (json_schema)" |
+| `controller`, `{"type": "json_object"}` ou outro tipo | idem, nomeando o tipo recebido |
+| `controller`, `json_schema` sem `schema` mapeamento | idem |
+
+Forma enviada pelo adapter (R18): `json_schema.strict` sempre `true`; no OpenRouter, com formato, também
+`provider.require_parameters: true` no corpo.
+
+## Porta `SecretResolver` (`ports.py`, R21)
+
+```python
+class SecretResolver(Protocol):
+    def resolve(self, name: str) -> str | None:
+        """Valor da credencial pelo nome, ou None quando ausente ou vazia. Nunca levanta."""
+```
+
+| Adapter | Fonte | Uso |
+|---|---|---|
+| `EnvSecretResolver(environ=None)` | variável de ambiente com o nome pedido | perfis `memory` e `persistent` |
+| `InMemorySecretResolver(values=None)` | dicionário | perfil `test` e suítes |
+
+## Providers remotos (`adapters/`, R20)
+
+| Provider | `name` | URL base | Credencial | Particularidade |
+|---|---|---|---|---|
+| `OpenAIProvider` | `openai` | `https://api.openai.com/v1` | `AI_CORE_OPENAI_API_KEY` | — |
+| `OpenRouterProvider` | `openrouter` | `https://openrouter.ai/api/v1` | `AI_CORE_OPENROUTER_API_KEY` | `require_parameters` com formato; sondagem aceita a base da variante (R22) |
+
+Estado de um remoto, fixado na construção: **com credencial** (chamadas normais) ou **sem credencial** (toda chamada e
+toda sondagem relatam a falta, sem rede). Não há transição em processo: trocar a credencial é reiniciar.
+
+## Erros — o que muda
+
+`ModelCallFailed` passa a cobrir também falhas **antes** da rede, sempre com `provider`, `model` e `reason`:
+
+| `reason` | Quando |
+|---|---|
+| "o papel 'controller' exige response_format com esquema (json_schema)…" | guarda do R17 |
+| "sem credencial: defina AI_CORE_OPENAI_API_KEY" (ou `…OPENROUTER…`) | remoto sem credencial (R21) |
+| "erro 400 do provider: …" / "erro 404 do provider: …" | recusa da restrição pelo provider (R19) |
+
+## Modos de falha — acréscimos
+
+| Situação | Resultado | Trace |
+|---|---|---|
+| Referência de roteamento automático | `ValueError` na construção do `ModelRef` — a 003 e a 008 relatam como configuração ou requisição inválida | nenhum |
+| `controller` sem `response_format` de esquema | `ModelCallFailed` antes do provider | `ModelCall` com `finish_reason="error"` |
+| Remoto sem credencial | `ModelCallFailed` antes da rede; `check` → `available=False`, "sem credencial: defina …" | `ModelCall` de erro na chamada |
+| Provider recusa a restrição (modelo sem suporte, esquema fora do modo estrito, nenhum upstream no OpenRouter) | `ModelCallFailed` com código e corpo; sem reenvio | `ModelCall` de erro |
+| Chave inválida | `ModelCallFailed` com o 401 (valor da chave trocado por `***`); `check` → indisponível | `ModelCall` de erro na chamada |

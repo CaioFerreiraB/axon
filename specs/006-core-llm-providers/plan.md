@@ -207,3 +207,121 @@ Reavaliado com [data-model.md](data-model.md), [contracts/](contracts/) e [quick
 | Fábrica `for_execution` além de `for_role` (R2) | política e identificador de requisição são por execução; providers e trace são por processo | passar os dois em cada `for_role` obrigaria a 005 a repeti-los em cada papel de cada iteração, com risco de `request_id` trocado |
 | `openai_compat.py` separado de `ollama.py` (R4) | a camada compatível é o que os três providers do design compartilham | um `ollama.py` monolítico faria a Fase 3 copiar tradução e mapeamento de erro duas vezes |
 | Porta `ModelProvider` estendendo o contrato 001 (R8) | FR-009 exige sondagem, e o contrato 001 só tem `chat` | acrescentar saúde ao contrato 001 mudaria um seam de outra spec para atender a esta |
+
+---
+
+# Fase 3 (2026-10-02): US2–US5 — providers remotos, roteamento automático e saída estruturada
+
+Insumos: as três clarificações de 2026-10-02 (FR-004, FR-005, FR-011); [design.md](design.md) (porta `SecretResolver`,
+`openai.py` e `openrouter.py`), ADR-008, ADR-012, ADR-013, ADR-016; os consumidores conferidos no código — 003 (trata o
+`ValueError` do `ModelRef` no YAML e na requisição), 008 (idem no corpo de Assistant), 005 (o nó do controller captura
+`ModelCallFailed` e envia `response_format` sem `strict`) e 011 (monta providers e saúde). Decisões em
+[research.md](research.md) R15–R26. **Sem divergência do `design.md`** e **sem mudança de seam**: a regra de roteamento
+automático é invariante do `ModelRef` que a nota da Fase 1 para a 003 já anunciava (R16), e a guarda e a falta de
+credencial usam o `ModelCallFailed` existente (R17, R21). **ADR novo**:
+[ADR-020](../../docs/adr/ADR-020-segredos-uma-fonte-por-perfil-uma-porta-por-modulo.md) — refina a FR-009 e o caso de
+borda de segredo ausente da 011 (uma fonte por perfil, uma porta por módulo; credencial ausente degrada, não derruba),
+achado I1 da análise.
+
+## Summary (Fase 3)
+
+Os providers OpenAI e OpenRouter entram como arquivos finos sobre a camada compatível, com credencial por variável
+(`AI_CORE_OPENAI_API_KEY`, `AI_CORE_OPENROUTER_API_KEY`) lida pela porta `SecretResolver`: sem ela, o provider fica
+registrado, a saúde diz "sem credencial" e toda chamada falha antes da rede. O `ModelRef` passa a recusar roteamento
+automático do OpenRouter (`openrouter/auto` e o namespace `openrouter/…`), o que cobre declaração, escolha por
+requisição e saúde de uma vez. O papel `controller` ganha a garantia de formato em três camadas: o roteador recusa
+chamada sem `response_format` de esquema, o adapter envia `strict: true` (e `require_parameters` no OpenRouter), e a
+recusa do provider é erro explícito sem reenvio. US2 e US5 ganham a prova com providers diferentes. Toque declarado na
+011: porta `llm_secrets` e os remotos nos perfis `memory` e `persistent`.
+
+## Technical Context (Fase 3)
+
+**Dependências**: nenhuma nova — o SDK `openai` da Fase 1 já fala com os três endpoints.
+**Storage**: N/A. **Testing**: transporte HTTP falso para os remotos (Fase 1, R10); integração paga opcional, pulada sem
+as variáveis de credencial (R25).
+**Constraints**: nenhum valor de credencial em erro, log ou trace (FR-011); nenhuma chamada do `controller` sem
+restrição (SC-003); nenhum reenvio nem fallback (FR-005, FR-007); seams inalterados.
+**Scale/Scope**: `api.py` (invariante do `ModelRef`), `domain/output.py` (novo), `ports.py` (+`SecretResolver`),
+`service.py` (guarda no `TracedModel`), `adapters/` (+`secrets.py`, `remote.py`, `openai.py`, `openrouter.py`;
+`openai_compat.py` com `strict` e lista truncada); 011: `profiles.py`.
+
+## Constitution Check (Fase 3)
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| I. Núcleo agnóstico | ✅ | Providers, modelos e formato de saída; nenhum termo de domínio |
+| II. Seams | ✅ | Assinaturas inalteradas; a invariante nova do `ModelRef` era anunciada desde a Fase 1 (R16) e os consumidores já tratam o `ValueError`; guarda e credencial usam `ModelCallFailed` (R17, R21) |
+| IV. Assistant é a fronteira | ✅ | A allowlist não libera roteamento automático (R16); o modelo escolhido na requisição continua conferido (US5, R24) |
+| V. Determinismo | ✅ | Nenhum modelo escolhido por terceiros: roteamento automático é recusado na construção da referência |
+| VI. Conteúdo externo | ✅ | Corpo do provider continua truncado; o valor da chave é trocado por `***` em todo motivo de erro (R21) |
+| VII. Falha fechada | ✅ | Sem credencial → erro antes da rede, nomeando a variável; controller sem esquema → recusado; recusa do provider → erro sem reenvio (R17–R21) |
+| VIII. Modelos por papel | ✅ | US2 provada com providers diferentes por papel (R24) |
+| XI. Streaming | ✅ | Os remotos herdam o streaming da camada compatível (FR-006) |
+| XII. Simplicidade | ✅ | Remotos como arquivos finos; sem URL base configurável, sem cabeçalhos de atribuição, sem resolução de segredo por chamada (R20, R21) |
+| XIII. Portas e adapters | ✅ | `SecretResolver` existe por I/O (ambiente) e troca prevista (secret store), com adapter em memória e conformidade (R21) |
+
+**SC-004 nesta passada**: nenhum seam nem regra de outra spec muda para acrescentar OpenAI e OpenRouter; o que muda na
+011 é o registro dos adapters, que só a composition root faz (princípio XIII), e o contrato `profiles.md` passa a
+descrever a porta de forma genérica ("os providers da 006"), para o próximo provider não exigir edição.
+
+**Module boundary gate (Fase 3)**: `ai_core/llm/**` e `tests/llm/**`; toque declarado na 011 —
+`bootstrap/profiles.py` (porta `llm_secrets` e providers remotos), seus testes e `specs/011-core-bootstrap/contracts/profiles.md`
+(linha da porta). Nenhum outro módulo muda: 003, 005 e 008 continuam como estão (R16, R17). import-linter sem contrato
+novo (R26). **Resultado**: PASS.
+
+**Ports & adapters gate (Fase 3)**: porta nova `SecretResolver` — I/O (ambiente) e troca prevista (secret store do
+operador) —, com `EnvSecretResolver` e `InMemorySecretResolver` e suíte de conformidade contra os dois; a regra do
+controller é pura (`domain/output.py`); o SDK continua só em `adapters/`; só a 011 instancia os adapters. **Resultado**:
+PASS.
+
+## Project Structure (Fase 3)
+
+```text
+ai-core/packages/core/src/ai_core/llm/
+├── api.py                    # ModelRef: recusa roteamento automático do OpenRouter (R16); docstring de ModelCallFailed
+├── domain/output.py          # NOVO: constraint_problem — o controller exige response_format de esquema (R17)
+├── ports.py                  # + SecretResolver (R21)
+├── service.py                # TracedModel aplica a guarda dentro do bloco instrumentado (R17)
+└── adapters/
+    ├── openai_compat.py      # strict: true forçado; lista de disponíveis truncada na sondagem (R18, R22)
+    ├── secrets.py            # NOVO: EnvSecretResolver, InMemorySecretResolver (R21)
+    ├── remote.py             # NOVO: RemoteProvider — credencial resolvida no boot, falta guardada, chave limpa (R20, R21)
+    ├── openai.py             # NOVO: OpenAIProvider (R20)
+    └── openrouter.py         # NOVO: OpenRouterProvider — require_parameters, sondagem por variante (R18, R20, R22)
+
+ai-core/packages/core/src/ai_core/bootstrap/profiles.py   # toque: llm_secrets + remotos nos perfis (R23)
+specs/006-core-llm-providers/contracts/remote-adapters.md  # NOVO
+specs/011-core-bootstrap/contracts/profiles.md             # linha da porta llm_secrets
+```
+
+## Seam Notes for Consumers (Fase 3)
+
+| Consumidor | O que precisa saber |
+|---|---|
+| 003 | Nada a mudar: `ModelRef` agora recusa `openrouter/auto` e `openrouter/openrouter/…` com `ValueError`, que a validação do YAML, a criação de Assistant de usuário e a escolha por requisição já relatam |
+| 005 | Nada a mudar para Ollama e OpenRouter. Chamada do `controller` sem `response_format` de esquema vira `ModelCallFailed` (o nó já o captura). **Pendência**: o esquema de ação com `anyOf` na raiz não cabe no modo estrito da OpenAI; OpenAI como controller do `agentic` falha explicitamente até a 005 publicar um esquema de raiz objeto (R19) |
+| 008 | Nada a mudar: `ModelCallFailed` (inclusive "sem credencial") continua sendo falha de execução |
+| 011 | Porta `llm_secrets` antes de `providers`; `memory`/`persistent` registram `ollama`, `openai` e `openrouter`; `test` inalterado nos providers (R23) |
+| Operador | `AI_CORE_OPENAI_API_KEY` e `AI_CORE_OPENROUTER_API_KEY`; sem elas, `ai-core health` mostra o modelo declarado como indisponível, "sem credencial" (ADR-020: degrada, não derruba) |
+
+## Complexity Tracking (Fase 3)
+
+| Complexidade | Why Needed | Simpler Alternative Rejected Because |
+|---|---|---|
+| `RemoteProvider` entre `OpenAICompatProvider` e os dois remotos (R20) | credencial, falta e limpeza da chave são iguais nos dois remotos e não existem no Ollama | repetir nos dois arquivos; ou pôr credencial na base compartilhada com o Ollama, que não tem |
+| Porta `llm_secrets` na 011 além de `mcp_secrets` (R21, R23; ADR-020) | cada módulo aplica a própria regra de nomes; o prefixo da 007 é controle de segurança | um adapter só mudaria o nome das variáveis da 006 para `AI_CORE_MCP_SECRET_…`, contra a clarificação |
+| Registro dos remotos na composition root (T041, T042) frente ao SC-004 | instanciar adapters é papel exclusivo da 011 (princípio XIII, 011 FR-006); o SC-004 vale para seams e regras de outras specs, que não mudam | registrar o provider dentro da 006 faria o módulo instanciar a si mesmo, contra o princípio XIII |
+
+## Constitution Check — pós-design (Fase 3)
+
+Reavaliado com a seção "Fase 3" de [data-model.md](data-model.md), [contracts/remote-adapters.md](contracts/remote-adapters.md),
+as seções "Fase 3" de [contracts/model-router.md](contracts/model-router.md) e [contracts/ports.md](contracts/ports.md) e
+[quickstart.md](quickstart.md): **PASS**.
+
+- II: nenhum Protocol, value object ou erro novo no `api.py`; a regra nova do `ModelRef` sai pelo `ValueError` que os
+  três consumidores já tratam, e a guarda e a falta de credencial saem pelo `ModelCallFailed` que a 005 e a 008 já tratam.
+- VII: a tabela de modos de falha da Fase 3 cobre roteamento automático, controller sem esquema, remoto sem credencial,
+  recusa da restrição e chave inválida — cada um com erro nomeado e, quando houve invocação do cliente, um `ModelCall`.
+- VIII: o único lugar onde um terceiro escolheria o modelo (roteador do OpenRouter) é recusado na construção da
+  referência.
+- XIII: uma porta nova, por I/O e troca prevista, com adapter em memória e conformidade; o SDK continua só em `adapters/`.

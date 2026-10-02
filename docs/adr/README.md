@@ -24,6 +24,7 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 | [017](ADR-017-trace-sink-cresce-por-eventos-aditivos.md) | O Trace Sink cresce por eventos aditivos | Aceita | 009, 004, 005 |
 | [018](ADR-018-seam-execution-engine-fase-3.md) | Seam Execution Engine na Fase 3: grant da 003 e gravidade dos registros | Aceita | 005, 008, 009, 011, 003 |
 | [019](ADR-019-papeis-por-flow-no-seam-execution-engine.md) | O Execution Engine publica os papéis de modelo que cada flow exige | Aceita | 005, 003, 011 |
+| [020](ADR-020-segredos-uma-fonte-por-perfil-uma-porta-por-modulo.md) | Segredos: uma fonte por perfil, uma porta por módulo; credencial ausente degrada, não derruba | Aceita | 011, 006, 007 |
 
 ## Modelo para ADR novo
 

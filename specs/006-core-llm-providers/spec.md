@@ -17,7 +17,7 @@
 - **Depende de infraestrutura (via portas)**: provedores de modelo, local e remotos (adapters de `LLMProvider`); segredos (credenciais dos providers remotos).
 - **Não conhece**: flows, packs, prompts, domínio.
 - **Substituição**: preservar o Model Router e o contrato `LLMProvider`; providers podem ser adicionados ou trocados livremente (são adapters).
-- **Insumo técnico**: [design.md](design.md); [ADR-008](../../docs/adr/ADR-008-modelo-por-papel.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md).
+- **Insumo técnico**: [design.md](design.md); [ADR-008](../../docs/adr/ADR-008-modelo-por-papel.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md), [ADR-020](../../docs/adr/ADR-020-segredos-uma-fonte-por-perfil-uma-porta-por-modulo.md) (segredos, Fase 3).
 
 ## Clarifications
 
@@ -28,6 +28,12 @@
 - Q: Como o adapter do provider local fala com o Ollama? → A: Pelo SDK oficial da OpenAI em modo assíncrono, com o endereço base apontando para a camada compatível do Ollama, como o `design.md` prevê. Streaming, tool calls e restrição de formato de saída vêm prontos, e os adapters de OpenAI e OpenRouter (Fase 3) reaproveitam quase tudo. O SDK fica confinado a `adapters/` (princípio XIII).
 - Q: A verificação de saúde dos providers (FR-009) entra na Fase 1? → A: Sim, sob demanda — pergunta ao provider se o modelo declarado existe e responde disponível/indisponível com o motivo. Nunca é etapa bloqueante do boot: a plataforma sobe sem o provider local no ar (inclusive na suíte de testes) e o erro aparece na consulta de saúde e na primeira chamada.
 - Q: No hardware alvo uma geração legítima leva minutos. Que timeout distingue isso de um stream travado? → A: Dois prazos por provider, ambos configuráveis: timeout de conexão, curto (provider fora do ar falha em segundos), e timeout de inatividade entre pedaços do stream. Não há teto de tempo total — resposta longa e saudável nunca é cortada, e stream travado falha com erro que nomeia provider e modelo.
+
+### Session 2026-10-02
+
+- Q: Quais identificadores de modelo contam como "roteamento automático" e onde a recusa acontece? → A: No provider `openrouter`, todo modelo do namespace `openrouter/…` (o `openrouter/auto` e qualquer roteador futuro; também os modelos "stealth" temporários, opacos e sem SLA) é recusado na construção do `ModelRef`, com mensagem que pede modelo explícito. Sufixos de variante do próprio modelo (`:free`, `:nitro`, `:floor`) são aceitos. Como toda referência a modelo passa pelo `ModelRef`, a regra vale de uma vez na declaração do Assistant, na escolha de modelo pela requisição e na saúde, sem editar a 003.
+- Q: O que acontece quando a credencial do OpenAI ou do OpenRouter não está configurada no ambiente? → A: A credencial vem de uma variável por provider (`AI_CORE_OPENAI_API_KEY`, `AI_CORE_OPENROUTER_API_KEY`), lida por uma porta de segredos cujo adapter a 011 escolhe. O provider é registrado mesmo sem ela: a saúde relata indisponível com o motivo "sem credencial" e o nome da variável, e toda chamada falha antes de qualquer acesso à rede com erro explícito que nomeia provider, modelo e variável. O boot não falha, e nem a 003 nem os seams mudam.
+- Q: Como o roteador garante que o papel `controller` sempre recebe a restrição de formato, e o que acontece quando o provider ou o modelo não consegue cumpri-la? → A: Em três camadas. (1) O roteador recusa, antes da rede, chamada do papel `controller` sem `response_format`. (2) Cada adapter envia a forma mais rígida do provider: `strict: true` no `json_schema` e, no OpenRouter, `provider.require_parameters: true`, para só ir a upstream que suporte a restrição. (3) A recusa do provider (modelo sem suporte, esquema fora do modo estrito) vira erro explícito que nomeia provider e modelo, sem reenviar sem restrição. Consequência aceita: com o esquema atual do motor (`anyOf` na raiz, que o modo estrito da OpenAI recusa), OpenAI como controller do `agentic` falha explicitamente até a 005 ajustar o esquema; Ollama e OpenRouter funcionam.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -72,6 +78,8 @@ Além do provider local, o sistema suporta OpenAI e OpenRouter. Modelos são sem
 **Acceptance Scenarios**:
 
 1. **Given** um Assistant que declara modelo de roteamento automático, **When** validado, **Then** é rejeitado com mensagem explícita.
+2. **Given** uma requisição que escolhe `openrouter/openrouter/auto` e uma allowlist com `openrouter/*`, **When** resolvida, **Then** é rejeitada com a mesma mensagem — a allowlist não libera roteamento automático.
+3. **Given** `openrouter/qwen/qwen3-8b:free`, **When** validado, **Then** é aceito: o sufixo escolhe a variante do mesmo modelo, não outro modelo.
 
 ---
 
@@ -85,8 +93,9 @@ O papel `controller` sempre chama o modelo com restrição de formato de saída.
 
 **Acceptance Scenarios**:
 
-1. **Given** um esquema de ação, **When** o controller é chamado, **Then** a restrição de formato é enviada ao provider.
-2. **Given** um provider sem suporte a restrição, **When** usado como controller, **Then** o erro é explícito.
+1. **Given** um esquema de ação, **When** o controller é chamado, **Then** a restrição de formato é enviada ao provider na forma mais rígida dele (`strict: true`; no OpenRouter, também `require_parameters`).
+2. **Given** um provider ou modelo sem suporte a restrição, ou um esquema que o modo estrito dele recusa, **When** usado como controller, **Then** o erro é explícito, nomeia provider e modelo, e a chamada não é refeita sem restrição.
+3. **Given** uma chamada do papel `controller` sem `response_format`, **When** feita, **Then** o roteador a recusa antes de qualquer acesso à rede.
 
 ---
 
@@ -122,10 +131,12 @@ Cada chamada informa ao trace provider, modelo, papel, tokens de entrada e saíd
 
 - Modelo declarado não disponível no provider local: erro explícito na verificação de saúde e na primeira chamada.
 - Provider fora do ar quando a saúde é verificada: a verificação relata indisponível com o motivo, sem impedir o boot.
+- Provider remoto sem credencial configurada: a plataforma sobe; a saúde relata indisponível com "sem credencial" e o nome da variável, e cada chamada falha antes da rede com erro que nomeia provider, modelo e variável. O valor da credencial nunca aparece em erro, log ou trace.
 - Provider remoto responde com limite de taxa: erro explícito; não há fallback automático para outro provider na v1.
 - Stream interrompido pelo provider: o erro é propagado ao motor.
 - Stream que para de entregar pedaços sem fechar: o timeout de inatividade encerra a chamada com erro explícito.
-- Modelos gratuitos do OpenRouter: aceitos como fallback declarado, sem garantia de SLA.
+- Modelos gratuitos do OpenRouter: aceitos quando declarados explicitamente (sufixo `:free`), sem garantia de SLA.
+- Esquema do controller que o modo estrito do provider recusa (por exemplo, `anyOf` na raiz na OpenAI): erro explícito nomeando provider e modelo; o esquema é do motor (005), e a 006 não o reescreve.
 
 ## Requirements *(mandatory)*
 
@@ -134,13 +145,14 @@ Cada chamada informa ao trace provider, modelo, papel, tokens de entrada e saíd
 - **FR-001**: O sistema DEVE oferecer providers para Ollama (local), OpenAI e OpenRouter, todos cumprindo o contrato `LLMProvider`.
 - **FR-002**: O roteador DEVE resolver provider e modelo por papel a partir da **Model Policy** com que foi construído — montada pela composition root (011) a partir da configuração na Fase 1 e pela 003, dentro do Execution Grant, a partir da Fase 2 ([ADR-016](../../docs/adr/ADR-016-grant-carrega-politica-de-modelos.md)).
 - **FR-003**: O roteador DEVE aplicar a allowlist de provider/modelo da Model Policy a toda resolução.
-- **FR-004**: Modelos de roteamento automático DEVEM ser rejeitados na validação.
-- **FR-005**: O papel `controller` DEVE sempre usar restrição de formato de saída; ausência de suporte DEVE resultar em erro explícito.
+- **FR-004**: Modelos de roteamento automático DEVEM ser rejeitados na construção da referência de modelo (`ModelRef`), o que os recusa na validação do Assistant, na escolha de modelo pela requisição e na saúde. No provider `openrouter`, roteamento automático é todo modelo do namespace `openrouter/…` e a forma curta `auto` (`openrouter/auto` lido como provider `openrouter`, modelo `auto`); sufixos de variante (`:free`, `:nitro`, `:floor`) não contam. A mensagem DEVE pedir um modelo explícito.
+- **FR-005**: O papel `controller` DEVE sempre usar restrição de formato de saída. O roteador DEVE recusar, antes da rede, chamada do `controller` sem `response_format`; cada provider DEVE enviar a restrição na forma mais rígida que oferece (`strict: true` no `json_schema`; no OpenRouter, também `provider.require_parameters: true`). Recusa do provider — modelo sem suporte ou esquema fora do modo estrito — DEVE resultar em erro explícito que nomeia provider e modelo, e a chamada NÃO DEVE ser refeita sem a restrição.
 - **FR-006**: Todos os providers DEVEM suportar streaming.
 - **FR-007**: O sistema NÃO DEVE fazer fallback automático entre providers na v1.
 - **FR-008**: O cliente devolvido pelo roteador DEVE emitir, pelo Trace Sink (009), uma entrada por chamada com provider, modelo, papel, tokens de entrada/saída e latência. O tempo até o primeiro token entra com a US6 (Fase 3), como campo aditivo do evento de chamada de modelo da 009.
 - **FR-009**: O sistema DEVE oferecer verificação de saúde, sob demanda, dos providers e modelos configurados, informando disponível/indisponível com o motivo. A verificação NÃO DEVE ser etapa bloqueante do boot.
 - **FR-010**: Todo provider DEVE aplicar um timeout de conexão e um timeout de inatividade entre pedaços do stream, ambos configuráveis por provider, e NÃO DEVE impor teto de tempo total à chamada. Estouro de qualquer um dos dois DEVE resultar em erro explícito que nomeia provider e modelo.
+- **FR-011**: Provider remoto sem credencial DEVE ser registrado mesmo assim e relatado indisponível na verificação de saúde, com o motivo "sem credencial" e o nome da variável esperada. Toda chamada a ele DEVE falhar antes de qualquer acesso à rede, com erro explícito que nomeia provider, modelo e variável. A ausência NÃO DEVE impedir o boot, e o valor de uma credencial NÃO DEVE aparecer em erro, log ou trace.
 
 ### Key Entities
 
@@ -161,5 +173,5 @@ Cada chamada informa ao trace provider, modelo, papel, tokens de entrada e saíd
 
 - O provider local usa a camada compatível com OpenAI do Ollama, pelo SDK oficial da OpenAI em modo assíncrono, o que deixa sua implementação quase idêntica à do provider OpenAI. O SDK só aparece em `adapters/`.
 - A escolha final de modelos (Qwen3 1.7B vs Gemma 4 E2B) é decidida por medição na spec 105/009, não aqui.
-- Credenciais de providers externos vêm do ambiente ou do secret store do operador, por uma porta de segredos cujo adapter é escolhido pela composition root (011).
+- Credenciais de providers externos vêm de uma variável por provider (`AI_CORE_OPENAI_API_KEY`, `AI_CORE_OPENROUTER_API_KEY`), por uma porta de segredos cujo adapter é escolhido pela composition root (011); um secret store do operador é outro adapter da mesma porta.
 - Um provider simulado, também adapter de `LLMProvider`, atende o perfil de teste da 011.

@@ -97,3 +97,81 @@ async for chunk in router.for_role("generation").stream(messages):
 ```
 
 No perfil de teste da 011, troque `OllamaProvider` por `ScriptedProvider`: nenhum módulo muda.
+
+---
+
+# Fase 3 (2026-10-02): US2–US5
+
+Mesmos pré-requisitos: nenhuma dependência nova, e a suíte padrão continua sem rede (remotos com transporte HTTP falso,
+[research.md](research.md) R25). Contratos em [contracts/remote-adapters.md](contracts/remote-adapters.md) e na seção
+"Fase 3" de [contracts/model-router.md](contracts/model-router.md).
+
+## US3 — roteamento automático recusado
+
+```bash
+uv run pytest packages/core/tests/llm/unit/test_llm_api.py -k automatico -v
+uv run ai-core assistants validate            # com um Assistant que declara controller: openrouter/auto
+```
+
+Esperado: `openrouter/auto`, `openrouter/openrouter/auto` e `openrouter/AUTO` recusados com "é roteamento automático
+… declare um modelo explícito"; `openrouter/qwen/qwen3-8b:free` aceito. No `assistants validate`, o Assistant aparece
+indisponível com `models.controller: …` e o comando sai com código diferente de zero. Pela API, escolher
+`<assistant>/openrouter/openrouter/auto` como `model` devolve 400 com `param: "model"`, mesmo com `openrouter/*` na
+allowlist.
+
+## US4 — saída estruturada no controller
+
+```bash
+uv run pytest packages/core/tests/llm -k "controller or strict or require_parameters or recusa" -v
+```
+
+Esperado: chamada do `controller` sem `response_format` de esquema falha antes do provider e deixa um `ModelCall` de
+erro; o corpo enviado leva `"strict": true` (e, no OpenRouter, `"provider": {"require_parameters": true}`); um 400 do
+provider vira `ModelCallFailed` com uma única requisição.
+
+## FR-011 — provider remoto sem credencial
+
+```bash
+uv run pytest packages/core/tests/llm -k credencial -v
+env -u AI_CORE_OPENAI_API_KEY uv run ai-core health   # com um Assistant de sistema em openai/gpt-4o-mini
+```
+
+Esperado: a plataforma sobe; o item `model:openai/gpt-4o-mini` aparece indisponível com "sem credencial: defina
+AI_CORE_OPENAI_API_KEY"; nenhuma requisição sai para a rede; o valor de uma credencial nunca aparece na saída.
+
+## US2 e US5 — papéis em providers diferentes e allowlist
+
+```bash
+uv run pytest packages/core/tests/llm/contract/test_model_router_seam.py -k "papeis or allowlist" -v
+uv run pytest packages/core/tests/bootstrap/integration -k providers_por_papel -v
+```
+
+Esperado: com `controller: openrouter/qwen/qwen3-8b` e `generation: ollama/qwen3:1.7b`, o trace da execução `agentic`
+tem a chamada de controller no `openrouter` e a de geração no `ollama`; `allow: ["ollama/*"]` com papel em `openai/…`
+→ `ModelNotAllowed`.
+
+## Com os providers reais (opcional, pago)
+
+```bash
+AI_CORE_OPENROUTER_API_KEY=… OPENROUTER_MODEL=qwen/qwen3-8b \
+  uv run pytest packages/core/tests/llm/integration/test_remote_real.py -v
+AI_CORE_OPENAI_API_KEY=… OPENAI_MODEL=gpt-4o-mini \
+  uv run pytest packages/core/tests/llm/integration/test_remote_real.py -k openai -v
+```
+
+Esperado: o controller com um esquema de ação de raiz objeto recebe JSON parseável segundo o esquema (Independent Test
+da US4); `probe` confirma o modelo e nega um inexistente. Sem as variáveis, os testes são pulados.
+
+## Como a 011 monta (perfis `memory` e `persistent`)
+
+```python
+secrets = EnvSecretResolver()                      # porta llm_secrets
+providers = {
+    "ollama": OllamaProvider(base_url=settings.ollama_base_url),
+    "openai": OpenAIProvider(secrets=secrets),
+    "openrouter": OpenRouterProvider(secrets=secrets),
+}
+```
+
+No perfil `test`, `llm_secrets` é um `InMemorySecretResolver()` vazio e os providers continuam o simulado `ollama`; a
+suíte que precisa de outros nomes troca a porta `providers`.

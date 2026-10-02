@@ -88,3 +88,9 @@ parâmetro das suítes de conformidade.
 
 Marcada e pulada por default; roda quando `OLLAMA_BASE_URL` está definida. Cobre streaming incremental de verdade,
 `probe` com modelo presente e ausente, e o erro de provider fora do ar ([quickstart.md](../quickstart.md)).
+
+## Fase 3 (2026-10-02)
+
+Duas regras da camada compatível, descritas em [remote-adapters.md](remote-adapters.md), valem também para o Ollama:
+`json_schema.strict` é sempre enviado como `true` (o Ollama ignora o campo e restringe por gramática), e a lista de
+disponíveis da sondagem é truncada nos 20 primeiros ids, com `(+N)`.
