@@ -22,6 +22,7 @@ from ai_core.assistants.api import (
     RequestRejected,
 )
 from ai_core.graph.api import ExecutionRequestInvalid
+from ai_core.mcp.api import McpConflict, UnknownServer
 
 EXTRA: Final = "x_ai_core"
 ASSISTANT_NOT_FOUND: Final = "assistant não encontrado"
@@ -103,8 +104,12 @@ def error_for(error: BaseException) -> ErrorResponse | None:
             return _invalid(message, error.code, error.field)
         case ExecutionRequestInvalid():
             return _invalid(message, "invalid_request", None)
+        case McpConflict():
+            return ErrorResponse(status=409, type="conflict_error", code="conflict", message=message, param="alias")
         case Conflict():
             return ErrorResponse(status=409, type="conflict_error", code="conflict", message=message, param="name")
+        case UnknownServer():
+            return ErrorResponse(status=404, type="not_found_error", code="not_found", message=NOT_FOUND)
         case AssistantUnavailable():
             return ErrorResponse(
                 status=424,

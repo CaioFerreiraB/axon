@@ -24,11 +24,13 @@ from ai_core.graph.api import ExecutionEngine
 from ai_core.http.adapters import errors
 from ai_core.http.adapters.chat import chat_router
 from ai_core.http.adapters.conversations import conversations_router
+from ai_core.http.adapters.mcp_routes import global_mcp_router, user_mcp_router
 from ai_core.http.adapters.models import models_router
 from ai_core.http.adapters.private import private_router
 from ai_core.http.adapters.user_assistants import user_assistants_router
 from ai_core.http.ports import AdminGate, Clock, ConversationStore, HealthProvider, RequestIds
 from ai_core.http.service import DEFAULT_RETENTION, ChatService, ConversationService
+from ai_core.mcp.api import McpRegistry
 from ai_core.packs.api import PackRegistry
 
 PUBLIC_PREFIX = "/v1"
@@ -54,6 +56,7 @@ def create_app(
     clock: Clock,
     conversation_retention: timedelta = DEFAULT_RETENTION,
     lifespan: Lifespan | None = None,
+    mcp: McpRegistry | None = None,
 ) -> FastAPI:
     """Monta a app com os seams já injetados. A API não instancia nada de outro módulo (princípio XIII)."""
     app = FastAPI(title="ai-core", version="0.1.0", lifespan=lifespan)
@@ -77,11 +80,16 @@ def create_app(
     app.state.health = health
     app.state.conversation_ids = conversation_ids
     app.state.clock = clock
+    app.state.mcp = mcp
     errors.install(app)
     for surface, prefix in ((PUBLIC_SURFACE, PUBLIC_PREFIX), (PRIVATE_SURFACE, PRIVATE_PREFIX)):
         app.include_router(chat_router(surface=surface), prefix=prefix)
         app.include_router(models_router(surface=surface), prefix=prefix)
         app.include_router(conversations_router(surface=surface), prefix=prefix)
     app.include_router(user_assistants_router(), prefix=PUBLIC_PREFIX)
+    if mcp is not None:
+        # Sem registry (suítes que não precisam de MCP), as rotas não existem: 404 (research R29).
+        app.include_router(user_mcp_router(), prefix=PUBLIC_PREFIX)
+        app.include_router(global_mcp_router(), prefix=PRIVATE_PREFIX)
     app.include_router(private_router(), prefix=PRIVATE_PREFIX)
     return app

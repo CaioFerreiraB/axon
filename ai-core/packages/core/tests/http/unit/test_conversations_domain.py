@@ -57,5 +57,6 @@ def test_execucao_com_erro_nao_grava_troca() -> None:
 
 
 def test_apontamento_de_validator_nao_e_falha_e_grava() -> None:
-    final = FinalEvent(answer="ok", errors=(ExecutionIssue(stage="validate", kind="ValidatorIssue", message="x"),))
+    aviso = ExecutionIssue(stage="validate", kind="ValidatorIssue", message="x", severity="notice")
+    final = FinalEvent(answer="ok", errors=(aviso,))
     assert len(exchange({"role": "user", "content": "oi"}, final, request_id="req-1", at=T0)) == 2

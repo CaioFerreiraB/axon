@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Final
 
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -79,12 +79,17 @@ async def _stream(service: ChatService, chat_request: ChatRequest, principal: Pr
     return StreamingResponse(event_stream(_prepend(first, chunks)), media_type=MEDIA_TYPE, headers=headers)
 
 
+NO_RETRY: Final = {"x-should-retry": "false"}
+"""Cabeçalho que o SDK oficial da OpenAI obedece para não repetir uma resposta (research R31)."""
+
+
 async def _complete(service: ChatService, chat_request: ChatRequest, principal: Principal, response: Response) -> Any:
     result = await service.complete(chat_request, principal)
     headers = {REQUEST_ID_HEADER: result.request_id, CONVERSATION_ID_HEADER: result.conversation_id}
     if result.failed:
-        # Sem streaming ainda dá para escolher o status: 200 com marcador de erro seria degradação silenciosa.
-        return JSONResponse(status_code=502, content=result.body, headers=headers)
+        # Sem streaming ainda dá para escolher o status: 200 com marcador de erro seria degradação silenciosa. E o SDK
+        # oficial repete 5xx sozinho — cada repetição rodaria a execução de novo, inclusive tools de escrita (FR-022).
+        return JSONResponse(status_code=502, content=result.body, headers=headers | NO_RETRY)
     response.headers.update(headers)
     return result.body
 

@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from graph_testkit import RecordingTraceSink, provider
+from graph_testkit import RecordingTraceSink, ScriptedHooks, outcome, provider
 from http_testkit import (
     CREATED,
     MODEL_ID,
@@ -173,6 +173,26 @@ def test_falha_sem_streaming_responde_502_e_nao_200() -> None:
     assert payload["choices"][0]["finish_reason"] == "error"
     assert payload["x_ai_core"]["errors"][0]["kind"] == "ModelCallFailed"
     assert response.headers["x-request-id"]
+    # FR-022: o SDK oficial repete 5xx sozinho — e cada repetição rodaria a execução de novo.
+    assert response.headers["x-should-retry"] == "false"
+
+
+def test_execucao_so_com_avisos_e_sucesso_sem_streaming() -> None:
+    """ADR-018: apontamento de validator (`notice`) não é falha — 200 e `stop`, com o motivo no campo extra."""
+    hooks = ScriptedHooks(outcome=outcome(ok=False, issues=["sem fonte"]))
+    response = TestClient(app(hooks=hooks)).post("/v1/chat/completions", json=body())
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["choices"][0]["finish_reason"] == "stop"
+    assert payload["x_ai_core"]["errors"][0]["kind"] == "ValidatorIssue"
+    assert "x-should-retry" not in response.headers
+
+
+def test_erro_anterior_a_execucao_nao_leva_o_cabecalho_de_nao_repetir() -> None:
+    """Antes da execução nada rodou: repetir é seguro, e a resposta não diz o contrário."""
+    response = TestClient(app(grants=StaticGrants(known=()))).post("/v1/chat/completions", json=body())
+    assert response.status_code == 404
+    assert "x-should-retry" not in response.headers
 
 
 # --- progresso (research R5) ----------------------------------------------------------------------------------
@@ -187,3 +207,34 @@ def test_progresso_chega_no_stream_como_campo_extra(client: TestClient) -> None:
 
 def test_o_modelo_pedido_volta_como_veio(client: TestClient) -> None:
     assert post(client).json()["model"] == MODEL_ID
+
+
+# --- US6 cen. 1 (Fase 3, T053): progresso de tool no stream ----------------------------------------------------------
+
+
+@pytest.mark.us6
+def test_progresso_de_tool_chega_antes_dos_tokens() -> None:
+    from graph_testkit import ANSWER, FakeCapabilities, ScriptedController, agentic, engine, tool_action
+    from http_testkit import SurfaceRecordingAuthenticator, app_with
+
+    class AgenticGrants:
+        async def resolve(self, *, model: str, principal: Any) -> Any:
+            return agentic()
+
+    motor = engine(
+        capabilities=FakeCapabilities(),
+        controller=ScriptedController([tool_action("generic.calculate", expression="2+2"), ANSWER]),
+    )
+    client = TestClient(app_with(motor, authenticator=SurfaceRecordingAuthenticator(), grants=AgenticGrants()))
+    response = client.post("/v1/chat/completions", json=body(stream=True))
+
+    assert response.status_code == 200
+    chunks = chunks_of(response.text)
+    progresso = [c["x_ai_core"]["progress"] for c in chunks if "progress" in c.get("x_ai_core", {})]
+    assert {"stage": "execute_tool", "detail": "generic.calculate"} in progresso
+    primeiro_token = next(i for i, c in enumerate(chunks) if c["choices"][0]["delta"].get("content"))
+    indice_tool = next(
+        i for i, c in enumerate(chunks) if c.get("x_ai_core", {}).get("progress", {}).get("stage") == "execute_tool"
+    )
+    assert indice_tool < primeiro_token
+    assert answer_of(chunks) == "Brasília"

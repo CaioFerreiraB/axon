@@ -210,6 +210,8 @@ class Platform:
         )
         self.access = access_service(keys=keys, oidc=oidc, clock=self.clock)
         self.users = overrides.pop("users", None) or InMemoryUserAssistantStore()
+        self.mcp = overrides.pop("mcp", None)
+        """O registry da 007 (Fase 3): diretório de MCP da 003 e rotas de MCP da API, quando dado."""
         self.assistants = assistants_service(
             data
             if data is not None
@@ -223,7 +225,10 @@ class Platform:
             ),
             users=self.users,
             clock=self.clock,
+            mcp=self.mcp,
         )
+        if self.mcp is not None:
+            overrides["mcp"] = self.mcp
         self.conversations = overrides.pop("conversations", None) or InMemoryConversationStore()
         self.app = app_with(
             engine(llm=llm, trace=trace),

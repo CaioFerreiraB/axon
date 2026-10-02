@@ -18,7 +18,6 @@ ASSISTANT_ROLE: Final = "assistant"
 FINISH_STOP: Final = "stop"
 FINISH_ERROR: Final = "error"
 EXTRA: Final = "x_ai_core"
-VALIDATOR_ISSUE: Final = "ValidatorIssue"
 
 
 def _envelope(*, request_id: str, model: str, created: datetime, object_type: str) -> dict[str, Any]:
@@ -96,12 +95,12 @@ def completion(
 
 
 def finish_reason(event: FinalEvent) -> str:
-    """`error` só quando houve falha de execução.
+    """`error` só quando algum registro tem gravidade `error` (FR-022, ADR-018).
 
-    Apontamento de validator é achado sobre a resposta, não falha — a mesma regra que o motor aplica ao deixar a
-    resposta sair com a marcação (005 `domain/outcome.py`).
+    Registro `notice` — apontamento de validator, limite de iterações, ação inválida, corte de contexto — não é falha:
+    a resposta sai com o registro no campo extra. A API decide pela gravidade e não conhece `kind` nenhum da 005.
     """
-    return FINISH_STOP if all(issue.kind == VALIDATOR_ISSUE for issue in event.errors) else FINISH_ERROR
+    return FINISH_ERROR if any(issue.severity == "error" for issue in event.errors) else FINISH_STOP
 
 
 def extra_field(event: FinalEvent, *, request_id: str) -> dict[str, Any]:

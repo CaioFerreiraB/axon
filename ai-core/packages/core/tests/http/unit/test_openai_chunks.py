@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import pytest
 from http_testkit import CREATED, MODEL_ID
 
 from ai_core.graph.api import ExecutionIssue, FinalEvent, ProgressEvent, TokenEvent
 from ai_core.http.domain.openai_chunks import (
     completion,
     final_chunk,
+    finish_reason,
     opening_chunk,
     progress_chunk,
     token_chunk,
@@ -65,12 +67,30 @@ def test_erro_de_execucao_vira_desfecho_de_erro() -> None:
 
 
 def test_apontamento_de_validator_nao_vira_erro() -> None:
-    """Reprovar é achado sobre a resposta, não falha de execução — a mesma regra do motor."""
-    final = FinalEvent(
-        answer="Brasília",
-        errors=(ExecutionIssue(stage="validate_answer", kind="ValidatorIssue", message="sem fonte"),),
-    )
+    """Reprovar é achado sobre a resposta, não falha de execução: o motor o registra como `notice` (ADR-018)."""
+    aviso = ExecutionIssue(stage="validate_answer", kind="ValidatorIssue", message="sem fonte", severity="notice")
+    final = FinalEvent(answer="Brasília", errors=(aviso,))
     assert final_chunk(final, **ENVELOPE)["choices"][0]["finish_reason"] == "stop"
+
+
+# --- Fase 3 (T045; FR-022, ADR-018): o desfecho é da gravidade, não do tipo ------------------------------------------
+
+
+@pytest.mark.parametrize("kind", ["IterationLimit", "ContextTrimmed", "InvalidAction", "ValidatorIssue", "Qualquer"])
+def test_so_avisos_de_qualquer_tipo_sao_sucesso(kind: str) -> None:
+    final = FinalEvent(answer="x", errors=(ExecutionIssue(stage="s", kind=kind, message="m", severity="notice"),))
+    assert finish_reason(final) == "stop"
+
+
+@pytest.mark.parametrize("kind", ["ModelCallFailed", "McpUnavailable", "ValidatorIssue"])
+def test_um_erro_de_qualquer_tipo_e_falha(kind: str) -> None:
+    aviso = ExecutionIssue(stage="s", kind="IterationLimit", message="m", severity="notice")
+    erro = ExecutionIssue(stage="s", kind=kind, message="m", severity="error")
+    assert finish_reason(FinalEvent(answer="x", errors=(aviso, erro))) == "error"
+
+
+def test_sem_registros_e_sucesso() -> None:
+    assert finish_reason(FinalEvent(answer="x")) == "stop"
 
 
 def test_resposta_sem_streaming_traz_a_mensagem_inteira() -> None:

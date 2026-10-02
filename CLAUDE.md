@@ -93,7 +93,7 @@ check` em `ai_core/packs/adapters/cli.py`. Da 008, a Fase 2 (US2, US3, US4 de As
 seams da 003 direto (`Authorization: Bearer`, erros no envelope da OpenAI, 424 para Assistant indisponível), com
 `/models`, a requisição nativa `POST /chat`, o CRUD de Assistants de usuário em `/v1/assistants`, a superfície privada
 (`/packs` e `/admin/keys` só para o grupo de administração, `/health` para qualquer chave) e as conversas no servidor,
-em memória e em Postgres (schema `http`). Endpoints de MCP são Fase 3.
+em memória e em Postgres (schema `http`). Os endpoints de MCP chegaram na Fase 3 (abaixo).
 Da 011, a Fase 2 (US2 persistente, US4, US5) liga tudo isso: três perfis — `memory`, `persistent` (Postgres em
 `AI_CORE_DATABASE_URL`, migrações de `assistants` e `http` na etapa `adapters`) e `test` —, todos com a autenticação
 real da 003 (o anônimo saiu; o `memory` aceita a chave de `AI_CORE_DEV_API_KEY`, e o `test` exporta `TEST_OIDC_TOKEN`
@@ -109,8 +109,10 @@ internos e da allowlist de hosts de destino), e de usuário com prefixo `~`, sem
 servidor com allowlist de tools obrigatória, credencial só por referência (`AI_CORE_MCP_SECRET_<REF>`), descoberta com
 cache por TTL e o cliente restrito ao grant (`client_for(grant)`, com `discover` que devolve também os servidores com
 falha). O SDK oficial `mcp` (2.x, com `httpx2`) fica em `adapters/`; o transporte HTTP aplica a política de rede a cada
-conexão, conectando no IP validado (fecha DNS rebinding). Postgres no schema `mcp` (ADR-015). Falta ligar a 008
-(CRUD em `/v1` e `/private/v1`, saúde por servidor).
+conexão, conectando no IP validado (fecha DNS rebinding). Postgres no schema `mcp` (ADR-015). A 008 o expõe na
+Fase 3: `/v1/mcp` (servidores do próprio usuário, `available` e saúde do próprio servidor) e `/private/v1/mcp` (globais,
+só para o grupo de administração, 404 para os demais; entradas do `mcp.yaml` somente leitura), com o corpo no formato do
+`mcp.yaml` e nenhuma resposta com valor de credencial.
 O catálogo de capacidades e o gateway de tools (`ai_core/capabilities/`, spec 004, US1–US5) também existem como módulo:
 uma sessão por execução (`Capabilities.open(grant, ToolContext)`) monta o catálogo — tools de pack, retrievers com todas
 as coleções no grant e tools de MCP pelo cliente restrito da 007, com namespace, `allowed_tools`/`write_tools` exatos — e
@@ -133,8 +135,9 @@ As políticas são puras em `ai_core/graph/domain/` (`actions`, `limits`, `budge
 ADR-018: o motor recebe o `ExecutionGrant` da 003 (reexportado pelo `api.py` da 005) e `ExecutionIssue` tem `severity`
 (`error`/`notice`; `ExecutionFinished.ok` ignora `notice`). A decisão do controller é o evento `controller_decision` da
 009 (ADR-017). O `ExecutionService` aceita `capabilities` (seam da 004): sem ele, `agentic` não está em `flows()`.
-Falta a 008 decidir o `finish_reason` por `severity` (hoje um registro `error` dá 502 sem streaming). Checkpoint adiado
-até haver retomada (FR-014).
+A 008 decide o desfecho por `severity` (FR-022): só `notice` → 200 e `finish_reason: "stop"`; algum `error` → 502 sem
+streaming, com `x-should-retry: false` para o SDK oficial não reexecutar o loop (nem tools de escrita). Checkpoint
+adiado até haver retomada (FR-014).
 A composition root (011, passada de encaixe da Fase 3) liga tudo isso nos três perfis: portas `mcp_store`, `mcp_dns`,
 `mcp_transports`, `mcp_secrets`, `mcp_cache` e `audit` (memória; Postgres no `persistent`, com as migrações de `mcp` e
 `capabilities`; no `test`, um transporte MCP programado sem servidores); o `mcp.yaml` (`AI_CORE_MCP_FILE`) lido na etapa

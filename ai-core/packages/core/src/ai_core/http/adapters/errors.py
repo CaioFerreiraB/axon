@@ -18,6 +18,7 @@ from ai_core.assistants.api import (
 )
 from ai_core.graph.api import ExecutionRequestInvalid
 from ai_core.http.domain.errors import ErrorResponse, InvalidRequest, error_for
+from ai_core.mcp.api import UnknownServer
 
 
 class ApiError(Exception):
@@ -56,5 +57,6 @@ def install(app: FastAPI) -> None:
         Conflict,
         AssistantUnavailable,
         RateLimited,
+        UnknownServer,
     ):
         app.add_exception_handler(kind, _known)

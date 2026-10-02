@@ -412,6 +412,7 @@ def _api(ctx: BootContext) -> None:
         clock=parts["clock"],
         conversation_retention=retention,
         lifespan=app_lifespan(database=parts["database"], tasks=(expiry,)),
+        mcp=parts["mcp"],
     )
 
 

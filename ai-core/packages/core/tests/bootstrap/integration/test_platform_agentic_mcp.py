@@ -15,6 +15,7 @@ from bootstrap_testkit import AGENTIC_ASSISTANTS_YAML, DEMO_ENDPOINT, MCP_YAML, 
 from fastapi.testclient import TestClient
 from graph_testkit import ANSWER, ScriptedController, tool_action
 
+from ai_core.bootstrap.profiles import TEST_API_KEY
 from ai_core.bootstrap.wiring import Platform, platform
 from ai_core.llm.adapters.fake import ScriptedProvider
 from ai_core.mcp.adapters.memory import ScriptedMcpTransport, ScriptedServer
@@ -91,3 +92,50 @@ def test_servidor_mcp_fora_do_ar_e_falha_explicita_e_a_resposta_ainda_chega(tmp_
     payload = response.json()
     assert payload["choices"][0]["message"]["content"] == "Brasília"
     assert [e["kind"] for e in payload["x_ai_core"]["errors"]] == ["McpUnavailable"]
+
+
+# --- 008 Fase 3 (T054): as rotas de MCP pela plataforma ---------------------------------------------------------------
+
+
+def test_mcp_global_criado_pela_api_privada_aparece_na_listagem(tmp_path: Path) -> None:
+    plataforma = _plataforma(tmp_path, assistants=SEM_MCP, mcp=None)
+    chave = {"Authorization": f"Bearer {TEST_API_KEY}"}
+    corpo = {"alias": "global-da-api", "transport": "http", "endpoint": DEMO_ENDPOINT,
+             "policy": {"allowed_tools": ["eco"]}}
+    with TestClient(plataforma.app) as client:
+        assert client.post("/private/v1/mcp", headers=chave, json=corpo).status_code == 201
+        aliases = [s["alias"] for s in client.get("/private/v1/mcp", headers=chave).json()["data"]]
+    assert aliases == ["global-da-api"]
+
+
+AGENDA_URL = "https://agenda.example/mcp"
+
+COM_POLITICA_AGENTIC = SEM_MCP.replace("      flows: [chat]\n", "      flows: [chat, agentic]\n").replace(
+    '      models:\n        allow: ["ollama/*"]\n', '      models:\n        allow: ["ollama/*", "ctrl/*"]\n'
+)
+"""A política de usuário libera o flow `agentic` e o controller programado (`ctrl/*`)."""
+
+
+def test_us4_mcp_do_usuario_numa_conversa_pela_api(tmp_path: Path) -> None:
+    """008 US4, Independent Test: criar um MCP e um Assistant de usuário pela API e usá-los numa conversa."""
+    transporte = ScriptedMcpTransport({AGENDA_URL: ScriptedServer(tools=(RemoteTool(name="listar"),))})
+    controller = ScriptedController([tool_action("~agenda.listar"), ANSWER])
+    plataforma = _plataforma(
+        tmp_path,
+        assistants=COM_POLITICA_AGENTIC,
+        mcp=None,
+        providers={"ollama": ScriptedProvider(name="ollama", deltas=("Agenda lida.",)), "ctrl": controller},
+        mcp_transports={"http": transporte, "sse": transporte, "stdio": transporte},
+    )
+    with TestClient(plataforma.app) as client:
+        mcp = {"alias": "~agenda", "transport": "http", "endpoint": AGENDA_URL, "policy": {"allowed_tools": ["listar"]}}
+        assert client.post("/v1/mcp", headers=OIDC, json=mcp).status_code == 201
+        assistant = {"name": "pesquisa", "flow": "agentic", "packs": ["generic"], "mcp": ["~agenda"],
+                     "models": {"generation": "ollama/qwen3:1.7b", "controller": "ctrl/controlador"}}
+        criado = client.post("/v1/assistants", headers=OIDC, json=assistant)
+        assert criado.status_code == 201, criado.text
+        response = client.post("/v1/chat/completions", headers=OIDC, json=body(model="~pesquisa"))
+
+    assert response.status_code == 200, response.text
+    assert response.json()["choices"][0]["message"]["content"] == "Agenda lida."
+    assert [op for op, _ in transporte.calls if op.startswith("call_tool")] == ["call_tool:listar"]
