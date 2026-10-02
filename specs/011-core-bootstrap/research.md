@@ -297,3 +297,216 @@ sobrevive a uma plataforma nova sobre o mesmo banco, e o boot falha sem expor a 
 fechada vale para o armazenamento.
 
 **Alternatives considered**: nenhuma relevante.
+
+---
+
+# Fase 3 (2026-10-02): encaixe da 007, da 004 e do `agentic`
+
+Insumos: as três clarificações de 2026-10-02; as notas para a 011 nos planos da
+[007](../007-core-mcp-integration/plan.md) ("Seam Notes", linha da 011) e da [004](../004-core-capability-gateway/plan.md)
+(idem); o `design.md` (tabela de portas por perfil: `McpServerStore`, `McpTransport`, `AuditLog`); ADR-012, ADR-013,
+ADR-015, [ADR-017](../../docs/adr/ADR-017-trace-sink-cresce-por-eventos-aditivos.md) e
+[ADR-018](../../docs/adr/ADR-018-seam-execution-engine-fase-3.md). Módulos ligados, já implementados: 007 (`McpService`,
+adapters de armazenamento, transporte, segredos, cache e arquivo), 004 (`CapabilityService`, auditoria em memória e
+Postgres, `audit_command`), 005 (`ExecutionService(capabilities=…)`).
+
+## R21 — Escopo da passada
+
+**Decision**: ligar nos três perfis o registry MCP (007) e o gateway de tools (004); passar o gateway ao motor (o
+`agentic` passa a existir em `flows()`); a etapa `mcp_registry` entre `packs` e `engine`; o serviço da 007 no lugar do
+`McpDirectory` vazio da 003; `ai-core audit`; um item de saúde por servidor MCP global; o SDK de MCP com log em `INFO`;
+trocas de porta para as suítes; e o teste ponta a ponta `agentic` + MCP pelo perfil `test`. **Fora**: rotas HTTP de
+MCP, saúde por servidor na API e `finish_reason` por gravidade (passada da 008); acusar Assistant `agentic` sem
+`controller` (passada da 003); checkpoint (adiado pela 005).
+
+**Rationale**: é a linha da 011 que as notas da 007 e da 004 deixaram, mais as clarificações de 2026-10-02.
+
+**Alternatives considered**: ligar também as rotas da 008 (é outra spec).
+
+## R22 — Portas novas no perfil
+
+**Decision**: `REQUIRED_PORTS` ganha, depois das de armazenamento já existentes: `mcp_store`, `mcp_dns`,
+`mcp_transports`, `mcp_secrets`, `mcp_cache` e `audit`. `STORAGE_PORTS` ganha `mcp_store` e `audit` (reconstruídas sobre o pool
+temporário nas sessões, R13).
+
+| Porta | `memory` | `persistent` | `test` |
+|---|---|---|---|
+| `mcp_store` (007) | `InMemoryServerStore` | `PostgresServerStore(pool)` | `InMemoryServerStore` |
+| `mcp_dns` (007) | `SystemDnsResolver` | `SystemDnsResolver` | `FixedDnsResolver` vazio |
+| `mcp_transports` (007) | `http`/`sse`: `HttpMcpTransport` com a porta `mcp_dns` | `http`/`sse`: idem; `stdio`: `StdioMcpTransport` | os três: um `ScriptedMcpTransport` sem servidores |
+| `mcp_secrets` (007) | `EnvSecretResolver` (`AI_CORE_MCP_SECRET_<REF>`) | idem | `InMemorySecretResolver` vazio |
+| `mcp_cache` (007) | `InMemoryDiscoveryCache(clock)` | idem | idem |
+| `audit` (004) | `InMemoryAuditLog` | `PostgresAuditLog(pool)` | `InMemoryAuditLog` |
+
+O transporte HTTP recebe os hosts internos e a allowlist de hosts do arquivo do operador — por isso o arquivo é lido
+na etapa de configuração (R23), antes de os adapters existirem. Os provedores do perfil `test` passam a responder
+`{"action": "answer"}` em chamada sem streaming — é o controller simulado (clarificação 2).
+
+**Rationale** (`design.md`, tabela por perfil; FR-004): toda porta declarada por um módulo tem adapter em cada perfil,
+e a escolha é dado. `stdio` só no `persistent`, como o `design.md` determina: no `memory`, uma entrada `stdio` do
+arquivo fica indisponível com o motivo (transporte não oferecido pelo perfil), em vez de executar comando local num
+perfil de desenvolvimento. O cache é sempre em memória (processo único, como os contadores de taxa da 003).
+
+A porta `DnsResolver` da 007 entra no perfil como `mcp_dns` (FR-004: toda porta declarada tem adapter no perfil); o
+transporte HTTP a recebe das partes. A porta `McpConfigSource` segue o padrão do `assistants.yaml` (R4): a escolha entre
+o arquivo e a configuração vazia é da etapa `configuration`, pela variável, não do perfil.
+
+**Alternatives considered**: montar cache, DNS e segredos direto na etapa, sem porta (o FR-004 pede que toda porta tenha
+adapter declarado no perfil); um transporte por servidor (o transporte é por tipo — `http`, `sse`, `stdio` —, e a
+política de rede é aplicada a cada conexão dentro dele, 007).
+
+## R23 — O arquivo do operador na configuração; a etapa `mcp_registry` monta o serviço
+
+**Decision**: a etapa `configuration` lê também o `mcp.yaml` (`AI_CORE_MCP_FILE`, pelo `YamlMcpConfigSource` da 007;
+ausente = nenhum servidor do operador). Arquivo ilegível ou malformado (`McpConfigError`) para o boot ali, nomeando o
+arquivo. A etapa nova `mcp_registry` — **crítica**, entre `packs` e `engine` — monta o `McpService` com as portas do
+perfil, o arquivo já lido, o relógio único e o TTL de descoberta; entrada do arquivo com problema (`ConfigEntry.problem`)
+**degrada** a etapa, nomeando o alias e o motivo, e o resto sobe. A etapa não sai para a rede (clarificação 1).
+
+A etapa também confere, sem rede e sem ler valor, que toda referência de credencial dos servidores globais resolve —
+`credential_ref` dos globais (`globals()`, na sessão de armazenamento) e os `secrets` das entradas `stdio` do arquivo:
+referência ausente degrada a etapa com `mcp '<alias>': credencial '<ref>' ausente (AI_CORE_MCP_SECRET_<REF>)`. É o
+caso de borda "referência de segredo ausente" da spec: a 007 só resolve o valor por operação (007 FR-004), então sem
+esta conferência o operador só descobriria na primeira chamada (SC-005). O relatório nomeia a referência, nunca o
+valor (FR-009).
+
+**Rationale**: FR-001 ("validada antes de qualquer outra etapa") e SC-002; é o mesmo tratamento do `assistants.yaml`
+(R4). A nota da 007 ("erro de arquivo é crítico") vale: erro de arquivo para o boot, só que uma etapa antes. Entrada
+com problema não para o boot (FR-003, SC-004).
+
+**Alternatives considered**: ler o arquivo dentro de `mcp_registry` (o transporte HTTP precisa dos hosts antes, na
+etapa de adapters); sondar os servidores no boot (clarificação 1).
+
+## R24 — Gateway de tools no motor; o `agentic` em todos os perfis
+
+**Decision**: a etapa `engine` monta o `CapabilityService` — `pack_tools` = o `PackRuntime` (seam Pack Toolset da 002),
+`mcp` = o `McpService`, `audit` = a porta, o Trace Sink, o relógio e `GatewayLimits(timeout_ms, max_response_bytes)` da
+configuração — e o passa ao `ExecutionService(capabilities=…)`. Com isso `flows()` oferece `chat` e `agentic` nos três
+perfis, e `assistants validate` aceita Assistants `agentic`.
+
+**Rationale**: FR-007 (o motor recebe os seams prontos); ADR-018 (sem `capabilities`, não há `agentic`); notas da 004.
+
+**Alternatives considered**: `agentic` só no `persistent` (nada no flow depende de armazenamento persistente).
+
+## R25 — O `McpDirectory` da 003 passa a ser o `McpService`
+
+**Decision**: `assistants_service(parts, users=…, mcp=…)` recebe o diretório de MCP como os outros armazenamentos: no
+servidor, o `McpService` da plataforma; no boot e na linha de comando, um `McpService` montado sobre o `mcp_store` da
+sessão de armazenamento (R13), pela mesma fábrica (`mcp_service(parts, store=…)`). O `EmptyMcpDirectory` sai da
+montagem.
+
+**Rationale**: a 007 cumpre a porta `McpDirectory` estruturalmente (`aliases(owner=…)`); no `persistent`, o
+armazenamento só pode ser usado no laço em que o pool abriu (R13).
+
+**Alternatives considered**: um `McpService` só, compartilhado entre laços (quebra no `persistent`, pelo mesmo motivo do
+R13).
+
+## R26 — Migrações `mcp` e `capabilities` na etapa de adapters
+
+**Decision**: `_migrate` roda, na sessão de armazenamento do boot, as migrações de `assistants`, `http`, `mcp` e
+`capabilities`, nessa ordem — cada uma sob a trava consultiva do seu schema (ADR-015).
+
+**Rationale**: ADR-015 e as notas da 007 e da 004.
+
+**Alternatives considered**: migrar na primeira escrita (erro de banco apareceria depois de a API existir).
+
+## R27 — Configuração nova
+
+**Decision**:
+
+| Variável | Default | Regra |
+|---|---|---|
+| `AI_CORE_MCP_FILE` | — | caminho do arquivo do operador (formato da 007); ausente = nenhum servidor do operador |
+| `AI_CORE_MCP_DISCOVERY_TTL` | `300` | segundos, `> 0` — validade do catálogo descoberto de um servidor (007) |
+| `AI_CORE_TOOL_TIMEOUT_MS` | `30000` | inteiro entre 1 000 e 300 000 — prazo do gateway (004) |
+| `AI_CORE_TOOL_MAX_RESPONSE_BYTES` | `16384` | inteiro entre 1 024 e 1 048 576 — corte do gateway (004) |
+
+Valor fora da regra é recusado na construção de `Settings`, nomeando a variável. Credenciais de MCP **não** passam por
+`Settings`: o `EnvSecretResolver` da 007 lê `AI_CORE_MCP_SECRET_<REF>` só ao montar a operação, e o valor nunca sai em
+log, relatório ou erro (FR-009, 007 FR-004).
+
+**Rationale**: notas da 007 e da 004; as faixas são as de `GatewayLimits`, repetidas aqui para que o erro saia na
+configuração (FR-001), não na montagem do serviço.
+
+**Alternatives considered**: deixar o `GatewayLimits` recusar (o erro nomearia o campo do value object, não a variável).
+
+## R28 — Saúde: um item não crítico por servidor MCP global
+
+**Decision** (clarificação 1): `PlatformHealth` recebe o registry da 007 e acrescenta, a cada consulta não coberta pelo
+cache, um item `mcp:<alias>` por servidor de `globals()` — `ok` e `detail` do `ServerHealth` de `check(alias)`,
+inclusive as tools que a allowlist pede e o servidor não anuncia —, todos em paralelo, cada um sob o prazo de 3 s. Itens
+**não críticos**: servidor fora do ar deixa a saúde `degraded`. Falha ao listar os globais vira um item `mcp` não
+crítico com o motivo (banco fora do ar já aparece como `database`, crítico). Servidores de usuário não entram.
+
+**Rationale**: US5 cen. 4, FR-012, SC-005; o cache de 15 s e o prazo de 3 s já existentes limitam a ida à rede.
+
+**Alternatives considered**: ver a clarificação 1.
+
+## R29 — `ai-core audit`
+
+**Decision**: `Command(path=("audit",))`, com os argumentos do contrato da 004 (`--principal`, `--assistant`, `--tool`,
+`--since`, `--until`, `--limit`, `--results`). Sobe até `mcp_registry` (configuração, adapters, packs e o registry —
+sem rede) e, na sessão de armazenamento, monta o `CapabilityService` pela mesma fábrica da etapa `engine`, com a
+auditoria e o registry da sessão, e chama `audit_command` da 004. Códigos: os do contrato da 004 (0; 2 para filtro
+inválido); boot que falha, 1.
+
+**Rationale**: a consulta é seam da 004 (`AuditQuery`); montá-la pela mesma fábrica do servidor é o que o FR-010
+pede ("a mesma configuração e os mesmos adapters do servidor"). No `memory` e no `test`, a auditoria é do próprio
+processo — a listagem sai vazia, como `keys list` no `memory`.
+
+**Alternatives considered**: ler o `AuditLog` direto (contornaria o seam da 004 e repetiria a regra de filtro).
+
+## R30 — O SDK de MCP nunca registra em `DEBUG`
+
+**Decision**: a etapa `mcp_registry` fixa o nível do logger `mcp` (raiz dos loggers do SDK) em `INFO`. Os loggers filhos
+do SDK não têm nível próprio, então herdam `INFO` mesmo com a raiz do processo em `DEBUG`.
+
+**Rationale**: em `DEBUG`, o SDK registra mensagens JSON-RPC inteiras — argumentos de tool e conteúdo de resposta, que
+podem trazer dado de usuário ou credencial de terceiro (princípio VI, FR-009). A composition root é quem configura o
+processo; a 007 não configura logging.
+
+**Alternatives considered**: um filtro de redação no log (frágil diante de formatos que mudam com o SDK); confiar no
+nível padrão (um operador que liga `DEBUG` para depurar outra coisa vazaria conteúdo).
+
+## R31 — Trocas de porta na montagem
+
+**Decision** (clarificação 2): `platform(…, overrides: Mapping[str, Any] | None = None)`. Na etapa de adapters, cada
+porta com troca usa o valor dado em vez da fábrica do perfil; as fábricas seguintes já o enxergam. Nome fora de
+`REQUIRED_PORTS`, ou porta de armazenamento (`database` e `STORAGE_PORTS`), é recusado com `ConfigurationError`
+nomeando a porta — as sessões de armazenamento reconstroem essas portas pelas fábricas, e uma troca nelas seria
+ignorada em silêncio no `persistent`. A troca existe só na chamada Python; nenhuma variável de ambiente a expõe.
+
+**Rationale**: FR-014 — a suíte programa o controller (porta `providers`) e os servidores MCP (porta `mcp_transports`)
+sem montar o resto. O perfil continua dado; a troca é por porta, no mesmo ponto em que o perfil é aplicado.
+
+**Alternatives considered**: fakes fixos no perfil `test` (clarificação 2, opção B); perfil `test` com servidores
+programados por arquivo (programar resultado de tool não é configuração).
+
+## R32 — Testes
+
+**Decision**:
+
+- unidade: `Settings` com as variáveis novas (defaults e recusas); perfis com as portas novas (inclusive a recusa de
+  troca de porta de armazenamento e de nome desconhecido); `PlatformHealth` com o registry falso (item por global,
+  não crítico, prazo, falha de listagem);
+- contrato: a ordem das etapas com `mcp_registry`; arquivo malformado para na configuração; entrada com problema
+  degrada `mcp_registry`; `agentic` em `flows()` nos três perfis; o SDK em `INFO` com a raiz em `DEBUG`;
+- CLI: `ai-core audit` registrado, filtro inválido → 2, listagem vazia no `test`;
+- integração: o `persistent` contra Postgres real (migrações `mcp` e `capabilities`; um servidor criado pelo registry
+  sobrevive à reabertura; `audit` lista o que uma tool de escrita gravou) com `AI_CORE_TEST_POSTGRES_DSN`; e a
+  conversa `agentic` + MCP ponta a ponta pela API no perfil `test`, com controller e servidor MCP trocados na montagem
+  (US3 cen. 3) — sem rede.
+- marca `us3` na ponta a ponta, `us2` nos perfis, `us5` na saúde, `us4` na CLI.
+
+**Rationale**: o que as clarificações e a US3 cen. 3 pedem, no padrão das suítes da Fase 2 (R20).
+
+**Alternatives considered**: testar a ponta a ponta com o servidor de demonstração real da 007 por HTTP (exige rede de
+loopback; a clarificação 2 pede sem rede).
+
+## R33 — Pendências para outros planos
+
+| Spec | O quê |
+|---|---|
+| 008 | rotas de MCP em `/v1/mcp` e `/private/v1/mcp` (o `McpService` da plataforma já existe em `Platform.mcp`); saúde por servidor na API; `finish_reason` por `severity` (ADR-018) |
+| 003 | acusar Assistant `agentic` sem papel `controller`; exemplo de `allowed_tools` com namespace; regra de colisão alias × pack |
+| 006 | US4: `strict` e recusa de provider sem saída estruturada no `controller` |

@@ -97,3 +97,24 @@ a seção acima sobre ele descreve a Fase 1.
 
 Conformidade (`tests/bootstrap/unit/test_settings.py`): cada variável nova com default e recusa nomeando a variável;
 mensagens de erro de segredo nunca contêm o valor.
+
+---
+
+## Fase 3 (2026-10-02): registry MCP e gateway de tools (research R23, R27)
+
+| Variável | Default | Significado |
+|---|---|---|
+| `AI_CORE_MCP_FILE` | — | caminho do arquivo de servidores MCP do operador, no formato da 007 (`specs/007-core-mcp-integration/contracts/mcp-yaml.md`); ausente = nenhum servidor do operador |
+| `AI_CORE_MCP_DISCOVERY_TTL` | `300` | segundos de validade do catálogo descoberto de um servidor |
+| `AI_CORE_TOOL_TIMEOUT_MS` | `30000` | prazo do gateway por chamada de tool (1 000–300 000) |
+| `AI_CORE_TOOL_MAX_RESPONSE_BYTES` | `16384` | tamanho máximo do resultado de tool entregue ao modelo (1 024–1 048 576) |
+| `AI_CORE_MCP_SECRET_<REF>` | — | valor de uma credencial de MCP referenciada no arquivo por `<ref>`; lido só ao montar a operação, nunca impresso |
+
+O arquivo é lido na etapa `configuration`: ilegível ou malformado para o boot nomeando o arquivo; entrada com problema
+fica indisponível e degrada a etapa `mcp_registry`.
+
+### Suíte de conformidade — acréscimos
+
+10. defaults das quatro variáveis; recusa nomeando a variável para TTL `≤ 0`, prazo e tamanho fora da faixa;
+11. `AI_CORE_MCP_FILE` apontando para arquivo malformado para o boot em `configuration`;
+12. nenhum valor de `AI_CORE_MCP_SECRET_*` aparece em `repr(Settings)`, no relatório de boot ou em mensagem de erro.

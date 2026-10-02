@@ -25,3 +25,24 @@ entrada à lista de registro da raiz, sem tocar nos outros (US4 cen. 3).
 
 Conformidade (`tests/bootstrap/contract/test_cli_commands.py`): cada linha da tabela com `main(argv)`, saída capturada
 e servidor injetado (que nunca é chamado fora do `serve`).
+
+---
+
+## Fase 3 (2026-10-02): `ai-core audit` (research R29)
+
+```text
+ai-core audit [--principal P] [--assistant A] [--tool T] [--since ISO] [--until ISO] [--limit N] [--results]
+```
+
+Formato da saída e códigos: os do contrato da 004 (`specs/004-core-capability-gateway/contracts/audit.md`) — 0; 2 para
+filtro inválido. Boot que falha: 1. Sobe até `mcp_registry` (sem rede) e monta a consulta da 004 sobre a sessão de
+armazenamento, pela mesma fábrica do servidor. No `memory` e no `test`, a auditoria é do próprio processo: a listagem
+sai vazia.
+
+### Suíte de conformidade — acréscimos
+
+- `ai-core --help` lista `audit`;
+- `--since` fora do ISO 8601 → 2;
+- perfil `test` → 0 e nenhuma linha;
+- `persistent` com Postgres: um registro gravado pela auditoria da 004 aparece, sem o resultado; com `--results`,
+  com ele.

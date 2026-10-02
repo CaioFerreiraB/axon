@@ -141,3 +141,60 @@ assistants:
 - **Health Report** (Key Entity da spec): `HealthReport(items)` da 008, com `HealthItem(name, ok, critical, detail)` e
   `status` = `ok` | `degraded` | `down` (contracts/health.md).
 - **Platform** ganha `assistants`, `access`, `routing`, `conversations` e o ciclo de vida da app (pool e tarefas).
+
+## Fase 3 (2026-10-02): registry MCP, gateway de tools e `agentic` ([research.md](research.md) R21–R33)
+
+### `Settings` — campos novos
+
+| Campo | Variável | Default | Regra |
+|---|---|---|---|
+| `mcp_file` | `AI_CORE_MCP_FILE` | `None` | caminho do arquivo do operador (formato da 007) |
+| `mcp_discovery_ttl` | `AI_CORE_MCP_DISCOVERY_TTL` | `300.0` | segundos, `> 0` |
+| `tool_timeout_ms` | `AI_CORE_TOOL_TIMEOUT_MS` | `30000` | inteiro, 1 000–300 000 |
+| `tool_max_response_bytes` | `AI_CORE_TOOL_MAX_RESPONSE_BYTES` | `16384` | inteiro, 1 024–1 048 576 |
+
+Fora da regra → `ConfigurationError` nomeando a variável. Credenciais de MCP (`AI_CORE_MCP_SECRET_<REF>`) não passam por
+`Settings` (R27).
+
+### Portas exigidas — acréscimos
+
+`REQUIRED_PORTS` ganha, ao fim e nesta ordem: `mcp_store`, `mcp_dns`, `mcp_transports`, `mcp_secrets`, `mcp_cache`,
+`audit`.
+`STORAGE_PORTS` ganha `mcp_store` e `audit`. Adapters por perfil em [contracts/profiles.md](contracts/profiles.md).
+
+### Partes novas do boot
+
+| Parte | Produzida por | O quê |
+|---|---|---|
+| `mcp_config` | `configuration` | o `McpConfig` da 007 (arquivo lido ou vazio) |
+| `mcp` | `mcp_registry` | o `McpService` da plataforma (registry, catálogo de aliases, clientes restritos) |
+| `capabilities` | `engine` | o `CapabilityService` da plataforma |
+
+### `Platform` — campos novos
+
+`mcp: McpService | None` e `capabilities: CapabilityService | None` — vazios quando a etapa não rodou. É por
+`Platform.mcp` que a 008 vai ligar as rotas de MCP.
+
+### `platform()` — parâmetro novo
+
+`overrides: Mapping[str, Any] | None = None` — porta → adapter que substitui a fábrica do perfil (R31). Nome fora de
+`REQUIRED_PORTS`, `database` ou porta de `STORAGE_PORTS` → `ConfigurationError` nomeando a porta, na etapa de adapters.
+
+### Itens de saúde novos
+
+| Item | Crítico | `ok` / `detail` |
+|---|---|---|
+| `mcp:<alias>` (um por servidor global) | não | `ServerHealth.ok` / motivo, ou as tools pedidas e não anunciadas |
+| `mcp` (só quando a listagem dos globais falha) | não | `false` / o motivo |
+
+### Modos de falha — acréscimos
+
+| Situação | Resultado |
+|---|---|
+| `mcp.yaml` ilegível ou malformado | o boot para na etapa `configuration`, nomeando o arquivo |
+| Entrada do `mcp.yaml` com problema | etapa `mcp_registry` degradada, nomeando alias e motivo; o servidor fica indisponível e o resto sobe |
+| Referência de credencial de servidor global sem `AI_CORE_MCP_SECRET_<REF>` | etapa `mcp_registry` degradada, nomeando alias e referência — nunca valor |
+| Entrada `stdio` num perfil sem transporte `stdio` (`memory`) | servidor indisponível na descoberta ("transporte 'stdio' não configurado") |
+| Migração de `mcp` ou `capabilities` quebrada | o boot para na etapa `adapters`, nomeando o schema |
+| Servidor MCP global fora do ar | nada no boot; item `mcp:<alias>` não saudável, saúde `degraded` (200) |
+| Banco fora do ar depois do boot | item `database` crítico, saúde `down` (503); requisições com 503 `storage_unavailable` (008) |

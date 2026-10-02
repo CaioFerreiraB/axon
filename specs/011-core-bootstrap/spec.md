@@ -33,6 +33,12 @@
 - Q: Como cada perfil autentica, agora que a 003 existe? → A: Com a verificação real nos três, e o autenticador anônimo sai. `persistent`: OIDC por JWKS e chaves de API no Postgres. `memory`: OIDC quando configurado e uma chave de desenvolvimento lida do ambiente, no grupo de administração. `test`: verificador OIDC estático e chave semeada, com credenciais conhecidas exportadas para as suítes.
 - Q: O que faz a saúde agregada responder 503 (fora do ar), e o que só a marca como degradada, com 200? → A: Só item **crítico** leva a 503 — armazenamento persistente inacessível ou etapa crítica do boot que falhou. Pack em erro, Assistant indisponível e modelo fora do ar são itens não saudáveis de um resultado `degraded`, com 200 e o item nomeado: a instância continua atendendo o resto.
 
+### Session 2026-10-02
+
+- Q: Quando a plataforma verifica se os servidores MCP globais estão no ar — só na saúde agregada, também no boot, ou em nenhum? → A: Só na saúde agregada. O boot não sai para a rede: a etapa do registry MCP carrega o arquivo do operador e o armazenamento, e um MCP fora do ar nunca atrasa nem impede a subida (SC-004). A saúde traz um item **não crítico** por servidor global, consultado em paralelo sob o prazo e o cache que ela já tem; servidor fora do ar deixa o resultado `degraded` (200), nunca `down`. Servidores de usuário (`~alias`) ficam fora — a 008 os verifica um a um.
+- Q: Como uma suíte ponta a ponta, subindo a plataforma pelo perfil `test`, faz o controller pedir uma tool e um servidor MCP responder, sem rede? → A: A chamada que monta a plataforma aceita **trocas de porta**: a suíte passa o adapter de qualquer porta (o provider do controller com um roteiro, o transporte MCP com servidores programados) sem montar o resto. Sem troca, o perfil `test` continua autossuficiente — o modelo simulado responde `{"action": "answer"}` quando chamado como controller e o transporte MCP simulado não tem servidores. A troca existe só na chamada Python que as suítes usam; nenhum arquivo de configuração nem variável de ambiente a expõe.
+- Q: Com o registry MCP no mesmo Postgres dos outros módulos, o caso de borda "armazenamento do registry MCP indisponível" deve ser reescrito? → A: Sim. Com um banco só (ADR-015), registry inacessível é banco inacessível: a saúde agregada responde `down` (503, item crítico) e as requisições recebem 503 `storage_unavailable` (008 FR-021). O que continua não crítico é o servidor MCP **remoto** fora do ar: fica fora do catálogo da execução com registro `error`, e a execução segue (004, 005).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Operador sobe a plataforma e o boot segue uma ordem fixa (Priority: P1)
@@ -55,7 +61,7 @@ O operador inicia o serviço. O bootstrap carrega e valida a configuração, ins
 
 ### User Story 2 - Perfil de adapters por fase, sem mudar módulos (Priority: P1)
 
-O operador escolhe, por configuração, qual adapter atende cada porta. Na Fase 1, tudo roda em memória; da Fase 2 em diante, Assistants de usuário e histórico passam a armazenamento persistente; na Fase 3, registry MCP, auditoria e checkpoint também. Trocar de perfil não altera nenhum módulo.
+O operador escolhe, por configuração, qual adapter atende cada porta. Na Fase 1, tudo roda em memória; da Fase 2 em diante, Assistants de usuário e histórico passam a armazenamento persistente; na Fase 3, registry MCP e auditoria também (o checkpoint de execução ficou adiado até haver retomada — 005, clarificação de 2026-10-01). Trocar de perfil não altera nenhum módulo.
 
 **Why this priority**: ADR-012 — as trocas previstas no roadmap são trocas de adapter.
 
@@ -83,6 +89,7 @@ A suíte ponta a ponta sobe a plataforma inteira com adapters em memória e um p
 
 1. **Given** um ambiente sem serviços externos, **When** a suíte sobe a plataforma no perfil de teste, **Then** uma conversa ponta a ponta com o pack de referência funciona pela API.
 2. **Given** o perfil de teste com o relógio fixado, **When** várias execuções rodam, **Then** todas recebem a mesma data de referência (ADR-013).
+3. **Given** o perfil de teste com um controller programado e um servidor MCP programado trocados na montagem, **When** uma conversa com um Assistant `agentic` chega pela API, **Then** a tool do servidor é chamada pelo gateway e o resultado chega à resposta — sem rede.
 
 ---
 
@@ -113,6 +120,7 @@ A verificação de saúde reúne o estado de cada módulo — packs carregados e
 **Acceptance Scenarios**:
 
 1. **Given** o provider local fora do ar, **When** a saúde é consultada, **Then** o resultado é `degraded` (200), nomeia o provider e o modelo indisponíveis, e os demais itens aparecem saudáveis.
+4. **Given** um servidor MCP global fora do ar, **When** a saúde é consultada, **Then** o resultado é `degraded` (200) e nomeia o alias e o motivo; o boot que precedeu a consulta concluiu sem sair para a rede.
 3. **Given** o perfil persistente com o banco inacessível depois do boot, **When** a saúde é consultada, **Then** o resultado é `down` (503) e nomeia o armazenamento.
 2. **Given** todos os itens disponíveis, **When** a saúde é consultada, **Then** o resultado é saudável.
 
@@ -122,7 +130,7 @@ A verificação de saúde reúne o estado de cada módulo — packs carregados e
 
 - Configuração de pack que referencia pack não instalado: tratada pela 002 (`error: não instalado`); o boot continua.
 - Dois adapters para a mesma porta no mesmo perfil: configuração inválida; o boot não começa.
-- Armazenamento do registry MCP indisponível (a partir da Fase 3): Assistants que usam MCP ficam indisponíveis com erro explícito; os demais atendem.
+- Armazenamento do registry MCP indisponível (perfil `persistent`): é o banco único fora do ar (ADR-015) — saúde `down` (503) e requisições com 503 `storage_unavailable` (008 FR-021). Servidor MCP **remoto** fora do ar não é isso: fica fora do catálogo da execução, com registro `error`, e a execução segue; na saúde, é item não crítico.
 - Sinal de parada durante o boot: as etapas já concluídas são desfeitas na ordem inversa.
 - Referência de segredo ausente no ambiente: o adapter que precisa dela falha na inicialização com erro que nomeia a referência, nunca o valor.
 - Perfil `memory` sem chave de desenvolvimento nem OIDC configurados: o boot conclui, toda credencial é recusada (401), e o relatório de boot diz isso em destaque — nunca uma plataforma aberta por falta de configuração.
@@ -137,14 +145,14 @@ A verificação de saúde reúne o estado de cada módulo — packs carregados e
 - **FR-004**: Cada perfil DEVE definir um adapter para cada porta secundária declarada pelos módulos; porta sem adapter DEVE invalidar o perfil antes do boot.
 - **FR-005**: O sistema DEVE oferecer pelo menos os perfis "em memória" (Fase 1), "persistente" (Fase 2 em diante) e "teste"; trocar de perfil NÃO DEVE exigir mudança em nenhum módulo.
 - **FR-006**: Este módulo DEVE ser o único a instanciar adapters de outros módulos e a injetá-los; os demais módulos recebem seams e adapters prontos.
-- **FR-007**: O sistema DEVE injetar no motor (005) os seams já construídos (Pack Hooks, Capability Catalog e Tool Gateway, Model Router, Trace Sink) e os adapters das portas do motor (checkpoint, relógio); a montagem do contexto de cada execução continua sendo do motor.
+- **FR-007**: O sistema DEVE injetar no motor (005) os seams já construídos (Pack Hooks, Capability Catalog e Tool Gateway, Model Router, Trace Sink) e os adapters das portas do motor (relógio; checkpoint quando houver retomada — 005 FR-014); a montagem do contexto de cada execução continua sendo do motor.
 - **FR-008**: Um único adapter de relógio DEVE atender todos os módulos que declaram porta de tempo, e o perfil de teste DEVE permitir fixar o relógio.
 - **FR-009**: Um único adapter de segredos DEVE atender todos os módulos que declaram porta de segredos; valores de segredo NÃO DEVEM aparecer em configuração versionada, logs ou mensagens de erro.
 - **FR-010**: O sistema DEVE oferecer um único comando de linha de comando com os subcomandos contribuídos por cada módulo — no mínimo `serve`, `packs list`, `packs check` e `assistants validate` —, usando a mesma configuração e os mesmos adapters do servidor.
 - **FR-011**: Subcomandos de validação DEVEM rodar sem abrir a API e sair com código não zero em caso de erro.
-- **FR-012**: O sistema DEVE agregar a saúde de todos os módulos num único resultado, com o estado e o motivo de cada item, consumido pela superfície privada (008) e pela linha de comando. Cada item é crítico ou não: o resultado é `down` se algum item crítico falha (armazenamento persistente inacessível, etapa crítica do boot), `degraded` se só itens não críticos falham (pack em erro, Assistant indisponível, modelo fora do ar) e `ok` se nenhum falha; só `down` é 503 na superfície privada.
+- **FR-012**: O sistema DEVE agregar a saúde de todos os módulos num único resultado, com o estado e o motivo de cada item, consumido pela superfície privada (008) e pela linha de comando. Cada item é crítico ou não: o resultado é `down` se algum item crítico falha (armazenamento persistente inacessível, etapa crítica do boot), `degraded` se só itens não críticos falham (pack em erro, Assistant indisponível, modelo fora do ar, servidor MCP global fora do ar) e `ok` se nenhum falha; só `down` é 503 na superfície privada. A disponibilidade de servidores MCP é verificada só aqui, nunca no boot.
 - **FR-013**: No encerramento, o sistema DEVE parar de aceitar requisições, aguardar as execuções em andamento até um prazo configurável e liberar os recursos na ordem inversa do boot.
-- **FR-014**: O perfil de teste DEVE subir a plataforma inteira sem nenhum serviço externo (armazenamento, vetores, rede, provider de modelo real), e DEVE fazer parte da distribuição, para que a suíte de qualquer pack possa montar a plataforma de verdade.
+- **FR-014**: O perfil de teste DEVE subir a plataforma inteira sem nenhum serviço externo (armazenamento, vetores, rede, provider de modelo real), e DEVE fazer parte da distribuição, para que a suíte de qualquer pack possa montar a plataforma de verdade. A montagem DEVE aceitar a troca do adapter de qualquer porta, para que a suíte programe o controller e os servidores MCP; sem troca, o controller simulado responde direto e não há servidor MCP.
 - **FR-015**: Todo perfil DEVE autenticar com o verificador real da 003 — nenhum perfil aceita requisição sem credencial. O `persistent` verifica OIDC pelo JWKS do emissor configurado e chaves de API no armazenamento persistente; o `memory`, OIDC quando configurado e uma chave de desenvolvimento lida do ambiente, no grupo de administração; o `test`, um verificador OIDC estático e uma chave semeada, cujas credenciais a distribuição exporta para as suítes.
 
 ### Key Entities
@@ -171,4 +179,4 @@ A verificação de saúde reúne o estado de cada módulo — packs carregados e
 - Processo único na v1; múltiplas réplicas ficam fora de escopo, como os contadores de taxa da 003.
 - A técnica de injeção (construtores explícitos ou container) é decidida no plano; a constituição exige apenas que ela fique neste módulo.
 - O perfil de teste usa um provider de modelo simulado, fornecido como adapter do contrato `LLMProvider`.
-- O perfil persistente cresce por fase: Assistants de usuário e histórico na Fase 2; registry MCP, auditoria e checkpoint na Fase 3 (ver `docs/roadmap.md`).
+- O perfil persistente cresce por fase: Assistants de usuário e histórico na Fase 2; registry MCP e auditoria na Fase 3; checkpoint quando houver retomada (ver `docs/roadmap.md`).

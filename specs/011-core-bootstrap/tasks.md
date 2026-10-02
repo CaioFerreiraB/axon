@@ -1,6 +1,6 @@
 ---
 
-description: "Task list for 011 — bootstrap e composition root, Fases 1 e 2"
+description: "Task list for 011 — bootstrap e composition root, Fases 1, 2 e 3"
 ---
 
 # Tasks: Bootstrap e composition root — boot, perfis e plataforma em memória
@@ -248,9 +248,198 @@ Decisões em [plan.md](plan.md) ("Fase 2") e [research.md](research.md) R11–R2
 
 ---
 
+## Fase 3 (2026-10-02): registry MCP, gateway de tools e `agentic` (research R21–R33)
+
+Encaixe da 007, da 004 e do `agentic` da 005 nos três perfis, com as três clarificações de 2026-10-02. Caminhos
+relativos a `ai-core/packages/core/`. Testes primeiro em cada bloco; marcas `us1`–`us5` pela história. Fora: rotas
+HTTP de MCP e `finish_reason` por gravidade (008), papel `controller` na validação (003).
+
+## Phase 12: Foundational da Fase 3 — configuração e perfis
+
+**⚠️ CRITICAL**: nenhuma story da Fase 3 antes desta fase
+
+- [ ] T035 [P] Estender `tests/bootstrap/unit/test_settings.py` (contracts/configuration.md, "Fase 3"): defaults
+  `mcp_file=None`, `mcp_discovery_ttl=300.0`, `tool_timeout_ms=30000`, `tool_max_response_bytes=16384`; o
+  `EnvConfigSource` lê `AI_CORE_MCP_FILE`, `AI_CORE_MCP_DISCOVERY_TTL`, `AI_CORE_TOOL_TIMEOUT_MS` e
+  `AI_CORE_TOOL_MAX_RESPONSE_BYTES`; recusa com `ConfigurationError` **nomeando a variável** para TTL `≤ 0`, prazo fora
+  de "1 000–300 000" e tamanho fora de "1 024–1 048 576"; com `AI_CORE_MCP_SECRET_X=segredo-x` no ambiente, o texto
+  `segredo-x` não aparece em `repr(Settings)`
+- [ ] T036 Implementar em `src/ai_core/bootstrap/settings.py` os quatro campos e as validações do T035 (constantes
+  `DEFAULT_MCP_DISCOVERY_TTL = 300.0`, `DEFAULT_TOOL_TIMEOUT_MS = 30_000`, `DEFAULT_TOOL_MAX_RESPONSE_BYTES = 16_384`),
+  e a leitura no `EnvConfigSource` (depende de T035)
+- [ ] T037 [P] Estender `tests/bootstrap/unit/test_profiles.py` (contracts/profiles.md, "Fase 3"): `REQUIRED_PORTS`
+  termina com `mcp_store`, `mcp_dns`, `mcp_transports`, `mcp_secrets`, `mcp_cache`, `audit`; `STORAGE_PORTS` contém `mcp_store` e
+  `audit`; nos três perfis, com `parts` contendo `settings`, `clock`, `database` e `mcp_config`, cada porta nova é
+  construída com o adapter da tabela de R22 (`memory`: transportes `{"http", "sse"}`; `persistent`: `{"http", "sse",
+  "stdio"}`, armazenamento e auditoria Postgres sobre o pool; `test`: `{"http", "sse", "stdio"}` com o **mesmo**
+  `ScriptedMcpTransport` sem servidores); o provider `ollama` do perfil `test` devolve `{"action": "answer"}` em
+  `chat(..., stream=False)` e continua fazendo streaming de `"Bras"`, `"ília"`
+- [ ] T038 Implementar em `src/ai_core/bootstrap/profiles.py` as seis portas nos três perfis (R22): `mcp_dns`
+  (`SystemDnsResolver` no `memory`/`persistent`, `FixedDnsResolver` vazio no `test`); transportes HTTP com
+  `parts["mcp_dns"]` e os `internal_hosts`/`allowed_hosts` de `parts["mcp_config"].network`, `stdio` só no
+  `persistent`; `EnvSecretResolver` no `memory`/`persistent` e `InMemorySecretResolver` no `test`;
+  `InMemoryDiscoveryCache(parts["clock"])`; `PostgresServerStore`/`PostgresAuditLog` sobre `parts["database"]`; o
+  `ScriptedProvider` do `test` com `content='{"action": "answer"}'` (depende de T036, T037)
+
+**Checkpoint**: configuração e perfis da Fase 3 prontos
+
+---
+
+## Phase 13: User Story 1 — boot com registry MCP e gateway de tools (Priority: P1)
+
+**Goal**: a sequência ganha `mcp_registry`; o motor recebe o gateway e oferece `agentic`; a 003 valida contra o
+registry real.
+
+**Independent Test**: `uv run pytest packages/core/tests/bootstrap/contract/test_boot_sequence.py -m us1` — itens
+13–18 de contracts/boot-sequence.md.
+
+### Tests for User Story 1 ⚠️
+
+- [ ] T039 [P] [US1] Estender `tests/bootstrap/contract/test_boot_sequence.py` com os itens 13–18 de
+  [contracts/boot-sequence.md](contracts/boot-sequence.md): etapas na ordem `configuration, adapters, packs,
+  mcp_registry, engine, assistants, api`; `AI_CORE_MCP_FILE` com YAML malformado → boot para em `configuration`
+  nomeando o arquivo; entrada com problema (ex.: sem `policy.allowed_tools`) → `mcp_registry` degradada nomeando o
+  alias, boot concluído; `engine.flows() == {"chat", "agentic"}` nos perfis `memory` e `test`; com
+  `logging.getLogger().setLevel(DEBUG)` antes do boot, `logging.getLogger("mcp.client.streamable_http")
+  .getEffectiveLevel() == INFO` depois (restaurar a raiz no fim); Assistant que declara alias MCP inexistente fica
+  indisponível no relatório da etapa `assistants`, e um que declara alias do `mcp.yaml` fica disponível; servidor global
+  com `auth.credential: falta` sem `AI_CORE_MCP_SECRET_FALTA` → `mcp_registry` degradada nomeando o alias e a referência,
+  e, com `AI_CORE_MCP_SECRET_OUTRA=segredo-outra` no ambiente, `segredo-outra` não aparece no relatório de boot (FR-009)
+
+### Implementation for User Story 1
+
+- [ ] T040 [US1] Em `src/ai_core/bootstrap/wiring.py` (R23–R26, R30): `STAGE_MCP = "mcp_registry"`; a etapa
+  `configuration` guarda `parts["mcp_config"]` (`YamlMcpConfigSource(settings.mcp_file)` ou `McpConfig()`); a etapa
+  nova `_mcp_registry` (crítica, entre `packs` e `engine`) monta `parts["mcp"] = mcp_service(parts,
+  store=parts["mcp_store"])`, fixa `logging.getLogger("mcp").setLevel(logging.INFO)` e degrada com `"; "`.join de
+  `"mcp '<alias>': <problema>"` das entradas com `problem` e de `"mcp '<alias>': credencial '<ref>' ausente
+  (AI_CORE_MCP_SECRET_<REF>)"` para cada referência que `parts["mcp_secrets"].resolve(ref)` não resolve —
+  `credential_ref` de `globals()` (na sessão de armazenamento) e os `secrets` das entradas `stdio` do arquivo, sem
+  nunca imprimir valor; `mcp_service(parts, *, store)` monta o `McpService` com
+  `config=parts["mcp_config"]`, `transports=parts["mcp_transports"]`, `secrets`, `cache`, `clock` e
+  `discovery_ttl=timedelta(seconds=settings.mcp_discovery_ttl)`; `capabilities_service(parts, *, audit, mcp)` monta o
+  `CapabilityService` com `pack_tools=parts["packs"]`, o trace, o relógio e `GatewayLimits(timeout_ms=…,
+  max_response_bytes=…)`; a etapa `engine` guarda `parts["capabilities"]` e passa `capabilities=` ao
+  `ExecutionService`; `assistants_service(parts, *, users, mcp)` usa o `mcp` dado no lugar do `EmptyMcpDirectory`
+  (servidor: `parts["mcp"]`; `_validate` e `platform_health`: `mcp_service(parts, store=session["mcp_store"])`);
+  `_migrate` acrescenta `mcp_schema.migrate` e `capabilities_schema.migrate` depois de `http`; `Platform` ganha `mcp` e
+  `capabilities`; docstring do módulo com a ordem nova (depende de T038)
+- [ ] T041 [US1] Em `src/ai_core/bootstrap/cli.py`: `_validate` (assistants validate) passa o `mcp` da sessão a
+  `assistants_service`, e o `STAGE_MCP` entra nos imports onde for preciso (depende de T040)
+
+**Checkpoint**: `ai-core serve` sobe com registry e gateway; `agentic` aparece nos flows
+
+---
+
+## Phase 14: User Story 2 — perfil persistente com `mcp` e `capabilities` (Priority: P1)
+
+**Goal**: no `persistent`, registry e auditoria em Postgres, migrados no boot.
+
+**Independent Test**: `AI_CORE_TEST_POSTGRES_DSN=… uv run pytest packages/core/tests/bootstrap/integration/
+test_persistent_profile.py -m us2`.
+
+- [ ] T042 [P] [US2] Estender `tests/bootstrap/integration/test_persistent_profile.py` (pulado sem
+  `AI_CORE_TEST_POSTGRES_DSN`): o boot cria os schemas `mcp` e `capabilities` (consulta a `information_schema`);
+  `engine.flows()` tem `agentic`; um servidor criado por `platform.mcp.create_global(...)` dentro do ciclo de vida da
+  app (`TestClient` aberto) aparece num **segundo** boot, lido pela sessão de armazenamento (`async with
+  storage(parts) as session: await mcp_service(parts, store=session["mcp_store"]).globals()`, R13); um Assistant do `assistants.yaml` que declara esse alias fica
+  disponível na validação do segundo boot (depende de T040)
+
+---
+
+## Phase 15: User Story 3 — trocas de porta e `agentic` + MCP ponta a ponta (Priority: P1)
+
+**Goal**: a suíte programa controller e servidores MCP na montagem; uma conversa `agentic` com tool de MCP atravessa a
+API sem rede (US3 cen. 3, clarificação 2).
+
+**Independent Test**: `uv run pytest packages/core/tests/bootstrap/integration/test_platform_agentic_mcp.py`.
+
+### Tests for User Story 3 ⚠️
+
+- [ ] T043 [P] [US3] Criar `tests/bootstrap/unit/test_profile_overrides.py` (contracts/profiles.md, "Trocas de
+  porta"): `platform(profile="test", overrides={"request_ids": fixo})` usa o adapter dado; uma troca de `clock` é a
+  que as fábricas seguintes recebem (`parts["clock"]` é o relógio dado e a data de referência de uma execução é a dele); porta desconhecida → boot falha em `adapters` com `ConfigurationError` nomeando
+  a porta; `database`, `api_keys`, `user_assistants`, `conversations`, `mcp_store` ou `audit` → idem
+- [ ] T044 [P] [US3] Criar `tests/bootstrap/integration/test_platform_agentic_mcp.py` (US3 cen. 3), sem rede: em
+  `tmp_path`, `assistants.yaml` com um Assistant `pesquisador` (`flow: agentic`, `packs: [generic]`, `mcp: [demo]` —
+  o campo de aliases MCP do formato da 003 —, `models` com `generation: ollama/qwen3:1.7b` e `controller:
+  ctrl/controlador`, `allow: ["ollama/*", "ctrl/*"]`) e `mcp.yaml` com `demo` (`transport: http`, `endpoint:
+  https://demo.test/mcp`, `policy.allowed_tools: [eco]`); `platform(profile="test", config=…, overrides={"providers":
+  {"ollama": ScriptedProvider(deltas=("Pronto.",)), "ctrl": ScriptedController([tool_action("demo.eco",
+  texto="olá"), ANSWER])} — `ScriptedController`, `tool_action` e `ANSWER` importados de `graph_testkit`, como as
+  suítes da 008 já fazem, "mcp_transports": {"http": t, "sse": t, "stdio": t}})` com `t =
+  ScriptedMcpTransport({"https://demo.test/mcp": ScriptedServer(tools=(RemoteTool eco,))})`; `POST
+  /v1/chat/completions` com `Bearer TEST_OIDC_TOKEN` e `model: "pesquisador"` → 200, conteúdo `"Pronto."`,
+  `finish_reason: "stop"`; `t.calls` tem `call_tool:eco`; o trace da requisição (`platform.trace`) tem
+  `controller_decision` e `tool_call`; sem trocas, o mesmo Assistant (com `controller: ollama/qwen3:1.7b`) responde
+  200 com o controller simulado respondendo direto
+
+### Implementation for User Story 3
+
+- [ ] T045 [US3] Em `src/ai_core/bootstrap/wiring.py` (R31): `platform(..., overrides: Mapping[str, Any] | None =
+  None)`; a etapa de adapters recusa nome fora de `REQUIRED_PORTS`, `database` e `STORAGE_PORTS` com
+  `ConfigurationError` nomeando a porta, e constrói o perfil com o valor trocado no lugar da fábrica (as fábricas
+  seguintes enxergam a troca) — pela `Profile.build_all(settings, parts, overrides=…)` em `profiles.py` (depende de
+  T040)
+
+**Checkpoint**: a conversa `agentic` + MCP ponta a ponta passa no perfil `test`, sem rede
+
+---
+
+## Phase 16: User Story 5 — saúde com servidores MCP (Priority: P2)
+
+**Goal**: um item não crítico por servidor MCP global (clarificação 1).
+
+**Independent Test**: `uv run pytest packages/core/tests/bootstrap/unit/test_health.py -m us5`.
+
+- [ ] T046 [P] [US5] Estender `tests/bootstrap/unit/test_health.py` (contracts/health.md, "Fase 3") com um registry
+  falso (`globals()` e `check(alias)`): servidor fora do ar → `degraded`, item `mcp:<alias>` com `critical=False` e o
+  motivo; servidor que não anuncia uma tool da allowlist → item não saudável nomeando a tool; `globals()` que levanta →
+  item `mcp` não saudável e não crítico; `check` que passa do prazo → item com "sem resposta em 3 s"; segunda consulta
+  dentro de 15 s não chama `check`; sem registry (`mcp=None`), nenhum item de MCP
+- [ ] T047 [US5] Em `src/ai_core/bootstrap/health.py`: `PlatformHealth(..., mcp: McpRegistry | None = None)` e os itens
+  de R28 em paralelo com os demais; `wiring.platform_health` passa o `mcp_service` da sessão; docstring com os itens
+  novos (depende de T046 e T040)
+
+---
+
+## Phase 17: User Story 4 — `ai-core audit` (Priority: P2)
+
+**Goal**: o operador lista as escritas auditadas pela 004.
+
+**Independent Test**: `uv run pytest packages/core/tests/bootstrap/contract/test_cli_commands.py -m us4`.
+
+- [ ] T048 [P] [US4] Estender `tests/bootstrap/contract/test_cli_commands.py` (contracts/cli.md, "Fase 3"): `--help`
+  lista `audit`; `audit --since ontem` → código 2; `audit` no perfil `test` → 0 e nenhuma linha de registro; e, em
+  `tests/bootstrap/integration/test_persistent_profile.py` (com Postgres), um registro aberto e fechado pelo
+  `PostgresAuditLog` aparece em `ai-core audit` sem o resultado, e com `--results` com ele
+- [ ] T049 [US4] Em `src/ai_core/bootstrap/cli.py` (R29): `Command(path=("audit",), …)` com os argumentos do contrato da
+  004; sobe com `until=STAGE_MCP`, abre a sessão de armazenamento, monta `capabilities_service(parts,
+  audit=session["audit"], mcp=mcp_service(parts, store=session["mcp_store"]))` e chama `audit_command` da 004; boot
+  que falha → 1 (depende de T048 e T040)
+
+---
+
+## Phase 18: Polish da Fase 3
+
+- [ ] T050 Rodar a seção "Fase 3" do [quickstart.md](quickstart.md) e corrigir divergências entre o resultado e o
+  "Esperado"; e, em `tests/bootstrap/contract/test_cli_serve.py`, conferir que pelo caminho do `serve` (servidor
+  falso de `main(argv)`) o nível efetivo de `mcp.*` continua `INFO` depois de o servidor configurar o logging
+- [ ] T051 [P] Atualizar a linha da 011 em `specs/README.md` (Fase 3 implementada: registry MCP, gateway, `agentic`,
+  `audit`), a seção "Código" de `CLAUDE.md` (o que estava "Falta ligar" na 007, na 004 e na 005 passa a ligado pela 011;
+  `Platform.mcp` para a 008; trocas de porta) e a nota "Depois desta fase" deste arquivo
+- [ ] T052 Verificação completa a partir de `ai-core/`: `uv run pytest`, `uv run mypy`, `uv run ruff check packages`,
+  `uv run lint-imports`, e a suíte com `AI_CORE_TEST_POSTGRES_DSN`
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
+
+**Fase 3**: T035 → T036; T037 → T038 (depois de T036) — bloqueiam as stories. US1: T039 → T040 → T041. Depois de
+T040: US2 (T042), US3 (T043 ∥ T044 → T045), US5 (T046 → T047) e US4 (T048 → T049, depois de T041, mesmo `cli.py`).
+Polish por último (T051 em paralelo).
 
 **Fase 2**: T021 → T022; T023 → T024 (depois de T022) — bloqueiam as stories. US2: T025 ∥ T026, depois T027 → T028;
 US5: T029 → T030 (depois de T027, que monta a plataforma com `routing` e `access`); US4: T031 → T032 (depois de T028 e
@@ -284,4 +473,6 @@ T030, mesmo `cli.py`). Polish por último.
 
 - Fase 2: a 003 assume `assistants.yaml` e fornece autenticador e resolvedor reais; entram os subcomandos de módulo
   (US4), a saúde agregada (US5) e o perfil persistente
-- Fase 3: etapa de registry MCP (007) e porta de checkpoint (005) entram na lista, sem mudar a sequência
+- Fase 3 (Phases 12–18 acima): etapa de registry MCP (007) e gateway (004) entram na lista, sem mudar a sequência;
+  a porta de checkpoint (005) ficou adiada até haver retomada
+- Depois da Fase 3 da 011: rotas de MCP e `finish_reason` por gravidade (008); papel `controller` na validação (003)

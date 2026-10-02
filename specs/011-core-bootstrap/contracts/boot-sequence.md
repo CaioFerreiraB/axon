@@ -84,3 +84,30 @@ numa migração, o módulo e o arquivo — nunca a URL.
 **Ciclo de vida da app** (research R14): no início, abre o pool de serviço e agenda as tarefas periódicas (expiração
 de conversas); no fim, cancela as tarefas e fecha o pool. O encerramento do processo continua liberando os recursos do
 boot na ordem inversa (FR-013).
+
+---
+
+## Fase 3 (2026-10-02): etapa `mcp_registry` (research R23–R26)
+
+```text
+configuration → adapters → packs → mcp_registry → engine → assistants → api
+```
+
+| Etapa | Muda | Crítica |
+|---|---|---|
+| `configuration` | lê também o `mcp.yaml` (`McpConfigError` para o boot) | sim |
+| `adapters` | constrói as portas novas; migra `mcp` e `capabilities` depois de `assistants` e `http` | sim |
+| `mcp_registry` | **nova**: monta o `McpService`; fixa o logger `mcp` em `INFO`; entrada do arquivo com problema ou referência de credencial ausente degrada a etapa; não sai para a rede | sim |
+| `engine` | monta o `CapabilityService` e o passa ao motor; `flows()` passa a ter `agentic` | sim |
+| `assistants` | o `McpDirectory` da 003 é o `McpService` (da sessão de armazenamento) | não |
+
+### Suíte de conformidade — acréscimos
+
+13. as etapas, nesta ordem, com `mcp_registry` entre `packs` e `engine`;
+14. entrada com problema no `mcp.yaml` → `mcp_registry` degradada nomeando o alias, e o boot conclui;
+15. `mcp.yaml` malformado → o boot para em `configuration`;
+16. `engine.flows() == {"chat", "agentic"}` nos três perfis;
+17. com a raiz do logging em `DEBUG`, o nível efetivo dos loggers `mcp.*` é `INFO` depois do boot;
+18. Assistant que referencia alias MCP inexistente fica indisponível na validação (a 003 consultou o registry real).
+19. servidor global com `credential` sem `AI_CORE_MCP_SECRET_<REF>` → `mcp_registry` degradada nomeando alias e
+    referência; com outra variável `AI_CORE_MCP_SECRET_*` definida, o valor dela não aparece no relatório.

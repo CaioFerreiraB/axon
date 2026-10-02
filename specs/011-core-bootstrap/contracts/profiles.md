@@ -97,3 +97,41 @@ não tem chave de desenvolvimento nem OIDC.
 Conformidade (`tests/bootstrap/unit/test_profiles.py`): os três perfis atendem todas as portas exigidas; as fábricas do
 `persistent` constroem o pool fechado e os adapters Postgres sem conectar; o `test` não instancia nada que fale com
 rede.
+
+---
+
+## Fase 3 (2026-10-02): portas da 007 e da 004; trocas de porta (research R22, R31)
+
+| Porta exigida | Dono | `memory` | `persistent` | `test` |
+|---|---|---|---|---|
+| `mcp_store` | 007 | memória | Postgres (schema `mcp`) | memória |
+| `mcp_dns` | 007 | DNS do sistema | DNS do sistema | resolvedor fixo, vazio |
+| `mcp_transports` | 007 | `http`, `sse` (política de rede da 007, com `mcp_dns`) | `http`, `sse`, `stdio` | `http`, `sse`, `stdio`: um transporte programado, sem servidores |
+| `mcp_secrets` | 007 | ambiente (`AI_CORE_MCP_SECRET_<REF>`) | ambiente | memória, vazio |
+| `mcp_cache` | 007 | memória, com TTL | memória, com TTL | memória, com TTL |
+| `audit` | 004 | memória | Postgres (schema `capabilities`) | memória |
+
+No `test`, o provider simulado responde `{"action": "answer"}` em chamada sem streaming: um Assistant `agentic` funciona
+ponta a ponta sem configuração extra — o controller responde direto.
+
+### Trocas de porta
+
+```python
+from ai_core.bootstrap.wiring import platform
+
+plataforma = platform(
+    profile="test",
+    config=minha_config,
+    overrides={
+        "providers": {"ollama": provider_da_suite, "ctrl": controller_programado},
+        "mcp_transports": {"http": transporte_programado, "sse": transporte_programado},
+    },
+)
+```
+
+| Regra | Verificada por |
+|---|---|
+| A troca substitui o adapter da porta; as fábricas seguintes enxergam o valor trocado | `unit/test_profile_overrides.py` |
+| Porta desconhecida → `ConfigurationError` nomeando a porta | idem |
+| `database` ou porta de armazenamento → `ConfigurationError` (a sessão de armazenamento reconstruiria a porta e ignoraria a troca) | idem |
+| Nenhuma variável de ambiente nem arquivo expõe trocas | revisão de `settings.py` |

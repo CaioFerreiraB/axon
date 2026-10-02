@@ -265,3 +265,97 @@ ai-core/packages/core/src/ai_core/bootstrap/
 |---|---|---|
 | Pool conferido no boot e aberto no ciclo de vida da app (R13) | o pool do psycopg pertence ao laço em que abre; o boot e o servidor rodam em laços diferentes | abrir no boot quebraria ao servir; só abrir no servidor deixaria a falha de banco aparecer depois de a API existir |
 | Cache de 15 s na saúde (R16) | o monitor consulta a saúde com frequência e cada consulta tocaria o provider | sem cache, a saúde vira carga sobre o modelo local |
+
+---
+
+# Fase 3 (2026-10-02): encaixe da 007, da 004 e do `agentic`
+
+Insumos: as três clarificações de 2026-10-02; as notas para a 011 nos planos da 007 e da 004; o `design.md` (tabela de
+portas por perfil); ADR-012, ADR-013, ADR-015, ADR-017, ADR-018. Decisões em [research.md](research.md) R21–R33.
+**Divergência do `design.md`**: nenhuma — a tabela de portas por perfil (inclusive `stdio` só no `persistent`) é a
+dele. **Ajuste em relação à nota da 007**: o `mcp.yaml` é lido na etapa `configuration`, não em `mcp_registry`, porque
+o transporte HTTP precisa dos hosts do arquivo já na etapa de adapters e o FR-001 pede a configuração validada antes de
+qualquer outra etapa; o erro de arquivo continua parando o boot (R23).
+
+## Summary (Fase 3)
+
+A plataforma em execução passa a oferecer o loop agêntico com MCP: os três perfis montam o registry MCP da 007 e o
+gateway de tools da 004 (auditoria em memória ou Postgres), o motor recebe o gateway e oferece `agentic`, a 003 valida
+Assistants contra o registry real, a saúde ganha um item por servidor MCP global, `ai-core audit` lista as escritas, e o
+SDK de MCP nunca registra conteúdo em `DEBUG`. As suítes trocam portas na montagem para programar controller e
+servidores MCP, e uma conversa `agentic` + MCP atravessa a API no perfil `test` sem rede.
+
+## Technical Context (Fase 3)
+
+**Primary Dependencies**: os `service.py` e `adapters/` da 007 e da 004 (a exceção do princípio XIII); nenhuma
+dependência nova
+
+**Storage**: Postgres no `persistent` — schemas `mcp` e `capabilities` somam-se a `assistants` e `http` (ADR-015)
+
+**Testing**: unidade (configuração, perfis, trocas, saúde), contrato (etapas, logging), CLI por `main(argv)`,
+integração ponta a ponta no `test` e `persistent` contra Postgres real (R32)
+
+**Constraints**: o boot não sai para a rede (clarificação 1); nenhuma credencial de MCP em log, relatório ou erro
+(FR-009); trocas de porta só pela chamada Python (clarificação 2); trocar de perfil não toca módulo (FR-005)
+
+**Scale/Scope**: `settings.py` (4 campos), `profiles.py` (6 portas), `wiring.py` (etapa nova, fábricas da 007 e da
+004, trocas), `health.py` (itens de MCP), `cli.py` (`audit`); 1 etapa nova; nenhum seam novo
+
+## Constitution Check (Fase 3)
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| II. Seams | ✅ | Consome `api.py`, `service.py` e `adapters/` de 007 e 004 (exceção do princípio XIII); nenhum toque em outro módulo |
+| IV. Assistant é a fronteira | ✅ | O catálogo de cada execução continua sendo montado pela 004 com o grant; a 011 só injeta |
+| VI. Conteúdo externo | ✅ | Logger do SDK em `INFO` (R30); credenciais de MCP só no `EnvSecretResolver`, nunca em `Settings` (R27) |
+| VII. Falha fechada | ✅ | Arquivo malformado para o boot; entrada com problema degrada; MCP remoto fora do ar não derruba nada e aparece na saúde |
+| XI. Streaming | ✅ | Sem mudança no caminho da resposta |
+| XII. Simplicidade | ✅ | Cache de descoberta só em memória; nenhuma dependência nova; trocas de porta reaproveitam o ponto em que o perfil é aplicado |
+| XIII. Portas e adapters | ✅ | Seis portas novas — todas as da 007 e da 004 com adapter declarado nos três perfis, inclusive `DnsResolver` (FR-004); só esta spec instancia os adapters da 007 e da 004 |
+
+**Module boundary gate (Fase 3)**:
+
+- [x] Source changes stay inside this module's paths — `ai_core/bootstrap/**` e `tests/bootstrap/**`; nenhum toque em
+  código de outro módulo
+- [x] Every consumed seam is listed — 007 (`McpService`, `McpConfig`, adapters), 004 (`CapabilityService`,
+  `GatewayLimits`, adapters, `audit_command`), 005 (`ExecutionService(capabilities=…)`), 003 (`McpDirectory` pela 007),
+  009
+- [x] No seam changes — `platform(overrides=…)` é parâmetro do ponto de entrada desta spec, não seam
+- [x] Import boundaries — nenhum módulo importa `ai_core.bootstrap` (contrato existente)
+
+**Ports & adapters gate (Fase 3)**: as portas novas são as declaradas por 007 (`McpServerStore`, `DnsResolver`,
+`McpTransport`, `SecretResolver`, `DiscoveryCache`) e 004 (`AuditLog`), cada uma com adapter em memória e, onde há banco, Postgres.
+**Resultado**: PASS.
+
+## Project Structure (Fase 3)
+
+```text
+ai-core/packages/core/src/ai_core/bootstrap/
+├── settings.py     # + mcp_file, mcp_discovery_ttl, tool_timeout_ms, tool_max_response_bytes
+├── profiles.py     # + mcp_store, mcp_dns, mcp_transports, mcp_secrets, mcp_cache, audit; controller do test
+├── wiring.py       # + etapa mcp_registry; mcp_service/capabilities_service; trocas de porta; migrações; Platform.mcp
+├── health.py       # + itens mcp:<alias>
+└── cli.py          # + audit
+
+ai-core/packages/core/tests/bootstrap/
+├── unit/           # + configuração da Fase 3, perfis e trocas, saúde de MCP
+├── contract/       # + etapas com mcp_registry, logging do SDK
+└── integration/    # + test_platform_agentic_mcp.py; persistent com mcp/capabilities (Postgres)
+```
+
+## Seam Notes for Consumers (Fase 3)
+
+| Consumidor | O que precisa saber |
+|---|---|
+| Operador | `AI_CORE_MCP_FILE` aponta o arquivo de servidores (formato da 007); credenciais por `AI_CORE_MCP_SECRET_<REF>`; limites por `AI_CORE_TOOL_*`; `ai-core audit` lista as escritas |
+| 008 (passada de encaixe) | O `McpService` da plataforma está em `Platform.mcp` (e em `parts["mcp"]`) para as rotas de MCP |
+| Suítes de packs externos | `platform(profile="test", overrides={...})` programa controller (`providers`) e servidores MCP (`mcp_transports`); sem trocas, o controller simulado responde direto |
+| Monitoramento | Itens `mcp:<alias>` não críticos: servidor MCP fora do ar deixa a saúde `degraded`, nunca `down` |
+
+## Complexity Tracking (Fase 3)
+
+| Complexidade | Why Needed | Simpler Alternative Rejected Because |
+|---|---|---|
+| `McpService` por sessão de armazenamento no boot e na CLI (R25) | o pool do `persistent` pertence ao laço em que abre (R13) | um serviço só quebraria fora do laço do servidor |
+| Trocas de porta em `platform()` (R31) | a suíte ponta a ponta precisa programar controller e servidores MCP sem rede | fakes fixos no perfil `test` limitariam o que uma suíte prova (clarificação 2) |
+
