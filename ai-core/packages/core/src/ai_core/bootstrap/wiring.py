@@ -1,8 +1,8 @@
 """Montagem da plataforma: **o único lugar do projeto** que instancia serviços e adapters de outros módulos.
 
 É a exceção que o princípio XIII reserva à composition root (ADR-012). As etapas vêm de `lifecycle.py` e a ordem é a
-da spec: configuração → adapters → packs → motor → validação de Assistants (003) → API. O registry MCP (007) entra na
-fase dele, acrescentando uma etapa à lista (research R1).
+da spec: configuração → adapters → packs → registry MCP (007) → motor → validação de Assistants (003) → API. O registry
+entrou na Fase 3 como uma etapa a mais na lista, sem mudar o executor (research R1, R23).
 
 O perfil escolhe os adapters de cada porta (R12); este arquivo não sabe qual perfil está montando. Quando há banco
 (`database`), o pool pertence ao laço de eventos em que abre (R13): o de serviço abre no ciclo de vida da app, no laço
@@ -28,7 +28,7 @@ from psycopg.conninfo import conninfo_to_dict
 
 from ai_core.assistants.adapters import postgres_schema as assistants_schema
 from ai_core.assistants.adapters.assistants_yaml import YamlAssistantConfigSource
-from ai_core.assistants.adapters.catalogs import EmptyCollectionCatalog, EmptyMcpDirectory
+from ai_core.assistants.adapters.catalogs import EmptyCollectionCatalog
 from ai_core.assistants.adapters.memory import InMemoryAssistantConfigSource
 from ai_core.assistants.adapters.rate_memory import InMemoryRateCounterStore
 from ai_core.assistants.adapters.tokens import SecretsTokenGenerator
@@ -41,12 +41,19 @@ from ai_core.bootstrap.lifecycle import BootContext, BootReport, Stage, run_stag
 from ai_core.bootstrap.ports import ConfigSource
 from ai_core.bootstrap.profiles import STORAGE_PORTS, Profile, profile_for
 from ai_core.bootstrap.settings import EnvConfigSource, Settings
+from ai_core.capabilities.adapters import postgres_schema as capabilities_schema
+from ai_core.capabilities.api import GatewayLimits
+from ai_core.capabilities.service import CapabilityService
 from ai_core.graph.adapters.langgraph import langgraph_runtime
 from ai_core.graph.service import ExecutionService
 from ai_core.http.adapters import postgres_schema as http_schema
 from ai_core.http.adapters.app import create_app
 from ai_core.http.service import ConversationService
 from ai_core.llm.service import ModelRoutingService
+from ai_core.mcp.adapters import postgres_schema as mcp_schema
+from ai_core.mcp.adapters.config_yaml import YamlMcpConfigSource
+from ai_core.mcp.ports import McpConfig
+from ai_core.mcp.service import McpService
 from ai_core.observability.service import TraceService
 from ai_core.packs.adapters.config_yaml import YamlPackConfigSource
 from ai_core.packs.adapters.memory import InMemoryPackConfigSource
@@ -56,6 +63,7 @@ from ai_core.packs.service import PackRuntime
 STAGE_CONFIGURATION = "configuration"
 STAGE_ADAPTERS = "adapters"
 STAGE_PACKS = "packs"
+STAGE_MCP = "mcp_registry"
 STAGE_ENGINE = "engine"
 STAGE_ASSISTANTS = "assistants"
 STAGE_API = "api"
@@ -79,6 +87,9 @@ class Platform:
     engine: ExecutionService | None = None
     assistants: AssistantsService | None = None
     access: AccessService | None = None
+    mcp: McpService | None = None
+    """O registry MCP da plataforma (007) — é por aqui que a 008 liga as rotas de MCP."""
+    capabilities: CapabilityService | None = None
     conversations: ConversationService | None = None
     app: FastAPI | None = None
     context: BootContext
@@ -98,15 +109,22 @@ class Platform:
 
 
 def platform(
-    *, profile: str | None = None, config: ConfigSource | None = None, until: str | None = None
+    *,
+    profile: str | None = None,
+    config: ConfigSource | None = None,
+    until: str | None = None,
+    overrides: Mapping[str, Any] | None = None,
 ) -> Platform:
     """Monta a plataforma inteira. `profile` sobrepõe o da configuração — é o atalho das suítes.
 
     `until` para depois da etapa nomeada: é o que a linha de comando usa quando não precisa da plataforma toda — `keys`
-    só precisa de configuração e adapters.
+    só precisa de configuração e adapters. `overrides` troca o adapter de uma porta (FR-014, R31): é como uma suíte
+    programa o controller (`providers`) e os servidores MCP (`mcp_transports`). Só existe nesta chamada — nenhuma
+    variável de ambiente nem arquivo a expõe.
     """
     source = config or EnvConfigSource()
     context = BootContext()
+    context.parts["overrides"] = dict(overrides or {})
     stages = _stages(source, profile)
     if until is not None:
         stages = stages[: [stage.name for stage in stages].index(until) + 1]
@@ -125,6 +143,8 @@ def platform(
         engine=parts.get("engine"),
         assistants=parts.get("assistants"),
         access=parts.get("access"),
+        mcp=parts.get("mcp"),
+        capabilities=parts.get("capabilities"),
         conversations=parts.get("conversation_service"),
         app=parts.get("app"),
         context=context,
@@ -137,6 +157,7 @@ def _stages(source: ConfigSource, override: str | None) -> tuple[Stage, ...]:
         Stage(name=STAGE_CONFIGURATION, run=lambda ctx: _configuration(ctx, source, override), critical=True),
         Stage(name=STAGE_ADAPTERS, run=_adapters, critical=True),
         Stage(name=STAGE_PACKS, run=_packs, critical=False),
+        Stage(name=STAGE_MCP, run=_mcp_registry, critical=True),
         Stage(name=STAGE_ENGINE, run=_engine, critical=True),
         Stage(name=STAGE_ASSISTANTS, run=_assistants, critical=False),
         Stage(name=STAGE_API, run=_api, critical=True),
@@ -150,6 +171,16 @@ def _configuration(ctx: BootContext, source: ConfigSource, override: str | None)
     ctx.parts["settings"] = settings
     # Erro de arquivo no assistants.yaml para o boot aqui; erro de um Assistant só o deixa indisponível (003 FR-011).
     ctx.parts["assistants_config"] = assistants_source(settings).load()
+    # O mcp.yaml também: o transporte HTTP precisa dos hosts dele já na etapa de adapters (R23). Arquivo ilegível ou
+    # malformado para o boot aqui; uma entrada com problema só deixa aquele servidor indisponível.
+    ctx.parts["mcp_config"] = mcp_config(settings)
+
+
+def mcp_config(settings: Settings) -> McpConfig:
+    """O arquivo de servidores MCP do operador (formato da 007), ou nenhum servidor."""
+    if settings.mcp_file is None:
+        return McpConfig()
+    return YamlMcpConfigSource(settings.mcp_file).load()
 
 
 def assistants_source(settings: Settings) -> AssistantConfigSource:
@@ -165,7 +196,7 @@ def _adapters(ctx: BootContext) -> None:
     settings: Settings = ctx.parts["settings"]
     profile = profile_for(settings.profile)
     ctx.parts["profile"] = profile
-    built = profile.build_all(settings, ctx.parts)
+    built = profile.build_all(settings, ctx.parts, overrides=ctx.parts.get("overrides"))
     ctx.parts["trace_backend"] = built.pop("trace")
     ctx.parts.update(built)
     if ctx.parts["database"] is not None:
@@ -178,6 +209,8 @@ async def _migrate(parts: Mapping[str, Any]) -> None:
         async with _database_errors(parts["settings"]):
             await assistants_schema.migrate(session["database"], now=now)
             await http_schema.migrate(session["database"], now=now)
+            await mcp_schema.migrate(session["database"], now=now)
+            await capabilities_schema.migrate(session["database"], now=now)
 
 
 def _packs(ctx: BootContext) -> None:
@@ -201,6 +234,75 @@ def pack_runtime(parts: Mapping[str, Any]) -> PackRuntime:
     return PackRuntime(parts["pack_source"], config)
 
 
+MCP_LOGGER: Final = "mcp"
+"""Raiz dos loggers do SDK de MCP. Em `DEBUG`, o SDK registra mensagens JSON-RPC inteiras — argumentos e conteúdo de
+tool —; os filhos não têm nível próprio e herdam o que for fixado aqui (R30)."""
+
+
+def _mcp_registry(ctx: BootContext) -> None:
+    """Monta o registry MCP da 007 com as portas do perfil. Não sai para a rede (clarificação 1 de 2026-10-02).
+
+    Entrada do arquivo com problema, ou referência de credencial que o ambiente não resolve, degrada a etapa nomeando
+    o alias — e nunca um valor (FR-009) —; o resto sobe (FR-003).
+    """
+    logging.getLogger(MCP_LOGGER).setLevel(logging.INFO)
+    parts = ctx.parts
+    parts["mcp"] = mcp_service(parts, store=parts["mcp_store"])
+    config: McpConfig = parts["mcp_config"]
+    problems = [f"mcp '{entry.alias}': {entry.problem}" for entry in config.entries if entry.problem is not None]
+    problems.extend(_run(_missing_credentials(parts)))
+    if problems:
+        ctx.parts[f"{STAGE_MCP}:degraded"] = "; ".join(problems)
+
+
+async def _missing_credentials(parts: Mapping[str, Any]) -> list[str]:
+    """Referências dos servidores globais (arquivo e armazenamento) que o ambiente não resolve — sem ler valor algum."""
+    secrets = parts["mcp_secrets"]
+    config: McpConfig = parts["mcp_config"]
+    refs: list[tuple[str, str]] = [
+        (entry.alias, ref)
+        for entry in config.entries
+        if entry.stdio is not None
+        for ref in entry.stdio.secrets.values()
+    ]
+    async with storage(parts) as session:
+        servers = await mcp_service(parts, store=session["mcp_store"]).globals()
+    refs.extend((server.alias, server.credential_ref) for server in servers if server.credential_ref is not None)
+    return [
+        f"mcp '{alias}': credencial '{ref}' ausente (AI_CORE_MCP_SECRET_{ref.upper()})"
+        for alias, ref in dict.fromkeys(refs)
+        if secrets.resolve(ref) is None
+    ]
+
+
+def mcp_service(parts: Mapping[str, Any], *, store: Any) -> McpService:
+    """O registry da 007 sobre o armazenamento dado: o da plataforma no servidor, o de uma sessão no boot e na linha de
+    comando (R13, R25). Arquivo, transportes, segredos, cache e relógio são os mesmos."""
+    settings: Settings = parts["settings"]
+    return McpService(
+        store=store,
+        config=parts["mcp_config"],
+        transports=parts["mcp_transports"],
+        secrets=parts["mcp_secrets"],
+        cache=parts["mcp_cache"],
+        clock=parts["clock"],
+        discovery_ttl=timedelta(seconds=settings.mcp_discovery_ttl),
+    )
+
+
+def capabilities_service(parts: Mapping[str, Any], *, audit: Any, mcp: McpService) -> CapabilityService:
+    """O gateway de tools da 004: tools dos packs pelo seam Pack Toolset (002), MCP pelo registry, auditoria dada."""
+    settings: Settings = parts["settings"]
+    return CapabilityService(
+        pack_tools=parts["packs"],
+        mcp=mcp,
+        audit=audit,
+        trace=parts["trace"],
+        clock=parts["clock"],
+        limits=GatewayLimits(timeout_ms=settings.tool_timeout_ms, max_response_bytes=settings.tool_max_response_bytes),
+    )
+
+
 def _engine(ctx: BootContext) -> None:
     clock = ctx.parts["clock"]
     backend = ctx.parts["trace_backend"]
@@ -209,12 +311,16 @@ def _engine(ctx: BootContext) -> None:
 
     routing = ModelRoutingService(providers=ctx.parts["providers"], trace=trace, clock=clock)
     ctx.parts["routing"] = routing
+    capabilities = capabilities_service(ctx.parts, audit=ctx.parts["audit"], mcp=ctx.parts["mcp"])
+    ctx.parts["capabilities"] = capabilities
+    # Com o gateway, o motor oferece `agentic` (ADR-018, R24).
     ctx.parts["engine"] = ExecutionService(
         flows=langgraph_runtime(),
         hooks=ctx.parts["packs"],
         routing=routing,
         trace=trace,
         clock=clock,
+        capabilities=capabilities,
     )
 
 
@@ -229,7 +335,7 @@ def _assistants(ctx: BootContext) -> None:
     Assistant indisponível degrada a etapa com o motivo e o resto serve — como pack em erro (011 FR-003).
     """
     parts = ctx.parts
-    ctx.parts["assistants"] = assistants_service(parts, users=parts["user_assistants"])
+    ctx.parts["assistants"] = assistants_service(parts, users=parts["user_assistants"], mcp=parts["mcp"])
     ctx.parts["access"] = access_service(parts, keys=parts["api_keys"])
     report = _run(_validate(parts))
     unavailable = [status for status in report.statuses if not status.available]
@@ -241,17 +347,25 @@ def _assistants(ctx: BootContext) -> None:
 
 async def _validate(parts: Mapping[str, Any]) -> ValidationReport:
     async with storage(parts) as session:
-        return await assistants_service(parts, users=session["user_assistants"]).validate()
+        return await session_assistants(parts, session).validate()
 
 
-def assistants_service(parts: Mapping[str, Any], *, users: Any) -> AssistantsService:
-    """Resolução de grant, diretório e validação (003), sobre o armazenamento de Assistants de usuário dado."""
+def session_assistants(parts: Mapping[str, Any], session: Mapping[str, Any]) -> AssistantsService:
+    """Os serviços da 003 sobre o armazenamento de uma sessão: Assistants de usuário e registry MCP dela (R13, R25)."""
+    return assistants_service(
+        parts, users=session["user_assistants"], mcp=mcp_service(parts, store=session["mcp_store"])
+    )
+
+
+def assistants_service(parts: Mapping[str, Any], *, users: Any, mcp: Any) -> AssistantsService:
+    """Resolução de grant, diretório e validação (003), sobre o armazenamento de Assistants de usuário e o diretório
+    de MCP dados. O diretório é o registry da 007 (R25)."""
     return AssistantsService(
         config=parts["assistants_config"],
         packs=parts["packs"],
         flows=parts["engine"].flows(),
         users=users,
-        mcp=EmptyMcpDirectory(),
+        mcp=mcp,
         collections=EmptyCollectionCatalog(),
         rate=InMemoryRateCounterStore(),
         clock=parts["clock"],
@@ -307,7 +421,8 @@ def platform_health(parts: Mapping[str, Any], *, session: Mapping[str, Any]) -> 
     return PlatformHealth(
         database=_select_one(database, parts["settings"]) if database is not None else None,
         packs=parts["packs"],
-        assistants=assistants_service(parts, users=session["user_assistants"]),
+        assistants=session_assistants(parts, session),
+        mcp=mcp_service(parts, store=session["mcp_store"]),
         routing=parts["routing"],
         models=declared_models(parts["assistants_config"]),
     )

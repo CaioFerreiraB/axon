@@ -36,12 +36,27 @@ from ai_core.bootstrap.settings import (
     ConfigurationError,
     Settings,
 )
+from ai_core.capabilities.adapters.audit_postgres import PostgresAuditLog
+from ai_core.capabilities.adapters.memory import InMemoryAuditLog
 from ai_core.graph.adapters.clock import FixedClock, SystemClock
 from ai_core.http.adapters.conversations_memory import InMemoryConversationStore
 from ai_core.http.adapters.conversations_postgres import PostgresConversationStore
 from ai_core.http.adapters.development import SequentialRequestIds, Uuid4RequestIds
 from ai_core.llm.adapters.fake import ScriptedProvider
 from ai_core.llm.adapters.ollama import OllamaProvider
+from ai_core.mcp.adapters.dns_system import SystemDnsResolver
+from ai_core.mcp.adapters.memory import (
+    FixedDnsResolver,
+    InMemoryDiscoveryCache,
+    InMemorySecretResolver,
+    InMemoryServerStore,
+    ScriptedMcpTransport,
+)
+from ai_core.mcp.adapters.registry_postgres import PostgresServerStore
+from ai_core.mcp.adapters.secrets_env import EnvSecretResolver
+from ai_core.mcp.adapters.transport_http import HttpMcpTransport
+from ai_core.mcp.adapters.transport_stdio import StdioMcpTransport
+from ai_core.mcp.ports import McpConfig
 from ai_core.observability.adapters.jsonl import JsonlTraceBackend
 from ai_core.observability.adapters.memory import InMemoryTraceBackend
 
@@ -57,11 +72,17 @@ REQUIRED_PORTS: Final = (
     "oidc",
     "user_assistants",
     "conversations",
+    "mcp_store",
+    "mcp_dns",
+    "mcp_transports",
+    "mcp_secrets",
+    "mcp_cache",
+    "audit",
 )
 """Portas secundárias que um perfil precisa atender, **na ordem de construção**. Acrescentar uma porta é acrescentar
-uma linha aqui."""
+uma linha aqui. As seis últimas são as da 007 e da 004 (Fase 3, research R22)."""
 
-STORAGE_PORTS: Final = ("api_keys", "user_assistants", "conversations")
+STORAGE_PORTS: Final = ("api_keys", "user_assistants", "conversations", "mcp_store", "audit")
 """As portas construídas sobre `database`. Fora do laço do servidor, são refeitas sobre um pool temporário (R13)."""
 
 FIXED_TIME: Final = datetime(2026, 1, 1, 12, tzinfo=UTC)
@@ -100,12 +121,39 @@ class Profile:
     def build(self, port: str, settings: Settings, parts: Mapping[str, Any] | None = None) -> Any:
         return self.factories[port](settings, parts or {})
 
-    def build_all(self, settings: Settings, parts: Mapping[str, Any] | None = None) -> dict[str, Any]:
-        """Constrói as portas exigidas na ordem da lista; cada fábrica vê `parts` e as portas anteriores."""
+    def build_all(
+        self,
+        settings: Settings,
+        parts: Mapping[str, Any] | None = None,
+        *,
+        overrides: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Constrói as portas exigidas na ordem da lista; cada fábrica vê `parts` e as portas anteriores.
+
+        `overrides`: porta → adapter que substitui a fábrica — a troca que as suítes usam (R31). As fábricas seguintes
+        enxergam o valor trocado.
+        """
+        chosen = check_overrides(overrides or {})
         built = dict(parts or {})
         for port in REQUIRED_PORTS:
-            built[port] = self.build(port, settings, built)
+            built[port] = chosen[port] if port in chosen else self.build(port, settings, built)
         return {port: built[port] for port in REQUIRED_PORTS}
+
+
+NOT_OVERRIDABLE: Final = frozenset({"database", *STORAGE_PORTS})
+"""As sessões de armazenamento reconstroem estas portas pelas fábricas do perfil (R13): uma troca nelas seria ignorada
+em silêncio no `persistent`, então é recusada."""
+
+
+def check_overrides(overrides: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Recusa troca de porta desconhecida ou de armazenamento, nomeando a porta."""
+    unknown = sorted(port for port in overrides if port not in REQUIRED_PORTS)
+    if unknown:
+        raise ConfigurationError(f"troca de porta desconhecida: {', '.join(unknown)}")
+    storage = sorted(port for port in overrides if port in NOT_OVERRIDABLE)
+    if storage:
+        raise ConfigurationError(f"porta de armazenamento não pode ser trocada: {', '.join(storage)}")
+    return overrides
 
 
 def lacks_credentials(settings: Settings) -> bool:
@@ -174,6 +222,32 @@ def _dev_keys(settings: Settings, parts: Mapping[str, Any]) -> Any:
 # --- perfis -----------------------------------------------------------------------------------------------------------
 
 
+CONTROLLER_ANSWER: Final = '{"action": "answer"}'
+"""O que o provider simulado do perfil `test` responde sem streaming: como controller, responde direto — um Assistant
+`agentic` funciona sem configuração extra (clarificação 2 de 2026-10-02). A suíte que quer um roteiro troca a porta."""
+
+
+def _http_transports(_settings: Settings, parts: Mapping[str, Any]) -> dict[str, Any]:
+    """`http` e `sse` com a política de rede da 007: os hosts internos e a allowlist vêm do arquivo do operador, lido
+    na etapa de configuração (R23); sem arquivo, nenhum host interno e qualquer host público."""
+    config: McpConfig = parts.get("mcp_config") or McpConfig()
+    transport = HttpMcpTransport(
+        dns=parts["mcp_dns"], internal_hosts=config.internal_hosts, allowed_hosts=config.allowed_hosts
+    )
+    return {"http": transport, "sse": transport}
+
+
+def _all_transports(settings: Settings, parts: Mapping[str, Any]) -> dict[str, Any]:
+    """Os de rede e o `stdio` — só no `persistent`, como o `design.md` determina."""
+    return {**_http_transports(settings, parts), "stdio": StdioMcpTransport()}
+
+
+def _scripted_transports(_settings: Settings, _parts: Mapping[str, Any]) -> dict[str, Any]:
+    """Um transporte programado, sem servidores, para os três tipos: nada fala com rede (FR-014)."""
+    transport = ScriptedMcpTransport()
+    return {"http": transport, "sse": transport, "stdio": transport}
+
+
 def _memory_profile() -> Profile:
     return Profile(
         name=MEMORY_PROFILE,
@@ -189,6 +263,12 @@ def _memory_profile() -> Profile:
             "oidc": _oidc,
             "user_assistants": lambda _s, _p: InMemoryUserAssistantStore(),
             "conversations": lambda _s, _p: InMemoryConversationStore(),
+            "mcp_store": lambda _s, _p: InMemoryServerStore(),
+            "mcp_dns": lambda _s, _p: SystemDnsResolver(),
+            "mcp_transports": _http_transports,
+            "mcp_secrets": lambda _s, _p: EnvSecretResolver(),
+            "mcp_cache": lambda _s, p: InMemoryDiscoveryCache(p["clock"]),
+            "audit": lambda _s, _p: InMemoryAuditLog(),
         },
     )
 
@@ -215,6 +295,12 @@ def _persistent_profile() -> Profile:
             "oidc": _oidc,
             "user_assistants": lambda _s, p: PostgresUserAssistantStore(p["database"]),
             "conversations": lambda _s, p: PostgresConversationStore(p["database"]),
+            "mcp_store": lambda _s, p: PostgresServerStore(p["database"]),
+            "mcp_dns": lambda _s, _p: SystemDnsResolver(),
+            "mcp_transports": _all_transports,
+            "mcp_secrets": lambda _s, _p: EnvSecretResolver(),
+            "mcp_cache": lambda _s, p: InMemoryDiscoveryCache(p["clock"]),
+            "audit": lambda _s, p: PostgresAuditLog(p["database"]),
         },
     )
 
@@ -235,7 +321,9 @@ def _test_profile() -> Profile:
         factories={
             "clock": lambda _s, _p: FixedClock(FIXED_TIME, readings=[0.0, 0.25]),
             "trace": lambda _s, _p: InMemoryTraceBackend(),
-            "providers": lambda _s, _p: {"ollama": ScriptedProvider(name="ollama", deltas=("Bras", "ília"))},
+            "providers": lambda _s, _p: {
+                "ollama": ScriptedProvider(name="ollama", content=CONTROLLER_ANSWER, deltas=("Bras", "ília"))
+            },
             "pack_source": _entry_point_source,
             "request_ids": lambda _s, _p: SequentialRequestIds(),
             "conversation_ids": lambda _s, _p: SequentialRequestIds(prefix="t"),
@@ -244,6 +332,12 @@ def _test_profile() -> Profile:
             "oidc": lambda s, _p: StaticOidcVerifier({TEST_OIDC_TOKEN: _test_claims(s)}),
             "user_assistants": lambda _s, _p: InMemoryUserAssistantStore(),
             "conversations": lambda _s, _p: InMemoryConversationStore(),
+            "mcp_store": lambda _s, _p: InMemoryServerStore(),
+            "mcp_dns": lambda _s, _p: FixedDnsResolver(),
+            "mcp_transports": _scripted_transports,
+            "mcp_secrets": lambda _s, _p: InMemorySecretResolver(),
+            "mcp_cache": lambda _s, p: InMemoryDiscoveryCache(p["clock"]),
+            "audit": lambda _s, _p: InMemoryAuditLog(),
         },
     )
 

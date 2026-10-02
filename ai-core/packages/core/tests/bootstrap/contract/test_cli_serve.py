@@ -5,6 +5,7 @@ O servidor entra por parâmetro, então o comando é exercitado inteiro sem abri
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import pytest
@@ -124,3 +125,16 @@ def test_ajuda_lista_o_subcomando(capsys: pytest.CaptureFixture[str]) -> None:
 def test_sem_subcomando_o_comando_recusa(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit):
         cli.main([])
+
+
+@pytest.mark.us1
+def test_pelo_serve_o_sdk_de_mcp_continua_em_info(ambiente: Path) -> None:
+    """R30, achado U4 da análise: depois de o servidor assumir o processo, `mcp.*` continua sem registrar em DEBUG."""
+    root = logging.getLogger()
+    before = root.level
+    root.setLevel(logging.DEBUG)
+    try:
+        assert cli.main(["serve"], server=FakeServer()) == 0
+        assert logging.getLogger("mcp.client.sse").getEffectiveLevel() == logging.INFO
+    finally:
+        root.setLevel(before)

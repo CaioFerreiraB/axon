@@ -316,7 +316,9 @@ integração ponta a ponta no `test` e `persistent` contra Postgres real (R32)
 **Module boundary gate (Fase 3)**:
 
 - [x] Source changes stay inside this module's paths — `ai_core/bootstrap/**` e `tests/bootstrap/**`; nenhum toque em
-  código de outro módulo
+  código de outro módulo. Em `ai-core/pyproject.toml`, o contrato da 007 "o SDK de MCP só existe nos adapters" deixa de
+  listar `ai_core.bootstrap` (que alcança o SDK pelos transportes da 007, a exceção do princípio XIII) e ganha
+  `ai_core.capabilities`; um contrato novo proíbe a composition root de importar o SDK **diretamente**
 - [x] Every consumed seam is listed — 007 (`McpService`, `McpConfig`, adapters), 004 (`CapabilityService`,
   `GatewayLimits`, adapters, `audit_command`), 005 (`ExecutionService(capabilities=…)`), 003 (`McpDirectory` pela 007),
   009

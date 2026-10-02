@@ -26,7 +26,7 @@ from ai_core.bootstrap.profiles import TEST_API_KEY
 PACKS_YAML_MALFORMADO: Final = "pacotes: {}\n"
 UNREACHABLE: Final = "postgresql://ai:segredo-do-banco@127.0.0.1:1/ai"
 
-SUBCOMANDOS: Final = ("serve", "packs", "assistants", "keys", "health")
+SUBCOMANDOS: Final = ("serve", "packs", "assistants", "keys", "health", "audit")
 
 Configurar = Callable[..., None]
 Cap = pytest.CaptureFixture[str]
@@ -90,6 +90,7 @@ def test_os_comandos_vem_de_uma_lista_de_registro() -> None:
         ("keys", "list"),
         ("keys", "revoke"),
         ("health",),
+        ("audit",),
     }
 
 
@@ -243,3 +244,23 @@ def test_profile_vale_para_todos_os_subcomandos(
     configurar(profile="memory")
     assert run(["keys", "list", "--profile", "test"], server) == 0
     assert run(["packs", "list", "--profile", "test"], server) == 0
+
+
+# --- audit (004; Fase 3, T048; contracts/cli.md, "Fase 3") -----------------------------------------------------------
+
+
+@pytest.mark.us4
+def test_audit_com_data_fora_do_iso_sai_com_2(configurar: Configurar, server: FakeServer, capsys: Cap) -> None:
+    configurar()
+    assert run(["audit", "--since", "ontem"], server) == 2
+    assert "since" in capsys.readouterr().err
+
+
+@pytest.mark.us4
+def test_audit_no_perfil_de_teste_sai_com_0_e_sem_registros(
+    configurar: Configurar, server: FakeServer, capsys: Cap
+) -> None:
+    configurar()
+    assert run(["audit", "--limit", "10"], server) == 0
+    assert capsys.readouterr().out.strip() == ""
+

@@ -35,7 +35,7 @@ ai-core audit [--principal P] [--assistant A] [--tool T] [--since ISO] [--until 
 ```
 
 Formato da saída e códigos: os do contrato da 004 (`specs/004-core-capability-gateway/contracts/audit.md`) — 0; 2 para
-filtro inválido. Boot que falha: 1. Sobe até `mcp_registry` (sem rede) e monta a consulta da 004 sobre a sessão de
+filtro inválido. Boot que falha: 1. Sobe até `engine` (sem rede; o gateway precisa do Trace Sink) e monta a consulta da 004 sobre a sessão de
 armazenamento, pela mesma fábrica do servidor. No `memory` e no `test`, a auditoria é do próprio processo: a listagem
 sai vazia.
 

@@ -25,6 +25,12 @@ DEFAULT_PORT: Final = 8000
 DEFAULT_SHUTDOWN_GRACE: Final = 10.0
 DEFAULT_RETENTION_DAYS: Final = 180
 DEFAULT_EXPIRY_INTERVAL: Final = 3600.0
+DEFAULT_MCP_DISCOVERY_TTL: Final = 300.0
+DEFAULT_TOOL_TIMEOUT_MS: Final = 30_000
+DEFAULT_TOOL_MAX_RESPONSE_BYTES: Final = 16_384
+TOOL_TIMEOUT_RANGE: Final = (1_000, 300_000)
+TOOL_MAX_RESPONSE_RANGE: Final = (1_024, 1_048_576)
+"""As faixas de `GatewayLimits` (004), repetidas aqui para que o erro nomeie a variável (FR-001, research R27)."""
 
 PREFIX: Final = "AI_CORE_"
 
@@ -56,6 +62,12 @@ class Settings:
     oidc_groups_claim: str = "groups"
     conversation_retention_days: int = DEFAULT_RETENTION_DAYS
     conversation_expiry_interval: float = DEFAULT_EXPIRY_INTERVAL
+    mcp_file: Path | None = None
+    """Arquivo de servidores MCP do operador (formato da 007). As credenciais (`AI_CORE_MCP_SECRET_<REF>`) **não**
+    passam por aqui: a 007 as lê só ao montar a operação (R27)."""
+    mcp_discovery_ttl: float = DEFAULT_MCP_DISCOVERY_TTL
+    tool_timeout_ms: int = DEFAULT_TOOL_TIMEOUT_MS
+    tool_max_response_bytes: int = DEFAULT_TOOL_MAX_RESPONSE_BYTES
 
     def __post_init__(self) -> None:
         if self.profile not in PROFILES:
@@ -85,6 +97,16 @@ class Settings:
             raise ConfigurationError(f"{PREFIX}CONVERSATION_RETENTION_DAYS: precisa ser ao menos 1")
         if self.conversation_expiry_interval <= 0:
             raise ConfigurationError(f"{PREFIX}CONVERSATION_EXPIRY_INTERVAL: precisa ser positivo")
+        if self.mcp_discovery_ttl <= 0:
+            raise ConfigurationError(f"{PREFIX}MCP_DISCOVERY_TTL: precisa ser positivo")
+        _within(f"{PREFIX}TOOL_TIMEOUT_MS", self.tool_timeout_ms, TOOL_TIMEOUT_RANGE)
+        _within(f"{PREFIX}TOOL_MAX_RESPONSE_BYTES", self.tool_max_response_bytes, TOOL_MAX_RESPONSE_RANGE)
+
+
+def _within(variable: str, value: int, bounds: tuple[int, int]) -> None:
+    low, high = bounds
+    if not low <= value <= high:
+        raise ConfigurationError(f"{variable}: precisa estar entre {low} e {high}: {value}")
 
 
 class InMemoryConfigSource:
@@ -122,6 +144,10 @@ class EnvConfigSource:
             oidc_groups_claim=self._text("OIDC_GROUPS_CLAIM", "groups"),
             conversation_retention_days=self._int("CONVERSATION_RETENTION_DAYS", DEFAULT_RETENTION_DAYS),
             conversation_expiry_interval=self._float("CONVERSATION_EXPIRY_INTERVAL", DEFAULT_EXPIRY_INTERVAL),
+            mcp_file=self._path("MCP_FILE"),
+            mcp_discovery_ttl=self._float("MCP_DISCOVERY_TTL", DEFAULT_MCP_DISCOVERY_TTL),
+            tool_timeout_ms=self._int("TOOL_TIMEOUT_MS", DEFAULT_TOOL_TIMEOUT_MS),
+            tool_max_response_bytes=self._int("TOOL_MAX_RESPONSE_BYTES", DEFAULT_TOOL_MAX_RESPONSE_BYTES),
         )
 
     def _optional(self, name: str) -> str | None:

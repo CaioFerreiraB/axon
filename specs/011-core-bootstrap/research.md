@@ -445,8 +445,8 @@ crítico com o motivo (banco fora do ar já aparece como `database`, crítico). 
 ## R29 — `ai-core audit`
 
 **Decision**: `Command(path=("audit",))`, com os argumentos do contrato da 004 (`--principal`, `--assistant`, `--tool`,
-`--since`, `--until`, `--limit`, `--results`). Sobe até `mcp_registry` (configuração, adapters, packs e o registry —
-sem rede) e, na sessão de armazenamento, monta o `CapabilityService` pela mesma fábrica da etapa `engine`, com a
+`--since`, `--until`, `--limit`, `--results`). Sobe até `engine` (configuração, adapters, packs, registry e motor — sem
+rede; o gateway precisa do Trace Sink, que nasce na etapa `engine`) e, na sessão de armazenamento, monta o `CapabilityService` pela mesma fábrica da etapa `engine`, com a
 auditoria e o registry da sessão, e chama `audit_command` da 004. Códigos: os do contrato da 004 (0; 2 para filtro
 inválido); boot que falha, 1.
 

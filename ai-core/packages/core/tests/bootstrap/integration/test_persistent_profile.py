@@ -10,6 +10,7 @@ relógio fixo). Trocar fábricas de um perfil não toca módulo nenhum.
 
 from __future__ import annotations
 
+import asyncio
 import dataclasses
 import os
 from collections.abc import AsyncIterator
@@ -19,11 +20,12 @@ from typing import Final
 
 import httpx
 import pytest
-from bootstrap_testkit import CHAVE, OIDC, MemoryConfig, body, write_config
+from bootstrap_testkit import AGENTIC_ASSISTANTS_YAML, CHAVE, OIDC, MemoryConfig, body, write_config
 
 from ai_core.bootstrap import profiles
 from ai_core.bootstrap.profiles import TEST_SUBJECT, Profile
-from ai_core.bootstrap.wiring import Platform, platform
+from ai_core.bootstrap.wiring import Platform, mcp_service, platform, storage
+from ai_core.mcp.api import McpServerDraft, SecurityPolicy
 
 PG_DSN = os.environ.get("AI_CORE_TEST_POSTGRES_DSN")
 needs_pg = pytest.mark.skipif(PG_DSN is None, reason="defina AI_CORE_TEST_POSTGRES_DSN para rodar contra um Postgres")
@@ -53,13 +55,13 @@ async def banco_limpo() -> AsyncIterator[str]:
     import psycopg
 
     async with await psycopg.AsyncConnection.connect(PG_DSN, autocommit=True) as connection:
-        for schema in ("assistants", "http"):
+        for schema in ("assistants", "http", "mcp", "capabilities"):
             await connection.execute(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
     yield PG_DSN
 
 
-def _platform(tmp_path: Path, dsn: str) -> Platform:
-    settings = dataclasses.replace(write_config(tmp_path), profile="persistent", database_url=dsn)
+def _platform(tmp_path: Path, dsn: str, **kwargs: str) -> Platform:
+    settings = dataclasses.replace(write_config(tmp_path, **kwargs), profile="persistent", database_url=dsn)
     return platform(config=MemoryConfig(settings))
 
 
@@ -193,3 +195,103 @@ async def test_saude_com_o_banco_e_com_o_banco_fora_depois_do_boot(
     database = next(item for item in fora.items if item.name == "database")
     assert not database.ok and database.detail is not None and "Postgres" in database.detail
     assert banco_limpo not in database.detail
+
+
+# --- Fase 3 (T042; research R22, R25, R26): registry MCP e auditoria no Postgres -----------------------------------
+
+ASSISTANT_COM_MCP_DA_API = AGENTIC_ASSISTANTS_YAML.replace("mcp: [demo]", "mcp: [arquivado]")
+"""`pesquisador` passa a referenciar um alias que só existe depois de criado pela API (armazenado no schema `mcp`)."""
+
+
+@needs_pg
+@pytest.mark.us2
+async def test_o_boot_migra_mcp_e_capabilities_e_oferece_agentic(
+    persistent: None, banco_limpo: str, tmp_path: Path
+) -> None:
+    import psycopg
+
+    plataforma = _platform(tmp_path, banco_limpo)
+    assert plataforma.ok, plataforma.report.render()
+    assert plataforma.engine is not None and plataforma.engine.flows() == frozenset({"chat", "agentic"})
+    async with await psycopg.AsyncConnection.connect(banco_limpo) as connection:
+        for schema in ("mcp", "capabilities"):
+            cursor = await connection.execute(f"SELECT count(*) FROM {schema}.schema_version")
+            row = await cursor.fetchone()
+            assert row is not None and row[0] >= 1, f"schema {schema} sem migração"
+
+
+@needs_pg
+@pytest.mark.us2
+async def test_servidor_criado_pelo_registry_sobrevive_e_valida_o_assistant(
+    persistent: None, banco_limpo: str, tmp_path: Path
+) -> None:
+    primeira = _platform(tmp_path, banco_limpo, assistants=ASSISTANT_COM_MCP_DA_API)
+    (etapa,) = [o for o in primeira.report.stages if o.name == "assistants"]
+    assert "pesquisador" in (etapa.detail or ""), "antes de criado, o alias não existe"
+    async with serving(primeira):
+        assert primeira.mcp is not None
+        await primeira.mcp.create_global(
+            McpServerDraft(
+                alias="arquivado",
+                transport="http",
+                endpoint="https://arquivado.test/mcp",
+                policy=SecurityPolicy(allowed_tools=("eco",)),
+            )
+        )
+
+    segunda = _platform(tmp_path, banco_limpo, assistants=ASSISTANT_COM_MCP_DA_API)
+    assert segunda.ok, segunda.report.render()
+    async with storage(segunda.parts) as session:
+        aliases = {server.alias for server in await mcp_service(segunda.parts, store=session["mcp_store"]).globals()}
+    assert "arquivado" in aliases
+    (etapa,) = [o for o in segunda.report.stages if o.name == "assistants"]
+    assert "pesquisador" not in (etapa.detail or "")
+
+
+@needs_pg
+@pytest.mark.us4
+async def test_audit_lista_o_registro_gravado_pela_auditoria_da_004(
+    persistent: None,
+    banco_limpo: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from datetime import UTC, datetime
+
+    from psycopg_pool import AsyncConnectionPool
+
+    from ai_core.bootstrap import cli
+    from ai_core.capabilities.adapters.audit_postgres import PostgresAuditLog
+    from ai_core.capabilities.api import AuditEntry
+
+    assert _platform(tmp_path, banco_limpo).ok  # migra o schema `capabilities`
+    async with AsyncConnectionPool(banco_limpo, open=False) as pool:
+        log = PostgresAuditLog(pool)
+        record_id = await log.begin(
+            AuditEntry(
+                request_id="req-a1",
+                principal=TEST_SUBJECT,
+                assistant="geral",
+                tool="crm.apagar",
+                kind="mcp",
+                arguments={"id": 7},
+                started_at=datetime(2026, 10, 2, 9, tzinfo=UTC),
+            )
+        )
+        await log.finish(record_id, status="ok", result="<tool_result>apagado</tool_result>",
+                         at=datetime(2026, 10, 2, 9, 0, 1, tzinfo=UTC))
+
+    write_config(tmp_path)
+    monkeypatch.setenv("AI_CORE_PROFILE", "persistent")
+    monkeypatch.setenv("AI_CORE_DATABASE_URL", banco_limpo)
+    monkeypatch.setenv("AI_CORE_PACKS_FILE", str(tmp_path / "packs.yaml"))
+    monkeypatch.setenv("AI_CORE_ASSISTANTS_FILE", str(tmp_path / "assistants.yaml"))
+
+    assert await asyncio.to_thread(cli.main, ["audit"]) == 0
+    saida = capsys.readouterr().out
+    assert "crm.apagar" in saida and '{"id": 7}' in saida and "apagado" not in saida
+
+    assert await asyncio.to_thread(cli.main, ["audit", "--results"]) == 0
+    assert "apagado" in capsys.readouterr().out
+

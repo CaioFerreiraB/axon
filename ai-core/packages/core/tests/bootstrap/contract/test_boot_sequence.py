@@ -5,9 +5,23 @@ Nenhuma plataforma é montada aqui: é o que prova que o executor não conhece m
 
 from __future__ import annotations
 
-from bootstrap_testkit import Recorder
+import logging
+from pathlib import Path
+from typing import Any
+
+import pytest
+from bootstrap_testkit import (
+    AGENTIC_ASSISTANTS_YAML,
+    MCP_YAML,
+    MCP_YAML_COM_CREDENCIAL,
+    MCP_YAML_COM_PROBLEMA,
+    MemoryConfig,
+    Recorder,
+    write_config,
+)
 
 from ai_core.bootstrap.lifecycle import BootContext, StageStatus, run_stages, shutdown
+from ai_core.bootstrap.wiring import Platform, platform
 
 
 def test_as_etapas_rodam_na_ordem_declarada(recorder: Recorder) -> None:
@@ -105,3 +119,77 @@ def test_acrescentar_etapa_nao_muda_o_executor(recorder: Recorder) -> None:
 
     assert [o.name for o in report.stages] == ["configuration", "adapters", "mcp_registry", "engine"]
     assert report.ok
+
+
+# --- Fase 3 (T039; contracts/boot-sequence.md, itens 13 a 19): a plataforma real -------------------------------------
+
+
+def _boot(tmp_path: Path, **kwargs: Any) -> Platform:
+    return platform(config=MemoryConfig(write_config(tmp_path, **kwargs)))
+
+
+@pytest.mark.us1
+def test_13_mcp_registry_entre_packs_e_engine(tmp_path: Path) -> None:
+    plataforma = _boot(tmp_path, assistants=AGENTIC_ASSISTANTS_YAML, mcp=MCP_YAML)
+    assert plataforma.ok, plataforma.report.render()
+    assert [o.name for o in plataforma.report.stages] == [
+        "configuration", "adapters", "packs", "mcp_registry", "engine", "assistants", "api",
+    ]
+    assert plataforma.mcp is not None and plataforma.capabilities is not None
+
+
+@pytest.mark.us1
+def test_14_entrada_com_problema_degrada_mcp_registry_e_o_boot_conclui(tmp_path: Path) -> None:
+    plataforma = _boot(tmp_path, mcp=MCP_YAML_COM_PROBLEMA)
+    assert plataforma.ok
+    (etapa,) = [o for o in plataforma.report.stages if o.name == "mcp_registry"]
+    assert etapa.status is StageStatus.DEGRADED
+    assert "sem_politica" in (etapa.detail or "")
+
+
+@pytest.mark.us1
+def test_15_arquivo_malformado_para_o_boot_na_configuracao(tmp_path: Path) -> None:
+    plataforma = _boot(tmp_path, mcp="servers: [isso, nao, e, mapa\n")
+    assert not plataforma.ok
+    failure = plataforma.report.failure()
+    assert failure is not None and failure.name == "configuration"
+    assert "mcp.yaml" in (failure.detail or "")
+
+
+@pytest.mark.us1
+@pytest.mark.parametrize("profile", ["memory", "test"])
+def test_16_agentic_e_oferecido_nos_perfis(tmp_path: Path, profile: str) -> None:
+    plataforma = _boot(tmp_path, profile=profile)
+    assert plataforma.engine is not None
+    assert plataforma.engine.flows() == frozenset({"chat", "agentic"})
+    plataforma.aclose()
+
+
+@pytest.mark.us1
+def test_17_o_sdk_de_mcp_nunca_registra_em_debug(tmp_path: Path) -> None:
+    root = logging.getLogger()
+    before = root.level
+    root.setLevel(logging.DEBUG)
+    try:
+        _boot(tmp_path)
+        assert logging.getLogger("mcp.client.streamable_http").getEffectiveLevel() == logging.INFO
+    finally:
+        root.setLevel(before)
+
+
+@pytest.mark.us1
+def test_18_a_003_valida_contra_o_registry_real(tmp_path: Path) -> None:
+    plataforma = _boot(tmp_path, assistants=AGENTIC_ASSISTANTS_YAML, mcp=MCP_YAML)
+    (etapa,) = [o for o in plataforma.report.stages if o.name == "assistants"]
+    assert "perdido" in (etapa.detail or "")
+    assert "pesquisador" not in (etapa.detail or "")
+
+
+@pytest.mark.us1
+def test_19_credencial_ausente_degrada_sem_vazar_segredo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AI_CORE_MCP_SECRET_OUTRA", "segredo-outra")
+    plataforma = _boot(tmp_path, mcp=MCP_YAML_COM_CREDENCIAL)
+    (etapa,) = [o for o in plataforma.report.stages if o.name == "mcp_registry"]
+    assert etapa.status is StageStatus.DEGRADED
+    assert "cofre" in (etapa.detail or "") and "falta" in (etapa.detail or "")
+    assert "segredo-outra" not in plataforma.report.render()

@@ -76,7 +76,7 @@ def test_flow_inexistente_deixa_so_aquele_assistant_indisponivel(tmp_path: Path)
     """Erro de um Assistant não para o boot (003 FR-011, 011 FR-003): a etapa degrada nomeando Assistant e flow."""
     arquivo = tmp_path / "assistants.yaml"
     arquivo.write_text(
-        f"assistants:\n  x:{PUBLICO}\n    flow: agentic\n    models:\n      generation: ollama/m\n"
+        f"assistants:\n  x:{PUBLICO}\n    flow: rag_first\n    models:\n      generation: ollama/m\n"
         f"      allow: ['ollama/*']\n",
         encoding="utf-8",
     )
@@ -84,7 +84,8 @@ def test_flow_inexistente_deixa_so_aquele_assistant_indisponivel(tmp_path: Path)
 
     assert plataforma.ok
     detalhe = next(o.detail for o in plataforma.report.stages if o.name == "assistants")
-    assert detalhe is not None and "'x'" in detalhe and "agentic" in detalhe
+    # `rag_first` é da Fase 5: o motor ainda não o oferece (`agentic` passou a existir na Fase 3).
+    assert detalhe is not None and "'x'" in detalhe and "rag_first" in detalhe
     with TestClient(plataforma.app) as client:
         assert client.post("/v1/chat/completions", headers=OIDC, json=body(model="x")).status_code == 424
 

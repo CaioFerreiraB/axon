@@ -159,3 +159,57 @@ def test_repr_nao_mostra_segredos() -> None:
     memoria = Settings(profile="memory", dev_api_key=DEV_KEY)
     for texto in (repr(settings), str(settings), repr(memoria)):
         assert "segredo" not in texto
+
+
+# --- Fase 3 (T035; research R27): registry MCP e gateway de tools ---------------------------------------------------
+
+
+@pytest.mark.us2
+def test_variaveis_da_fase_3_tem_defaults() -> None:
+    settings = EnvConfigSource({}).load()
+    assert settings.mcp_file is None
+    assert settings.mcp_discovery_ttl == 300.0
+    assert settings.tool_timeout_ms == 30_000
+    assert settings.tool_max_response_bytes == 16_384
+
+
+@pytest.mark.us2
+def test_variaveis_da_fase_3_sao_lidas(tmp_path: Path) -> None:
+    settings = EnvConfigSource(
+        {
+            "AI_CORE_MCP_FILE": str(tmp_path / "mcp.yaml"),
+            "AI_CORE_MCP_DISCOVERY_TTL": "60",
+            "AI_CORE_TOOL_TIMEOUT_MS": "5000",
+            "AI_CORE_TOOL_MAX_RESPONSE_BYTES": "4096",
+        }
+    ).load()
+    assert settings.mcp_file == tmp_path / "mcp.yaml"
+    assert settings.mcp_discovery_ttl == 60.0
+    assert settings.tool_timeout_ms == 5000
+    assert settings.tool_max_response_bytes == 4096
+
+
+@pytest.mark.us2
+@pytest.mark.parametrize(
+    ("environ", "variable"),
+    [
+        ({"AI_CORE_MCP_DISCOVERY_TTL": "0"}, "AI_CORE_MCP_DISCOVERY_TTL"),
+        ({"AI_CORE_MCP_DISCOVERY_TTL": "-1"}, "AI_CORE_MCP_DISCOVERY_TTL"),
+        ({"AI_CORE_TOOL_TIMEOUT_MS": "999"}, "AI_CORE_TOOL_TIMEOUT_MS"),
+        ({"AI_CORE_TOOL_TIMEOUT_MS": "300001"}, "AI_CORE_TOOL_TIMEOUT_MS"),
+        ({"AI_CORE_TOOL_MAX_RESPONSE_BYTES": "1023"}, "AI_CORE_TOOL_MAX_RESPONSE_BYTES"),
+        ({"AI_CORE_TOOL_MAX_RESPONSE_BYTES": "1048577"}, "AI_CORE_TOOL_MAX_RESPONSE_BYTES"),
+        ({"AI_CORE_TOOL_TIMEOUT_MS": "rapido"}, "AI_CORE_TOOL_TIMEOUT_MS"),
+    ],
+)
+def test_recusas_da_fase_3_nomeiam_a_variavel(environ: dict[str, str], variable: str) -> None:
+    with pytest.raises(ConfigurationError, match=variable):
+        EnvConfigSource(environ).load()
+
+
+@pytest.mark.us2
+def test_credencial_de_mcp_nao_passa_pela_configuracao() -> None:
+    """`AI_CORE_MCP_SECRET_*` é lida pela 007 só ao montar a operação — nunca por `Settings` (FR-009, R27)."""
+    settings = EnvConfigSource({"AI_CORE_MCP_SECRET_X": "segredo-x"}).load()
+    assert "segredo-x" not in repr(settings)
+    assert "segredo-x" not in str(settings)

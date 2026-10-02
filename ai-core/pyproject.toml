@@ -547,7 +547,7 @@ source_modules = [
     "ai_core.graph",
     "ai_core.http",
     "ai_core.assistants",
-    "ai_core.bootstrap",
+    "ai_core.capabilities",
     "ai_core.mcp.api",
     "ai_core.mcp.domain",
     "ai_core.mcp.ports",
@@ -556,6 +556,15 @@ source_modules = [
 # httpx2/httpcore2 ficam de fora: são também a pilha HTTP do SDK do provider (006); no núcleo da 007, o contrato acima
 # os proíbe.
 forbidden_modules = ["mcp", "mcp_types"]
+
+# 011 (Fase 3, research R22): a composition root instancia os transportes da 007, que usam o SDK — é a exceção do
+# princípio XIII. O que ela não pode é importar o SDK diretamente.
+[[tool.importlinter.contracts]]
+name = "a composition root só alcança o SDK de MCP pelos adapters da 007"
+type = "forbidden"
+source_modules = ["ai_core.bootstrap"]
+forbidden_modules = ["mcp", "mcp_types"]
+allow_indirect_imports = true
 
 # --- Spec 004, Fase 3 (plan.md, "Fronteiras verificadas") -------------------------------------------------------------
 

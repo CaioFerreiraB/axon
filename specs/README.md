@@ -175,14 +175,14 @@ Ao criar spec nova, use o próximo número livre **dentro do bloco** (ver [CLAUD
 | [001](001-core-contracts/spec.md) | Contratos públicos | `ai-core-contracts` | 0 | Fase 0 implementada (US1–US4) |
 | [002](002-core-pack-runtime/spec.md) | Descoberta, carga e composição de packs + build da instalação | `ai_core/packs` | 1–4 | Fase 1 implementada (US1, US2, US3 cen. 2–4); Fase 2 (US4) e Fase 3 (US3 cen. 1, Pack Toolset) implementadas |
 | [003](003-core-assistants-access/spec.md) | Assistants, identidade e autorização | `ai_core/assistants` | 2 | Fase 2 implementada (US1–US7) e ligada pela 008 e pela 011 |
-| [004](004-core-capability-gateway/spec.md) | Catálogo de capacidades e execução segura de tools | `ai_core/capabilities` | 3 | Fase 3 implementada (US1–US5); encaixe pela 002, 003, 005 e 011 nas passadas delas |
+| [004](004-core-capability-gateway/spec.md) | Catálogo de capacidades e execução segura de tools | `ai_core/capabilities` | 3 | Fase 3 implementada (US1–US5); ligada pela 002, 005 e 011; falta a passada da 003 |
 | [005](005-core-execution-engine/spec.md) | Motor de execução (flows / grafo) | `ai_core/graph` | 1, 3, 5 | Fase 1 implementada (US1: flow `chat`); Fase 3 implementada (US2: flow `agentic`); encaixe na 011 (`capabilities`) e na 008 (`severity`) nas passadas delas |
 | [006](006-core-llm-providers/spec.md) | Providers de LLM e modelo por papel | `ai_core/llm` | 1, 3 | Fase 1 implementada (US1) |
-| [007](007-core-mcp-integration/spec.md) | Registry e cliente MCP | `ai_core/mcp` | 3 | Fase 3 implementada (US1–US6); encaixe pela 003, 008 e 011 nas passadas delas |
+| [007](007-core-mcp-integration/spec.md) | Registry e cliente MCP | `ai_core/mcp` | 3 | Fase 3 implementada (US1–US6); ligada pela 011; falta a passada da 008 (rotas de MCP) |
 | [008](008-core-http-api/spec.md) | API HTTP, compat OpenAI, streaming, histórico | `ai_core/http` | 1, 2, 3, 7 | Fases 1 e 2 implementadas (US1; US2, US3, US4 Assistants, US5, US7); MCP na Fase 3; fila e Open WebUI na Fase 7 |
 | [009](009-core-observability-evaluation/spec.md) | Trace (Trace Sink) e harness de avaliação | `ai_core/observability`, `ai_core/eval` | 1–6 | Fase 1 implementada (US1: trace e Trace Sink); harness na Fase 6 |
 | [010](010-core-generic-pack/spec.md) | Pack genérico de referência | `ai-generic` (`packages/generic`) | 1, 3 | Fase 1 implementada (US1) |
-| [011](011-core-bootstrap/spec.md) | Bootstrap e composition root: configuração, perfis de adapters, ordem de boot, CLI, health | `ai_core/bootstrap` | 1, 2 | Fases 1 e 2 implementadas (US1–US5: perfis `memory`, `persistent` e `test`, autenticação real, CLI `ai-core`, saúde agregada) |
+| [011](011-core-bootstrap/spec.md) | Bootstrap e composition root: configuração, perfis de adapters, ordem de boot, CLI, health | `ai_core/bootstrap` | 1, 2, 3 | Fases 1 e 2 implementadas (US1–US5: perfis `memory`, `persistent` e `test`, autenticação real, CLI `ai-core`, saúde agregada); Fase 3: registry MCP e gateway de tools nos três perfis, `agentic`, `ai-core audit`, saúde por servidor MCP, trocas de porta |
 | [101](101-scouting-pack/spec.md) | Pack scouting: composição, contexto determinístico, prompts | `ai_scouting/pack.py`, `context/`, `prompts/` | 4 | Draft |
 | [102](102-scouting-corpus-ingestion/spec.md) | Ingestão, chunking estrutural, modelo de vigência, índice | `ai_scouting/rag/ingestion/`, `rag/index/` | 5 | Draft |
 | [103](103-scouting-retrieval/spec.md) | Retrieval híbrido e rerank | `ai_scouting/rag/retrieval/` | 5 | Draft |

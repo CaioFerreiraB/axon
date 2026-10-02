@@ -25,15 +25,19 @@ from ai_core.bootstrap.settings import ConfigurationError, EnvConfigSource, Sett
 from ai_core.bootstrap.wiring import (
     STAGE_ADAPTERS,
     STAGE_CONFIGURATION,
+    STAGE_ENGINE,
     Platform,
     access_service,
-    assistants_service,
     assistants_source,
+    capabilities_service,
+    mcp_service,
     pack_runtime,
     platform,
     platform_health,
+    session_assistants,
     storage,
 )
+from ai_core.capabilities.adapters.cli import audit_command
 from ai_core.http.ports import HealthReport
 from ai_core.packs.adapters import cli as packs_cli
 from ai_core.packs.api import PackConfigError, PackRegistry
@@ -214,7 +218,7 @@ def _assistants_validate(args: argparse.Namespace, io: Io) -> int:
 
 async def _validate(parts: Mapping[str, Any], out: TextIO) -> int:
     async with storage(parts) as session:
-        return await assistants_cli.validate_command(assistants_service(parts, users=session["user_assistants"]), out)
+        return await assistants_cli.validate_command(session_assistants(parts, session), out)
 
 
 # --- keys (003) -------------------------------------------------------------------------------------------------------
@@ -305,6 +309,50 @@ async def _check(built: Platform, out: TextIO) -> int:
         return health_command(await health.health(), out)
 
 
+# --- audit (004) ------------------------------------------------------------------------------------------------------
+
+
+def _audit_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--principal", default=None, help="só os registros deste Principal")
+    parser.add_argument("--assistant", default=None, help="só os registros deste Assistant")
+    parser.add_argument("--tool", default=None, help="só os registros desta tool (nome com namespace)")
+    parser.add_argument("--since", default=None, help="a partir deste instante (ISO 8601, com fuso)")
+    parser.add_argument("--until", default=None, help="até este instante (ISO 8601, com fuso)")
+    parser.add_argument("--limit", type=int, default=100, help="quantos registros, de 1 a 1000")
+    parser.add_argument("--results", action="store_true", help="imprime também o resultado que o modelo recebeu")
+
+
+def _audit(args: argparse.Namespace, io: Io) -> int:
+    """Sobe até o motor — sem rede: o gateway precisa do Trace Sink — e consulta a auditoria da 004 na sessão de
+    armazenamento, pela mesma fábrica do servidor (R29)."""
+    built = _boot(args, io, until=STAGE_ENGINE)
+    if built is None:
+        return EXIT_FAILURE
+    try:
+        return asyncio.run(_audit_query(built.parts, args, io))
+    finally:
+        built.aclose()
+
+
+async def _audit_query(parts: Mapping[str, Any], args: argparse.Namespace, io: Io) -> int:
+    async with storage(parts) as session:
+        query = capabilities_service(
+            parts, audit=session["audit"], mcp=mcp_service(parts, store=session["mcp_store"])
+        )
+        return await audit_command(
+            query,
+            principal=args.principal,
+            assistant=args.assistant,
+            tool=args.tool,
+            since=args.since,
+            until=args.until,
+            limit=args.limit,
+            results=args.results,
+            out=io.out,
+            err=io.err,
+        )
+
+
 # --- registro ---------------------------------------------------------------------------------------------------------
 
 GROUPS: Final[Mapping[str, str]] = {
@@ -329,6 +377,12 @@ COMMANDS: Final[tuple[Command, ...]] = (
         path=("keys", "revoke"), help="revoga uma chave", run=_keys(_keys_revoke), arguments=_keys_revoke_arguments
     ),
     Command(path=("health",), help="saúde agregada: 0 ok, 1 degradada, 2 fora do ar", run=_health),
+    Command(
+        path=("audit",),
+        help="lista as chamadas de tool de escrita auditadas (004); 2 para filtro inválido",
+        run=_audit,
+        arguments=_audit_arguments,
+    ),
 )
 
 

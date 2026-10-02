@@ -5,10 +5,13 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Sequence
 
+import pytest
+
 from ai_core.assistants.api import AssistantStatus, ValidationReport
 from ai_core.bootstrap.health import PlatformHealth
 from ai_core.bootstrap.lifecycle import BootReport, StageOutcome, StageStatus
 from ai_core.llm.api import ModelHealth, ModelPolicy, ModelRef
+from ai_core.mcp.api import McpServer, SecurityPolicy, ServerHealth
 from ai_core.packs.api import PackEntry, PackStatus
 
 QWEN = ModelRef(provider="ollama", model="qwen3:1.7b")
@@ -87,8 +90,10 @@ def health(
     assistants: Assistants | None = None,
     report: BootReport | None = None,
     ticks: Ticks | None = None,
+    mcp: object | None = None,
 ) -> PlatformHealth:
     provider = PlatformHealth(
+        mcp=mcp,  # type: ignore[arg-type]
         database=database,
         packs=packs or Packs(pack("generic")),
         assistants=assistants or Assistants(AssistantStatus(name="geral", origin="system", available=True)),
@@ -212,3 +217,92 @@ async def test_antes_do_relatorio_de_boot_a_saude_diz_que_o_boot_esta_em_andamen
     report = await provider.health()
     assert report.status == "down"
     assert by_name(report)["boot"].detail == "boot em andamento"  # type: ignore[attr-defined]
+
+
+# --- Fase 3 (T046; contracts/health.md, "Fase 3"; clarificação 1): servidores MCP globais -----------------------------
+
+
+class Registry:
+    """Registry falso da 007: `globals()` e `check(alias)` programados; conta as checagens."""
+
+    def __init__(
+        self,
+        *aliases: str,
+        down: Sequence[str] = (),
+        missing: dict[str, tuple[str, ...]] | None = None,
+        slow: Sequence[str] = (),
+        lists: bool = True,
+    ) -> None:
+        self.aliases = aliases
+        self.down = set(down)
+        self.missing = missing or {}
+        self.slow = set(slow)
+        self.lists = lists
+        self.checks = 0
+
+    async def globals(self) -> Sequence[McpServer]:
+        if not self.lists:
+            raise RuntimeError("armazenamento do registry indisponível")
+        return tuple(
+            McpServer(alias=alias, scope="global", owner=None, transport="http", endpoint=f"https://{alias}.test/mcp",
+                      policy=SecurityPolicy(allowed_tools=("eco",)), origin="file")
+            for alias in self.aliases
+        )
+
+    async def check(self, alias: str, *, owner: str | None = None) -> ServerHealth:
+        self.checks += 1
+        if alias in self.slow:
+            await asyncio.sleep(10)
+        if alias in self.down:
+            return ServerHealth(alias=alias, ok=False, detail="sem resposta: conexão recusada")
+        missing = self.missing.get(alias, ())
+        return ServerHealth(alias=alias, ok=not missing, tools=("eco",), missing=missing)
+
+
+@pytest.mark.us5
+async def test_servidor_mcp_fora_do_ar_degrada_sem_derrubar() -> None:
+    report = await health(mcp=Registry("demo", "crm", down=["crm"])).health()
+    assert report.status == "degraded"
+    items = by_name(report)
+    crm = items["mcp:crm"]
+    assert not crm.ok and not crm.critical and "conexão recusada" in crm.detail  # type: ignore[attr-defined]
+    assert items["mcp:demo"].ok  # type: ignore[attr-defined]
+
+
+@pytest.mark.us5
+async def test_tool_da_allowlist_que_o_servidor_nao_anuncia_e_nomeada() -> None:
+    report = await health(mcp=Registry("demo", missing={"demo": ("apagar",)})).health()
+    demo = by_name(report)["mcp:demo"]
+    assert not demo.ok and "apagar" in demo.detail  # type: ignore[attr-defined]
+
+
+@pytest.mark.us5
+async def test_registry_que_nao_lista_vira_item_mcp_nao_critico() -> None:
+    report = await health(mcp=Registry(lists=False)).health()
+    item = by_name(report)["mcp"]
+    assert not item.ok and not item.critical and "indisponível" in item.detail  # type: ignore[attr-defined]
+    assert report.status == "degraded"
+
+
+@pytest.mark.us5
+async def test_servidor_lento_passa_do_prazo() -> None:
+    report = await health(mcp=Registry("lento", slow=["lento"])).health()
+    assert "sem resposta em" in by_name(report)["mcp:lento"].detail  # type: ignore[attr-defined]
+
+
+@pytest.mark.us5
+async def test_consulta_dentro_da_janela_nao_repete_as_checagens() -> None:
+    ticks = Ticks()
+    registry = Registry("demo")
+    provider = health(mcp=registry, ticks=ticks)
+    await provider.health()
+    ticks.now = 5.0
+    await provider.health()
+    assert registry.checks == 1
+
+
+@pytest.mark.us5
+async def test_sem_registry_nao_ha_item_de_mcp() -> None:
+    report = await health().health()
+    assert not [name for name in by_name(report) if name.startswith("mcp")]
+

@@ -22,6 +22,7 @@ from ai_core.bootstrap.profiles import (
     FIXED_TIME,
     PROFILES,
     REQUIRED_PORTS,
+    STORAGE_PORTS,
     TEST_ADMIN_GROUP,
     TEST_API_KEY,
     TEST_OIDC_TOKEN,
@@ -32,9 +33,24 @@ from ai_core.bootstrap.profiles import (
     validate,
 )
 from ai_core.bootstrap.settings import ConfigurationError, Settings
+from ai_core.capabilities.adapters.audit_postgres import PostgresAuditLog
+from ai_core.capabilities.adapters.memory import InMemoryAuditLog
 from ai_core.http.adapters.conversations_postgres import PostgresConversationStore
 from ai_core.llm.adapters.fake import ScriptedProvider
 from ai_core.llm.adapters.ollama import OllamaProvider
+from ai_core.mcp.adapters.dns_system import SystemDnsResolver
+from ai_core.mcp.adapters.memory import (
+    FixedDnsResolver,
+    InMemoryDiscoveryCache,
+    InMemorySecretResolver,
+    InMemoryServerStore,
+    ScriptedMcpTransport,
+)
+from ai_core.mcp.adapters.registry_postgres import PostgresServerStore
+from ai_core.mcp.adapters.secrets_env import EnvSecretResolver
+from ai_core.mcp.adapters.transport_http import HttpMcpTransport
+from ai_core.mcp.adapters.transport_stdio import StdioMcpTransport
+from ai_core.mcp.ports import McpConfig
 from ai_core.observability.adapters.jsonl import JsonlTraceBackend
 from ai_core.observability.adapters.memory import InMemoryTraceBackend
 
@@ -212,3 +228,62 @@ def test_ids_de_conversa_tem_fabrica_propria() -> None:
     memoria = profile_for("memory").build_all(Settings(), {"assistants_config": _config(None)})
     assert memoria["conversation_ids"] is not memoria["request_ids"]
     assert memoria["conversation_ids"].next() != memoria["conversation_ids"].next()
+
+
+# --- Fase 3 (T037; research R22): portas da 007 e da 004 -----------------------------------------------------------
+
+NEW_PORTS = ("mcp_store", "mcp_dns", "mcp_transports", "mcp_secrets", "mcp_cache", "audit")
+
+
+@pytest.mark.us2
+def test_as_portas_da_fase_3_fecham_a_lista_e_as_de_armazenamento_sao_reconstruidas() -> None:
+    assert REQUIRED_PORTS[-len(NEW_PORTS) :] == NEW_PORTS
+    assert {"mcp_store", "audit"} <= set(STORAGE_PORTS)
+    assert REQUIRED_PORTS.index("clock") < REQUIRED_PORTS.index("mcp_cache")
+    assert REQUIRED_PORTS.index("mcp_dns") < REQUIRED_PORTS.index("mcp_transports")
+
+
+@pytest.mark.us2
+def test_o_memory_monta_registry_e_auditoria_em_memoria_com_rede_de_verdade() -> None:
+    config = McpConfig(internal_hosts=frozenset({"mcp-interno"}), allowed_hosts=frozenset({"*.exemplo.org"}))
+    built = profile_for("memory").build_all(Settings(profile="memory"), {"mcp_config": config})
+    assert isinstance(built["mcp_store"], InMemoryServerStore)
+    assert isinstance(built["mcp_dns"], SystemDnsResolver)
+    assert set(built["mcp_transports"]) == {"http", "sse"}, "stdio só no persistent (design.md)"
+    assert all(isinstance(t, HttpMcpTransport) for t in built["mcp_transports"].values())
+    assert isinstance(built["mcp_secrets"], EnvSecretResolver)
+    assert isinstance(built["mcp_cache"], InMemoryDiscoveryCache)
+    assert isinstance(built["audit"], InMemoryAuditLog)
+
+
+@pytest.mark.us2
+def test_o_persistent_monta_registry_e_auditoria_no_postgres_e_oferece_stdio() -> None:
+    settings = Settings(profile="persistent", database_url=DSN)
+    built = profile_for("persistent").build_all(settings, {"assistants_config": _config(None)})
+    assert isinstance(built["mcp_store"], PostgresServerStore)
+    assert isinstance(built["audit"], PostgresAuditLog)
+    assert set(built["mcp_transports"]) == {"http", "sse", "stdio"}
+    assert isinstance(built["mcp_transports"]["stdio"], StdioMcpTransport)
+    assert isinstance(built["mcp_secrets"], EnvSecretResolver)
+
+
+@pytest.mark.us2
+def test_o_test_monta_um_transporte_programado_sem_servidores_e_nada_de_rede() -> None:
+    built = profile_for("test").build_all(Settings(profile="test"))
+    transports = built["mcp_transports"]
+    assert set(transports) == {"http", "sse", "stdio"}
+    (transport,) = {id(t): t for t in transports.values()}.values()
+    assert isinstance(transport, ScriptedMcpTransport) and transport.servers == {}
+    assert isinstance(built["mcp_dns"], FixedDnsResolver)
+    assert isinstance(built["mcp_secrets"], InMemorySecretResolver)
+    assert isinstance(built["mcp_store"], InMemoryServerStore)
+    assert isinstance(built["audit"], InMemoryAuditLog)
+
+
+@pytest.mark.us2
+async def test_o_provider_do_test_responde_direto_como_controller_e_faz_streaming_na_geracao() -> None:
+    provider = profile_for("test").build_all(Settings(profile="test"))["providers"]["ollama"]
+    response = await provider.chat([{"role": "user", "content": "oi"}], "qwen3:1.7b", stream=False)
+    assert response["message"]["content"] == '{"action": "answer"}'
+    chunks = await provider.chat([{"role": "user", "content": "oi"}], "qwen3:1.7b", stream=True)
+    assert [chunk["delta"] async for chunk in chunks][:2] == ["Bras", "ília"]

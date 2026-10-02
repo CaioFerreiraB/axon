@@ -6,6 +6,9 @@ erro, Assistant indisponível e modelo fora do ar a deixam `degraded`, e ela con
 
 Cada checagem tem prazo próprio e todas rodam juntas — um provider que pendura não pendura a saúde —, e o resultado
 fica em cache: o monitor consulta com frequência, e cada consulta tocaria o provider local.
+
+Fase 3 (clarificação 1 de 2026-10-02, research R28): um item **não crítico** por servidor MCP global. É o único lugar
+em que a plataforma pergunta se um servidor MCP está no ar — o boot nunca sai para a rede.
 """
 
 from __future__ import annotations
@@ -20,6 +23,7 @@ from ai_core.assistants.domain.definitions import AssistantsConfig
 from ai_core.bootstrap.lifecycle import BootReport, StageStatus
 from ai_core.http.ports import HealthItem, HealthReport
 from ai_core.llm.api import ModelPolicy, ModelRef, ModelRouting
+from ai_core.mcp.api import McpServer, ServerHealth
 from ai_core.packs.api import PackRegistry, PackStatus
 
 CHECK_TIMEOUT: Final = 3.0
@@ -39,8 +43,17 @@ class Validator(Protocol):
     async def validate(self) -> ValidationReport: ...
 
 
+class McpServers(Protocol):
+    """O que a saúde usa do registry da 007 (`McpRegistry`): os globais e a checagem de um servidor."""
+
+    async def globals(self) -> Sequence[McpServer]: ...
+
+    async def check(self, alias: str, *, owner: str | None = None) -> ServerHealth: ...
+
+
 class PlatformHealth:
-    """Os itens: `database`, `boot:<etapa>`, `pack:<nome>`, `assistant:<nome>` e `model:<provider/modelo>`.
+    """Os itens: `database`, `boot:<etapa>`, `pack:<nome>`, `assistant:<nome>`, `model:<provider/modelo>` e
+    `mcp:<alias>` (um por servidor MCP global; `mcp` quando listar falha).
 
     `report` chega depois de construído: o boot termina de montar o relatório depois de criar a app.
     """
@@ -56,8 +69,10 @@ class PlatformHealth:
         timeout: float = CHECK_TIMEOUT,
         ttl: float = CACHE_SECONDS,
         monotonic: Callable[[], float] = time.monotonic,
+        mcp: McpServers | None = None,
     ) -> None:
         self.report: BootReport | None = None
+        self._mcp = mcp
         self._database = database
         self._packs = packs
         self._assistants = assistants
@@ -74,11 +89,11 @@ class PlatformHealth:
         now = self._monotonic()
         if self._cached is not None and now - self._cached[0] < self._ttl:
             return self._cached[1]
-        database, assistants, models = await asyncio.gather(
-            self._database_items(), self._assistant_items(), self._model_items()
+        database, assistants, models, mcp = await asyncio.gather(
+            self._database_items(), self._assistant_items(), self._model_items(), self._mcp_items()
         )
         report = HealthReport(
-            items=(*database, *boot_items(self.report), *self._pack_items(), *assistants, *models)
+            items=(*database, *boot_items(self.report), *self._pack_items(), *assistants, *models, *mcp)
         )
         self._cached = (now, report)
         return report
@@ -117,6 +132,28 @@ class PlatformHealth:
         if not results:
             return HealthItem(name=name, ok=False, detail=failure or "sem resultado")
         return HealthItem(name=name, ok=results[0].available, detail=results[0].detail)
+
+    async def _mcp_items(self) -> tuple[HealthItem, ...]:
+        """Só os globais: os de usuário são do usuário, e a saúde responde a qualquer chave. Nunca críticos — um
+        servidor fora do ar degrada, não derruba (clarificação 1)."""
+        if self._mcp is None:
+            return ()
+        servers, failure = await self._attempt(self._mcp.globals())
+        if servers is None:
+            return (HealthItem(name="mcp", ok=False, detail=failure),)
+        aliases = tuple(dict.fromkeys(server.alias for server in servers))
+        return tuple(await asyncio.gather(*(self._mcp_item(alias) for alias in aliases)))
+
+    async def _mcp_item(self, alias: str) -> HealthItem:
+        name = f"mcp:{alias}"
+        result, failure = await self._attempt(self._mcp.check(alias)) if self._mcp else (None, None)
+        if result is None:
+            return HealthItem(name=name, ok=False, detail=failure or "sem resultado")
+        detail = result.detail
+        if result.missing:
+            missing = f"tools da allowlist não anunciadas: {', '.join(result.missing)}"
+            detail = f"{detail}; {missing}" if detail else missing
+        return HealthItem(name=name, ok=result.ok and not result.missing, detail=detail)
 
     async def _attempt[T](self, check: Awaitable[T]) -> tuple[T | None, str | None]:
         """O resultado, ou o motivo da falha — inclusive passar do prazo. Uma checagem nunca derruba a saúde."""
