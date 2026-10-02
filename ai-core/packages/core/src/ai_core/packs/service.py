@@ -17,6 +17,7 @@ from ai_core.packs.api import (
     PackEntry,
     PackHookError,
     PackStatus,
+    PackTool,
     RetrieverCapability,
     Slices,
     ValidationOutcome,
@@ -43,6 +44,7 @@ from ai_core_contracts import (
     ValidatorContext,
     check_compatibility,
     check_declaration,
+    retrieval_tool_spec,
 )
 
 logger = logging.getLogger("ai_core.packs")
@@ -239,6 +241,17 @@ class PackRuntime:
         """Revalida a composição (pode ter sido montada à mão) e devolve os packs carregados, na ordem."""
         names = self.compose(composition.packs).packs
         return [(name, self._loaded[name]) for name in names]
+
+    def toolset(self, composition: Composition) -> Sequence[PackTool]:
+        """Pack Toolset (research R19): nativas e retrievers da composição, com `<pack>.<nome>`."""
+        items: list[PackTool] = []
+        for name, loaded in self._members(composition):
+            items.extend(PackTool(name=f"{name}.{spec.name}", pack=name, spec=spec) for spec in loaded.tools)
+            items.extend(
+                PackTool(name=f"{name}.{named.name}", pack=name, spec=retrieval_tool_spec(named), retriever=named)
+                for named in loaded.retrievers
+            )
+        return items
 
     def system_prompts(self, composition: Composition) -> tuple[str, ...]:
         return tuple(loaded.system_prompt for _, loaded in self._members(composition) if loaded.system_prompt)

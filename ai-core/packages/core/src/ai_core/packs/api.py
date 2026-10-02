@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Literal, Protocol
 
-from ai_core_contracts import Citation, JSONValue, TurnView, ValidationResult
+from ai_core_contracts import Citation, JSONValue, NamedRetriever, ToolSpec, TurnView, ValidationResult
 
 type Slices = Mapping[str, Mapping[str, JSONValue]]
 """Fatia de cada pack da composição, mantida pelo motor entre os passos de uma execução."""
@@ -131,4 +131,25 @@ class PackHooks(Protocol):
 
     async def validate(self, composition: Composition, view: TurnView, slices: Slices) -> ValidationOutcome:
         """Validators em sequência, com resposta e citações encadeadas."""
+        ...
+
+
+# --- Pack Toolset (Fase 3, US3 cenário 1; research R18, R19) — consumido pela 004 ------------------------------------
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PackTool:
+    """Uma tool de pack numa composição: nome com namespace (`<pack>.<nome>`, FR-007), o `ToolSpec` com o nome local e,
+    em recuperação, o retriever com as coleções que declara."""
+
+    name: str
+    pack: str
+    spec: ToolSpec
+    retriever: NamedRetriever | None = None
+
+
+class PackToolset(Protocol):
+    def toolset(self, composition: Composition) -> Sequence[PackTool]:
+        """Por pack, na ordem da composição revalidada: tools nativas na ordem declarada, depois os retrievers como
+        tools de recuperação. Sem I/O: o catálogo foi coletado na carga."""
         ...

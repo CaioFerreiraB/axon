@@ -17,13 +17,15 @@ SEAM_API = {
     "PackHookError",
     "PackHooks",
     "PackRegistry",
+    "PackTool",
+    "PackToolset",
     "PackStatus",
     "RetrieverCapability",
     "Slices",
     "ValidationOutcome",
     "ValidatorRun",
 }
-IMPORTED_FROM_CONTRACTS = {"Citation", "JSONValue", "TurnView", "ValidationResult"}
+IMPORTED_FROM_CONTRACTS = {"Citation", "JSONValue", "NamedRetriever", "ToolSpec", "TurnView", "ValidationResult"}
 
 
 def test_public_names_are_exactly_the_documented_ones() -> None:

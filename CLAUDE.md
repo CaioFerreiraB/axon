@@ -118,8 +118,9 @@ executa chamadas (fora do catálogo é "tool inexistente"; argumentos validados 
 em esquema de MCP; prazo e tamanho do gateway; resultado cercado em `<tool_result>` com o conteúdo neutralizado). Tool
 de escrita é auditada **antes** de executar (sem auditoria, não executa), em memória ou Postgres (schema
 `capabilities`); `audit_command` em `adapters/cli.py`. Cada chamada vira o evento `tool_call` da 009 (acrescentado
-nesta passada). Falta ligar: a 002 (`PackToolSource` no `PackRuntime`, US3 cen. 1), a 003 (exemplo com namespace e a
-regra de colisão alias × pack), a 005 (flow `agentic`) e a 011 (perfis, limites, `ai-core audit`).
+nesta passada). A 002 já expõe o seam **Pack Toolset** (`PackRuntime.toolset(composition)`, US3 cen. 1), que cumpre
+a porta `PackToolSource` da 004. Falta ligar: a 003 (exemplo com namespace e a regra de colisão alias × pack), a 005
+(flow `agentic`) e a 011 (perfis, limites, `ai-core audit`).
 
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =

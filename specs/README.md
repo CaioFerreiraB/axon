@@ -173,7 +173,7 @@ Ao criar spec nova, use o próximo número livre **dentro do bloco** (ver [CLAUD
 | Spec | Módulo | Distribuição / caminho | Fase | Status |
 |---|---|---|---|---|
 | [001](001-core-contracts/spec.md) | Contratos públicos | `ai-core-contracts` | 0 | Fase 0 implementada (US1–US4) |
-| [002](002-core-pack-runtime/spec.md) | Descoberta, carga e composição de packs + build da instalação | `ai_core/packs` | 1–4 | Fase 1 implementada (US1, US2, US3 cen. 2–4); Fase 2 (US4) implementada |
+| [002](002-core-pack-runtime/spec.md) | Descoberta, carga e composição de packs + build da instalação | `ai_core/packs` | 1–4 | Fase 1 implementada (US1, US2, US3 cen. 2–4); Fase 2 (US4) e Fase 3 (US3 cen. 1, Pack Toolset) implementadas |
 | [003](003-core-assistants-access/spec.md) | Assistants, identidade e autorização | `ai_core/assistants` | 2 | Fase 2 implementada (US1–US7) e ligada pela 008 e pela 011 |
 | [004](004-core-capability-gateway/spec.md) | Catálogo de capacidades e execução segura de tools | `ai_core/capabilities` | 3 | Fase 3 implementada (US1–US5); encaixe pela 002, 003, 005 e 011 nas passadas delas |
 | [005](005-core-execution-engine/spec.md) | Motor de execução (flows / grafo) | `ai_core/graph` | 1, 3, 5 | Fase 1 implementada (US1: flow `chat`) |
@@ -203,6 +203,7 @@ secundárias (armazenamento, relógio, segredos…) não são seams: são intern
 | **Contratos de serviço** (`LLMProvider`, `MCPClient`) | 001 | 006, 007 | Formas que providers e cliente MCP implementam |
 | **Pack Registry** | 002 | 003, 004, 008 | Packs habilitados, status, capacidades por pack |
 | **Pack Hooks** | 002 | 005 | Executa hooks de pack com isolamento de fatia: prompts, preparação de contexto, rerank, validators, rotinas |
+| **Pack Toolset** | 002 | 004 | Tools nativas e retrievers de uma composição, com namespace `<pack>.<nome>` (Fase 3) |
 | **Principal** + **Execution Grant** | 003 | 004, 005, 007, 008 | Quem pede e o que a execução pode usar, já resolvido e restrito |
 | **Assistant Directory** | 003 | 008 | Listagem filtrada por ACL e CRUD de assistants de usuário |
 | **API Key Admin** | 003 | 008 | Emissão, listagem e revogação de chaves de API (superfície privada; a CLI é adapter da própria 003) |

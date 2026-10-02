@@ -195,6 +195,40 @@ incompatível instalado, `check` sai com código diferente de zero e nomeia a in
 
 ---
 
+## Phase 8: User Story 3, cenário 1 — Catálogo com namespace (Priority: P1) — Fase 3
+
+**Goal**: o `PackRuntime` entrega as tools nativas e os retrievers de uma composição, com `<pack>.<nome>`, para a 004.
+
+**Independent Test**: `uv run pytest packages/core/tests/packs/contract/test_packs_toolset_seam.py
+packages/core/tests/capabilities/contract/test_pack_tool_source.py`.
+
+### Tests for User Story 3 (cenário 1) ⚠️
+
+- [X] T038 [P] [US3] Criar `tests/packs/contract/test_packs_toolset_seam.py`:
+  packs A e B com a tool local `search` → `a.search` e `b.search` (US3 cen. 1); ordem da composição, nativas antes dos
+  retrievers de cada pack; retriever como tool `retrieval` com `RETRIEVAL_TOOL_PARAMETERS`, `mutates=False` e o
+  `NamedRetriever` com as coleções; `PackTool.spec.name` é o nome local; pack fora da composição não aparece; composição
+  com pack em erro → `CompositionError` (revalidação, R10); composição vazia → nada
+- [X] T039 [P] [US3] Toque declarado na 004 (R20): parametrizar `tests/capabilities/contract/test_pack_tool_source.py`
+  para rodar contra `StaticPackTools` **e** contra um `PackRuntime` carregado com packs de teste equivalentes
+  (`InMemoryPackSource`), e um teste tipado que atribui o `PackRuntime` a uma variável anotada com `PackToolSource`
+
+### Implementation for User Story 3 (cenário 1)
+
+- [X] T040 [US3] Em `src/ai_core/packs/api.py`, `PackTool` e `PackToolset` de
+  [contracts/pack-runtime-api.md](contracts/pack-runtime-api.md); em `src/ai_core/packs/service.py`,
+  `PackRuntime.toolset(composition)` (R19) sobre `_members`; atualizar os nomes públicos esperados em
+  `tests/packs/unit/test_packs_public_api.py`
+- [X] T041 [US3] Toque declarado na 004 (R20): `src/ai_core/capabilities/domain/records.py` reexporta `PackTool` de
+  `ai_core.packs.api`
+
+### Polish da Fase 3
+
+- [X] T042 Verificação completa (`uv run pytest`, `uv run mypy`, `uv run ruff check packages`, `uv run lint-imports`);
+  linha da 002 em `specs/README.md` (Fase 3, US3 cen. 1) e o seam **Pack Toolset** na tabela de seams; `CLAUDE.md`
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
