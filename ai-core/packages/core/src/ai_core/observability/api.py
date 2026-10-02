@@ -125,7 +125,28 @@ class ExecutionFinished:
         _require_non_negative("duration_ms", self.duration_ms)
 
 
-type TraceEvent = ExecutionStarted | ModelCall | ValidationRun | ExecutionError | ExecutionFinished
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ToolCall:
+    """Uma chamada de tool pelo gateway (004 FR-014). Sem argumentos nem conteúdo: o trace não guarda dado de usuário;
+    a auditoria guarda os de escrita. `kind` é `None` quando a tool não existe no catálogo."""
+
+    request_id: str
+    tool: str
+    kind: str | None
+    status: str
+    duration_ms: float
+    size_bytes: int
+    truncated: bool = False
+
+    def __post_init__(self) -> None:
+        _require_text("request_id", self.request_id)
+        _require_text("tool", self.tool)
+        _require_text("status", self.status)
+        _require_non_negative("duration_ms", self.duration_ms)
+        _require_non_negative("size_bytes", self.size_bytes)
+
+
+type TraceEvent = ExecutionStarted | ModelCall | ValidationRun | ToolCall | ExecutionError | ExecutionFinished
 """Dados de trace que os emissores mandam. Tipo novo entra aqui sem mudar o seam."""
 
 

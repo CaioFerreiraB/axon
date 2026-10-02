@@ -111,6 +111,15 @@ falha). O SDK oficial `mcp` (2.x, com `httpx2`) fica em `adapters/`; o transport
 conexão, conectando no IP validado (fecha DNS rebinding). Postgres no schema `mcp` (ADR-015). Falta ligar: a 011
 (perfis, `AI_CORE_MCP_FILE`, etapa `mcp_registry` antes de `assistants`, o serviço no lugar do `McpDirectory` vazio),
 a 008 (CRUD em `/v1` e `/private/v1`, saúde por servidor) e a 004 (catálogo e execução de tools).
+O catálogo de capacidades e o gateway de tools (`ai_core/capabilities/`, spec 004, US1–US5) também existem como módulo:
+uma sessão por execução (`Capabilities.open(grant, ToolContext)`) monta o catálogo — tools de pack, retrievers com todas
+as coleções no grant e tools de MCP pelo cliente restrito da 007, com namespace, `allowed_tools`/`write_tools` exatos — e
+executa chamadas (fora do catálogo é "tool inexistente"; argumentos validados com `jsonschema`, sem regex de terceiro
+em esquema de MCP; prazo e tamanho do gateway; resultado cercado em `<tool_result>` com o conteúdo neutralizado). Tool
+de escrita é auditada **antes** de executar (sem auditoria, não executa), em memória ou Postgres (schema
+`capabilities`); `audit_command` em `adapters/cli.py`. Cada chamada vira o evento `tool_call` da 009 (acrescentado
+nesta passada). Falta ligar: a 002 (`PackToolSource` no `PackRuntime`, US3 cen. 1), a 003 (exemplo com namespace e a
+regra de colisão alias × pack), a 005 (flow `agentic`) e a 011 (perfis, limites, `ai-core audit`).
 
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =

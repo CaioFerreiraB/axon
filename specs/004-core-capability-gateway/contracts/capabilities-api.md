@@ -52,7 +52,7 @@ FENCE_INSTRUCTION: Final[str]               # fragmento para o texto de sistema 
 
 ## Suítes adversariais
 
-- `test_adversarial.py` (SC-001): hypothesis gera nomes arbitrários — inclusive com namespace de pack e alias do grant e
+- `test_capabilities_adversarial.py` (SC-001): hypothesis gera nomes arbitrários — inclusive com namespace de pack e alias do grant e
   variações de caixa, espaço e unicode — e nenhum executa fora do catálogo (nenhum handler, retriever ou cliente MCP é
   chamado).
 - `test_prompt_injection.py` (SC-004, US3): resultados de handler, retriever e MCP com instruções ("ignore as

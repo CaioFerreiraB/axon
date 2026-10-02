@@ -175,7 +175,7 @@ Ao criar spec nova, use o próximo número livre **dentro do bloco** (ver [CLAUD
 | [001](001-core-contracts/spec.md) | Contratos públicos | `ai-core-contracts` | 0 | Fase 0 implementada (US1–US4) |
 | [002](002-core-pack-runtime/spec.md) | Descoberta, carga e composição de packs + build da instalação | `ai_core/packs` | 1–4 | Fase 1 implementada (US1, US2, US3 cen. 2–4); Fase 2 (US4) implementada |
 | [003](003-core-assistants-access/spec.md) | Assistants, identidade e autorização | `ai_core/assistants` | 2 | Fase 2 implementada (US1–US7) e ligada pela 008 e pela 011 |
-| [004](004-core-capability-gateway/spec.md) | Catálogo de capacidades e execução segura de tools | `ai_core/capabilities` | 3 | Draft |
+| [004](004-core-capability-gateway/spec.md) | Catálogo de capacidades e execução segura de tools | `ai_core/capabilities` | 3 | Fase 3 implementada (US1–US5); encaixe pela 002, 003, 005 e 011 nas passadas delas |
 | [005](005-core-execution-engine/spec.md) | Motor de execução (flows / grafo) | `ai_core/graph` | 1, 3, 5 | Fase 1 implementada (US1: flow `chat`) |
 | [006](006-core-llm-providers/spec.md) | Providers de LLM e modelo por papel | `ai_core/llm` | 1, 3 | Fase 1 implementada (US1) |
 | [007](007-core-mcp-integration/spec.md) | Registry e cliente MCP | `ai_core/mcp` | 3 | Fase 3 implementada (US1–US6); encaixe pela 003, 008 e 011 nas passadas delas |
@@ -206,7 +206,8 @@ secundárias (armazenamento, relógio, segredos…) não são seams: são intern
 | **Principal** + **Execution Grant** | 003 | 004, 005, 007, 008 | Quem pede e o que a execução pode usar, já resolvido e restrito |
 | **Assistant Directory** | 003 | 008 | Listagem filtrada por ACL e CRUD de assistants de usuário |
 | **API Key Admin** | 003 | 008 | Emissão, listagem e revogação de chaves de API (superfície privada; a CLI é adapter da própria 003) |
-| **Capability Catalog** + **Tool Gateway** | 004 | 005 | Catálogo por execução; execução de tool com timeout, limite, fencing, política de escrita e auditoria |
+| **Capability Catalog** + **Tool Gateway** | 004 | 005 | Uma sessão por execução (`Capabilities.open(grant, contexto)`): catálogo com namespace, já filtrado, e execução de tool com validação, timeout, limite, cerca, política de escrita e auditoria antes da escrita |
+| **Consulta de auditoria** | 004 | 011 (`ai-core audit`) | Registros de tools de escrita, filtrados por Principal, Assistant, tool e período |
 | **Execution Engine** (`run(grant, request) → eventos`) + **nomes de flow** | 005 | 008, 009, 003 (valida nomes) | Única porta de entrada para executar; saída é um fluxo de eventos |
 | **Model Router** | 006 | 005; 003 (só os value objects da política — [ADR-016](../docs/adr/ADR-016-grant-carrega-politica-de-modelos.md)) | Resolve provider+modelo por papel, aplicando allowlist |
 | **MCP Registry** + **catálogo de aliases** + **cliente MCP restrito** | 007 | 003 (catálogo, na forma de `McpDirectory`), 004 (cliente), 008 (registry) | Servidores por alias, escopo e política; cliente limitado aos aliases do grant, com `discover` que devolve também os servidores com falha |

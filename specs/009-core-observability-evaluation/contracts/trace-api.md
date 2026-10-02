@@ -7,8 +7,8 @@ consumidoras (004, 005, 006, 008, 011). Só importa stdlib e `ai_core_contracts`
 
 ```python
 # Eventos (o que se emite)
-ExecutionStarted, ModelCall, ValidationRun, ExecutionError, ExecutionFinished
-type TraceEvent = ExecutionStarted | ModelCall | ValidationRun | ExecutionError | ExecutionFinished
+ExecutionStarted, ModelCall, ValidationRun, ToolCall, ExecutionError, ExecutionFinished
+type TraceEvent = ExecutionStarted | ModelCall | ValidationRun | ToolCall | ExecutionError | ExecutionFinished
 
 # Leitura
 TraceRecord, Trace
@@ -20,6 +20,11 @@ class TraceQuery(Protocol): ...
 # Erro
 TraceQueryUnavailable          # RuntimeError
 ```
+
+`ToolCall` foi acrescentado pela 004 na Fase 3 (FR-014 dela), sob o ADR-013, que já previa o trace de chamadas de tool
+do gateway: um tipo de evento a mais é aditivo — nenhum emissor muda e o registro continua genérico (`type` derivado do
+nome da classe). Campos: `request_id`, `tool`, `kind` (ausente quando a tool não existe), `status`, `duration_ms`,
+`size_bytes`, `truncated` — sem argumentos nem conteúdo.
 
 Campos de cada evento: [data-model.md](../data-model.md). Todos são dataclasses congeladas, `kw_only`, com validação
 de campo não vazio na construção.

@@ -91,7 +91,7 @@ formato da cerca (R7), defaults de prazo e tamanho (R6), contexto da execução 
   `NamedRetriever`, `Chunk` (001); `Composition` (002); `ExecutionGrant`, `Principal` (003); `McpClients`,
   `Discovery`, `UnknownServer` (007); `TraceSink`, `ToolCall`, `ExecutionError` (009)
 - [x] Every seam this module exposes has a conformance test planned — `test_session_catalog.py`,
-  `test_session_execute.py`, `test_adversarial.py`, `test_prompt_injection.py`, `test_audit_query.py`
+  `test_session_execute.py`, `test_capabilities_adversarial.py`, `test_prompt_injection.py`, `test_audit_query.py`
 - [x] No seam changes — os seams da 004 nascem agora; o da 009 ganha um tipo de evento, aditivo e previsto; a forma
   exigida da 002 é porta deste módulo até a passada da 002
 - [x] Import boundaries (import-linter) cover the new code — contratos novos em "Fronteiras verificadas"

@@ -16,6 +16,7 @@ EXPECTED_NAMES = {
     "ExecutionStarted",
     "ModelCall",
     "ValidationRun",
+    "ToolCall",
     "ExecutionError",
     "ExecutionFinished",
     "TraceEvent",

@@ -50,6 +50,8 @@ arquivo truncado por queda de processo não impede consultar o resto ([research.
 {"at": "…", "type": "execution_error", "request_id": "req-7f3a", "stage": "generation",
  "kind": "ProviderTimeout", "message": "timeout após 30s chamando POST /v1/chat/completions"}
 {"at": "…", "type": "execution_finished", "request_id": "req-7f3a", "ok": true, "duration_ms": 9102.7}
+{"at": "…", "type": "tool_call", "request_id": "req-7f3a", "tool": "financeiro.saldo", "kind": "mcp",
+ "status": "ok", "duration_ms": 182.4, "size_bytes": 340, "truncated": false}
 ```
 
 No último exemplo, `reason` é `None` e por isso não aparece.

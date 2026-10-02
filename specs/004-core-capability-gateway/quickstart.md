@@ -19,7 +19,7 @@ uv run mypy && uv run ruff check packages && uv run lint-imports
 | US3 — dado, não instrução | `contract/test_prompt_injection.py` | cerca íntegra com `</tool_result>` no conteúdo; nenhuma chamada fora do catálogo executa |
 | US4 — escrita | `contract/test_session_catalog.py`, `contract/test_audit_write.py` | sem `write_tools`, a tool não aparece; com, a chamada é auditada antes; auditoria fora → não executa |
 | US5 — coleções | `contract/test_session_catalog.py` | retriever com coleção fora do grant ausente; parcial não basta |
-| SC-001 | `contract/test_adversarial.py` | nomes arbitrários nunca executam |
+| SC-001 | `contract/test_capabilities_adversarial.py` | nomes arbitrários nunca executam |
 | FR-014 | `contract/test_session_execute.py` | um `tool_call` no trace por chamada, sem argumentos |
 | FR-015 | `contract/test_audit_query.py` | filtros por Principal, Assistant, tool e período; mais recente primeiro |
 | MCP real | `integration/test_session_mcp.py` | tools do servidor de demonstração da 007 como `<alias>.<tool>`, executadas pelo cliente restrito |
