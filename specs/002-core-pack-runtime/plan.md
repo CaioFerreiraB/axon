@@ -203,6 +203,23 @@ Reavaliado para a US4: **PASS**, sem mudança em nenhum item acima.
   e carrega o registry continua sendo a composition root.
 - XII: sem saída estruturada nem parser próprio (R17, R15).
 
+## Fase 3 (US3 cenário 1) — 2026-10-01
+
+A composição do catálogo com namespace, que o roadmap põe "junto da 004": um seam novo, **Pack Toolset**
+(`toolset(composition)` → `PackTool` por tool nativa e por retriever, com `<pack>.<nome>`), implementado pelo
+`PackRuntime` sobre o catálogo coletado na carga (research R18, R19). Toque declarado na 004: ela reexporta o `PackTool`
+daqui e a suíte da porta dela roda contra o `PackRuntime` (R20).
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| II. Seams | ✅ | Seam novo, aditivo: nenhum existente muda; registrado em `specs/README.md`; consumidor (004) listado |
+| III. O core orquestra | ✅ | Retrieval é tool (ADR-005): o retriever entra pela tool de recuperação do contrato |
+| IV. Assistant é a fronteira | ✅ | Este módulo não filtra por Assistant — devolve o que a composição tem; quem restringe é a 004 |
+| XIII. Portas e adapters | ✅ | Sem I/O: o catálogo foi coletado na carga; nenhuma porta nova |
+
+**Module boundary gate (Fase 3)**: mudanças em `ai_core/packs/` e `tests/packs/`, mais o toque declarado na 004
+(`capabilities/domain/records.py` e a suíte da porta); nenhum seam existente muda. **Resultado**: PASS.
+
 ## Complexity Tracking
 
 > Nenhuma violação. Complexidade adicional justificada (princípio XII):

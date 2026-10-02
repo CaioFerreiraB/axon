@@ -13,7 +13,7 @@
 - **Módulo**: Pack Runtime — descobre, valida, habilita e compõe packs, e executa seus hooks com isolamento.
 - **Repositório / distribuição**: `ai-core` → `packages/core/src/ai_core/packs/` (subcomandos `packs` em `adapters/cli.py`; a raiz do comando `ai-core` é da spec 011); template do repositório de instalação.
 - **Consome (seams)**: Contrato de pack e Turn View — 001.
-- **Expõe (seams)**: **Pack Registry** (packs habilitados, status, capacidades por pack) — consumido por 003, 004, 008; **Pack Hooks** (prompts, preparação de contexto, rerank, validators, rotinas, com isolamento de fatia) — consumido por 005.
+- **Expõe (seams)**: **Pack Registry** (packs habilitados, status, capacidades por pack) — consumido por 003, 004, 008; **Pack Hooks** (prompts, preparação de contexto, rerank, validators, rotinas, com isolamento de fatia) — consumido por 005; **Pack Toolset** (tools nativas e retrievers de uma composição, com namespace `<pack>.<nome>`) — consumido por 004, a partir da Fase 3.
 - **Depende de infraestrutura (via portas)**: fonte dos packs instalados (descoberta) e configuração do operador (habilitação e configuração por pack).
 - **Não conhece**: flows e nós do grafo, HTTP, Assistants (recebe apenas a lista ordenada de packs a compor), a ordem de boot da plataforma (spec 011), qualquer domínio.
 - **Substituição**: preservar Pack Registry e Pack Hooks; o mecanismo de descoberta (entry points) pode mudar sem afetar consumidores.

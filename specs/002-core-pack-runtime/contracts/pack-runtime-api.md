@@ -77,6 +77,17 @@ class PackHooks(Protocol):
     async def prepare(self, composition: Composition, view: TurnView, slices: Slices) -> Slices: ...
     async def validate(self, composition: Composition, view: TurnView, slices: Slices) -> ValidationOutcome: ...
     # Fase 5 / 001 US5 (assinaturas do design.md): reranker(composition) e routine(composition, pack)
+
+# Fase 3 (US3 cen. 1; research R18, R19) — consumido pela 004
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PackTool:
+    name: str                          # "<pack>.<nome local>"
+    pack: str
+    spec: ToolSpec                     # nome local; o de recuperação via retrieval_tool_spec
+    retriever: NamedRetriever | None = None
+
+class PackToolset(Protocol):
+    def toolset(self, composition: Composition) -> Sequence[PackTool]: ...
 ```
 
 ## Comportamento
@@ -90,8 +101,11 @@ class PackHooks(Protocol):
 | `validate` | validators na ordem da composição e do pack; `answer`/`citations` encadeados; exceção interrompe | R8, edge case |
 | exceção ou retorno inválido em hook | `PackHookError` com `pack` e `hook`; nenhuma resposta parcial | FR-011, US3 cenário 4 |
 | composição recebida | revalidada pelo Pack Hooks antes de executar | R10 |
+| `toolset` | por pack, na ordem da composição revalidada: tools nativas na ordem declarada, depois retrievers como tools de recuperação; nome `<pack>.<nome>`; sem I/O | US3 cenário 1, FR-007, R19 |
 
 ## Suítes de conformidade do seam
 
-`ai-core/packages/core/tests/packs/contract/`: `test_packs_registry_seam.py` e `test_packs_hooks_seam.py`, contra o
-`service` montado com adapters em memória. Toda linha da tabela acima tem um teste.
+`ai-core/packages/core/tests/packs/contract/`: `test_packs_registry_seam.py`, `test_packs_hooks_seam.py` e
+`test_packs_toolset_seam.py` (Fase 3), contra o `service` montado com adapters em memória. Toda linha da tabela acima
+tem um teste. A suíte da porta que a 004 declarou (`tests/capabilities/contract/test_pack_tool_source.py`) roda também
+contra o `PackRuntime` (R20).

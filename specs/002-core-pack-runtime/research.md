@@ -240,6 +240,50 @@ desabilitados) e na FR-003 (valida a configuração nova antes do restart). As d
   caso de uso.
 - **Alternatives**: `--json` (sem consumidor hoje; entra de forma aditiva se o build precisar).
 
+## Decisões da Fase 3 (US3 cenário 1) — 2026-10-01
+
+Insumos: a US3 cenário 1 e a FR-007 desta spec; o plano da 004 (research R2 dela), que declarou como porta a forma que
+exige deste módulo (`PackToolSource.toolset(composition)`) e a conformidade dela (`test_pack_tool_source.py`).
+
+### R18 — Um seam novo, `PackToolset`, com o tipo publicado aqui
+
+**Decision**: `api.py` publica `PackTool` (`name` com namespace, `pack`, `spec: ToolSpec` com o nome local, `retriever:
+NamedRetriever | None`) e o `Protocol` `PackToolset` com `toolset(composition) -> Sequence[PackTool]`, que o
+`PackRuntime` implementa. Não entra no `PackRegistry`: os registries falsos das suítes de outros módulos (003) deixariam
+de cumprir a forma, e catálogo de tools é outra pergunta que "quais packs existem".
+
+**Rationale** (ADR-012: o seam pertence a quem o implementa; 004 R2): a 004 declarou a forma provisoriamente, como a 003
+fez com a 007. Com o implementador existindo, o tipo passa a morar com ele, e a 004 o reexporta (R20).
+
+**Alternatives considered**: método novo no `PackRegistry` (quebra a forma para quem já a cumpre); a 002 devolver um tipo
+da 004 (seta invertida: a 004 consome a 002).
+
+### R19 — O que o `toolset` devolve, e em que ordem
+
+**Decision**: para cada pack da composição, na ordem dela (revalidada como no Pack Hooks, R10): primeiro as tools nativas
+na ordem que o pack as declarou, depois os retrievers na ordem declarada, cada retriever como a tool de recuperação do
+contrato (`retrieval_tool_spec`). O nome é `<pack>.<nome local>` (FR-007). Sem I/O: o catálogo de cada pack é coletado
+uma vez, na carga (001 FR-019). Nome repetido dentro de um pack não chega aqui — a conformidade da 001 já recusa tool
+repetida e retriever com nome de tool.
+
+**Rationale** (FR-007; ADR-005: retrieval é tool): determinístico, e quem filtra por coleção, `allowed_tools` e escrita
+é a 004 — este módulo não conhece Assistants.
+
+**Alternatives considered**: devolver só as nativas e deixar a 004 derivar os retrievers (duas fontes para o mesmo
+namespace).
+
+### R20 — O toque na 004
+
+**Decision**: `ai_core/capabilities/domain/records.py` passa a reexportar `PackTool` de `ai_core.packs.api`, e a suíte
+de conformidade da porta (`tests/capabilities/contract/test_pack_tool_source.py`) roda também contra o `PackRuntime`.
+Nada mais muda na 004.
+
+**Rationale** (004 plan, "Seam Notes": "a 002 satisfaz `PackToolSource` estruturalmente"): é a troca prevista, e a
+mesma suíte prova as duas implementações.
+
+**Alternatives considered**: um adaptador na composition root convertendo um tipo no outro (dois tipos para o mesmo
+dado, e a conformidade da 004 não rodaria contra o real).
+
 ## Pendências para outros planos
 
 | Pendência | Onde |
