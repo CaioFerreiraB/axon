@@ -28,6 +28,10 @@ algo crítico — o banco — cai.
 
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 
+**Pendências entre specs.** 005: esquema de ação de raiz objeto, para OpenAI como controller no modo estrito (006 R19)
+— até lá, um Assistant `agentic` com `controller` em `openai/…` falha explicitamente na chamada do controller (o `anyOf`
+na raiz é recusado pela OpenAI); Ollama e OpenRouter funcionam.
+
 ## Antes de começar
 
 1. ~~Aceitar ou rejeitar o ADR-011~~ — [ADR-011](adr/ADR-011-contratos-independentes-do-motor.md), [ADR-012](adr/ADR-012-estilo-arquitetural-hexagonal.md) e [ADR-013](adr/ADR-013-seams-transversais-trace-e-tempo.md) aceitos em 2026-09-14. Os contratos da Fase 0 já incluem a Turn View com `reference_time`.

@@ -135,3 +135,18 @@ plataforma = platform(
 | Porta desconhecida → `ConfigurationError` nomeando a porta | idem |
 | `database` ou porta de armazenamento → `ConfigurationError` (a sessão de armazenamento reconstruiria a porta e ignoraria a troca) | idem |
 | Nenhuma variável de ambiente nem arquivo expõe trocas | revisão de `settings.py` |
+
+---
+
+## Fase 3 (2026-10-02): providers remotos da 006 (006 research R23, ADR-020)
+
+| Porta exigida | Dono | `memory` | `persistent` | `test` |
+|---|---|---|---|---|
+| `llm_secrets` | 006 | ambiente — as credenciais de nome fixo da 006 | ambiente | memória, vazio |
+| `providers` | 006 | os providers da 006 — hoje Ollama, OpenAI e OpenRouter | os providers da 006 | provider simulado |
+
+`llm_secrets` vem antes de `providers` em `REQUIRED_PORTS`: a fábrica de `providers` a recebe nas partes já
+construídas. Remoto sem credencial fica registrado e explica a falta na saúde (`model:<ref>` indisponível) e na
+chamada, sem derrubar o boot e sem tocar a rede (006 FR-011). Os nomes das credenciais e dos providers pertencem à 006;
+esta tabela não os repete. `llm_secrets` pode ser trocada por `overrides`, como qualquer porta que não seja de
+armazenamento.

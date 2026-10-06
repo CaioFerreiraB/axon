@@ -20,6 +20,7 @@ from ai_core.assistants.service import AccessService
 from ai_core.bootstrap.profiles import (
     DEV_SUBJECT,
     FIXED_TIME,
+    NOT_OVERRIDABLE,
     PROFILES,
     REQUIRED_PORTS,
     STORAGE_PORTS,
@@ -38,6 +39,10 @@ from ai_core.capabilities.adapters.memory import InMemoryAuditLog
 from ai_core.http.adapters.conversations_postgres import PostgresConversationStore
 from ai_core.llm.adapters.fake import ScriptedProvider
 from ai_core.llm.adapters.ollama import OllamaProvider
+from ai_core.llm.adapters.openai import OpenAIProvider
+from ai_core.llm.adapters.openrouter import OpenRouterProvider
+from ai_core.llm.adapters.secrets import EnvSecretResolver as LlmEnvSecretResolver
+from ai_core.llm.adapters.secrets import InMemorySecretResolver as LlmInMemorySecretResolver
 from ai_core.mcp.adapters.dns_system import SystemDnsResolver
 from ai_core.mcp.adapters.memory import (
     FixedDnsResolver,
@@ -83,7 +88,9 @@ def test_no_perfil_de_teste_o_provider_e_simulado_e_o_trace_e_de_memoria() -> No
 
 def test_no_perfil_de_memoria_o_provider_e_o_ollama() -> None:
     profile = profile_for("memory")
-    providers = profile.build("providers", Settings(ollama_base_url="http://local/v1"))
+    providers = profile.build(
+        "providers", Settings(ollama_base_url="http://local/v1"), {"llm_secrets": LlmInMemorySecretResolver()}
+    )
     assert isinstance(providers["ollama"], OllamaProvider)
 
 
@@ -287,3 +294,51 @@ async def test_o_provider_do_test_responde_direto_como_controller_e_faz_streamin
     assert response["message"]["content"] == '{"action": "answer"}'
     chunks = await provider.chat([{"role": "user", "content": "oi"}], "qwen3:1.7b", stream=True)
     assert [chunk["delta"] async for chunk in chunks][:2] == ["Bras", "ília"]
+
+
+# --- Fase 3 da 006: segredos dos providers e remotos nos perfis (T034; 006 research R23, ADR-020) --------------------
+
+
+@pytest.mark.us3
+def test_llm_secrets_vem_antes_de_providers() -> None:
+    assert REQUIRED_PORTS.index("llm_secrets") < REQUIRED_PORTS.index("providers")
+
+
+@pytest.mark.us3
+@pytest.mark.parametrize("name", ["memory", "persistent"])
+def test_memory_e_persistent_registram_os_tres_providers(name: str) -> None:
+    settings = Settings(profile=name, database_url=DSN if name == "persistent" else None)
+    built = profile_for(name).build_all(settings, {"assistants_config": _config(None)})
+    assert isinstance(built["llm_secrets"], LlmEnvSecretResolver)
+    providers = built["providers"]
+    assert set(providers) == {"ollama", "openai", "openrouter"}
+    assert isinstance(providers["ollama"], OllamaProvider)
+    assert isinstance(providers["openai"], OpenAIProvider)
+    assert isinstance(providers["openrouter"], OpenRouterProvider)
+    assert all(provider.name == key for key, provider in providers.items())
+
+
+@pytest.mark.us3
+def test_o_test_mantem_so_o_provider_simulado_e_segredos_em_memoria() -> None:
+    built = profile_for("test").build_all(Settings(profile="test"))
+    assert set(built["providers"]) == {"ollama"}
+    assert isinstance(built["providers"]["ollama"], ScriptedProvider)
+    assert isinstance(built["llm_secrets"], LlmInMemorySecretResolver)
+
+
+@pytest.mark.us3
+async def test_remoto_sem_credencial_no_memory_relata_a_falta_sem_rede() -> None:
+    built = profile_for("memory").build_all(
+        Settings(), {"assistants_config": _config(None)}, overrides={"llm_secrets": LlmInMemorySecretResolver()}
+    )
+    result = await built["providers"]["openrouter"].probe("qwen/qwen3-8b")
+    assert not result.available
+    assert result.detail == "sem credencial: defina AI_CORE_OPENROUTER_API_KEY"
+
+
+@pytest.mark.us3
+def test_llm_secrets_pode_ser_trocada() -> None:
+    assert "llm_secrets" not in NOT_OVERRIDABLE
+    segredos = LlmInMemorySecretResolver({"AI_CORE_OPENAI_API_KEY": "sk-x"})
+    built = profile_for("test").build_all(Settings(profile="test"), overrides={"llm_secrets": segredos})
+    assert built["llm_secrets"] is segredos

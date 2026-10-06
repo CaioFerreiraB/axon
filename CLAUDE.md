@@ -64,7 +64,7 @@ Implementado até agora: `ai-core-contracts` (spec 001, Fase 0) em `ai-core/pack
 consulta por requisição, redação de credenciais e backends de memória e JSONL (`ai_core/eval/`, o harness, é Fase 6) —
 o Model Router (`ai_core/llm/`, spec 006, Fase 1: US1) — resolução de papel a partir de uma Model Policy, allowlist,
 saúde sob demanda, trace por chamada e o provider local do Ollama pela camada compatível com OpenAI (SDK `openai`,
-confinado a `adapters/` por import-linter), mais o provider simulado do perfil de teste; OpenAI e OpenRouter são Fase 3
+confinado a `adapters/` por import-linter), mais o provider simulado do perfil de teste; OpenAI e OpenRouter chegaram na Fase 3 (abaixo)
 — e o motor de execução (`ai_core/graph/`, spec 005, Fase 1: US1) — seam Execution Engine (`run(grant, request)` →
 token, progresso e evento final), o flow `chat` em LangGraph (framework preso a `adapters/langgraph/` por
 import-linter) e o grant chegando como `Protocol` estrutural até a 003 existir (substituído pelo grant da 003 na Fase 3,
@@ -150,6 +150,18 @@ fica em `Platform.mcp` para as rotas da 008. As suítes trocam portas na montage
 MCP (portas de armazenamento não se trocam); sem trocas, o modelo simulado do `test` responde `{"action": "answer"}`
 como controller. Uma conversa `agentic` + MCP atravessa a API sem rede
 (`tests/bootstrap/integration/test_platform_agentic_mcp.py`).
+Os providers remotos da 006 (US2–US5) também: `OpenAIProvider` e `OpenRouterProvider` são arquivos finos sobre a
+camada compatível (`adapters/remote.py`), com a credencial lida uma vez, na construção, pela porta `SecretResolver`
+(`AI_CORE_OPENAI_API_KEY`/`AI_CORE_OPENROUTER_API_KEY`; ADR-020) — sem ela, o remoto fica registrado e explica a falta
+na saúde e na chamada, sem tocar a rede, e o valor da chave nunca entra em mensagem. O `ModelRef` recusa roteamento
+automático (`openrouter/auto` e o namespace `openrouter/…`) na construção, antes da allowlist. Nenhuma chamada do papel
+`controller` sai sem `response_format` de esquema (guarda pura em `llm/domain/output.py`, aplicada no cliente
+instrumentado, com `ModelCall` de erro); o adapter envia `strict: true` e, no OpenRouter, `require_parameters`; recusa
+do provider é `ModelCallFailed`, sem reenvio. A 011 monta `llm_secrets` (ambiente no `memory`/`persistent`, memória
+vazia no `test`) antes de `providers`, que nos dois primeiros perfis tem `ollama`, `openai` e `openrouter`.
+Pendência da 005: o esquema de ação tem `anyOf` na raiz, que o modo estrito da OpenAI recusa — OpenAI como controller
+do `agentic` falha explicitamente até a 005 publicar um esquema de raiz objeto (006 R19). A integração paga
+(`tests/llm/integration/test_remote_real.py`) só roda com as credenciais no ambiente.
 
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =

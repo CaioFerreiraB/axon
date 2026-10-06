@@ -186,7 +186,7 @@ credencial — FR-011 entra aqui), `us4` (saída estruturada no controller) e `u
 
 ## Phase 5: Setup da Fase 3
 
-- [ ] T024 Em `ai-core/pyproject.toml`, acrescentar a descrição da 006 às marcas existentes, sem criar marca nova:
+- [X] T024 Em `ai-core/pyproject.toml`, acrescentar a descrição da 006 às marcas existentes, sem criar marca nova:
   `us2` += "; 006 US2 — modelo por papel", `us3` += "; 006 US3 — providers externos e roteamento automático",
   `us4` += "; 006 US4 — saída estruturada no controller", `us5` += "; 006 US5 — allowlist de modelo"
 
@@ -196,14 +196,14 @@ credencial — FR-011 entra aqui), `us4` (saída estruturada no controller) e `u
 
 **⚠️ Bloqueia a US3** (os providers remotos e a porta `llm_secrets` da 011 dependem dela). US2 e US5 não dependem.
 
-- [ ] T025 [P] Criar `tests/llm/contract/test_secret_resolver_port.py` (marca `us3`), parametrizado por
+- [X] T025 [P] Criar `tests/llm/contract/test_secret_resolver_port.py` (marca `us3`), parametrizado por
   `EnvSecretResolver(environ={...})` e `InMemorySecretResolver({...})`, com os quatro casos de
   [contracts/ports.md](contracts/ports.md) "Fase 3": nome presente → valor exato; ausente → `None`; valor `""` ou
   `"   "` → `None`; nome vazio → `None`, sem levantar
-- [ ] T026 Acrescentar a `src/ai_core/llm/ports.py` o `Protocol` `SecretResolver` com
+- [X] T026 Acrescentar a `src/ai_core/llm/ports.py` o `Protocol` `SecretResolver` com
   `def resolve(self, name: str) -> str | None` — docstring: "Valor da credencial pelo nome, ou None quando ausente ou
   vazia. Nunca levanta." (R21)
-- [ ] T027 Criar `src/ai_core/llm/adapters/secrets.py` com `EnvSecretResolver(environ: Mapping[str, str] | None = None)`
+- [X] T027 Criar `src/ai_core/llm/adapters/secrets.py` com `EnvSecretResolver(environ: Mapping[str, str] | None = None)`
   (default `os.environ`; lê exatamente a variável com o nome pedido) e `InMemorySecretResolver(values: Mapping[str, str]
   | None = None)`; nos dois, valor ausente, vazio ou só espaços → `None`, e nome vazio → `None` (depende de T026; T025
   passa)
@@ -218,7 +218,7 @@ credencial — FR-011 entra aqui), `us4` (saída estruturada no controller) e `u
 
 **Independent Test**: `uv run pytest packages/core/tests -m us2 -k "papeis or providers_por_papel"`.
 
-- [ ] T028 [P] [US2] Em `tests/llm/contract/test_model_router_seam.py`, `test_papeis_em_providers_diferentes` (marca
+- [X] T028 [P] [US2] Em `tests/llm/contract/test_model_router_seam.py`, `test_papeis_em_providers_diferentes` (marca
   `us2`): política com `controller: openrouter/qwen/qwen3-8b`, `generation: ollama/qwen3:1.7b` e
   `allow=("ollama/*", "openrouter/*")`; dois `ScriptedProvider` (`name="openrouter"` com `content='{"action":
   "answer"}'`, e `name="ollama"`); `for_role("controller").ref.provider == "openrouter"` e
@@ -226,7 +226,7 @@ credencial — FR-011 entra aqui), `us4` (saída estruturada no controller) e `u
   `{"type": "json_schema", "json_schema": {"name": "acao", "schema": {"type": "object"}}}` (continua verde depois da guarda
   da US4) e `stream` da geração; o trace tem dois `ModelCall`, `(controller, openrouter)` e `(generation, ollama)`, e
   cada provider recebeu exatamente uma chamada
-- [ ] T029 [P] [US2] Criar `tests/bootstrap/integration/test_providers_por_papel.py` (marca `us2`): YAML a partir de
+- [X] T029 [P] [US2] Criar `tests/bootstrap/integration/test_providers_por_papel.py` (marca `us2`): YAML a partir de
   `AGENTIC_ASSISTANTS_YAML` (bootstrap_testkit) com o bloco `pesquisador` sem `mcp: [demo]`, `controller:
   openrouter/qwen/qwen3-8b` e `allow: ["ollama/*", "openrouter/*"]` (substituição como `CONTROLLER_PROGRAMADO` em
   `test_platform_agentic_mcp.py`); `platform(config=MemoryConfig(settings), overrides={"providers": {"ollama":
@@ -248,13 +248,13 @@ credencial registrado e explícito (FR-011, R21), ligados nos perfis da 011 (R23
 
 ### Testes da US3 (escrever primeiro; devem falhar)
 
-- [ ] T030 [P] [US3] Em `tests/llm/unit/test_llm_api.py` (marca `us3`), `test_roteamento_automatico_recusado`
+- [X] T030 [P] [US3] Em `tests/llm/unit/test_llm_api.py` (marca `us3`), `test_roteamento_automatico_recusado`
   parametrizado — `ModelRef.parse` de `openrouter/auto`, `openrouter/AUTO`, `openrouter/auto:free`,
   `openrouter/openrouter/auto`, `openrouter/OpenRouter/Auto`, `openrouter/openrouter/qualquer` e
   `ModelRef(provider="openrouter", model="auto")` levantam `ValueError` cuja mensagem contém "roteamento automático" e
   "modelo explícito" —, e `test_roteamento_automatico_nao_atinge_modelo_explicito` — `openrouter/qwen/qwen3-8b`,
   `openrouter/qwen/qwen3-8b:free`, `…:nitro`, `…:floor`, `ollama/auto` e `openai/gpt-4o-mini` são aceitos
-- [ ] T031 [US3] Em `tests/llm/llm_testkit.py`: atributo `name = "ollama"` em `ScriptedCase` e `OllamaCase`; constantes
+- [X] T031 [US3] Em `tests/llm/llm_testkit.py`: atributo `name = "ollama"` em `ScriptedCase` e `OllamaCase`; constantes
   `SECRET = "sk-teste-0123456789"` e `REMOTE_BASE_URL = "http://remoto.test/v1"`; `OpenAICase` e `OpenRouterCase` (ids
   `"openai"`/`"openrouter"`, `name` igual), com a mesma interface de `OllamaCase` (`ok`, `failing`, `sent_model`,
   `sent_tool_names`, `sent_response_format`, `call_count`, `transport`), construindo o provider com
@@ -262,7 +262,7 @@ credencial registrado e explícito (FR-011, R21), ligados nos perfis da 011 (R23
   `PORT_CASES = (*PROVIDER_CASES, OpenAICase, OpenRouterCase)`. Em `tests/llm/contract/test_model_provider_port.py`, a
   fixture `case` passa a usar `PORT_CASES`, e as asserções com `"ollama"` fixo passam a usar `case.name` (os casos
   `failing` dos remotos produzem `ModelCallFailed` com o próprio nome)
-- [ ] T032 [US3] Criar `tests/llm/contract/test_remote_providers.py` (marca `us3`; depende de T031), com o transporte
+- [X] T032 [US3] Criar `tests/llm/contract/test_remote_providers.py` (marca `us3`; depende de T031), com o transporte
   falso do testkit e um teste por linha de [contracts/remote-adapters.md](contracts/remote-adapters.md):
   `test_sem_credencial_chat_falha_antes_da_rede` (sem e com streaming: `ModelCallFailed` com `reason` contendo
   `"sem credencial: defina AI_CORE_OPENAI_API_KEY"` — e `…OPENROUTER…` no outro — e `transport.requests == []`);
@@ -273,18 +273,18 @@ credencial registrado e explícito (FR-011, R21), ligados nos perfis da 011 (R23
   `probe`); `test_probe_openrouter_aceita_base_da_variante` (lista com `qwen/qwen3-8b` → `qwen/qwen3-8b:nitro`
   disponível; `qwen/qwen3-8b:free` listado → disponível; `outro/x:nitro` → indisponível);
   `test_probe_trunca_a_lista_de_disponiveis` (25 ids, modelo ausente → `detail` com os 20 primeiros e `"(+5)"`)
-- [ ] T033 [P] [US3] Em `tests/llm/contract/test_model_router_seam.py`, `test_saude_de_remoto_sem_credencial`
+- [X] T033 [P] [US3] Em `tests/llm/contract/test_model_router_seam.py`, `test_saude_de_remoto_sem_credencial`
   (marca `us3`): `ModelRoutingService` com `OpenAIProvider(secrets=InMemorySecretResolver())` e política
   `generation: openai/gpt-4o-mini` → `check` devolve um `ModelHealth` com `available=False` e `detail` contendo
   `AI_CORE_OPENAI_API_KEY`, sem levantar; e a chamada `complete` levanta `ModelCallFailed` e emite um `ModelCall` com
   `finish_reason="error"`
-- [ ] T034 [P] [US3] Em `tests/bootstrap/unit/test_profiles.py` (toque na 011): o teste que constrói `providers` do
+- [X] T034 [P] [US3] Em `tests/bootstrap/unit/test_profiles.py` (toque na 011): o teste que constrói `providers` do
   `memory` passa `parts={"llm_secrets": InMemorySecretResolver()}` (o da 006); novos — `REQUIRED_PORTS` tem
   `llm_secrets` antes de `providers`; `memory` e `persistent` constroem `providers` com as chaves
   `{"ollama", "openai", "openrouter"}` (`OpenAIProvider`, `OpenRouterProvider`); `llm_secrets` do `memory` é o
   `EnvSecretResolver` da 006; `test` mantém só `"ollama"` (`ScriptedProvider`) e `llm_secrets` em memória;
   `llm_secrets` pode ser trocada por `overrides` (não está em `NOT_OVERRIDABLE`)
-- [ ] T035 [P] [US3] Criar `tests/bootstrap/integration/test_providers_remotos.py` (marca `us3`), no perfil `test`:
+- [X] T035 [P] [US3] Criar `tests/bootstrap/integration/test_providers_remotos.py` (marca `us3`), no perfil `test`:
   `test_assistant_com_roteamento_automatico_fica_indisponivel` (Assistant `agentic` com `controller: openrouter/auto` →
   `POST /v1/chat/completions` → 424, `code: "assistant_unavailable"`, e algum item de `error.reasons` contendo
   `models.controller` e "roteamento automático");
@@ -298,38 +298,38 @@ credencial registrado e explícito (FR-011, R21), ligados nos perfis da 011 (R23
 
 ### Implementação da US3
 
-- [ ] T036 [US3] Em `src/ai_core/llm/api.py` (R16): constante `AUTO_ROUTING_PROVIDER: Final = "openrouter"` e, em
+- [X] T036 [US3] Em `src/ai_core/llm/api.py` (R16): constante `AUTO_ROUTING_PROVIDER: Final = "openrouter"` e, em
   `ModelRef.__post_init__`, `base = self.model.strip().casefold().partition(":")[0]`; com
   `provider == AUTO_ROUTING_PROVIDER` e `base == "auto"` ou `base.startswith("openrouter/")`, levantar
   `ValueError(f"'{self.provider}/{self.model}' é roteamento automático, que escolhe o modelo sozinho: declare um modelo
   explícito (autor/modelo)")`; docstring de `ModelCallFailed` passa a citar as falhas antes da rede (controller sem
   esquema, remoto sem credencial) além das de rede (T030 passa)
-- [ ] T037 [US3] Em `src/ai_core/llm/adapters/openai_compat.py` (R22): `LISTED_LIMIT: Final = 20` e a lista de
+- [X] T037 [US3] Em `src/ai_core/llm/adapters/openai_compat.py` (R22): `LISTED_LIMIT: Final = 20` e a lista de
   disponíveis do `detail` da `probe` com os 20 primeiros ids ordenados e `" (+N)"` quando houver mais; método
   `_has_model(self, model: str, ids: Sequence[str]) -> bool` (default `model in ids`) usado pela `probe`, para o
   OpenRouter sobrescrever; o Ollama não muda para listas curtas (suíte da Fase 1 verde)
-- [ ] T038 [US3] Criar `src/ai_core/llm/adapters/remote.py` (R20, R21): `RemoteProvider(OpenAICompatProvider)` com
+- [X] T038 [US3] Criar `src/ai_core/llm/adapters/remote.py` (R20, R21): `RemoteProvider(OpenAICompatProvider)` com
   `__init__(self, *, name, base_url, credential: str, secrets: SecretResolver, connect_seconds=5.0, idle_seconds=120.0,
   http_client=None)`; resolve `secrets.resolve(credential)` uma vez; sem valor, passa à base uma sentinela fixa (o SDK
   nunca lê `OPENAI_API_KEY`) e guarda o motivo `f"sem credencial: defina {credential}"`; `chat` (sem e com streaming)
   levanta `ModelCallFailed(provider=name, model=model, reason=<motivo>)` antes de qualquer requisição; `probe` devolve
   `ProbeResult(available=False, detail=<motivo>)` sem rede; `_reason` troca o valor da chave por `***` (depende de T027,
   T037)
-- [ ] T039 [P] [US3] Criar `src/ai_core/llm/adapters/openai.py`: `OpenAIProvider(RemoteProvider)` com `NAME = "openai"`,
+- [X] T039 [P] [US3] Criar `src/ai_core/llm/adapters/openai.py`: `OpenAIProvider(RemoteProvider)` com `NAME = "openai"`,
   `DEFAULT_BASE_URL = "https://api.openai.com/v1"`, `CREDENTIAL = "AI_CORE_OPENAI_API_KEY"`; construtor
   `(*, secrets, base_url=DEFAULT_BASE_URL, connect_seconds=5.0, idle_seconds=120.0, http_client=None)` (depende de T038)
-- [ ] T040 [P] [US3] Criar `src/ai_core/llm/adapters/openrouter.py`: `OpenRouterProvider(RemoteProvider)` com
+- [X] T040 [P] [US3] Criar `src/ai_core/llm/adapters/openrouter.py`: `OpenRouterProvider(RemoteProvider)` com
   `NAME = AUTO_ROUTING_PROVIDER` (importado de `ai_core.llm.api`, para a regra do `ModelRef` e o nome do registro nunca
   divergirem — achado A1), `DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"`,
   `CREDENTIAL = "AI_CORE_OPENROUTER_API_KEY"`, mesmo construtor do T039, e `_has_model` que aceita o id ou, com `:` no
   modelo, a base antes do último `:` (R22) (depende de T038; T031–T033 passam)
-- [ ] T041 [US3] Em `src/ai_core/bootstrap/profiles.py` (toque na 011, R23): `llm_secrets` em `REQUIRED_PORTS` logo antes
+- [X] T041 [US3] Em `src/ai_core/bootstrap/profiles.py` (toque na 011, R23): `llm_secrets` em `REQUIRED_PORTS` logo antes
   de `providers` (docstring atualizada); `memory` e `persistent` com `llm_secrets` = `EnvSecretResolver()` da 006
   (importado com alias para não colidir com o da 007) e `providers` = fábrica `_providers` que devolve
   `{"ollama": OllamaProvider(base_url=settings.ollama_base_url), "openai": OpenAIProvider(secrets=parts["llm_secrets"]),
   "openrouter": OpenRouterProvider(secrets=parts["llm_secrets"])}`; `test` com `llm_secrets` = `InMemorySecretResolver()`
   da 006 e `providers` inalterado (depende de T039, T040; T034 e T035 passam)
-- [ ] T042 [P] [US3] Em `specs/011-core-bootstrap/contracts/profiles.md`, acrescentar a seção "Fase 3 (2026-10-02):
+- [X] T042 [P] [US3] Em `specs/011-core-bootstrap/contracts/profiles.md`, acrescentar a seção "Fase 3 (2026-10-02):
   providers remotos da 006" com a linha `llm_secrets` (dono 006; `memory`/`persistent`: ambiente, com as credenciais
   de nome fixo da 006; `test`: memória, vazio) e a linha `providers` em forma genérica (`memory`/`persistent`: "os
   providers da 006 — hoje Ollama, OpenAI e OpenRouter"; `test`: provider simulado), citando a 006 R23 e o ADR-020
@@ -347,24 +347,24 @@ conversa explicam a falta sem tocar a rede
 
 ### Testes da US4 (escrever primeiro; devem falhar)
 
-- [ ] T043 [P] [US4] Criar `tests/llm/unit/test_llm_output.py` (marca `us4`) com a tabela de `constraint_problem` do
+- [X] T043 [P] [US4] Criar `tests/llm/unit/test_llm_output.py` (marca `us4`) com a tabela de `constraint_problem` do
   [data-model.md](data-model.md) "Fase 3": `generation` e `rerank` com qualquer formato → `None`; `controller` com
   `{"type": "json_schema", "json_schema": {"name": "acao", "schema": {...}}}` → `None`; `controller` com `None`,
   `{"type": "json_object"}` (o motivo nomeia `json_object`), `json_schema` sem `schema`, `schema` que não é mapeamento
   e `json_schema` que não é mapeamento → motivo contendo `controller` e `json_schema`
-- [ ] T044 [P] [US4] Em `tests/llm/contract/test_model_router_seam.py` (marca `us4`), casos 11–12 de
+- [X] T044 [P] [US4] Em `tests/llm/contract/test_model_router_seam.py` (marca `us4`), casos 11–12 de
   [contracts/model-router.md](contracts/model-router.md) "Fase 3": `test_controller_sem_restricao_e_recusado`
   parametrizado por `None`, `json_object` e `json_schema` sem `schema`, em `complete` e em `stream` — levanta
   `ModelCallFailed` com provider e modelo, o provider não recebe chamada e o trace tem exatamente um `ModelCall` com
   `role="controller"` e `finish_reason="error"`; `test_generation_sem_formato_continua_aceito`
-- [ ] T045 [P] [US4] Em `tests/llm/contract/test_remote_providers.py` (marca `us4`): `test_strict_forcado`
+- [X] T045 [P] [US4] Em `tests/llm/contract/test_remote_providers.py` (marca `us4`): `test_strict_forcado`
   parametrizado pelos casos HTTP (`OllamaCase`, `OpenAICase`, `OpenRouterCase`) — com `json_schema` sem `strict` e com
   `"strict": False`, o corpo enviado tem `json_schema.strict is True` e o mapeamento passado continua igual;
   `test_require_parameters_so_com_formato` (OpenRouter: com formato, `body["provider"] == {"require_parameters": True}`;
   sem formato, sem `provider`; OpenAI nunca envia `provider`); `test_recusa_da_restricao_sem_reenvio` (400 com corpo
   "Invalid schema for response_format" na OpenAI e 404 "No endpoints found that can handle the requested parameters" no
   OpenRouter → `ModelCallFailed` com o código e o corpo, e `len(transport.requests) == 1`)
-- [ ] T046 [P] [US4] Criar `tests/llm/integration/test_remote_real.py` (marca `us4`), pulado sem
+- [X] T046 [P] [US4] Criar `tests/llm/integration/test_remote_real.py` (marca `us4`), pulado sem
   `AI_CORE_OPENROUTER_API_KEY` (e, nos casos `openai`, sem `AI_CORE_OPENAI_API_KEY`): pelo `ModelRoutingService` com
   `OpenRouterProvider(secrets=EnvSecretResolver())` e `MonotonicClock`, o papel `controller` (modelo de
   `OPENROUTER_MODEL`, default `qwen/qwen3-8b`) com o esquema de raiz objeto `{"type": "object", "properties":
@@ -374,18 +374,18 @@ conversa explicam a falta sem tocar a rede
 
 ### Implementação da US4
 
-- [ ] T047 [US4] Criar `src/ai_core/llm/domain/output.py` (R17): `CONSTRAINED_ROLES: Final = frozenset({"controller"})`
+- [X] T047 [US4] Criar `src/ai_core/llm/domain/output.py` (R17): `CONSTRAINED_ROLES: Final = frozenset({"controller"})`
   e `constraint_problem(role: ModelRole, response_format: Mapping[str, JSONValue] | None) -> str | None` com as mensagens
   do data-model ("o papel 'controller' exige response_format com esquema (json_schema)…", nomeando o tipo recebido
   quando houver); pura, sem I/O (T043 passa)
-- [ ] T048 [US4] Em `src/ai_core/llm/service.py`, `TracedModel.complete` e `.stream` aplicam `constraint_problem`
+- [X] T048 [US4] Em `src/ai_core/llm/service.py`, `TracedModel.complete` e `.stream` aplicam `constraint_problem`
   **dentro** do bloco instrumentado e antes do provider: com motivo, levantam
   `ModelCallFailed(provider=self._ref.provider, model=self._ref.model, reason=<motivo>)` e o `ModelCall` de erro é
   emitido pelo caminho de falha existente (depende de T047; T044 passa e T028 continua verde)
-- [ ] T049 [US4] Em `src/ai_core/llm/adapters/openai_compat.py`, `_payload`: com `response_format["type"] ==
+- [X] T049 [US4] Em `src/ai_core/llm/adapters/openai_compat.py`, `_payload`: com `response_format["type"] ==
   "json_schema"` e `json_schema` mapeamento, envia uma cópia com `json_schema["strict"] = True`, sem mutar o recebido
   (R18; `json_object` e outros tipos passam como vieram)
-- [ ] T050 [US4] Em `src/ai_core/llm/adapters/openrouter.py`, sobrescrever `_payload` para acrescentar
+- [X] T050 [US4] Em `src/ai_core/llm/adapters/openrouter.py`, sobrescrever `_payload` para acrescentar
   `extra_body={"provider": {"require_parameters": True}}` quando `response_format is not None` (R18) (depende de T040,
   T049; T045 passa)
 
@@ -400,7 +400,7 @@ conversa explicam a falta sem tocar a rede
 
 **Independent Test**: `uv run pytest packages/core/tests/llm -m us5`.
 
-- [ ] T051 [US5] Em `tests/llm/contract/test_model_router_seam.py`, `test_allowlist_us5_literal` (marca `us5`):
+- [X] T051 [US5] Em `tests/llm/contract/test_model_router_seam.py`, `test_allowlist_us5_literal` (marca `us5`):
   `allow=("ollama/*",)` e `generation: openai/gpt-4o-mini` → `for_role("generation")` levanta `ModelNotAllowed` sem
   tocar provider nem emitir `ModelCall`; com `controller: openai/gpt-4o-mini` e `generation: ollama/qwen3:1.7b`, só o
   `controller` é recusado
@@ -409,12 +409,12 @@ conversa explicam a falta sem tocar a rede
 
 ## Phase 11: Polish da Fase 3
 
-- [ ] T052 Verificação completa a partir de `ai-core/`: `uv run pytest` (sem Postgres) e com
+- [X] T052 Verificação completa a partir de `ai-core/`: `uv run pytest` (sem Postgres) e com
   `AI_CORE_TEST_POSTGRES_DSN`, `uv run mypy`, `uv run ruff check packages` e `uv run lint-imports` (todos os contratos
   `KEPT`, nenhum novo — R26); corrigir o que quebrar
-- [ ] T053 Executar a seção "Fase 3" de [quickstart.md](quickstart.md) (US3, US4, FR-011, US2 e US5; a integração paga
+- [X] T053 Executar a seção "Fase 3" de [quickstart.md](quickstart.md) (US3, US4, FR-011, US2 e US5; a integração paga
   só com as variáveis) e corrigir divergências entre o resultado e o "Esperado"
-- [ ] T054 [P] Atualizar `CLAUDE.md` (seção "Código": a 006 tem OpenAI e OpenRouter sobre a camada compatível, a porta
+- [X] T054 [P] Atualizar `CLAUDE.md` (seção "Código": a 006 tem OpenAI e OpenRouter sobre a camada compatível, a porta
   `SecretResolver` com `AI_CORE_OPENAI_API_KEY`/`AI_CORE_OPENROUTER_API_KEY` e o ADR-020, roteamento automático recusado
   no `ModelRef`, a guarda do controller com `strict`/`require_parameters`, e a pendência da 005 — esquema de raiz objeto
   para OpenAI como controller); em `specs/README.md`, a linha da 006 (status "Fases 1 e 3 implementadas (US1–US5)") e

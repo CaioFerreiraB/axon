@@ -44,6 +44,10 @@ from ai_core.http.adapters.conversations_postgres import PostgresConversationSto
 from ai_core.http.adapters.development import SequentialRequestIds, Uuid4RequestIds
 from ai_core.llm.adapters.fake import ScriptedProvider
 from ai_core.llm.adapters.ollama import OllamaProvider
+from ai_core.llm.adapters.openai import OpenAIProvider
+from ai_core.llm.adapters.openrouter import OpenRouterProvider
+from ai_core.llm.adapters.secrets import EnvSecretResolver as LlmEnvSecretResolver
+from ai_core.llm.adapters.secrets import InMemorySecretResolver as LlmInMemorySecretResolver
 from ai_core.mcp.adapters.dns_system import SystemDnsResolver
 from ai_core.mcp.adapters.memory import (
     FixedDnsResolver,
@@ -63,6 +67,7 @@ from ai_core.observability.adapters.memory import InMemoryTraceBackend
 REQUIRED_PORTS: Final = (
     "clock",
     "trace",
+    "llm_secrets",
     "providers",
     "pack_source",
     "request_ids",
@@ -80,7 +85,8 @@ REQUIRED_PORTS: Final = (
     "audit",
 )
 """Portas secundárias que um perfil precisa atender, **na ordem de construção**. Acrescentar uma porta é acrescentar
-uma linha aqui. As seis últimas são as da 007 e da 004 (Fase 3, research R22)."""
+uma linha aqui. As seis últimas são as da 007 e da 004 (Fase 3, research R22); `llm_secrets` vem antes de `providers`,
+cuja fábrica a usa (006 research R23, ADR-020)."""
 
 STORAGE_PORTS: Final = ("api_keys", "user_assistants", "conversations", "mcp_store", "audit")
 """As portas construídas sobre `database`. Fora do laço do servidor, são refeitas sobre um pool temporário (R13)."""
@@ -168,8 +174,15 @@ def _trace(settings: Settings, _parts: Mapping[str, Any]) -> Any:
     return JsonlTraceBackend(settings.trace_dir) if settings.trace_dir else InMemoryTraceBackend()
 
 
-def _ollama(settings: Settings, _parts: Mapping[str, Any]) -> Any:
-    return {"ollama": OllamaProvider(base_url=settings.ollama_base_url)}
+def _providers(settings: Settings, parts: Mapping[str, Any]) -> Any:
+    """O local e os remotos da 006. Remoto sem credencial fica registrado e explica a falta na saúde e na chamada, sem
+    derrubar o boot (006 FR-011, ADR-020)."""
+    secrets = parts["llm_secrets"]
+    return {
+        "ollama": OllamaProvider(base_url=settings.ollama_base_url),
+        "openai": OpenAIProvider(secrets=secrets),
+        "openrouter": OpenRouterProvider(secrets=secrets),
+    }
 
 
 def _entry_point_source(_settings: Settings, _parts: Mapping[str, Any]) -> Any:
@@ -254,7 +267,8 @@ def _memory_profile() -> Profile:
         factories={
             "clock": lambda _s, _p: SystemClock(),
             "trace": _trace,
-            "providers": _ollama,
+            "llm_secrets": lambda _s, _p: LlmEnvSecretResolver(),
+            "providers": _providers,
             "pack_source": _entry_point_source,
             "request_ids": lambda _s, _p: Uuid4RequestIds(),
             "conversation_ids": lambda _s, _p: Uuid4RequestIds(),
@@ -286,7 +300,8 @@ def _persistent_profile() -> Profile:
         factories={
             "clock": lambda _s, _p: SystemClock(),
             "trace": _trace,
-            "providers": _ollama,
+            "llm_secrets": lambda _s, _p: LlmEnvSecretResolver(),
+            "providers": _providers,
             "pack_source": _entry_point_source,
             "request_ids": lambda _s, _p: Uuid4RequestIds(),
             "conversation_ids": lambda _s, _p: Uuid4RequestIds(),
@@ -321,6 +336,7 @@ def _test_profile() -> Profile:
         factories={
             "clock": lambda _s, _p: FixedClock(FIXED_TIME, readings=[0.0, 0.25]),
             "trace": lambda _s, _p: InMemoryTraceBackend(),
+            "llm_secrets": lambda _s, _p: LlmInMemorySecretResolver(),
             "providers": lambda _s, _p: {
                 "ollama": ScriptedProvider(name="ollama", content=CONTROLLER_ANSWER, deltas=("Bras", "ília"))
             },

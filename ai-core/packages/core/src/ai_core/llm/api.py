@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Literal, Protocol
+from typing import Final, Literal, Protocol
 
 from ai_core_contracts import ChatChunk, ChatMessage, ChatResponse, ChatTool, JSONValue
 
@@ -21,6 +21,10 @@ type ModelRole = Literal["controller", "generation", "rerank"]
 
 MODEL_ROLES: tuple[ModelRole, ...] = ("controller", "generation", "rerank")
 """Ordem canônica dos papéis — usada na verificação de saúde para que o relatório seja estável."""
+
+AUTO_ROUTING_PROVIDER: Final = "openrouter"
+"""O provider cujos roteadores escolhem o modelo sozinhos (FR-004, research R16). É também o nome com que o adapter do
+OpenRouter se registra — o adapter importa esta constante, para os dois nunca divergirem."""
 
 
 class ModelRoutingError(RuntimeError):
@@ -40,7 +44,12 @@ class UnknownProvider(ModelRoutingError):
 
 
 class ModelCallFailed(ModelRoutingError):
-    """Falha ao falar com o provider: fora do ar, erro de status, stream interrompido ou inatividade (FR-010)."""
+    """Falha da chamada de modelo, sempre nomeando provider e modelo.
+
+    Antes da rede: o papel `controller` sem restrição de formato (FR-005) ou o provider remoto sem credencial (FR-011).
+    Ao falar com o provider: fora do ar, erro de status — inclusive a recusa da restrição —, stream interrompido ou
+    inatividade (FR-010).
+    """
 
     def __init__(self, *, provider: str, model: str, reason: str) -> None:
         super().__init__(f"{provider}/{model}: {reason}")
@@ -51,7 +60,11 @@ class ModelCallFailed(ModelRoutingError):
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ModelRef:
-    """Provider e modelo, sempre explícitos (princípio VIII). Não há default em lugar nenhum."""
+    """Provider e modelo, sempre explícitos (princípio VIII). Não há default em lugar nenhum.
+
+    Roteamento automático é recusado aqui (FR-004, research R16): toda referência a modelo — declaração do Assistant,
+    escolha na requisição, saúde — passa por este construtor, então a allowlist nunca consegue liberá-lo.
+    """
 
     provider: str
     model: str
@@ -63,6 +76,11 @@ class ModelRef:
             raise ValueError(f"provider não pode conter '/': {self.provider!r}")
         if not self.model.strip():
             raise ValueError("model não pode ser vazio")
+        if _is_auto_routing(self.provider, self.model):
+            raise ValueError(
+                f"'{self.provider}/{self.model}' é roteamento automático, que escolhe o modelo sozinho: "
+                "declare um modelo explícito (autor/modelo)"
+            )
 
     @classmethod
     def parse(cls, text: str) -> ModelRef:
@@ -74,6 +92,18 @@ class ModelRef:
 
     def __str__(self) -> str:
         return f"{self.provider}/{self.model}"
+
+
+def _is_auto_routing(provider: str, model: str) -> bool:
+    """No OpenRouter, a forma curta `auto` e o namespace `openrouter/…` (o `openrouter/auto` e roteadores futuros).
+
+    Compara a base do modelo — sem maiúsculas e antes do primeiro `:` —, então sufixos de variante do próprio modelo
+    (`:free`, `:nitro`, `:floor`) não contam.
+    """
+    if provider != AUTO_ROUTING_PROVIDER:
+        return False
+    base = model.strip().casefold().partition(":")[0]
+    return base == "auto" or base.startswith(f"{AUTO_ROUTING_PROVIDER}/")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

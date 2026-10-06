@@ -40,10 +40,10 @@ asyncio_mode = "auto"
 # Spec 007: uma marca por user story, para rodar `-k us1` … `-k us6` (tasks.md, "Independent Test").
 markers = [
     "us1: 007 US1 — MCP global sem código nem restart",
-    "us2: 007 US2 — credencial por referência; 005 US2 — flow agentic",
-    "us3: 007 US3 — cliente restrito ao grant",
-    "us4: 007 US4 — MCPs de usuário",
-    "us5: 007 US5 — política por servidor",
+    "us2: 007 US2 — credencial por referência; 005 US2 — flow agentic; 006 US2 — modelo por papel",
+    "us3: 007 US3 — cliente restrito ao grant; 006 US3 — providers externos e roteamento automático",
+    "us4: 007 US4 — MCPs de usuário; 006 US4 — saída estruturada no controller",
+    "us5: 007 US5 — política por servidor; 006 US5 — allowlist de modelo",
     "us6: 007 US6 — proteções de rede; 003 US6 — Assistants de usuário",
     "us8: 003 US8 — validação de Assistants",
 ]

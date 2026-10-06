@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Mapping, Sequence
 
 from ai_core.llm.api import (
+    ModelCallFailed,
     ModelHealth,
     ModelPolicy,
     ModelRef,
@@ -17,6 +18,7 @@ from ai_core.llm.api import (
     ModelRouter,
     UnknownProvider,
 )
+from ai_core.llm.domain.output import constraint_problem
 from ai_core.llm.domain.policy import ensure_allowed, resolve
 from ai_core.llm.ports import Clock, ModelProvider
 from ai_core.observability.api import ModelCall, TraceSink
@@ -27,7 +29,11 @@ ERROR_FINISH_REASON = "error"
 
 
 class TracedModel:
-    """Cliente ligado a um modelo, que mede a própria chamada e a registra no Trace Sink."""
+    """Cliente ligado a um modelo, que mede a própria chamada e a registra no Trace Sink.
+
+    Antes do provider, e dentro do bloco medido, aplica a restrição de formato do papel (FR-005, research R17): a
+    chamada recusada também vira um `ModelCall`, com `finish_reason="error"`.
+    """
 
     def __init__(
         self,
@@ -63,6 +69,7 @@ class TracedModel:
     ) -> ChatResponse:
         started = self._clock.monotonic()
         try:
+            self._ensure_constraint(response_format)
             response = await self._provider.chat(
                 messages, self._ref.model, tools=tools, response_format=response_format, stream=False
             )
@@ -85,6 +92,7 @@ class TracedModel:
         usage: ChatUsage | None = None
         failed = False
         try:
+            self._ensure_constraint(response_format)
             chunks = await self._provider.chat(
                 messages, self._ref.model, tools=tools, response_format=response_format, stream=True
             )
@@ -101,6 +109,11 @@ class TracedModel:
                 finish_reason=ERROR_FINISH_REASON if failed else finish_reason,
                 usage=usage,
             )
+
+    def _ensure_constraint(self, response_format: Mapping[str, JSONValue] | None) -> None:
+        problem = constraint_problem(self._role, response_format)
+        if problem is not None:
+            raise ModelCallFailed(provider=self._ref.provider, model=self._ref.model, reason=problem)
 
     def _emit(self, started: float, *, finish_reason: str | None, usage: ChatUsage | None) -> None:
         self._trace.emit(

@@ -1,14 +1,14 @@
 """Provider sobre qualquer endpoint compatível com a API da OpenAI (specs/006.../contracts/ollama-adapter.md).
 
 É a parte comum dos três providers do `design.md`: o Ollama (Fase 1) fixa aqui os defaults da camada compatível em
-`:11434/v1`, e OpenAI e OpenRouter (Fase 3) só mudam endereço, credencial e cabeçalhos. Este arquivo e o `ollama.py`
-são os únicos lugares do módulo onde o SDK e o cliente HTTP aparecem (princípio XIII, research R4).
+`:11434/v1`, e OpenAI e OpenRouter (Fase 3, `remote.py`) só mudam endereço, credencial e um detalhe de corpo. O SDK e
+o cliente HTTP só aparecem em `adapters/` (princípio XIII, research R4).
 """
 
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping, Sequence
-from typing import Any, Literal, overload
+from typing import Any, Final, Literal, overload
 
 import httpx2
 from openai import APIConnectionError, APIStatusError, APITimeoutError, AsyncOpenAI, OpenAIError
@@ -27,6 +27,10 @@ from ai_core_contracts import (
 
 BODY_LIMIT = 500
 """Corpo de erro do provider entra truncado na mensagem: conteúdo externo é dado, e dado longo é cortado."""
+
+LISTED_LIMIT: Final = 20
+"""Ids de modelo citados quando a sondagem não acha o declarado (research R22): o OpenRouter lista centenas, e o item de
+saúde precisa caber numa linha."""
 
 
 class OpenAICompatProvider:
@@ -123,13 +127,16 @@ class OpenAICompatProvider:
         except OpenAIError as error:
             return ProbeResult(available=False, detail=self._reason(error))
         available = [entry.id for entry in page.data]
-        if model in available:
+        if self._has_model(model, available):
             return ProbeResult(available=True)
-        listed = ", ".join(sorted(available)) or "nenhum"
         return ProbeResult(
             available=False,
-            detail=f"modelo {model} não encontrado em {self._base_url}; disponíveis: {listed}",
+            detail=f"modelo {model} não encontrado em {self._base_url}; disponíveis: {_listed(available)}",
         )
+
+    def _has_model(self, model: str, ids: Sequence[str]) -> bool:
+        """O modelo está na lista do endpoint. O OpenRouter sobrescreve para aceitar a base de uma variante (R22)."""
+        return model in ids
 
     def _payload(
         self,
@@ -143,7 +150,7 @@ class OpenAICompatProvider:
         if tools is not None:
             payload["tools"] = [_to_wire_tool(tool) for tool in tools]
         if response_format is not None:
-            payload["response_format"] = dict(response_format)
+            payload["response_format"] = _strict(response_format)
         return payload
 
     def _failure(self, model: str, error: OpenAIError) -> ModelCallFailed:
@@ -158,6 +165,27 @@ class OpenAICompatProvider:
             body = str(error.response.text)[:BODY_LIMIT]
             return f"erro {error.status_code} do provider: {body}"
         return f"{type(error).__name__}: {error}"
+
+
+def _strict(response_format: Mapping[str, JSONValue]) -> dict[str, Any]:
+    """Cópia do formato com `json_schema` sempre no modo estrito (FR-005 camada 2, research R18), mesmo que quem chama
+    mande `strict: false`. A OpenAI só garante o esquema assim; o OpenRouter repassa ao upstream; o Ollama ignora o
+    campo e restringe por gramática. Outros tipos passam como vieram."""
+    wire = dict(response_format)
+    body = wire.get("json_schema")
+    if wire.get("type") == "json_schema" and isinstance(body, Mapping):
+        wire["json_schema"] = {**body, "strict": True}
+    return wire
+
+
+def _listed(ids: Sequence[str]) -> str:
+    """Os primeiros `LISTED_LIMIT` ids, em ordem, e quantos ficaram de fora."""
+    ordered = sorted(ids)
+    if not ordered:
+        return "nenhum"
+    shown = ", ".join(ordered[:LISTED_LIMIT])
+    hidden = len(ordered) - LISTED_LIMIT
+    return f"{shown} (+{hidden})" if hidden > 0 else shown
 
 
 def _to_wire_message(message: ChatMessage) -> dict[str, Any]:

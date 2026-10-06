@@ -12,6 +12,9 @@ import pytest
 from llm_testkit import MODEL, PROVIDER_CASES, REQUEST_ID, USAGE, ScriptedCase, policy
 
 from ai_core.llm.adapters.clock import ScriptedClock
+from ai_core.llm.adapters.fake import ScriptedProvider
+from ai_core.llm.adapters.openai import OpenAIProvider
+from ai_core.llm.adapters.secrets import InMemorySecretResolver
 from ai_core.llm.api import (
     ModelCallFailed,
     ModelNotAllowed,
@@ -180,3 +183,143 @@ async def test_trocar_o_modelo_e_so_configuracao(case: Any, trace: Any) -> None:
         await router.for_role("generation").complete(MESSAGES)
         assert case.sent_model() == modelo
     assert [event.model for event in trace.events] == [MODEL, "outro:1b"]
+
+
+# --- Fase 3, US2: papéis da mesma política em providers diferentes (T028, research R24) ------------------------------
+
+ACTION_FORMAT: dict[str, Any] = {
+    "type": "json_schema",
+    "json_schema": {"name": "acao", "schema": {"type": "object"}},
+}
+"""Formato de ação do controller — a guarda da US4 exige esquema, então a prova da US2 já o envia."""
+
+
+@pytest.mark.us2
+async def test_papeis_em_providers_diferentes(trace: Any) -> None:
+    remoto = ScriptedProvider(name="openrouter", content='{"action": "answer"}')
+    local = ScriptedProvider(name="ollama")
+    service = ModelRoutingService(
+        providers={"openrouter": remoto, "ollama": local},
+        trace=trace,
+        clock=ScriptedClock([1.0, 1.25, 2.0, 2.5]),
+    )
+    politica = policy(controller="openrouter/qwen/qwen3-8b", allow=("ollama/*", "openrouter/*"))
+    router = service.for_execution(policy=politica, request_id=REQUEST_ID)
+
+    controller = router.for_role("controller")
+    generation = router.for_role("generation")
+    assert controller.ref == ModelRef(provider="openrouter", model="qwen/qwen3-8b")
+    assert generation.ref == ModelRef(provider="ollama", model=MODEL)
+
+    await controller.complete(MESSAGES, response_format=ACTION_FORMAT)
+    async for _ in generation.stream(MESSAGES):
+        pass
+
+    assert [(event.role, event.provider) for event in trace.events] == [
+        ("controller", "openrouter"),
+        ("generation", "ollama"),
+    ]
+    assert len(remoto.calls) == 1
+    assert len(local.calls) == 1
+
+
+# --- Fase 3, FR-011: remoto sem credencial na saúde e na chamada (T033) ----------------------------------------------
+
+
+@pytest.mark.us3
+async def test_saude_de_remoto_sem_credencial(trace: Any) -> None:
+    service = ModelRoutingService(
+        providers={"openai": OpenAIProvider(secrets=InMemorySecretResolver())},
+        trace=trace,
+        clock=ScriptedClock([1.0, 1.25]),
+    )
+    politica = policy(generation="openai/gpt-4o-mini", allow=("openai/*",))
+
+    resultados = await service.check(politica)
+    assert len(resultados) == 1
+    assert not resultados[0].available
+    assert "sem credencial" in (resultados[0].detail or "")
+    assert "AI_CORE_OPENAI_API_KEY" in (resultados[0].detail or "")
+
+    router = service.for_execution(policy=politica, request_id=REQUEST_ID)
+    with pytest.raises(ModelCallFailed, match="AI_CORE_OPENAI_API_KEY"):
+        await router.for_role("generation").complete(MESSAGES)
+    assert len(trace.events) == 1
+    assert trace.events[0].finish_reason == "error"
+
+
+# --- Fase 3, US4: nenhuma chamada do controller sai sem esquema (T044, casos 11 e 12, research R17) -------------------
+
+SEM_ESQUEMA = pytest.mark.parametrize(
+    "formato",
+    [None, {"type": "json_object"}, {"type": "json_schema", "json_schema": {"name": "acao"}}],
+    ids=["sem-formato", "json_object", "json_schema-sem-schema"],
+)
+
+
+@pytest.mark.us4
+@SEM_ESQUEMA
+@pytest.mark.parametrize("modo", ["complete", "stream"])
+async def test_controller_sem_restricao_e_recusado(trace: Any, formato: Any, modo: str) -> None:
+    provider = ScriptedProvider(name="ollama", content='{"action": "answer"}')
+    router = routing(provider, trace).for_execution(policy=policy(controller=f"ollama/{MODEL}"), request_id=REQUEST_ID)
+    controller = router.for_role("controller")
+
+    with pytest.raises(ModelCallFailed) as erro:
+        if modo == "complete":
+            await controller.complete(MESSAGES, response_format=formato)
+        else:
+            async for _ in controller.stream(MESSAGES, response_format=formato):
+                pass
+
+    assert erro.value.provider == "ollama"
+    assert erro.value.model == MODEL
+    assert "controller" in erro.value.reason
+    assert provider.calls == []
+    assert len(trace.events) == 1
+    assert trace.events[0].role == "controller"
+    assert trace.events[0].finish_reason == "error"
+
+
+@pytest.mark.us4
+async def test_generation_sem_formato_continua_aceito(trace: Any) -> None:
+    provider = ScriptedProvider(name="ollama")
+    router = routing(provider, trace, ScriptedClock([1.0, 1.25, 2.0, 2.5])).for_execution(
+        policy=policy(), request_id=REQUEST_ID
+    )
+    generation = router.for_role("generation")
+
+    await generation.complete(MESSAGES)
+    async for _ in generation.stream(MESSAGES):
+        pass
+
+    assert len(provider.calls) == 2
+    assert [event.finish_reason for event in trace.events] == ["stop", "stop"]
+
+
+# --- Fase 3, US5: allowlist de provider e modelo, o cenário literal (T051, research R24) -----------------------------
+
+
+@pytest.mark.us5
+def test_allowlist_us5_literal(trace: Any) -> None:
+    local = ScriptedProvider(name="ollama")
+    remoto = ScriptedProvider(name="openai")
+    service = ModelRoutingService(
+        providers={"ollama": local, "openai": remoto}, trace=trace, clock=ScriptedClock([1.0])
+    )
+
+    so_local = policy(generation="openai/gpt-4o-mini", allow=("ollama/*",))
+    with pytest.raises(ModelNotAllowed) as erro:
+        service.for_execution(policy=so_local, request_id=REQUEST_ID).for_role("generation")
+    assert "openai/gpt-4o-mini" in str(erro.value)
+    assert "ollama/*" in str(erro.value)
+
+    misto = policy(generation=f"ollama/{MODEL}", controller="openai/gpt-4o-mini", allow=("ollama/*",))
+    router = service.for_execution(policy=misto, request_id=REQUEST_ID)
+    with pytest.raises(ModelNotAllowed):
+        router.for_role("controller")
+    assert router.for_role("generation").ref == ModelRef(provider="ollama", model=MODEL)
+
+    assert local.calls == []
+    assert remoto.calls == []
+    assert trace.events == []

@@ -1,7 +1,8 @@
 """T010 — conformidade da porta `ModelProvider` (contracts/ports.md).
 
-Roda contra os dois adapters da fase: o simulado (adapter em memória, princípio XIII) e o do Ollama com transporte HTTP
-falso, que exercita tradução, parsing de streaming, uso de tokens e mapeamento de erro sem tocar a rede (research R10).
+Roda contra todos os adapters da porta: o simulado (adapter em memória, princípio XIII) e os da camada compatível —
+Ollama e, na Fase 3, OpenAI e OpenRouter — com transporte HTTP falso, que exercita tradução, parsing de streaming, uso
+de tokens e mapeamento de erro sem tocar a rede (research R10, T031).
 """
 
 from __future__ import annotations
@@ -9,7 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from llm_testkit import MODEL, PROVIDER_CASES, USAGE
+from llm_testkit import MODEL, PORT_CASES, USAGE
 
 from ai_core.llm.api import ModelCallFailed
 
@@ -18,7 +19,7 @@ TOOLS: list[Any] = [{"name": "calculate", "description": "soma", "parameters": {
 FORMAT: dict[str, Any] = {"type": "json_object"}
 
 
-@pytest.fixture(params=PROVIDER_CASES, ids=[case.id for case in PROVIDER_CASES])
+@pytest.fixture(params=PORT_CASES, ids=[case.id for case in PORT_CASES])
 def case(request: pytest.FixtureRequest) -> Any:
     return request.param()
 
@@ -61,7 +62,7 @@ async def test_provider_inalcancavel_vira_erro_nomeado(case: Any) -> None:
     provider = case.failing("inalcançável")
     with pytest.raises(ModelCallFailed) as error:
         await provider.chat(MESSAGES, MODEL, stream=False)
-    assert error.value.provider == "ollama"
+    assert error.value.provider == case.name
     assert error.value.model == MODEL
     assert "inalcançável" in error.value.reason
 
@@ -102,6 +103,6 @@ async def test_probe_com_provider_fora_do_ar_nao_levanta(case: Any) -> None:
 
 def test_adapters_cumprem_a_porta(case: Any) -> None:
     provider = case.ok()
-    assert provider.name == "ollama"
+    assert provider.name == case.name
     assert callable(provider.chat)
     assert callable(provider.probe)

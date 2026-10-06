@@ -36,6 +36,18 @@ class ModelProvider(LLMProvider, Protocol):
         ...
 
 
+class SecretResolver(Protocol):
+    """Credenciais dos providers remotos (Fase 3, research R21).
+
+    Quem chama são os adapters remotos, uma vez, na construção, com um nome fixo deles — nenhum nome vem de entrada.
+    A 011 escolhe o adapter (porta `llm_secrets`); a fonte é a mesma das outras portas de segredo do perfil (ADR-020).
+    """
+
+    def resolve(self, name: str) -> str | None:
+        """Valor da credencial pelo nome, ou None quando ausente ou vazia. Nunca levanta."""
+        ...
+
+
 class Clock(Protocol):
     """Tempo, por porta (ADR-013): sem ela a duração no trace seria intestável.
 

@@ -14,6 +14,9 @@ import httpx2
 
 from ai_core.llm.adapters.fake import ScriptedProvider
 from ai_core.llm.adapters.ollama import OllamaProvider
+from ai_core.llm.adapters.openai import OpenAIProvider
+from ai_core.llm.adapters.openrouter import OpenRouterProvider
+from ai_core.llm.adapters.secrets import InMemorySecretResolver
 from ai_core.llm.api import ModelCallFailed, ModelPolicy, ModelRef
 from ai_core.llm.ports import ModelProvider
 from ai_core.observability.api import TraceEvent
@@ -23,6 +26,10 @@ REQUEST_ID: Final = "req-006-1"
 
 MODEL: Final = "qwen3:1.7b"
 BASE_URL: Final = "http://ollama.test/v1"
+
+SECRET: Final = "sk-teste-0123456789"
+"""Credencial dos remotos nos testes: nunca pode aparecer em mensagem (FR-011)."""
+REMOTE_BASE_URL: Final = "http://remoto.test/v1"
 
 Handler = Callable[[httpx2.Request], httpx2.Response]
 
@@ -169,6 +176,7 @@ class ScriptedCase:
     """Caso montado sobre o adapter em memória da porta `ModelProvider`."""
 
     id = "scripted"
+    name = "ollama"
 
     def ok(self, *, usage: Mapping[str, int] | None = USAGE, models: tuple[str, ...] = (MODEL,)) -> ModelProvider:
         self.provider = ScriptedProvider(
@@ -196,16 +204,18 @@ class ScriptedCase:
         return len(self.provider.calls)
 
 
-class OllamaCase:
-    """Caso montado sobre o adapter real, contra um transporte HTTP falso (research R10)."""
+class HttpCase:
+    """Caso montado sobre um adapter real da camada compatível, contra um transporte HTTP falso (research R10)."""
 
-    id = "ollama"
+    id = "http"
+    name = "ollama"
+
+    def _provider(self, http_client: httpx2.AsyncClient) -> ModelProvider:
+        raise NotImplementedError
 
     def _build(self, chat_handler: Handler, models_handler: Handler) -> ModelProvider:
         self.transport = RecordingTransport({CHAT: chat_handler, MODELS: models_handler})
-        return OllamaProvider(
-            base_url=BASE_URL, http_client=httpx2.AsyncClient(transport=self.transport.transport())
-        )
+        return self._provider(httpx2.AsyncClient(transport=self.transport.transport()))
 
     def ok(self, *, usage: Mapping[str, int] | None = USAGE, models: tuple[str, ...] = (MODEL,)) -> ModelProvider:
         def handler(request: httpx2.Request) -> httpx2.Response:
@@ -239,5 +249,41 @@ class OllamaCase:
         return len(self.transport.requests)
 
 
+class OllamaCase(HttpCase):
+    id = "ollama"
+    name = "ollama"
+
+    def _provider(self, http_client: httpx2.AsyncClient) -> ModelProvider:
+        return OllamaProvider(base_url=BASE_URL, http_client=http_client)
+
+
+class OpenAICase(HttpCase):
+    """Fase 3: o remoto da OpenAI com credencial, contra o transporte falso (T031)."""
+
+    id = "openai"
+    name = "openai"
+
+    def _provider(self, http_client: httpx2.AsyncClient) -> ModelProvider:
+        secrets = InMemorySecretResolver({OpenAIProvider.CREDENTIAL: SECRET})
+        return OpenAIProvider(secrets=secrets, base_url=REMOTE_BASE_URL, http_client=http_client)
+
+
+class OpenRouterCase(HttpCase):
+    """Fase 3: o remoto do OpenRouter com credencial, contra o transporte falso (T031)."""
+
+    id = "openrouter"
+    name = "openrouter"
+
+    def _provider(self, http_client: httpx2.AsyncClient) -> ModelProvider:
+        secrets = InMemorySecretResolver({OpenRouterProvider.CREDENTIAL: SECRET})
+        return OpenRouterProvider(secrets=secrets, base_url=REMOTE_BASE_URL, http_client=http_client)
+
+
 PROVIDER_CASES: Final = (ScriptedCase, OllamaCase)
-"""Os dois adapters da porta: toda suíte de conformidade roda contra ambos (princípio XIII)."""
+"""Os dois adapters da Fase 1: a conformidade do seam roda contra ambos (princípio XIII)."""
+
+PORT_CASES: Final = (*PROVIDER_CASES, OpenAICase, OpenRouterCase)
+"""Todos os adapters da porta `ModelProvider`, inclusive os remotos da Fase 3 (T031)."""
+
+HTTP_CASES: Final = (OllamaCase, OpenAICase, OpenRouterCase)
+"""Os adapters da camada compatível — os que montam um corpo HTTP de verdade."""
