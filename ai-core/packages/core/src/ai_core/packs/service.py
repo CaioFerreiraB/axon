@@ -5,6 +5,7 @@ Montado pela composition root (spec 011) com uma `PackSource` e uma `PackConfigS
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -20,6 +21,7 @@ from ai_core.packs.api import (
     PackTool,
     RetrieverCapability,
     Slices,
+    StreamedValidation,
     ValidationOutcome,
     ValidatorRun,
 )
@@ -28,6 +30,7 @@ from ai_core.packs.domain.config import config_error
 from ai_core.packs.domain.dependencies import dependency_errors
 from ai_core.packs.domain.hooks import apply_validation, merge_slice, scope_view
 from ai_core.packs.domain.identity import read_identity
+from ai_core.packs.domain.stream import ChainedFilter, StreamSession
 from ai_core.packs.ports import DiscoveredPack, PackConfigSource, PackSettings, PackSource
 from ai_core_contracts import (
     AgentPack,
@@ -38,6 +41,7 @@ from ai_core_contracts import (
     PackContext,
     PackManifest,
     Reranker,
+    StreamingValidator,
     ToolSpec,
     TurnView,
     ValidationResult,
@@ -277,31 +281,66 @@ class PackRuntime:
                 ) from error
         return current
 
-    async def validate(self, composition: Composition, view: TurnView, slices: Slices) -> ValidationOutcome:
+    def open_answer_stream(self, composition: Composition, view: TurnView, slices: Slices) -> ChainedFilter:
+        """Sessões de streaming do prefixo de validators com `open_stream` (ADR-024); o primeiro sem ele encerra o
+        prefixo, porque os seguintes precisam da resposta que ele produz."""
+        sessions: list[StreamSession] = []
+        for name, loaded, validator in self._validators(composition):
+            if not isinstance(validator, StreamingValidator):
+                break
+            scoped = scope_view(view, name, loaded.manifest.depends_on, slices)
+            try:
+                session = validator.open_stream(scoped, loaded.validator_context)
+            except Exception as error:
+                raise PackHookError(
+                    f"validator '{validator.name}' do pack '{name}' levantou {type(error).__name__} em open_stream: "
+                    f"{error}",
+                    pack=name,
+                    hook=f"stream:{validator.name}",
+                ) from error
+            sessions.append(StreamSession(pack=name, validator=validator.name, session=session))
+        return ChainedFilter(sessions)
+
+    async def validate(
+        self, composition: Composition, view: TurnView, slices: Slices, streamed: StreamedValidation | None = None
+    ) -> ValidationOutcome:
         runs: list[ValidatorRun] = []
         flags: set[str] = set()
         current = view
-        for name, loaded in self._members(composition):
-            for validator in loaded.validators:
-                hook = f"validate:{validator.name}"
-                scoped = scope_view(current, name, loaded.manifest.depends_on, slices)
-                try:
-                    result = await validator.validate(scoped, loaded.validator_context)
-                except Exception as error:
+        sequence = self._validators(composition)
+        if streamed is not None:
+            current = dataclasses.replace(view, answer=streamed.answer)
+            for (name, _loaded, validator), run in zip(sequence, streamed.runs, strict=False):
+                if (name, validator.name) != (run.pack, run.validator):
                     raise PackHookError(
-                        f"validator '{validator.name}' do pack '{name}' levantou {type(error).__name__}: {error}",
+                        f"o filtro da geração não corresponde ao validator '{validator.name}' do pack '{name}'",
                         pack=name,
-                        hook=hook,
-                    ) from error
-                if not isinstance(result, ValidationResult):
-                    raise PackHookError(
-                        f"validator '{validator.name}' do pack '{name}' devolveu {type(result).__name__}",
-                        pack=name,
-                        hook=hook,
+                        hook=f"stream:{validator.name}",
                     )
-                runs.append(ValidatorRun(pack=name, validator=validator.name, result=result))
-                flags.update(result.flags)
-                current = apply_validation(current, result)
+                runs.append(run)
+                flags.update(run.result.flags)
+                current = apply_validation(current, dataclasses.replace(run.result, answer=None))
+            sequence = sequence[len(streamed.runs) :]
+        for name, loaded, validator in sequence:
+            hook = f"validate:{validator.name}"
+            scoped = scope_view(current, name, loaded.manifest.depends_on, slices)
+            try:
+                result = await validator.validate(scoped, loaded.validator_context)
+            except Exception as error:
+                raise PackHookError(
+                    f"validator '{validator.name}' do pack '{name}' levantou {type(error).__name__}: {error}",
+                    pack=name,
+                    hook=hook,
+                ) from error
+            if not isinstance(result, ValidationResult):
+                raise PackHookError(
+                    f"validator '{validator.name}' do pack '{name}' devolveu {type(result).__name__}",
+                    pack=name,
+                    hook=hook,
+                )
+            runs.append(ValidatorRun(pack=name, validator=validator.name, result=result))
+            flags.update(result.flags)
+            current = apply_validation(current, result)
         return ValidationOutcome(
             ok=all(run.result.ok for run in runs),
             answer=current.answer,
@@ -309,6 +348,11 @@ class PackRuntime:
             flags=frozenset(flags),
             runs=tuple(runs),
         )
+
+    def _validators(self, composition: Composition) -> list[tuple[str, LoadedPack, AnswerValidator]]:
+        """A sequência de validators da composição: pack a pack, na ordem de cada um."""
+        members = self._members(composition)
+        return [(name, loaded, validator) for name, loaded in members for validator in loaded.validators]
 
 
 def _call(pack: AgentPack, hook: str, *args: object) -> object:

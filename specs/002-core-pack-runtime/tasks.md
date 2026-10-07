@@ -280,6 +280,16 @@ T051 depois de T048 e T050; T052 em paralelo com T051.
 
 ---
 
+## Passada de 2026-10-07: validators que filtram o streaming ([ADR-024](../../docs/adr/ADR-024-validators-filtram-o-streaming.md); research R30)
+
+- [X] T053 `api.py`: `AnswerFilter`, `StreamedValidation`, `PackHooks.open_answer_stream` e `validate(..., streamed)`
+- [X] T054 `domain/stream.py`: `ChainedFilter` e `StreamSession`; `service.py`: `open_answer_stream`, o `validate` com
+  `streamed` e `_validators` (a sequência da composição)
+- [X] T055 Testes do seam (prefixo, encadeamento, reaproveitamento, sessão que quebra a regra, filtro vazio);
+  superfície pública e operações do `PackHooks` atualizadas em `test_packs_public_api.py`
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

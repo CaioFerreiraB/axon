@@ -213,6 +213,17 @@ constituição exige para todo seam exposto (research R21, R22)
 
 ---
 
+## Passada de 2026-10-07: validators que filtram o streaming ([ADR-024](../../docs/adr/ADR-024-validators-filtram-o-streaming.md); research R25)
+
+- [X] T062 `validation.py`: `AnswerStream` e `StreamingValidator`; exportados em `ai_core_contracts`
+- [X] T063 Kit: verificação de streaming na etapa de validators; códigos `validator.stream.mismatch` e
+  `validator.stream.not_append_only` em `ISSUE_CODES`
+- [X] T064 Versão `0.1.1` (`_version.py`, `pyproject.toml`); testes que fixavam `0.1.0` passam a ler a versão
+- [X] T065 `tests/conformance/test_conformance_streaming.py` (validator correto, fim que reescreve, resultado
+  divergente); `test_public_api.py` com os dois símbolos novos; diff de superfície aditivo (patch) contra a tag
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

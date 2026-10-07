@@ -59,13 +59,24 @@ async def generate(state: AgentState) -> dict[str, Any]:
     ceiling = state.get("ceiling")
     trimmed = trim_results(full, ceiling)
 
-    pieces: list[str] = []
+    # Os validators que reescrevem em streaming filtram cada pedaço antes de ele sair (ADR-024): só o que o filtro
+    # libera vira token, e a cauda sai no fim. Sem esses validators, o filtro deixa tudo passar.
+    answer_filter = ctx.hooks.open_answer_stream(ctx.composition, turn_view(state), state.get("packs", {}))
     async for chunk in ctx.router.for_role("generation").stream(trimmed.messages):
         text = chunk["delta"]
         if text:
-            pieces.append(text)
-            writer({"kind": TOKEN, "text": text})
-    return {"answer": "".join(pieces), "omitted": trimmed.omitted, "errors": _budget_issues(trimmed, ceiling)}
+            released = answer_filter.feed(text)
+            if released:
+                writer({"kind": TOKEN, "text": released})
+    streamed = answer_filter.finish()
+    if streamed.tail:
+        writer({"kind": TOKEN, "text": streamed.tail})
+    return {
+        "answer": streamed.answer,
+        "streamed": streamed,
+        "omitted": trimmed.omitted,
+        "errors": _budget_issues(trimmed, ceiling),
+    }
 
 
 def _budget_issues(trimmed: Trimmed, ceiling: int | None) -> list[ExecutionIssue]:
@@ -98,7 +109,8 @@ async def validate_answer(state: AgentState) -> dict[str, Any]:
     """Validators dos packs, em sequência (002). Não chamam modelos e não decidem se a execução falhou."""
     ctx = _context()
     _writer()({"kind": PROGRESS, "stage": STAGE_VALIDATE})
-    outcome = await ctx.hooks.validate(ctx.composition, turn_view(state), state.get("packs", {}))
+    streamed = state.get("streamed")
+    outcome = await ctx.hooks.validate(ctx.composition, turn_view(state), state.get("packs", {}), streamed=streamed)
     for run in outcome.runs:
         ctx.trace.emit(
             ValidationRun(
@@ -110,4 +122,24 @@ async def validate_answer(state: AgentState) -> dict[str, Any]:
                 flags=run.result.flags,
             )
         )
-    return {"validation": outcome}
+    return {"validation": outcome, "errors": _deliver_rest(state.get("answer"), outcome.answer)}
+
+
+def _deliver_rest(delivered: str | None, final: str | None) -> list[ExecutionIssue]:
+    """O que os validators em lote só acrescentaram sai como token; reescrita no meio fica registrada (ADR-024)."""
+    if final is None or delivered is None or final == delivered:
+        return []
+    if final.startswith(delivered):
+        _writer()({"kind": TOKEN, "text": final[len(delivered) :]})
+        return []
+    return [
+        ExecutionIssue(
+            stage=STAGE_VALIDATE,
+            kind="AnswerRewritten",
+            message=(
+                "um validator reescreveu a resposta depois da geração; com streaming, o cliente recebeu o texto "
+                "anterior"
+            ),
+            severity="notice",
+        )
+    ]

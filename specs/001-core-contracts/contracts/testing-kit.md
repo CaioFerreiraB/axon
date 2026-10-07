@@ -105,3 +105,9 @@ def test_pack_conforms():
 
 Hooks individuais são testados com as fixtures (`turn_view(...)`, `chunk(...)`, `pack_context(...)`), sem subir nenhum
 serviço (SC-003).
+
+## Etapa de validators — streaming (0.1.1, ADR-024)
+
+Para cada validator que implementa `StreamingValidator` e cada Turn View com `answer`: a sessão é aberta sem `answer` e
+alimentada em três partições (inteira, um caractere por vez, pedaços de 7). `validator.stream.not_append_only` quando
+`finish().answer` não começa com o texto liberado; `validator.stream.mismatch` quando o resultado difere do `validate`.

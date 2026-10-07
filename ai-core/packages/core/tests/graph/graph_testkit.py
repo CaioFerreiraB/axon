@@ -27,7 +27,7 @@ from ai_core.llm.api import ModelCallFailed, ModelPolicy, ModelRef
 from ai_core.llm.ports import ProbeResult
 from ai_core.llm.service import ModelRoutingService
 from ai_core.observability.api import TraceEvent
-from ai_core.packs.api import Composition, Slices, ValidationOutcome, ValidatorRun
+from ai_core.packs.api import Composition, Slices, StreamedValidation, ValidationOutcome, ValidatorRun
 from ai_core_contracts import ChatMessage, ChatResponse, Chunk, Citation, JSONValue, Message, TurnView, ValidationResult
 
 REQUEST_ID: Final = "req-005-1"
@@ -90,13 +90,17 @@ class ScriptedHooks:
         outcome: ValidationOutcome | None = None,
         prepare_error: Exception | None = None,
         validate_error: Exception | None = None,
+        answer_filter: Any = None,
     ) -> None:
         self._prompts = tuple(prompts)
         self._slice_update = slice_update or {"preparado": True}
         self._outcome = outcome
         self._prepare_error = prepare_error
         self._validate_error = validate_error
+        self._answer_filter = answer_filter
         self.prepare_views: list[TurnView] = []
+        self.stream_views: list[TurnView] = []
+        self.validate_streamed: list[StreamedValidation | None] = []
         self.validate_views: list[TurnView] = []
         self.validate_slices: list[Slices] = []
 
@@ -109,14 +113,53 @@ class ScriptedHooks:
         self.prepare_views.append(view)
         return {name: {**dict(slices.get(name, {})), **self._slice_update} for name in composition.packs}
 
-    async def validate(self, composition: Composition, view: TurnView, slices: Slices) -> ValidationOutcome:
+    def open_answer_stream(self, composition: Composition, view: TurnView, slices: Slices) -> Any:
+        """O filtro programado, ou um que deixa tudo passar (ADR-024)."""
+        self.stream_views.append(view)
+        return self._answer_filter if self._answer_filter is not None else PassThroughFilter()
+
+    async def validate(
+        self, composition: Composition, view: TurnView, slices: Slices, streamed: StreamedValidation | None = None
+    ) -> ValidationOutcome:
         if self._validate_error is not None:
             raise self._validate_error
+        self.validate_streamed.append(streamed)
         self.validate_views.append(view)
         self.validate_slices.append(slices)
         if self._outcome is not None:
             return self._outcome
         return ValidationOutcome(ok=True, answer=None, citations=(), flags=frozenset(), runs=())
+
+
+class PassThroughFilter:
+    """`AnswerFilter` sem validators de streaming: tudo passa, nada sobra para o fim."""
+
+    def __init__(self) -> None:
+        self._emitted = ""
+
+    def feed(self, delta: str) -> str:
+        self._emitted += delta
+        return delta
+
+    def finish(self) -> StreamedValidation:
+        return StreamedValidation(tail="", answer=self._emitted)
+
+
+class DropFilter:
+    """`AnswerFilter` que tira um caractere à medida que a resposta chega e acrescenta uma cauda no fim."""
+
+    def __init__(self, drop: str = "X", tail: str = "") -> None:
+        self._drop = drop
+        self._tail = tail
+        self._emitted = ""
+
+    def feed(self, delta: str) -> str:
+        released = delta.replace(self._drop, "")
+        self._emitted += released
+        return released
+
+    def finish(self) -> StreamedValidation:
+        return StreamedValidation(tail=self._tail, answer=self._emitted + self._tail)
 
 
 def outcome(

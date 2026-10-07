@@ -402,6 +402,15 @@ limite 3: exatamente 3 chamadas ao controller e 3 execuções, geração e `Iter
 
 ---
 
+## Passada de 2026-10-07: validators que filtram o streaming ([ADR-024](../../docs/adr/ADR-024-validators-filtram-o-streaming.md); research R34)
+
+- [X] T057 `nodes/common.py`: `generate` pelo filtro (`open_answer_stream`, `feed`, `finish`, cauda) e
+  `validate_answer` com `streamed` e o acréscimo final (`_deliver_rest`); `state.py`: `streamed`
+- [X] T058 `graph_testkit`: `ScriptedHooks.open_answer_stream`, `PassThroughFilter`, `DropFilter`; testes
+  `tests/graph/contract/test_streaming_filter.py` e `tests/graph/integration/test_streaming_validators.py`
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

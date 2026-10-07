@@ -109,3 +109,23 @@ class PackToolset(Protocol):
 `test_packs_toolset_seam.py` (Fase 3), contra o `service` montado com adapters em memória. Toda linha da tabela acima
 tem um teste. A suíte da porta que a 004 declarou (`tests/capabilities/contract/test_pack_tool_source.py`) roda também
 contra o `PackRuntime` (R20).
+
+## Filtro da geração (2026-10-07, ADR-024)
+
+```python
+class AnswerFilter(Protocol):
+    def feed(self, delta: str) -> str: ...
+    def finish(self) -> StreamedValidation: ...     # tail, answer (= o que saiu + tail), runs
+
+class PackHooks(Protocol):
+    def open_answer_stream(self, composition, view, slices) -> AnswerFilter: ...
+    async def validate(self, composition, view, slices, streamed: StreamedValidation | None = None) -> ValidationOutcome: ...
+```
+
+| Regra | Verificada por |
+|---|---|
+| O prefixo para no primeiro validator sem `open_stream` | `tests/packs/contract/test_packs_hooks_seam.py` |
+| Sessões encadeadas na ordem; a cauda de uma entra na seguinte antes de ela fechar | idem |
+| `validate(streamed=…)` reaproveita o prefixo e roda só o resto, sobre a resposta filtrada | idem |
+| Sessão que não só acrescenta no fim → `PackHookError` (`hook="stream:<validator>"`) | idem |
+| Sem validators de streaming, o filtro deixa tudo passar | idem |

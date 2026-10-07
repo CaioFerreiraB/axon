@@ -153,3 +153,15 @@ core (por exemplo, `rag_first` sem streaming de tokens quando há validator que 
 último pedaço) e precisa de decisão na Fase 5 — não muda nada na 104.
 
 **Alternatives considered**: o validator só acrescentar, nunca remover (não resolve citação inventada já transmitida).
+
+## R12 — Streaming: `citation_integrity` filtra ([ADR-024](../../docs/adr/ADR-024-validators-filtram-o-streaming.md); resolve a R11)
+
+**Decision**: `IntegrityStream`: a cada `feed`, a resposta acumulada é cortada no trecho estável — antes do primeiro
+`[[` sem `]]` depois dele, antes de um `[` final e antes do espaço que precede esse ponto — e a reescrita desse trecho
+(a mesma do lote) é liberada no que ainda não saiu. `finish` é `_check` sobre a resposta inteira, a mesma função do
+`validate`. A estabilidade do corte garante que a reescrita do trecho é prefixo da reescrita da resposta inteira.
+
+**Rationale**: SC-001 com streaming — nenhum identificador inventado sai, e o atraso é só o de um marcador aberto.
+
+**Verificação**: `tests/test_integrity_stream.py` — igualdade com o lote e "o fim só acrescenta" em quatro partições de
+dez respostas (marcadores válidos, inventados, repetidos, sem fechar, colchete solto, colchetes aninhados, espaços).

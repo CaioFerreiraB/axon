@@ -4,6 +4,7 @@ from itertools import pairwise
 
 import pytest
 
+from ai_core_contracts._version import __version__
 from ai_core_contracts.compat import (
     InvalidSpecifier,
     InvalidVersion,
@@ -101,7 +102,7 @@ def test_derive_range() -> None:
 def test_check_compatibility_uses_installed_default() -> None:
     result = check_compatibility("0.1")
     assert result.ok
-    assert result.installed == "0.1.0"
+    assert result.installed == __version__
     assert result.message is None
 
 

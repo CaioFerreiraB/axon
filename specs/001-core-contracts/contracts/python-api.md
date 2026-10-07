@@ -294,3 +294,18 @@ def contract_deprecated[T](since: str, *, use_instead: str | None = None) -> Cal
 | `PackBase`: hooks opcionais devolvem `None`, `()` ou `{}` sem erro | `tests/unit`; US2 cenário 2 |
 | `retrieval_tool_spec`: tipo `retrieval`, nome e descrição do retriever, `RETRIEVAL_TOOL_PARAMETERS`, sem handler | `tests/unit`; US2 cenário 4 |
 | Nenhum módulo de runtime faz I/O ou lê relógio; imports só da stdlib e de `typing_extensions` | `tests/boundary`; FR-001, FR-017 |
+
+## `StreamingValidator` e `AnswerStream` (contratos 0.1.1 — ADR-024)
+
+```python
+class AnswerStream(Protocol):
+    def feed(self, delta: str) -> str: ...          # o texto pronto para sair agora (pode segurar)
+    def finish(self) -> ValidationResult: ...       # answer começa com o que feed liberou; igual a validate
+
+class StreamingValidator(AnswerValidator, Protocol):
+    def open_stream(self, view: TurnView, ctx: ValidatorContext) -> AnswerStream: ...
+```
+
+Regras: a sessão vê a Turn View da abertura (antes da geração, sem `answer`) e não depende de citações de validators
+anteriores; `finish().answer` é `None` só quando nada muda e `feed` liberou a resposta inteira; determinístico e sem
+modelos, como `validate`.

@@ -526,3 +526,17 @@ não importam `langgraph`/`langchain_core`. Os contratos "só pelo `api.py`" de 
 | 003 (passada de encaixe) | `assistants validate` acusar Assistant `agentic` sem papel `controller`; para isso a 005 pode publicar os papéis por flow como dado (seam aditivo, como os nomes de flow) — decidir na passada da 003 |
 | 006 (US2–US5) | US4: `strict` e recusa explícita de provider sem saída estruturada para o papel `controller`; o motor já envia o `response_format` |
 | 009 | nada além do toque desta passada (R24) |
+
+---
+
+## Passada de 2026-10-07: validators que filtram o streaming ([ADR-024](../../docs/adr/ADR-024-validators-filtram-o-streaming.md))
+
+### R34 — A geração filtrada e o acréscimo final
+
+- **Decision**: no nó `generate`, `hooks.open_answer_stream(composition, turn_view(state), slices)` antes do stream;
+  cada pedaço passa por `feed`, só o liberado vira `TokenEvent`; `finish()` dá a cauda (emitida) e o resultado
+  filtrado (`streamed` no estado; `answer` é a resposta filtrada). O nó `validate_answer` passa `streamed` ao
+  `validate`; se a resposta final só acrescenta à entregue, o acréscimo sai como token; se não, `ExecutionIssue`
+  `notice` `AnswerRewritten`. A resposta parcial de uma falha continua sendo o que saiu — agora já filtrado.
+- **Rationale** (ADR-024, princípio XI): streaming desde o primeiro token, sem citação inventada no texto.
+- **Alternatives**: desligar o streaming de tokens com validator que reescreve (20 a 60 s sem nada no hardware alvo).

@@ -36,13 +36,20 @@ from ai_core_contracts.retrieval import (
     retrieval_tool_spec,
 )
 from ai_core_contracts.tools import NativeHandler, ToolInvocation, ToolKind, ToolResult, ToolSpec
-from ai_core_contracts.validation import AnswerValidator, ValidationResult, ValidatorContext
+from ai_core_contracts.validation import (
+    AnswerStream,
+    AnswerValidator,
+    StreamingValidator,
+    ValidationResult,
+    ValidatorContext,
+)
 from ai_core_contracts.view import Citation, Message, TurnView
 
 __all__ = [
     "RETRIEVAL_FILTERS_KEY",
     "RETRIEVAL_TOOL_PARAMETERS",
     "AgentPack",
+    "AnswerStream",
     "AnswerValidator",
     "BumpKind",
     "ChangeKind",
@@ -70,6 +77,7 @@ __all__ = [
     "PackManifest",
     "Reranker",
     "Retriever",
+    "StreamingValidator",
     "ToolInvocation",
     "ToolKind",
     "ToolResult",

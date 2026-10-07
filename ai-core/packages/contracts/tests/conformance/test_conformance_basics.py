@@ -42,7 +42,7 @@ def test_incompatible_contract_version_names_constraint_and_installed() -> None:
     report = check_pack(make_pack(contract_version="0.2"), check_distribution=False)
     [issue] = report.issues
     assert issue.code == "pack.contract_version.incompatible"
-    assert issue.message == "requer ai-core-contracts>=0.2, instalado 0.1.0"
+    assert issue.message == "requer ai-core-contracts>=0.2, instalado 0.1.1"
 
 
 def test_manifest_issues_are_reported() -> None:

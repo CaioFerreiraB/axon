@@ -9,9 +9,8 @@ import ai_core_contracts
 import ai_core_contracts.testing
 
 RUNTIME_API = {
-    "RETRIEVAL_FILTERS_KEY",
-    "RETRIEVAL_TOOL_PARAMETERS",
     "AgentPack",
+    "AnswerStream",
     "AnswerValidator",
     "BumpKind",
     "ChangeKind",
@@ -37,8 +36,11 @@ RUNTIME_API = {
     "PackBase",
     "PackContext",
     "PackManifest",
+    "RETRIEVAL_FILTERS_KEY",
+    "RETRIEVAL_TOOL_PARAMETERS",
     "Reranker",
     "Retriever",
+    "StreamingValidator",
     "ToolInvocation",
     "ToolKind",
     "ToolResult",

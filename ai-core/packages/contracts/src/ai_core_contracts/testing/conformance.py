@@ -7,6 +7,7 @@ o que encontrarem. Toda issue é construída com `code=` literal (ver `ISSUE_COD
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import inspect
 import warnings
 from collections.abc import Mapping, Sequence
@@ -33,7 +34,7 @@ from ai_core_contracts.testing.distribution import (
 from ai_core_contracts.testing.fixtures import chunk, pack_context, turn_view, validator_context
 from ai_core_contracts.testing.imports import check_imports
 from ai_core_contracts.tools import ToolSpec
-from ai_core_contracts.validation import AnswerValidator, ValidationResult
+from ai_core_contracts.validation import AnswerValidator, StreamingValidator, ValidationResult, ValidatorContext
 from ai_core_contracts.view import TurnView
 
 _PACK_MEMBERS = (
@@ -328,6 +329,68 @@ async def _check_validators(run: _Run) -> None:
                         subject=subject,
                     )
                 )
+            elif isinstance(validator, StreamingValidator) and view.answer is not None:
+                _check_stream(run, validator, view, context, first, subject)
+
+
+def _partitions(text: str) -> list[list[str]]:
+    """Três partições da resposta: inteira, um caractere por vez e pedaços de 7 (ADR-024)."""
+    return [[text], list(text), [text[index : index + 7] for index in range(0, len(text), 7)]]
+
+
+def _check_stream(
+    run: _Run,
+    validator: StreamingValidator,
+    view: TurnView,
+    context: ValidatorContext,
+    expected: ValidationResult,
+    subject: str,
+) -> None:
+    """A sessão de streaming dá o mesmo resultado de `validate`, e o fim só acrescenta ao que já saiu (ADR-024)."""
+    answer = view.answer or ""
+    opened = dataclasses.replace(view, answer=None, citations=())
+    for parts in _partitions(answer):
+        try:
+            session = validator.open_stream(opened, context)
+            emitted = "".join(session.feed(part) for part in parts)
+            result = session.finish()
+        except Exception as error:
+            run.add(
+                ContractIssue(
+                    code="hook.raised",
+                    message=f"open_stream/feed/finish levantou {type(error).__name__}: {error}",
+                    subject=subject,
+                )
+            )
+            return
+        if not isinstance(result, ValidationResult):
+            run.add(
+                ContractIssue(
+                    code="validator.result_type",
+                    message=f"finish devolveu {type(result).__name__}; esperado ValidationResult",
+                    subject=subject,
+                )
+            )
+            return
+        final = result.answer if result.answer is not None else answer
+        if not final.startswith(emitted):
+            run.add(
+                ContractIssue(
+                    code="validator.stream.not_append_only",
+                    message="a resposta final de finish não começa com o texto que feed já liberou",
+                    subject=subject,
+                )
+            )
+            return
+        if result != expected:
+            run.add(
+                ContractIssue(
+                    code="validator.stream.mismatch",
+                    message=f"finish difere de validate quando a resposta chega em {len(parts)} pedaço(s)",
+                    subject=subject,
+                )
+            )
+            return
 
 
 def _check_imports_step(run: _Run) -> None:

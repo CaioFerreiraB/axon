@@ -36,6 +36,10 @@
 - Q: Como cada decisão do controller (chamar tool, responder, ação inválida, limite atingido) aparece no trace da 009? → A: Como evento novo e aditivo da 009 — decisão do controller com iteração, ação, nome da tool pedida e motivo quando inválida, **sem argumentos** (a mesma regra de privacidade do `ToolCall` da 004) —, acompanhado de um ADR que regulariza o crescimento do Trace Sink por eventos aditivos e cobre também o `ToolCall` já entregue. A chamada de modelo continua sendo o `ModelCall` da 006 e a execução de tool, o `ToolCall` da 004; falha do controller e truncamento também vão a erros.
 - Q: O teto de tokens de contexto do grant (`limits.max_context_tokens`) vale já no loop `agentic` desta fase ou fica para a Fase 5? → A: Já na Fase 3, quando o grant declara teto. Tokens são estimados por caracteres (sem tokenizador). Se o próximo passo do loop passaria do teto, o loop para e segue para a geração, registrando o truncamento; se a geração ainda passar, os resultados de tool mais antigos saem do contexto com marca de omissão e a redução é registrada. Grant sem teto não sofre corte — o limite de iterações é a proteção. O corte de chunks por rank do `rag_first` continua na Fase 5, pela mesma política.
 
+### Session 2026-10-07
+
+- Q: Com streaming, como a resposta corrigida pelos validators chega ao cliente? → A: A geração passa cada pedaço pelo filtro do Pack Hooks e emite só o que ele libera, com a cauda no fim; depois dos validators restantes, o que eles só acrescentam sai como token, e reescrita no meio fica registrada como `notice` (`AnswerRewritten`). Os dois modos da API entregam o mesmo texto (ADR-024).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Conversa direta com resposta em streaming (Priority: P1)
@@ -163,6 +167,7 @@ Quando o catálogo inclui a rotina de um pack, o controller pode invocá-la como
 - **FR-015**: A rotina isolada de pack DEVE ser executada como passo único, com entradas e saídas restritas ao declarado e limites herdados.
 - **FR-016**: Cada iteração, decisão do controller, chamada de tool e validação DEVE emitir dados de trace pelo Trace Sink (009). A decisão do controller é um evento próprio — iteração, ação (`tool`, `answer`, inválida, limite atingido), nome da tool pedida e motivo quando inválida —, NUNCA com os argumentos; a chamada de tool é o evento que o gateway (004) emite.
 - **FR-017**: O motor DEVE fixar, no início de cada execução, a data de referência — pelo relógio ou, numa execução de avaliação, pelo valor fixado (ADR-013) — e entregá-la em toda Turn View daquela execução.
+- **FR-018**: A geração DEVE passar pelo filtro de validators do Pack Hooks antes de emitir cada token, e emitir a cauda dele no fim; o que os validators em lote só acrescentam à resposta DEVE sair como token antes do evento final; reescrita no meio, depois da geração, DEVE gerar um registro `notice` (`AnswerRewritten`) (ADR-024).
 
 ### Key Entities
 

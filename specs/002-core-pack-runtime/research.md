@@ -394,3 +394,17 @@ Insumos: ADR-009, [ADR-021](../../docs/adr/ADR-021-workspace-ai-core-permanece-n
 | Introspecção HTTP a partir de `PackRegistry.entries()` | plano da 008 |
 | Pacote genérico em `ai-core/packs/generic/` exige acrescentar `packs/*` aos membros do workspace | plano da 010 |
 | Conformidade da 001 checar `name`/`contract_version` como atributos de classe (FR-017) — adição de patch | backlog da 001 |
+
+## Passada de 2026-10-07: validators que filtram o streaming ([ADR-024](../../docs/adr/ADR-024-validators-filtram-o-streaming.md))
+
+### R30 — `open_answer_stream` e o `validate` com `streamed`
+
+- **Decision**: no `api.py`, `AnswerFilter` (`feed`, `finish`) e `StreamedValidation` (`tail`, `answer`, `runs`);
+  `PackHooks.open_answer_stream(composition, view, slices)` e `validate(..., streamed=None)`. O prefixo é a sequência
+  de validators da composição (pack a pack, na ordem de cada um) até o primeiro sem `open_stream`. O encadeamento é
+  puro (`domain/stream.py`, `ChainedFilter`): cada pedaço passa pelas sessões em ordem; no fim, cada sessão recebe o
+  que a anterior ainda tinha a entregar antes de fechar. Com `streamed`, o `validate` confere que as execuções
+  correspondem ao prefixo, começa da resposta filtrada e roda o resto.
+- **Rationale** (ADR-024): o motor só conhece o seam; a ordem dos validators continua a da composição.
+- **Alternatives**: filtrar com qualquer validator de streaming, mesmo depois de um em lote (quebraria a ordem: o de
+  lote precisa da resposta inteira antes).

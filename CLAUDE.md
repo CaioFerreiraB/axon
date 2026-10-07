@@ -200,7 +200,11 @@ até a Fase 5. A instalação (002 US5) mora no submódulo `agentic-deploy/` (re
 build com pack incompatível) e `runtime` (sem `uv`, `pip` nem `ensurepip`; usuário sem escrita no ambiente) —, código
 privado por montagem SSH do BuildKit (identidades `core` e `packs`, `--no-sources`), `config/packs.yaml` na imagem e
 `config/assistants.yaml` montado. `scripts/check-build.sh` é o teste da US5 (local, com o agente SSH; na CI, com deploy
-keys só de leitura do `agentic-app` e do `ai-scouting`).
+keys só de leitura do `agentic-app` e do `ai-scouting`). Os contratos estão em `0.1.1`
+(ADR-024): um validator pode implementar `StreamingValidator` (`open_stream` → sessão com `feed`/`finish`, igual ao
+`validate` e só acrescentando no fim); o Pack Hooks abre o filtro com o prefixo desses validators
+(`open_answer_stream`) e o motor passa cada pedaço da geração por ele, emitindo depois, como token, o que os validators
+em lote só acrescentam. O `citation_integrity` da 104 já filtra (nenhuma citação inventada sai, nem em streaming).
 
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =

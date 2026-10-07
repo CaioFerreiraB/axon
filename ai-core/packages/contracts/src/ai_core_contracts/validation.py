@@ -46,3 +46,30 @@ class AnswerValidator(Protocol):
     name: str
 
     async def validate(self, view: TurnView, ctx: ValidatorContext) -> ValidationResult: ...
+
+
+@runtime_checkable
+class AnswerStream(Protocol):
+    """Sessão de validação incremental de uma resposta em geração (ADR-024; contratos 0.1.1).
+
+    `feed` recebe cada pedaço gerado e devolve o texto pronto para sair agora — pode segurar o que ainda não decidiu.
+    `finish` fecha a sessão: o `answer` do resultado começa com a concatenação do que `feed` devolveu (o fim só
+    acrescenta) — ou é `None`, quando nada muda e `feed` devolveu a resposta inteira — e o resultado é igual ao de
+    `validate` sobre a resposta inteira, qualquer que seja a partição em pedaços.
+    """
+
+    def feed(self, delta: str) -> str: ...
+
+    def finish(self) -> ValidationResult: ...
+
+
+@runtime_checkable
+class StreamingValidator(AnswerValidator, Protocol):
+    """Validator que também filtra a resposta durante a geração (ADR-024; contratos 0.1.1).
+
+    A sessão recebe a Turn View da abertura — antes da geração, sem `answer` — e não depende de citações de validators
+    anteriores. Mesmas regras de `validate`: determinístico e sem acesso a modelos.
+    """
+
+    def open_stream(self, view: TurnView, ctx: ValidatorContext) -> AnswerStream: ...
+

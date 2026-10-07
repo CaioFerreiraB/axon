@@ -120,3 +120,12 @@ A topologia, o que cada passo delega, o limite, o teto e o trace do `agentic` es
 de 1 a 6, chamadas ao controller ≤ limite, execuções ≤ limite, exatamente um `FinalEvent`, todos os resultados
 executados acumulados e entregues aos validators (salvo os omitidos pelo teto, que nunca é declarado nesta suíte).
 
+## Geração filtrada pelos validators (2026-10-07, ADR-024)
+
+| Regra | Verificada por |
+|---|---|
+| Só o que o filtro do Pack Hooks libera vira `TokenEvent`; a cauda sai no fim da geração | `tests/graph/contract/test_streaming_filter.py` |
+| O `validate` recebe o resultado filtrado; o filtro abre antes da geração, sem `answer` | idem |
+| Acréscimo dos validators em lote sai como token antes do evento final | idem |
+| Reescrita no meio → `notice` `AnswerRewritten` | idem |
+| Com e sem streaming, o texto final é o mesmo | idem; `tests/graph/integration/test_streaming_validators.py` (Pack Runtime real) |

@@ -22,7 +22,7 @@ from ai_core.graph.api import ExecutionGrant, ExecutionIssue
 from ai_core.graph.domain.transcript import Step
 from ai_core.llm.api import ModelRouter
 from ai_core.observability.api import TraceSink
-from ai_core.packs.api import Composition, PackHooks, ValidationOutcome
+from ai_core.packs.api import Composition, PackHooks, StreamedValidation, ValidationOutcome
 from ai_core_contracts import Citation, JSONValue, Message
 
 
@@ -50,6 +50,7 @@ class AgentState(TypedDict, total=False):
     # saída
     answer: str
     citations: Sequence[Citation]
+    streamed: StreamedValidation | None
     validation: ValidationOutcome | None
 
     # controle do loop (agentic) — research R20, R22

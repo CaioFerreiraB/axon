@@ -152,3 +152,97 @@ async def test_every_valid_pair_composes_and_runs() -> None:
         runtime.system_prompts(composition)
         slices = await runtime.prepare(composition, turn_view(), {})
         await runtime.validate(composition, turn_view(answer="r"), slices)
+
+
+# --- filtro da geração (ADR-024) -------------------------------------------------------------------------------------
+
+
+class _Stream:
+    """Sessão que tira o caractere `drop` à medida que chega e acrescenta `tail` no fim."""
+
+    def __init__(self, drop: str, tail: str, flag: str) -> None:
+        self._drop, self._tail, self._flag = drop, tail, flag
+        self._raw = ""
+
+    def feed(self, delta: str) -> str:
+        self._raw += delta
+        return delta.replace(self._drop, "")
+
+    def finish(self) -> ValidationResult:
+        answer = self._raw.replace(self._drop, "") + self._tail
+        return ValidationResult(ok=True, answer=answer, flags=frozenset({self._flag}))
+
+
+class _StreamingValidator:
+    def __init__(self, name: str, drop: str, tail: str = "") -> None:
+        self.name, self._drop, self._tail = name, drop, tail
+        self.opened: list[TurnView] = []
+
+    async def validate(self, view: TurnView, ctx: ValidatorContext) -> ValidationResult:
+        answer = (view.answer or "").replace(self._drop, "") + self._tail
+        return ValidationResult(ok=True, answer=answer, flags=frozenset({self.name}))
+
+    def open_stream(self, view: TurnView, ctx: ValidatorContext) -> _Stream:
+        self.opened.append(view)
+        return _Stream(self._drop, self._tail, self.name)
+
+
+def _feed_all(answer_filter: Any, parts: list[str]) -> str:
+    return "".join(answer_filter.feed(part) for part in parts)
+
+
+async def test_filtro_encadeia_o_prefixo_de_validators_com_streaming() -> None:
+    tira_x = _StreamingValidator("tira_x", "X")
+    tira_y = _StreamingValidator("tira_y", "Y", tail=" fim")
+    lote = _Validator("lote", ValidationResult(ok=True, answer=None))
+    a = make_pack_class("a", validators=lambda self, ctx: (tira_x, tira_y, lote))
+    runtime = _runtime(a)
+    composition = runtime.compose(["a"])
+
+    answer_filter = runtime.open_answer_stream(composition, turn_view(), {})
+    emitted = _feed_all(answer_filter, ["aX", "bY", "cXY"])
+    streamed = answer_filter.finish()
+
+    assert emitted == "abc"
+    assert streamed.tail == " fim"
+    assert streamed.answer == "abc fim"
+    assert [run.validator for run in streamed.runs] == ["tira_x", "tira_y"]
+
+    outcome = await runtime.validate(composition, turn_view(), {}, streamed=streamed)
+    assert lote.seen == ["abc fim"]  # só o validator fora do prefixo roda, sobre a resposta filtrada
+    assert [run.validator for run in outcome.runs] == ["tira_x", "tira_y", "lote"]
+    assert outcome.answer == "abc fim"
+    assert outcome.flags == frozenset({"tira_x", "tira_y"})
+
+
+async def test_validator_sem_streaming_encerra_o_prefixo() -> None:
+    lote = _Validator("lote", ValidationResult(ok=True))
+    tira_x = _StreamingValidator("tira_x", "X")
+    runtime = _runtime(make_pack_class("a", validators=lambda self, ctx: (lote, tira_x)))
+    answer_filter = runtime.open_answer_stream(runtime.compose(["a"]), turn_view(), {})
+    assert _feed_all(answer_filter, ["aXb"]) == "aXb"  # o primeiro validator é em lote: nada filtra
+    assert answer_filter.finish().runs == ()
+    assert tira_x.opened == []
+
+
+async def test_sessao_que_nao_so_acrescenta_no_fim_e_erro_do_pack() -> None:
+    class _Ruim(_StreamingValidator):
+        def open_stream(self, view: TurnView, ctx: ValidatorContext) -> _Stream:
+            stream = _Stream("X", "", "ruim")
+            stream.feed = lambda delta: delta  # type: ignore[method-assign]
+            return stream
+
+    runtime = _runtime(make_pack_class("a", validators=lambda self, ctx: (_Ruim("ruim", "X"),)))
+    answer_filter = runtime.open_answer_stream(runtime.compose(["a"]), turn_view(), {})
+    answer_filter.feed("aXb")
+    with pytest.raises(PackHookError) as excinfo:
+        answer_filter.finish()
+    assert (excinfo.value.pack, excinfo.value.hook) == ("a", "stream:ruim")
+
+
+async def test_sem_validators_o_filtro_deixa_tudo_passar() -> None:
+    runtime = _runtime(make_pack_class("a"))
+    answer_filter = runtime.open_answer_stream(runtime.compose(["a"]), turn_view(), {})
+    assert _feed_all(answer_filter, ["Bras", "ília"]) == "Brasília"
+    streamed = answer_filter.finish()
+    assert (streamed.tail, streamed.answer, streamed.runs) == ("", "Brasília", ())

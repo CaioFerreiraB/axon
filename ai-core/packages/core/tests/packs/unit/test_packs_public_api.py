@@ -9,6 +9,7 @@ from pathlib import Path
 import ai_core.packs.api as api
 
 SEAM_API = {
+    "AnswerFilter",
     "Composition",
     "CompositionError",
     "PackCapabilities",
@@ -22,6 +23,7 @@ SEAM_API = {
     "PackStatus",
     "RetrieverCapability",
     "Slices",
+    "StreamedValidation",
     "ValidationOutcome",
     "ValidatorRun",
 }
@@ -50,5 +52,5 @@ def test_no_install_operation_is_exposed() -> None:
     members = {
         name for protocol in (api.PackRegistry, api.PackHooks) for name in vars(protocol) if not name.startswith("_")
     }
-    assert members == {"entries", "entry", "compose", "system_prompts", "prepare", "validate"}
+    assert members == {"entries", "entry", "compose", "system_prompts", "prepare", "open_answer_stream", "validate"}
     assert not any("install" in name for name in members)

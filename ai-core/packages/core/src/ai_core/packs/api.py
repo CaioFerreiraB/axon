@@ -120,6 +120,28 @@ class ValidationOutcome:
     runs: tuple[ValidatorRun, ...]
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class StreamedValidation:
+    """O que o filtro da geração entregou (ADR-024): a cauda a emitir depois do último pedaço, a resposta inteira já
+    filtrada (o que saiu mais a cauda) e as execuções dos validators que filtraram, na ordem da sequência."""
+
+    tail: str
+    answer: str
+    runs: tuple[ValidatorRun, ...] = ()
+
+
+class AnswerFilter(Protocol):
+    """Filtro da resposta em geração: encadeia as sessões `open_stream` dos validators do prefixo (ADR-024)."""
+
+    def feed(self, delta: str) -> str:
+        """O texto pronto para sair agora; pode segurar o que os validators ainda não decidiram."""
+        ...
+
+    def finish(self) -> StreamedValidation:
+        """Fecha as sessões, em ordem; levanta `PackHookError` se um validator quebra a regra do contrato."""
+        ...
+
+
 class PackHooks(Protocol):
     def system_prompts(self, composition: Composition) -> tuple[str, ...]:
         """Fragmentos de instrução, na ordem da composição."""
@@ -129,8 +151,16 @@ class PackHooks(Protocol):
         """Preparação de contexto pack a pack; devolve as fatias novas da composição."""
         ...
 
-    async def validate(self, composition: Composition, view: TurnView, slices: Slices) -> ValidationOutcome:
-        """Validators em sequência, com resposta e citações encadeadas."""
+    def open_answer_stream(self, composition: Composition, view: TurnView, slices: Slices) -> AnswerFilter:
+        """Abre o filtro da geração com os validators de `open_stream` que formam o prefixo da sequência de validators
+        da composição (ADR-024). Sem nenhum, o filtro deixa tudo passar."""
+        ...
+
+    async def validate(
+        self, composition: Composition, view: TurnView, slices: Slices, streamed: StreamedValidation | None = None
+    ) -> ValidationOutcome:
+        """Validators em sequência, com resposta e citações encadeadas. Com `streamed`, as execuções do filtro valem
+        pelos primeiros validators da sequência, e só os restantes rodam, sobre a resposta já filtrada (ADR-024)."""
         ...
 
 

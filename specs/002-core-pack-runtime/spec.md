@@ -35,6 +35,7 @@
 - Q: De onde vem o core dentro da imagem da instalação? → A: De um estágio do próprio Dockerfile da instalação, que instala `ai-core-contracts`, `ai-core` e `ai-generic` a partir de uma tag do `agentic-app`; por cima dele, um estágio instala os packs do build-arg e roda `ai-core packs check`. Não há imagem do core publicada em registry por enquanto (ADR-022).
 - Q: Como a instalação fixa a versão do core? → A: Pela tag de release `v0.1.0` do `agentic-app` (core e `ai-generic` lançados juntos — ADR-004), criada nesta passada.
 - Q: Como o build da instalação é verificado na Fase 4? → A: Por um script local (build com a chave SSH do operador) e pela CI do `agentic-deploy`, com deploy keys só de leitura do `agentic-app` e do `ai-scouting`; o *Independent Test* (pack compatível builda, incompatível falha) roda a cada push.
+- Q: Como o Pack Hooks entrega ao motor os validators que filtram o streaming? → A: `open_answer_stream(composition, view, slices)` abre um filtro que encadeia as sessões dos validators com `open_stream` que formam o prefixo da sequência de validators da composição; `finish()` devolve cauda, resposta filtrada e as execuções; `validate(..., streamed=…)` reaproveita essas execuções e roda só os validators restantes, sobre a resposta filtrada (ADR-024).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -167,6 +168,7 @@ Quando a capacidade é "estas tools de MCP + este prompt + estes validators simp
 - **FR-015**: O sistema DEVE aceitar packs declarativos com: fragmento de prompt, bindings de MCP (alias, allowlist explícita de tools, namespace), flow preferido e validators declarativos de um conjunto fechado.
 - **FR-016**: Packs declarativos NÃO DEVEM poder declarar retriever próprio, transformação de documentos ou lógica condicional.
 - **FR-017**: O nome do entry point DEVE ser igual ao `name` do pack; esse nome identifica o pack na configuração do operador e no Pack Registry. `name` e `contract_version` DEVEM ser lidos da classe exportada pelo entry point, antes de instanciá-la; divergência de nomes ou ausência desses atributos na classe deixam o pack `error` sem instanciá-lo (importar o módulo do pack é inevitável para ler a classe; falha no import também deixa o pack `error`). A classe é instanciada sem argumentos — a configuração chega aos hooks pelo Pack Context (001 FR-019).
+- **FR-018**: O Pack Hooks DEVE abrir, para a geração, um filtro que encadeia as sessões de streaming dos validators do prefixo da sequência da composição, e o `validate` DEVE aceitar o resultado desse filtro para rodar só os validators restantes; sessão que quebra a regra do contrato (fim que não só acrescenta, tipo errado, exceção) é `PackHookError` nomeando pack e validator (ADR-024).
 
 ### Key Entities
 

@@ -45,3 +45,10 @@ O core transforma cada `issue` num registro `notice` (`<pack>.<validator>: <issu
 | 6 (US4) | citação válida | `Citation` com os seis campos do trecho |
 | 7 (bordas) | `[[ A ]]` com `a` no contexto; `[[a]]` duas vezes | válida; um `[1]` repetido no texto, uma citação |
 | 8 (clarificação 2) | trecho com `status=None` | `UNCONFIRMED_NOTICE` |
+
+## Streaming (2026-10-07, ADR-024)
+
+`CitationIntegrityValidator.open_stream(view, ctx)` devolve a sessão `IntegrityStream` (contratos `0.1.1`,
+`StreamingValidator`): `feed` libera o texto estável já reescrito (`[n]`, inválida fora), segurando só um marcador `[[`
+aberto e o espaço antes dele; `finish` dá o mesmo resultado do `validate`. `validity_notice` não filtra: o aviso que ele
+acrescenta sai como token pelo motor (005). Na Fase 5, a 101 publica os dois, nesta ordem.

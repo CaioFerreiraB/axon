@@ -354,3 +354,18 @@ registro (R-A*). As demais (R*) resolvem o que o design deixou em aberto ou o qu
 | Refinar `ChatMessage`/`ChatResponse`/`ChatChunk` antes da tag; rodar e, se preciso, ampliar `acheck_llm_provider` | plano da 006 |
 | Associação tool → alias em `discover_tools`; rodar `acheck_mcp_client` contra o cliente restrito | plano da 007 |
 | ~~Emenda da constituição (0.x em "Versionamento")~~ | feito: constituição 1.2.0 + ADR-014 (2026-09-15) |
+
+---
+
+## Passada de 2026-10-07: validators que filtram o streaming ([ADR-024](../../docs/adr/ADR-024-validators-filtram-o-streaming.md))
+
+### R25 — Protocolo `StreamingValidator` (contratos 0.1.1)
+
+- **Decision**: em `validation.py`, `AnswerStream` (`feed(delta) -> str`, `finish() -> ValidationResult`) e
+  `StreamingValidator(AnswerValidator)` com `open_stream(view, ctx) -> AnswerStream`, ambos `runtime_checkable` e
+  síncronos (o caminho quente da geração); a sessão vê a Turn View da abertura, sem `answer`. O kit ganha, na etapa de
+  validators, a verificação em três partições (inteira, um caractere por vez, pedaços de 7), com os códigos
+  `validator.stream.mismatch` e `validator.stream.not_append_only`. Versão `0.1.1`; o diff de superfície contra
+  `contracts-v0.1.0` classifica as quatro mudanças como aditivas (patch).
+- **Rationale** (ADR-014, ADR-024): aditivo — nenhum pack muda; quem não implementa `open_stream` continua em lote.
+- **Alternatives**: método opcional no próprio `AnswerValidator` (mudaria o protocolo de todos os validators).

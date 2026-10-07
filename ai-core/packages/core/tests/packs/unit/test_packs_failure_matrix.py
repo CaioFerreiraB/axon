@@ -13,6 +13,7 @@ from ai_core.packs.api import PackStatus
 from ai_core.packs.ports import DiscoveredPack, PackSettings
 from ai_core.packs.service import PackRuntime
 from ai_core_contracts import PackContext, PackManifest, ToolInvocation, ToolSpec
+from ai_core_contracts import __version__ as contracts_version
 
 
 def _boom(*args: Any) -> NoReturn:
@@ -52,7 +53,7 @@ CASES = [
     (
         "incompativel",
         _single("incompativel", make_pack_class("incompativel", "0.2")),
-        "requer ai-core-contracts>=0.2, instalado 0.1.0",
+        f"requer ai-core-contracts>=0.2, instalado {contracts_version}",
     ),
     (
         "manifesto",

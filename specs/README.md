@@ -202,7 +202,7 @@ secundárias (armazenamento, relógio, segredos…) não são seams: são intern
 | **Turn View** | 001 | packs (via 002), 005 (produz) | Visão somente-leitura e estável da execução para hooks de pack (ADR-011) |
 | **Contratos de serviço** (`LLMProvider`, `MCPClient`) | 001 | 006, 007 | Formas que providers e cliente MCP implementam |
 | **Pack Registry** | 002 | 003, 004, 008 | Packs habilitados, status, capacidades por pack |
-| **Pack Hooks** | 002 | 005 | Executa hooks de pack com isolamento de fatia: prompts, preparação de contexto, rerank, validators, rotinas |
+| **Pack Hooks** | 002 | 005 | Executa hooks de pack com isolamento de fatia: prompts, preparação de contexto, rerank, validators (inclusive o filtro da geração pelos validators de streaming — [ADR-024](../docs/adr/ADR-024-validators-filtram-o-streaming.md)), rotinas |
 | **Pack Toolset** | 002 | 004 | Tools nativas e retrievers de uma composição, com namespace `<pack>.<nome>` (Fase 3) |
 | **Principal** + **Execution Grant** | 003 | 004, 005, 007, 008 | Quem pede e o que a execução pode usar, já resolvido e restrito |
 | **Assistant Directory** | 003 | 008 | Listagem filtrada por ACL e CRUD de assistants de usuário |

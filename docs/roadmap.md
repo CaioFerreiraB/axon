@@ -43,10 +43,9 @@ falha o build — e entrega um runtime sem instalador (ADR-022), verificado a ca
 
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 
-**Pendências entre specs.** 005/008: com streaming, os pedaços já saíram quando os
-validators rodam e o último pedaço leva `delta` vazio — a resposta reescrita (citação `[n]`, citação inventada removida,
-avisos de vigência e de "não fundamentada") não chega ao cliente, só `citations`, `flags` e `errors` em `x_ai_core`
-(104 R11); decidir antes de publicar os validators da 104 na Fase 5.
+**Pendências entre specs resolvidas em 2026-10-07.** OpenAI como controller (ADR-023: o adapter converte o esquema
+para o subconjunto estrito e troca os nomes de função) e a resposta reescrita pelos validators com streaming (ADR-024:
+validators filtram a geração — contratos `0.1.1`).
 
 ## Antes de começar
 

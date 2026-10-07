@@ -118,6 +118,15 @@ pack (FR-008). A publicação, a sintaxe nas instruções e o streaming são Fas
 
 ---
 
+## Passada de 2026-10-07: streaming ([ADR-024](../../docs/adr/ADR-024-validators-filtram-o-streaming.md); research R12)
+
+- [X] T018 `integrity.py`: `open_stream` e `IntegrityStream` (corte estável, reescrita do trecho, `finish` = `_check`);
+  `_check`, `_delivered` e `_numbers` extraídos do `validate`
+- [X] T019 `tests/test_integrity_stream.py`: igualdade com o lote, fim que só acrescenta e nenhum id inventado liberado,
+  em quatro partições; liberação incremental
+
+---
+
 ## Dependencies & Execution Order
 
 - **Setup**: T001, T002 e T003 (T003 depois de T002, que cria a pasta)

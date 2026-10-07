@@ -56,6 +56,8 @@ ISSUE_CODES: Final[frozenset[str]] = frozenset(
         "validator.duplicate_name",
         "validator.result_type",
         "validator.non_deterministic",
+        "validator.stream.mismatch",
+        "validator.stream.not_append_only",
         "prepare_context.not_mapping",
         "prepare_context.not_json",
         "prepare_context.retrieval_filters.invalid",
