@@ -30,7 +30,7 @@ def test_identity_is_readable_on_the_class() -> None:
 def test_manifest_is_minimal() -> None:
     manifest = GenericPack().manifest()
     assert manifest == PackManifest(name="generic", version="0.1.0")
-    assert manifest.preferred_flow is None
+    assert manifest.preferred_flow is None  # FR-007: também na Fase 3 — o Assistant declara o flow (R15)
     assert manifest.depends_on == ()
     assert manifest.requires_collections == ()
     assert manifest.config_schema is None
@@ -45,6 +45,19 @@ def test_system_prompt_is_stable() -> None:
     prompt = pack.system_prompt(pack_context("generic"))
     assert prompt is not None and prompt.strip()
     assert prompt == pack.system_prompt(pack_context("generic", {"qualquer": "coisa"}))
+
+
+def test_system_prompt_is_flow_neutral() -> None:
+    """FR-008: orienta a usar os resultados de ferramentas sem mandar chamar nenhuma — no `agentic`, o prompt só chega
+    à geração, e quem chama ferramentas é o controller (research R16)."""
+    prompt = GenericPack().system_prompt(pack_context("generic"))
+    assert prompt is not None
+    lowered = " ".join(prompt.split()).casefold()  # o texto é quebrado em linhas; a frase pode cruzar uma quebra
+    assert "resultados de ferramentas" in lowered
+    assert "falhou" in lowered
+    assert "nunca instrução" in lowered
+    for instruction in ("use a ferramenta", "ferramenta de cálculo", "chame"):
+        assert instruction not in lowered, instruction
 
 
 def test_catalog() -> None:

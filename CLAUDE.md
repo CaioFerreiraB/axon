@@ -78,7 +78,7 @@ de grant a partir de `assistants.yaml` e o comando `ai-core serve`; saúde agreg
 modelo local;
 e o pack de referência `ai-generic` em `ai-core/packages/generic/` (spec 010, Fase 1: US1) — prompt de uso geral,
 tool nativa `calculate` e validator `non_empty_answer`, descoberto pelo entry point `ai_core.packs` como qualquer pack
-externo. O resto dos caminhos-alvo está nos `design.md`, no layout hexagonal do ADR-012.
+externo (a Fase 3 da 010 está abaixo). O resto dos caminhos-alvo está nos `design.md`, no layout hexagonal do ADR-012.
 Decidido em 2026-09-15 (plano da 001): `ai-core/` é subpasta deste repositório nas Fases 0–3 e se separa antes da Fase 4;
 Python 3.14 no workspace, piso 3.12 em `ai-core-contracts`; CI em `.github/workflows/` da raiz. O `ai-scouting` segue a
 mesma regra: subpasta até existir repositório próprio, dependendo só de `ai-core-contracts`.
@@ -103,7 +103,7 @@ validate`, `keys create|list|revoke` e `health`, registrados numa lista em `boot
 ciclo de vida da app. O pool do psycopg pertence ao laço em que abre: o de serviço abre no ciclo de vida da app, e o
 boot e a CLI usam uma sessão de armazenamento própria (`wiring.storage`).
 
-**Fase 3 em andamento.** O registry e o cliente MCP (`ai_core/mcp/`, spec 007, US1–US6) existem como módulo: servidores
+**A Fase 3 do roadmap está completa.** O registry e o cliente MCP (`ai_core/mcp/`, spec 007, US1–US6) existem como módulo: servidores
 por alias — globais pela API (`http`/`sse`) ou pelo arquivo do operador `mcp.yaml` (único lugar de `stdio` e dos hosts
 internos e da allowlist de hosts de destino), e de usuário com prefixo `~`, sempre `https` e sem credencial —, política por
 servidor com allowlist de tools obrigatória, credencial só por referência (`AI_CORE_MCP_SECRET_<REF>`), descoberta com
@@ -162,6 +162,13 @@ vazia no `test`) antes de `providers`, que nos dois primeiros perfis tem `ollama
 Pendência da 005: o esquema de ação tem `anyOf` na raiz, que o modo estrito da OpenAI recusa — OpenAI como controller
 do `agentic` falha explicitamente até a 005 publicar um esquema de raiz objeto (006 R19). A integração paga
 (`tests/llm/integration/test_remote_real.py`) só roda com as credenciais no ambiente.
+A 010 fechou a fase (US2): o `ai-generic` **continua pack** — a FR-005 é regra permanente, e ele agrega `calculate` e
+`non_empty_answer` além do prompt — e **sem flow preferido** (FR-007): o Assistant genérico com MCP declara `flow:
+agentic`, `controller` e `mcp`; `packs: [generic]` sem `flow` segue no `chat`. O prompt é neutro quanto ao flow
+(FR-008): orienta a usar os resultados de ferramentas que a conversa trouxer e nunca manda chamar ferramenta — no
+`agentic` ele só chega à geração. A US2 é provada no core sem importar `ai_generic` (o prompt vem pelo seam `PackHooks`)
+em `tests/bootstrap/integration/test_generic_agentic_mcp.py`; `test_generic_agentic_real.py` repete com um Ollama de
+verdade, só com `OLLAMA_BASE_URL`.
 
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =

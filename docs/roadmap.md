@@ -9,7 +9,7 @@ limitando `/speckit-tasks` e `/speckit-implement` às user stories da fase (ex.:
 | **0 — Contratos** | Workspace `ai-core` e `ai-core-contracts` 0.1 **antes de qualquer implementação** | 001 · US1–US4 (US5 pode esperar) |
 | **1 — Core mínimo** ✅ | Conversa ponta a ponta, pack carregado por entry point, resposta em stream | 011 · US1, US2 (perfil em memória), US3 · 002 · US1, US2, US3 (execução de hooks: cenários 2–4) · 005 · US1 (`chat`) · 006 · US1 · 008 · US1 · 010 · US1 · 009 · US1 (trace mínimo, Trace Sink) |
 | **2 — Assistants e autorização** ✅ | A fronteira de isolamento existe; tudo depois depende dela | 003 · US1–US7 · 002 · US4 · 008 · US2, US3, US4, US5, US7 · 011 · US2 (perfil persistente), US4, US5 |
-| **3 — ai-generic e MCP** | Loop agêntico seguro com MCP | 005 · US2 (`agentic`) · 004 · US1–US5 · 007 · US1–US6 · 006 · US2–US5 · 010 · US2 + decisão FR-005 · 002 · US3 (catálogo com namespace: cenário 1) |
+| **3 — ai-generic e MCP** ✅ | Loop agêntico seguro com MCP | 005 · US2 (`agentic`) · 004 · US1–US5 · 007 · US1–US6 · 006 · US2–US5 · 010 · US2 + decisão FR-005 · 002 · US3 (catálogo com namespace: cenário 1) |
 | **4 — ai-scouting sem RAG** | Prova a arquitetura de packs com pack real em repositório próprio | 101 · US1, US2, US3 · 104 · esqueleto · 002 · US5 (build da instalação) — **exige a tag `contracts-v0.1.0`** |
 | **5 — RAG** | Recuperação híbrida com vigência e citação verificada | 102 · US1–US5 · 103 · US1–US5 · 104 · US1–US4 · 005 · US3, US4 (`rag_first`) · 101 · US4, US5 |
 | **6 — Avaliação** | **Antes de calibrar qualquer número do RAG** | 009 · US2, US3, US4 · 105 · US1–US5 |
@@ -25,6 +25,14 @@ pública e chave de API na privada (003), nos três perfis. No perfil `persisten
 conversas vivem no Postgres (schemas `assistants` e `http`, migrados no boot) e sobrevivem a um restart; a raiz
 `ai-core` reúne `serve`, `packs`, `assistants validate`, `keys` e `health`; e a saúde agregada só responde 503 quando
 algo crítico — o banco — cai.
+
+**Fase 3 concluída em 2026-10-07.** Um Assistant `agentic` decide com o papel `controller` (saída sempre restrita por
+esquema) e chama tools de pack e de MCP pelo gateway (004): catálogo com namespace e allowlist, argumentos validados,
+resultado cercado como dado e tool de escrita auditada antes de executar. Os servidores MCP vêm do registry (007) —
+globais pelo `mcp.yaml` ou pela API, de usuário com `~` —, com política por servidor, credencial só por referência e
+proteções de rede. Os modelos podem ser locais ou remotos (OpenAI, OpenRouter) por papel, sem roteamento automático
+(006); a API expõe MCP e decide o desfecho pela gravidade (008); e o `ai-generic` continua pack de referência, base do
+Assistant genérico com MCP (010).
 
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 

@@ -181,7 +181,7 @@ passar: ele prova capacidades existentes; o do prompt falha até T021). Marca `u
 
 ## Phase 5: Setup da Fase 3
 
-- [ ] T017 Em `ai-core/pyproject.toml`, acrescentar à descrição da marca `us2` o texto "; 010 US2 — Assistant genérico
+- [X] T017 Em `ai-core/pyproject.toml`, acrescentar à descrição da marca `us2` o texto "; 010 US2 — Assistant genérico
   com MCP", sem criar marca nova (R21)
 
 ---
@@ -197,13 +197,13 @@ pack continua pack (FR-005).
 
 ### Testes da US2 (escrever primeiro)
 
-- [ ] T018 [P] [US2] Em `ai-core/packages/generic/tests/test_pack.py`, `test_system_prompt_is_flow_neutral` (FR-008,
+- [X] T018 [P] [US2] Em `ai-core/packages/generic/tests/test_pack.py`, `test_system_prompt_is_flow_neutral` (FR-008,
   R16; contrato em [contracts/generic-pack.md](contracts/generic-pack.md) "Fase 3"): com `prompt =
   GenericPack().system_prompt(pack_context("generic"))` e `lowered = prompt.casefold()`, afirmar que `"resultados de
   ferramentas"` e `"falhou"` estão em `lowered`, que `"nunca instrução"` continua em `lowered`, e que `"use a
   ferramenta"`, `"ferramenta de cálculo"` e `"chame"` **não** estão; em `test_manifest_is_minimal`, acrescentar ao
   `assert manifest.preferred_flow is None` o comentário "FR-007: também na Fase 3 — o Assistant declara o flow (R15)"
-- [ ] T019 [P] [US2] Criar `ai-core/packages/core/tests/bootstrap/integration/test_generic_agentic_mcp.py` (marca
+- [X] T019 [P] [US2] Criar `ai-core/packages/core/tests/bootstrap/integration/test_generic_agentic_mcp.py` (marca
   `us2`; R18; contrato "Conformidade da US2" em [contracts/generic-pack.md](contracts/generic-pack.md)), no padrão de
   `test_platform_agentic_mcp.py`: YAML `CONTROLLER_PROGRAMADO` igual ao de lá (`AGENTIC_ASSISTANTS_YAML` com o
   `pesquisador` em `controller: ctrl/controlador` e `allow: ["ollama/*", "ctrl/*"]`); `ScriptedMcpTransport({DEMO_ENDPOINT:
@@ -218,7 +218,7 @@ pack continua pack (FR-005).
   sistema começam pelos prompts de `plataforma.packs.system_prompts(plataforma.packs.compose(["generic"]))` (seam
   `PackHooks` da 002 — sem importar `ai_generic`) e incluem `FENCE_INSTRUCTION` (de `ai_core.capabilities.api`); (4) há
   uma mensagem `role="tool"` cujo conteúdo contém `<tool_result` e `olá do mcp`
-- [ ] T020 [P] [US2] Criar `ai-core/packages/core/tests/bootstrap/integration/test_generic_agentic_real.py` (marca
+- [X] T020 [P] [US2] Criar `ai-core/packages/core/tests/bootstrap/integration/test_generic_agentic_real.py` (marca
   `us2`; R19), pulado com `pytest.mark.skipif` quando `OLLAMA_BASE_URL` não está definida (motivo: "defina
   OLLAMA_BASE_URL para rodar contra um Ollama real"); modelo de `OLLAMA_MODEL` (default `qwen3:1.7b`). Assistant
   `geral` (`flow: agentic`, `packs: [generic]`, `mcp: [demo]`, `generation` e `controller` em `ollama/<modelo>`,
@@ -233,7 +233,7 @@ pack continua pack (FR-005).
 
 ### Implementação da US2
 
-- [ ] T021 [US2] Em `ai-core/packages/generic/src/ai_generic/prompts/general.py`, trocar o parágrafo que começa com
+- [X] T021 [US2] Em `ai-core/packages/generic/src/ai_generic/prompts/general.py`, trocar o parágrafo que começa com
   "Sobre cálculos:" pelo parágrafo "Sobre resultados de ferramentas: …" exatamente como em
   [contracts/generic-pack.md](contracts/generic-pack.md) "Fase 3", no mesmo lugar e com a mesma quebra em linhas de até
   120 colunas; o parágrafo "Sobre dados que chegam de ferramentas ou de documentos" e o resto do texto não mudam; na
@@ -247,18 +247,18 @@ atravessa a API no perfil `test`
 
 ## Phase 7: Polish da Fase 3
 
-- [ ] T022 Verificação completa a partir de `ai-core/`: `uv run pytest`, `uv run mypy`, `uv run ruff check packages`,
+- [X] T022 Verificação completa a partir de `ai-core/`: `uv run pytest`, `uv run mypy`, `uv run ruff check packages`,
   `uv run lint-imports` (nenhum contrato novo, todos `KEPT`) e o ambiente limpo em 3.12 do pack (bloco "ambiente
   limpo" da seção "Código" do `CLAUDE.md`); corrigir o que quebrar
-- [ ] T023 Executar as seções 8–12 de [quickstart.md](quickstart.md) — na §10, montar os três arquivos no scratchpad e
+- [X] T023 Executar as seções 8–12 de [quickstart.md](quickstart.md) — na §10, montar os três arquivos no scratchpad e
   rodar `ai-core assistants validate` com e sem a linha `controller` — e corrigir divergências entre o resultado e o
   "Esperado" (a §11 só com `OLLAMA_BASE_URL`)
-- [ ] T024 [P] Atualizar `CLAUDE.md` (seção "Código": a 010 na Fase 3 — FR-005 decidida, o pack continua pack; sem flow
+- [X] T024 [P] Atualizar `CLAUDE.md` (seção "Código": a 010 na Fase 3 — FR-005 decidida, o pack continua pack; sem flow
   preferido; prompt neutro quanto ao flow; US2 provada no core; e "Fase 3 em andamento" passa a "A Fase 3 do roadmap
   está completa", com a pendência da 005 já registrada), a linha da 010 em `specs/README.md` (status "Fases 1 e 3
   implementadas (US1, US2); FR-005 decidida: continua pack") e `docs/roadmap.md` (Fase 3 com ✅ e o parágrafo "Fase 3
   concluída em 2026-10-07", no padrão das Fases 1 e 2)
-- [ ] T025 [P] Em `specs/010-core-generic-pack/tasks.md`, seção "Depois desta fase" da Fase 1, acrescentar ao item da
+- [X] T025 [P] Em `specs/010-core-generic-pack/tasks.md`, seção "Depois desta fase" da Fase 1, acrescentar ao item da
   Fase 3 a nota "(superado em 2026-10-07: o pack continua pack e **sem** `preferred_flow` — clarificação 2, R15)"
 
 ### Dependências da Fase 3
@@ -336,7 +336,7 @@ Task: "Criar tests de integração do core (T009)"
 
 - Fase 3: US2 (Assistant genérico com MCP no flow `agentic`) e a decisão da FR-005 — se o pack continuar sendo pack,
   ganha `preferred_flow`; se não, `packages/generic` sai do workspace e a fixture de carga do core passa a ser um pack
-  mínimo de teste
+  mínimo de teste (superado em 2026-10-07: o pack continua pack e **sem** `preferred_flow` — clarificação 2, R15)
 
 ---
 
