@@ -79,9 +79,12 @@ modelo local;
 e o pack de referência `ai-generic` em `ai-core/packages/generic/` (spec 010, Fase 1: US1) — prompt de uso geral,
 tool nativa `calculate` e validator `non_empty_answer`, descoberto pelo entry point `ai_core.packs` como qualquer pack
 externo (a Fase 3 da 010 está abaixo). O resto dos caminhos-alvo está nos `design.md`, no layout hexagonal do ADR-012.
-Decidido em 2026-09-15 (plano da 001): `ai-core/` é subpasta deste repositório nas Fases 0–3 e se separa antes da Fase 4;
-Python 3.14 no workspace, piso 3.12 em `ai-core-contracts`; CI em `.github/workflows/` da raiz. O `ai-scouting` segue a
-mesma regra: subpasta até existir repositório próprio, dependendo só de `ai-core-contracts`.
+Decidido em 2026-09-15 (plano da 001) e revisto em 2026-10-07 (ADR-021): `ai-core/` **permanece** neste repositório
+— as tags `contracts-v*` são criadas aqui, e packs de domínio vivem em repositórios próprios, ligados como submódulos na
+raiz (`ai-scouting/`);
+Python 3.14 no workspace, piso 3.12 em `ai-core-contracts`; CI em `.github/workflows/` da raiz. O `ai-scouting` mora
+no repositório privado `CaioFerreiraB/ai-scouting` (submódulo `ai-scouting/`): o código dele é commitado lá, e aqui só
+muda o ponteiro; ele depende só de `ai-core-contracts`, resolvido pela tag `contracts-v*` deste repositório.
 
 **A Fase 2 do roadmap está completa.** O módulo Assistants & Access (`ai_core/assistants/`, spec 003, US1–US7):
 autenticação OIDC (JWT verificado localmente contra o JWKS) e por chave de API (só o hash; emissão e revogação pela CLI

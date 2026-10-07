@@ -43,7 +43,7 @@ na raiz é recusado pela OpenAI); Ollama e OpenRouter funcionam.
 ## Antes de começar
 
 1. ~~Aceitar ou rejeitar o ADR-011~~ — [ADR-011](adr/ADR-011-contratos-independentes-do-motor.md), [ADR-012](adr/ADR-012-estilo-arquitetural-hexagonal.md) e [ADR-013](adr/ADR-013-seams-transversais-trace-e-tempo.md) aceitos em 2026-09-14. Os contratos da Fase 0 já incluem a Turn View com `reference_time`.
-2. ~~Criar os repositórios `ai-core` e `ai-scouting` (ou decidir mantê-los como subpastas deste repositório durante o desenvolvimento — ver CLAUDE.md)~~ — decidido em 2026-09-15 (plano da 001): `ai-core/` é subpasta deste repositório nas Fases 0–3 (git inicializado na raiz); a separação em repositório próprio acontece antes da Fase 4, quando nasce a tag `contracts-v0.1.0`. Python 3.14 no workspace; piso 3.12 em `ai-core-contracts`.
+2. ~~Criar os repositórios `ai-core` e `ai-scouting` (ou decidir mantê-los como subpastas deste repositório durante o desenvolvimento — ver CLAUDE.md)~~ — decidido em 2026-09-15 (plano da 001): `ai-core/` é subpasta deste repositório nas Fases 0–3 (git inicializado na raiz). Revisto em 2026-10-07 ([ADR-021](adr/ADR-021-workspace-ai-core-permanece-no-repositorio-da-plataforma.md)): o `ai-core` **não** se separa; a tag `contracts-v0.1.0` nasce aqui, e o `ai-scouting` vive em repositório próprio, ligado como submódulo. Python 3.14 no workspace; piso 3.12 em `ai-core-contracts`.
 3. ~~Resolver o ponto em aberto da 008 (FR-012)~~ — resolvido em 2026-09-14 (`/speckit-clarify`): a data de referência só é fixada em processo, pelo harness; a API rejeita o campo.
 
 ## Persistência por fase (arch-v1 §28)

@@ -25,6 +25,7 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 | [018](ADR-018-seam-execution-engine-fase-3.md) | Seam Execution Engine na Fase 3: grant da 003 e gravidade dos registros | Aceita | 005, 008, 009, 011, 003 |
 | [019](ADR-019-papeis-por-flow-no-seam-execution-engine.md) | O Execution Engine publica os papéis de modelo que cada flow exige | Aceita | 005, 003, 011 |
 | [020](ADR-020-segredos-uma-fonte-por-perfil-uma-porta-por-modulo.md) | Segredos: uma fonte por perfil, uma porta por módulo; credencial ausente degrada, não derruba | Aceita | 011, 006, 007 |
+| [021](ADR-021-workspace-ai-core-permanece-no-repositorio-da-plataforma.md) | O workspace `ai-core` permanece no repositório da plataforma (refina o 004) | Aceita | 001, 010, 1xx |
 
 ## Modelo para ADR novo
 
