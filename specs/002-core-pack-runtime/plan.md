@@ -220,6 +220,32 @@ daqui e a suíte da porta dela roda contra o `PackRuntime` (R20).
 **Module boundary gate (Fase 3)**: mudanças em `ai_core/packs/` e `tests/packs/`, mais o toque declarado na 004
 (`capabilities/domain/records.py` e a suíte da porta); nenhum seam existente muda. **Resultado**: PASS.
 
+## Fase 4 (US5) — 2026-10-07
+
+O build da instalação (ADR-009) num repositório próprio, `agentic-deploy`, com o core construído num estágio do
+próprio Dockerfile a partir da tag `v0.1.0` do `agentic-app` ([ADR-022](../../docs/adr/ADR-022-instalacao-constroi-o-core-num-estagio-proprio.md)),
+os packs por build-arg, `ai-core packs check` no build e um runtime sem instalador. Decisões em
+[research.md](research.md) R21–R29; contrato em [contracts/installation.md](contracts/installation.md). Nenhuma linha do
+`ai-core/` muda: o `packs check` (US4) é o que o build roda.
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| I. Núcleo agnóstico | ✅ | O domínio entra só pelo build-arg da instalação; o core não muda |
+| II. Seams | ✅ | A instalação usa a CLI publicada (`packs check`, `assistants validate`, `serve`) e a configuração por `AI_CORE_*` (011) |
+| VI. Conteúdo externo | ✅ | Código privado baixado por montagem SSH; chave de host do GitHub fixada; nenhuma credencial em camada (R23) |
+| VII. Falha fechada | ✅ | Pack incompatível falha o build, não a produção (US5 cen. 2) |
+| XII. Simplicidade | ✅ | Sem registry nem pipeline de release do core (ADR-022); ARM64 adiado (R28) |
+| XIII. Portas e adapters | N/A | Infraestrutura de empacotamento, fora do código dos módulos |
+
+**Module boundary gate (Fase 4)**: tudo no repositório `agentic-deploy`; no `agentic-app`, só documentação, a tag
+`v0.1.0` e o ponteiro do submódulo; deploy keys só de leitura no `agentic-app` e no `ai-scouting`. Nenhum seam muda.
+**Resultado**: PASS.
+
+| Complexidade | Why Needed | Simpler Alternative Rejected Because |
+|---|---|---|
+| Três estágios no Dockerfile (ADR-022) | o runtime não pode carregar instalador nem credencial (FR-013, FR-014) | um estágio só deixaria `uv`, `git` e SSH na imagem final |
+| Duas identidades SSH no build (R23) | deploy key vale para um repositório só | alias de host no SSH dentro do build é frágil e invisível no Dockerfile |
+
 ## Complexity Tracking
 
 > Nenhuma violação. Complexidade adicional justificada (princípio XII):

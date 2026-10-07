@@ -29,6 +29,13 @@
 - Q: Qual nome identifica o pack na configuração e no registry, e o core lê name/contract_version sem instanciar? → A: Um nome só — o entry point precisa ter o mesmo nome que `AgentPack.name` (divergência = `error`); `name` e `contract_version` são lidos da classe, antes de instanciar; pack sem eles na classe fica `error`. O carregador da 002 aplica a regra.
 - Q: Mudanças no packs.yaml valem só no próximo boot, ou o core recarrega o registry em execução? → A: Só no boot — o registry é montado uma vez e fica imutável até o restart; `packs check` valida a configuração nova antes; packs declarativos (US6, P3) decidem seu recarregamento quando entrarem.
 
+### Session 2026-10-07
+
+- Q: Onde mora o template de instalação da US5? → A: Num repositório próprio e privado, `CaioFerreiraB/agentic-deploy` (ADR-009), ligado no `agentic-app` como submódulo `agentic-deploy/`, como o `ai-scouting` (ADR-021).
+- Q: De onde vem o core dentro da imagem da instalação? → A: De um estágio do próprio Dockerfile da instalação, que instala `ai-core-contracts`, `ai-core` e `ai-generic` a partir de uma tag do `agentic-app`; por cima dele, um estágio instala os packs do build-arg e roda `ai-core packs check`. Não há imagem do core publicada em registry por enquanto (ADR-022).
+- Q: Como a instalação fixa a versão do core? → A: Pela tag de release `v0.1.0` do `agentic-app` (core e `ai-generic` lançados juntos — ADR-004), criada nesta passada.
+- Q: Como o build da instalação é verificado na Fase 4? → A: Por um script local (build com a chave SSH do operador) e pela CI do `agentic-deploy`, com deploy keys só de leitura do `agentic-app` e do `ai-scouting`; o *Independent Test* (pack compatível builda, incompatível falha) roda a cada push.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Operador instala um pack e o core o descobre (Priority: P1)
@@ -155,7 +162,7 @@ Quando a capacidade é "estas tools de MCP + este prompt + estes validators simp
 - **FR-010**: Dependência de fatia apontando para pack não instalado, desabilitado ou em erro, e dependência circular, DEVEM ser detectadas na carga — o pack dependente fica `error`. Leitura de fatia não declarada é impossível por construção: a Turn View entregue a cada pack só contém as fatias de `depends_on`, e a tentativa de ler outra é erro de hook (FR-011).
 - **FR-011**: Exceção em hook durante uma execução DEVE encerrar a execução com erro explícito que nomeia o pack.
 - **FR-012**: A linha de comando DEVE oferecer listagem e validação de packs sem iniciar o servidor, com código de saída não zero em caso de incompatibilidade.
-- **FR-013**: O template de instalação DEVE receber a lista de packs como parâmetro de build e executar a validação de packs durante o build.
+- **FR-013**: O template de instalação DEVE receber a lista de packs como parâmetro de build e executar a validação de packs durante o build. Ele mora no repositório `agentic-deploy`, constrói o core num estágio próprio a partir de uma tag do `agentic-app` e nenhuma credencial usada para baixar código privado DEVE ficar numa camada da imagem (clarificação de 2026-10-07; ADR-022).
 - **FR-014**: NÃO DEVE existir mecanismo de instalação de pack em runtime.
 - **FR-015**: O sistema DEVE aceitar packs declarativos com: fragmento de prompt, bindings de MCP (alias, allowlist explícita de tools, namespace), flow preferido e validators declarativos de um conjunto fechado.
 - **FR-016**: Packs declarativos NÃO DEVEM poder declarar retriever próprio, transformação de documentos ou lógica condicional.

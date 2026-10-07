@@ -191,6 +191,11 @@ services:
 
 Adicionar um pack novo é acrescentar uma linha e rebuildar. Nenhum loader custom, nenhum venv gravável em runtime, nenhuma superfície de execução remota de código.
 
+> Atualizado em 2026-10-07 ([ADR-022](../../docs/adr/ADR-022-instalacao-constroi-o-core-num-estagio-proprio.md)): não há
+> imagem do core publicada — o Dockerfile da instalação (repositório `agentic-deploy`) constrói o core num estágio
+> próprio a partir da tag do `agentic-app`, instala os packs por cima, roda `packs check` e entrega um estágio de
+> runtime sem instalador. Os packs privados entram por montagem SSH do BuildKit, sem credencial em camada da imagem.
+
 ## Portas e adapters **[ADR-012]**
 
 | Porta | Tipo | Adapters por fase | Teste |

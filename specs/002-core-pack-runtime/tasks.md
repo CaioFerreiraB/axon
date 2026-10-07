@@ -229,6 +229,57 @@ packages/core/tests/capabilities/contract/test_pack_tool_source.py`.
 
 ---
 
+## Phase 9: User Story 5 — Operador compõe a instalação e o build rejeita incompatibilidade (Priority: P2) — Fase 4
+
+**Goal**: repositório de instalação `agentic-deploy` com Dockerfile em três estágios (core da tag `v0.1.0`, packs por
+build-arg + `packs check`, runtime sem instalador), verificado localmente e na CI (research R21–R29).
+
+**Independent Test**: `agentic-deploy/scripts/check-build.sh` — pack compatível builda; incompatível falha no `packs
+check`; runtime sem `uv`/`pip`/`ensurepip` e sem escrita em `/opt/ai-core`.
+
+Caminhos começam em `agentic-deploy/` (submódulo → `CaioFerreiraB/agentic-deploy`), salvo os de `specs/`, `docs/` e
+`CLAUDE.md`.
+
+- [X] T043 [US5] Criar o repositório privado `CaioFerreiraB/agentic-deploy` com `README.md` e `.gitignore` (`.env`) e
+  ligá-lo no `agentic-app` como submódulo `agentic-deploy/` (R21)
+- [X] T044 [P] [US5] Criar `packages/incompatible-pack/` (R26): `pyproject.toml` (`incompatible-pack` 0.1.0,
+  `requires-python = ">=3.12"`, `ai-core-contracts>=0.1,<0.3`, entry point `incompatible =
+  "incompatible_pack:IncompatiblePack"` em `ai_core.packs`, `uv_build`) e `src/incompatible_pack/__init__.py` com
+  `IncompatiblePack(PackBase)`, `name = "incompatible"`, `contract_version = "0.2"` e `manifest()` mínimo
+- [X] T045 [P] [US5] Criar `config/packs.yaml` (`generic` e `scouting` habilitados), `config/assistants.yaml` (um
+  Assistant `scouting`, `flow: chat`, `packs: [scouting]`, modelo do OpenRouter, ACL pública; `api_keys.admin_group`) e
+  `.env.example` (perfil `memory`, `AI_CORE_DEV_API_KEY` de exemplo no formato `aic_<16 hex>_<…>`,
+  `AI_CORE_OPENROUTER_API_KEY=` vazio) (R24)
+- [X] T046 [US5] Criar `Dockerfile` (R22, R23; contrato de [installation.md](contracts/installation.md)): estágios
+  `core`, `packs` e `runtime` sobre `python:3.14-slim`; `uv` de `ghcr.io/astral-sh/uv:0.12.23` só nos dois primeiros;
+  `known_hosts` com a chave ed25519 do GitHub fixada; `RUN --mount=type=ssh,id=core` para o core e
+  `--mount=type=ssh,id=packs` + `--mount=type=bind,source=packages,target=/build/packages` para os packs;
+  `ai-core packs check` com `AI_CORE_PACKS_FILE=/etc/ai-core/packs.yaml`; no runtime, remover `pip`/`ensurepip`, usuário
+  `ai-core` (uid 10001), variáveis de [installation.md](contracts/installation.md) e `CMD ["ai-core", "serve"]`
+- [X] T047 [US5] Criar `scripts/check-build.sh` (R27): `set -euo pipefail`; `SSH_CORE`/`SSH_PACKS` (default: agente);
+  build do alvo `runtime`; na imagem, `ai-core packs list` com `generic` e `scouting` `enabled`, `ai-core assistants
+  validate` com `config/assistants.yaml` montado, ausência de `uv`/`pip`/`ensurepip` e escrita recusada em
+  `/opt/ai-core`; build do alvo `packs` com `PACKS=/build/packages/incompatible-pack` precisa falhar com `incompatible`
+  na saída; mensagens de cada passo e saída 0 só se tudo vale
+- [X] T048 [US5] Rodar `scripts/check-build.sh` localmente e corrigir até sair com 0 (US5 cen. 1–3)
+- [X] T049 [P] [US5] Criar `docker-compose.yml` (R24, R25): serviço `ai-core` com `build` (target `runtime`, `ssh:
+  [core, packs]`), `ports: ["8000:8000"]`, `env_file: .env`, `config/assistants.yaml` montado somente leitura em
+  `/etc/ai-core/assistants.yaml`, `read_only: true` e `tmpfs: [/tmp]`; e `README.md` com o uso (build, `.env`, compose,
+  trocar pack = mudar `PACKS` e `config/packs.yaml` e rebuildar)
+- [X] T050 [US5] Criar `.github/workflows/build.yml` (R28): push e PR; grava `AGENTIC_APP_DEPLOY_KEY` e
+  `AI_SCOUTING_DEPLOY_KEY` em arquivos `600` e roda `scripts/check-build.sh` com `SSH_CORE`/`SSH_PACKS` neles
+- [X] T051 [US5] Com o aval do mantenedor: tag anotada `v0.1.0` no `agentic-app` (e push); deploy keys só de leitura
+  no `agentic-app` e no `ai-scouting` e os dois segredos no `agentic-deploy`; push do `agentic-deploy` e CI verde;
+  commit no `agentic-app` com o SDD, a documentação e o ponteiro do submódulo
+- [X] T052 [P] Documentação no `agentic-app`: CLAUDE.md (a instalação existe — repositório, estágios, `check-build.sh`,
+  ADR-022; a Fase 4 do roadmap completa), linha da 002 em `specs/README.md` (US5 implementada) e `docs/roadmap.md`
+  (Fase 4 ✅ com o parágrafo "Fase 4 concluída em 2026-10-07")
+
+**Dependências da Fase 4**: T043 primeiro; T044, T045 em paralelo; T046 → T047 → T048; T049 e T050 depois de T046;
+T051 depois de T048 e T050; T052 em paralelo com T051.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

@@ -103,3 +103,24 @@ Esperado: `list` mostra nome, versão, versão de contrato e status de cada pack
 incompatibilidade quando há um pack incompatível instalado, mesmo desabilitado, e com 0 quando todos estão bons;
 `packs.yaml` malformado sai com 2 ([contracts/cli.md](contracts/cli.md)). Rodar os comandos pela raiz `ai-core` depende
 do registro pela 011 (US4).
+
+## 8. Build da instalação (US5, Fase 4)
+
+Dentro de `agentic-deploy/` (submódulo; `git submodule update --init agentic-deploy`), com o agente SSH carregando uma
+chave que lê o `agentic-app` e o `ai-scouting`. Contrato em [contracts/installation.md](contracts/installation.md).
+
+```bash
+scripts/check-build.sh
+```
+
+**Esperado**: o build com o `ai-scouting` conclui; na imagem, `generic` e `scouting` aparecem `enabled`, o
+`assistants validate` passa, não há `uv`, `pip` nem `ensurepip`, e o usuário do processo não escreve em `/opt/ai-core`;
+o build com o pack incompatível falha no `packs check`, nomeando `incompatible`. O script sai com 0.
+
+```bash
+docker compose up --build        # com .env copiado de .env.example
+```
+
+**Esperado**: o serviço sobe com `read_only`, ouvindo em `:8000`; `GET /private/v1/health` com a chave de
+desenvolvimento do `.env` responde.
+

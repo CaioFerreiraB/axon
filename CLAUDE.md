@@ -173,7 +173,7 @@ agentic`, `controller` e `mcp`; `packs: [generic]` sem `flow` segue no `chat`. O
 em `tests/bootstrap/integration/test_generic_agentic_mcp.py`; `test_generic_agentic_real.py` repete com um Ollama de
 verdade, só com `OLLAMA_BASE_URL`.
 
-**Fase 4 em andamento.** A tag `contracts-v0.1.0` existe (ADR-021), e o pack de domínio `ai-scouting` (spec 101,
+**A Fase 4 do roadmap está completa.** As tags `contracts-v0.1.0` e `v0.1.0` (core e `ai-generic`) existem (ADR-021), e o pack de domínio `ai-scouting` (spec 101,
 Fase 4: US1–US3) mora no submódulo `ai-scouting/` (repositório privado `CaioFerreiraB/ai-scouting`): pack `scouting`
 0.1.0, dependendo só de `ai-core-contracts>=0.1,<0.2`, resolvido pela tag por SSH. Na Fase 4 o manifest declara só nome
 e versão (o `rag_first`, a coleção e o esquema de configuração chegam na Fase 5, com a US5); o prompt manda declarar
@@ -190,7 +190,13 @@ SDD e o ponteiro do submódulo. O esqueleto da 104 também está lá (`ai_scouti
 (só fica citação `[[chunk_id]]` que esteve no `generation_context`; as válidas viram `[n]` com a proveniência; sem
 nenhuma, aviso de "não fundamentada") e `validity_notice` (aviso para citação não `vigente`, inclusive vigência não
 confirmada, sem duplicar o que o modelo já disse) — testados com Turn Views sintéticas e **não publicados** pelo pack
-até a Fase 5. Falta na fase: a US5 da 002 (build da instalação).
+até a Fase 5. A instalação (002 US5) mora no submódulo `agentic-deploy/` (repositório privado
+`CaioFerreiraB/agentic-deploy`, ADR-009 e ADR-022): Dockerfile em três estágios — `core` (contratos, core e
+`ai-generic` da tag `CORE_REF`, default `v0.1.0`), `packs` (o build-arg `PACKS` + `ai-core packs check`, que falha o
+build com pack incompatível) e `runtime` (sem `uv`, `pip` nem `ensurepip`; usuário sem escrita no ambiente) —, código
+privado por montagem SSH do BuildKit (identidades `core` e `packs`, `--no-sources`), `config/packs.yaml` na imagem e
+`config/assistants.yaml` montado. `scripts/check-build.sh` é o teste da US5 (local, com o agente SSH; na CI, com deploy
+keys só de leitura do `agentic-app` e do `ai-scouting`).
 
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =

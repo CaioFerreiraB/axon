@@ -284,6 +284,105 @@ mesma suíte prova as duas implementações.
 **Alternatives considered**: um adaptador na composition root convertendo um tipo no outro (dois tipos para o mesmo
 dado, e a conformidade da 004 não rodaria contra o real).
 
+## Decisões da Fase 4 (US5) — 2026-10-07
+
+Insumos: ADR-009, [ADR-021](../../docs/adr/ADR-021-workspace-ai-core-permanece-no-repositorio-da-plataforma.md),
+[ADR-022](../../docs/adr/ADR-022-instalacao-constroi-o-core-num-estagio-proprio.md) e as quatro clarificações de
+2026-10-07. Verificado no código: `ai-core packs check` só precisa de `AI_CORE_PACKS_FILE`, sai com 1 para pack em erro
+(inclusive instalado e desabilitado) e reprova `contract_version` incompatível com os contratos instalados (R16).
+
+### R21 — O repositório de instalação
+
+- **Decision**: `CaioFerreiraB/agentic-deploy`, privado, submódulo `agentic-deploy/` no `agentic-app`. Conteúdo:
+  `Dockerfile`, `docker-compose.yml`, `config/` (`packs.yaml`, `assistants.yaml`), `.env.example` (segredos ficam em
+  `.env`, fora do git), `packages/incompatible-pack/` (pack de teste da US5 cen. 2), `scripts/check-build.sh` (o
+  *Independent Test*), `.github/workflows/build.yml` e `README.md`.
+- **Rationale** (ADR-009, clarificação 1): instalação imutável e reproduzível, separada do core e dos packs; o
+  submódulo mantém os caminhos que as specs citam.
+- **Alternatives**: o template dentro do `agentic-app` (misturaria instalação do operador com o produto).
+
+### R22 — Os estágios do Dockerfile
+
+- **Decision** (ADR-022): `python:3.14-slim` em todos os estágios. `core`: instala `git` e `openssh-client`, copia o
+  `uv` de `ghcr.io/astral-sh/uv:0.12.23`, clona a tag `CORE_REF` (build-arg, default `v0.1.0`) do `agentic-app` — raso
+  e **sem submódulos**: o `agentic-app` liga os packs como submódulos, e a identidade `core` só lê ele (o `uv`, ao
+  instalar por URL de git, clonaria os submódulos e falharia na CI) — e instala `ai-core-contracts`, `ai-core` e
+  `ai-generic` das pastas locais em `/opt/ai-core`. `packs`: sobre o `core`, copia
+  `config/packs.yaml` para `/etc/ai-core/packs.yaml`, instala `PACKS` (build-arg) e roda `ai-core packs check`.
+  `runtime`: copia `/opt/ai-core` e `/etc/ai-core/packs.yaml`, remove `pip` e `ensurepip` da base, cria o usuário
+  `ai-core` (uid 10001, sem home gravável), define `AI_CORE_HOST=0.0.0.0` e os caminhos de configuração, e roda
+  `ai-core serve` como esse usuário.
+- **Rationale**: o ambiente virtual vai inteiro de um estágio para o outro (mesma base, mesmo caminho do Python); o que
+  só o build usa (`uv`, `git`, SSH) não chega ao runtime.
+- **Alternatives**: `uv sync` de um projeto da instalação (um `pyproject.toml` e um lock a mais só para listar o que o
+  build-arg já lista).
+
+### R23 — Credenciais no build
+
+- **Decision**: montagens SSH do BuildKit com duas identidades — `core` (lê o `agentic-app`) e `packs` (lê os
+  repositórios dos packs). `known_hosts` com a chave ed25519 do GitHub fixada no Dockerfile (a publicada em
+  `api.github.com/meta`), sem `ssh-keyscan`. Localmente: `docker buildx build --ssh core --ssh packs` (as duas usam o
+  agente SSH do operador). Na CI: cada identidade aponta para o arquivo de uma deploy key só de leitura.
+- **Rationale** (FR-013): nenhuma credencial em camada; uma deploy key do GitHub vale para um repositório só, e a
+  identidade por origem resolve isso sem truque de alias de host.
+- **Alternatives**: token num build-arg (fica no histórico da imagem); `--secret` com token pessoal (acesso a todos os
+  repositórios da conta).
+
+### R24 — Configuração: o que vai na imagem e o que é montado
+
+- **Decision**: `packs.yaml` vai **na imagem** — o build valida exatamente o conjunto de packs e a configuração deles
+  que vão rodar. `assistants.yaml` (e `mcp.yaml`, quando houver) é montado em runtime, somente leitura; segredos vêm do
+  `.env`.
+- **Rationale**: pack e configuração de pack mudam juntos, com rebuild; Assistants são decisão do operador em runtime,
+  com restart (003).
+- **Alternatives**: montar `packs.yaml` (o `packs check` do build validaria um arquivo e o boot leria outro).
+
+### R25 — Nenhuma instalação em runtime (FR-014, US5 cen. 3)
+
+- **Decision**: o runtime não tem `uv`, `pip` nem `ensurepip`; `/opt/ai-core` pertence a root e o processo roda como
+  `ai-core`, sem escrita nele; o `docker-compose.yml` sobe o serviço com `read_only: true` e `tmpfs` em `/tmp`.
+- **Rationale**: o core já não oferece instalação (o Pack Registry só descobre entry points do ambiente); a imagem tira
+  também a ferramenta e a permissão.
+- **Alternatives**: só confiar na ausência de API (a imagem continuaria capaz de `pip install` como root).
+
+### R26 — O pack incompatível do teste
+
+- **Decision**: `packages/incompatible-pack/` no `agentic-deploy`: distribuição `incompatible-pack` 0.1.0, entry
+  point `incompatible`, `contract_version = "0.2"`, dependência `ai-core-contracts>=0.1,<0.3` (instala sobre os
+  contratos 0.1.0 e falha só no `packs check`). Entra por `PACKS=/build/packages/incompatible-pack`, com o diretório
+  montado no estágio `packs` (`--mount=type=bind`), nunca no default.
+- **Rationale** (US5 cen. 2): o build tem de falhar **na etapa de validação de packs**, não na resolução de
+  dependências.
+- **Alternatives**: um pack com faixa incompatível (o `uv` recusaria antes do `packs check`).
+
+### R27 — O *Independent Test* da US5
+
+- **Decision**: `scripts/check-build.sh` builda o alvo `runtime` com o `PACKS` default e confere: `ai-core packs list`
+  com `scouting` e `generic` habilitados; `ai-core assistants validate` com `config/assistants.yaml`; sem `uv`, `pip` e
+  `ensurepip`; `/opt/ai-core` sem escrita para o usuário do processo. Depois builda o alvo `packs` com o pack
+  incompatível e exige que o build falhe com a saída do `packs check` nomeando `incompatible`. Sai com 0 só se tudo
+  isso vale. Variáveis `SSH_CORE` e `SSH_PACKS` escolhem a identidade de cada origem (default: o agente).
+- **Rationale**: um comando para o operador e para a CI; os três cenários da US5 verificados.
+- **Alternatives**: testes em Python no repositório de instalação (um ambiente a mais só para chamar o Docker).
+
+### R28 — CI do `agentic-deploy`
+
+- **Decision**: `.github/workflows/build.yml` em push e PR: grava as deploy keys dos segredos `AGENTIC_APP_DEPLOY_KEY`
+  e `AI_SCOUTING_DEPLOY_KEY` em arquivos e roda `scripts/check-build.sh` com `SSH_CORE`/`SSH_PACKS` apontando para eles,
+  em `linux/amd64`. ARM64 (o alvo de produção) fica para a primeira instalação real — `--platform linux/arm64` com
+  emulação na CI dobra o tempo sem informação nova para a US5.
+- **Rationale** (clarificação 4): o *Independent Test* a cada push.
+- **Alternatives**: só local (clarificação 4, opção B).
+
+### R29 — Versões fixadas
+
+- **Decision**: core pela tag `v0.1.0` do `agentic-app` (criada nesta passada, anotada, no commit `f6dbf7e` — o core da
+  Fase 4, o mesmo do build local); o
+  `ai-scouting` pelo commit `329d592010a74eaaa0cc113ef2f717905455be8f` (o pack ainda não tem tag de release); `uv` pela
+  imagem `0.12.23`; base `python:3.14-slim`.
+- **Rationale**: reprodutível sem criar tag que o mantenedor não pediu no repositório do pack.
+- **Alternatives**: `main` dos repositórios (build não reprodutível).
+
 ## Pendências para outros planos
 
 | Pendência | Onde |

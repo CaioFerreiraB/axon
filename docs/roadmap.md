@@ -10,7 +10,7 @@ limitando `/speckit-tasks` e `/speckit-implement` às user stories da fase (ex.:
 | **1 — Core mínimo** ✅ | Conversa ponta a ponta, pack carregado por entry point, resposta em stream | 011 · US1, US2 (perfil em memória), US3 · 002 · US1, US2, US3 (execução de hooks: cenários 2–4) · 005 · US1 (`chat`) · 006 · US1 · 008 · US1 · 010 · US1 · 009 · US1 (trace mínimo, Trace Sink) |
 | **2 — Assistants e autorização** ✅ | A fronteira de isolamento existe; tudo depois depende dela | 003 · US1–US7 · 002 · US4 · 008 · US2, US3, US4, US5, US7 · 011 · US2 (perfil persistente), US4, US5 |
 | **3 — ai-generic e MCP** ✅ | Loop agêntico seguro com MCP | 005 · US2 (`agentic`) · 004 · US1–US5 · 007 · US1–US6 · 006 · US2–US5 · 010 · US2 + decisão FR-005 · 002 · US3 (catálogo com namespace: cenário 1) |
-| **4 — ai-scouting sem RAG** | Prova a arquitetura de packs com pack real em repositório próprio | 101 · US1, US2, US3 · 104 · esqueleto · 002 · US5 (build da instalação) — **exige a tag `contracts-v0.1.0`** |
+| **4 — ai-scouting sem RAG** ✅ | Prova a arquitetura de packs com pack real em repositório próprio | 101 · US1, US2, US3 · 104 · esqueleto · 002 · US5 (build da instalação) — **exige a tag `contracts-v0.1.0`** |
 | **5 — RAG** | Recuperação híbrida com vigência e citação verificada | 102 · US1–US5 · 103 · US1–US5 · 104 · US1–US4 · 005 · US3, US4 (`rag_first`) · 101 · US4, US5 |
 | **6 — Avaliação** | **Antes de calibrar qualquer número do RAG** | 009 · US2, US3, US4 · 105 · US1–US5 |
 | **7 — Open WebUI** | Assistants aparecem como modelos | 008 · US6, US8 |
@@ -33,6 +33,13 @@ globais pelo `mcp.yaml` ou pela API, de usuário com `~` —, com política por 
 proteções de rede. Os modelos podem ser locais ou remotos (OpenAI, OpenRouter) por papel, sem roteamento automático
 (006); a API expõe MCP e decide o desfecho pela gravidade (008); e o `ai-generic` continua pack de referência, base do
 Assistant genérico com MCP (010).
+
+**Fase 4 concluída em 2026-10-07.** A arquitetura de packs está provada com um pack real fora do core: o `ai-scouting`
+(101) mora em repositório próprio, depende só de `ai-core-contracts` pela tag `contracts-v0.1.0` (o `ai-core` ficou no
+`agentic-app` — ADR-021), responde sem inventar fonte enquanto não há corpus e deriva ramo, tema e vigência da
+pergunta sem chamar modelo; os validators de citação e vigência (104) existem e esperam o RAG para serem publicados. A
+instalação (002 US5) monta core e packs numa imagem a partir de tags, roda `packs check` no build — pack incompatível
+falha o build — e entrega um runtime sem instalador (ADR-022), verificado a cada push no `agentic-deploy`.
 
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 

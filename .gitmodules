@@ -1,3 +1,6 @@
 [submodule "ai-scouting"]
 	path = ai-scouting
 	url = git@github.com:CaioFerreiraB/ai-scouting.git
+[submodule "agentic-deploy"]
+	path = agentic-deploy
+	url = git@github.com:CaioFerreiraB/agentic-deploy.git
