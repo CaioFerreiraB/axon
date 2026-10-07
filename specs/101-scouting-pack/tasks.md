@@ -213,7 +213,7 @@ retriever, validators) são Fase 5.
 - [X] T026 Executar as seções 0–6 de [quickstart.md](quickstart.md) — a §2 no ambiente limpo em 3.12; a §6 com os
   arquivos de `~/.config/ai-core/` (acrescentar o pack e o Assistant `scouting`) e o modelo do OpenRouter, conferindo
   a resposta sem citação inventada — e corrigir divergências entre o resultado e o "Esperado"
-- [ ] T027 Com o aval do mantenedor: commit e push do `ai-scouting`; criar a deploy key só de leitura no `agentic-app` e
+- [X] T027 Com o aval do mantenedor: commit e push do `ai-scouting`; criar a deploy key só de leitura no `agentic-app` e
   o segredo `AGENTIC_APP_DEPLOY_KEY` no `ai-scouting` (quickstart §7) e conferir os quatro jobs do `ci.yml` verdes
 - [X] T028 [P] Atualizar no `agentic-app`: `CLAUDE.md` (seção "Código": o `ai-scouting` existe — pack `scouting` 0.1.0,
   manifest mínimo na Fase 4, prompt sem corpus, derivação pura com vigência em intervalo e dia de Brasília, suíte só com
