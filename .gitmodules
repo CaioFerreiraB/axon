@@ -1,0 +1,3 @@
+[submodule "ai-scouting"]
+	path = ai-scouting
+	url = git@github.com:CaioFerreiraB/ai-scouting.git
