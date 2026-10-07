@@ -38,7 +38,10 @@ Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack 
 
 **Pendências entre specs.** 005: esquema de ação de raiz objeto, para OpenAI como controller no modo estrito (006 R19)
 — até lá, um Assistant `agentic` com `controller` em `openai/…` falha explicitamente na chamada do controller (o `anyOf`
-na raiz é recusado pela OpenAI); Ollama e OpenRouter funcionam.
+na raiz é recusado pela OpenAI); Ollama e OpenRouter funcionam. 005/008: com streaming, os pedaços já saíram quando os
+validators rodam e o último pedaço leva `delta` vazio — a resposta reescrita (citação `[n]`, citação inventada removida,
+avisos de vigência e de "não fundamentada") não chega ao cliente, só `citations`, `flags` e `errors` em `x_ai_core`
+(104 R11); decidir antes de publicar os validators da 104 na Fase 5.
 
 ## Antes de começar
 

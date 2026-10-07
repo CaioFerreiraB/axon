@@ -186,7 +186,11 @@ plataforma fica no grupo opcional `platform` (o `ai-core` pela mesma tag, Python
 para packs externos (variáveis `AI_CORE_*` e `platform(profile="test")`). Rode dentro de `ai-scouting/`:
 `uv run pytest && uv run mypy && uv run ruff check && uv run lint-imports`, e a integração com
 `uv run --python 3.14 --group platform pytest tests/integration`. Código do pack é commitado no `ai-scouting`; aqui, o
-SDD e o ponteiro do submódulo. Faltam na fase: o esqueleto da 104 e a US5 da 002 (build da instalação).
+SDD e o ponteiro do submódulo. O esqueleto da 104 também está lá (`ai_scouting/validators/`): `citation_integrity`
+(só fica citação `[[chunk_id]]` que esteve no `generation_context`; as válidas viram `[n]` com a proveniência; sem
+nenhuma, aviso de "não fundamentada") e `validity_notice` (aviso para citação não `vigente`, inclusive vigência não
+confirmada, sem duplicar o que o modelo já disse) — testados com Turn Views sintéticas e **não publicados** pelo pack
+até a Fase 5. Falta na fase: a US5 da 002 (build da instalação).
 
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =

@@ -19,6 +19,14 @@
 - **Substituição**: depende só do identificador de chunk e da Turn View; continua válido se o retrieval for trocado por GraphRAG, desde que os chunks/relações tenham identificador e proveniência.
 - **Insumo técnico**: [design.md](design.md); [ADR-007](../../docs/adr/ADR-007-citacao-mecanica.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md).
 
+## Clarifications
+
+### Session 2026-10-07
+
+- Q: Na Fase 4, sem corpus, os validators `citation_integrity` e `validity_notice` já ficam ativos no pack `scouting`? → A: Não. Na Fase 4 os dois são implementados por completo e testados com fixtures de Turn View que trazem `generation_context` sintético; o `pack.py` (101) só os publica na Fase 5, junto com o retriever e a sintaxe de citação no prompt (FR-007; FR-010 da 101). Sem corpus, todas as respostas seriam "não fundamentadas", e o aviso repetiria o que o prompt da Fase 4 já manda dizer.
+- Q: Citação válida de trecho com status de vigência vazio ou desconhecido conta como vigente (FR-004)? → A: Não. Só `vigente` dispensa aviso. Status vazio ou fora dos valores da 102 recebe o aviso "vigência não confirmada"; `revogado`, `substituído` e `rascunho` recebem o aviso nomeando documento e status (princípio VII).
+- Q: Como as citações válidas aparecem no texto entregue: `[[id]]`, referência numerada ou fora do texto? → A: Cada citação válida vira `[n]`, numerada pela ordem da primeira aparição — a mesma ordem da lista de citações; a repetida reaproveita o número; as inválidas saem do texto. A lista estruturada (`citations`) traz a proveniência de cada `[n]`.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Citação inventada nunca chega ao usuário (Priority: P1)
@@ -81,7 +89,8 @@ Cada citação sobrevivente carrega documento, versão, status, seção e págin
 
 ### Edge Cases
 
-- A mesma citação repetida: deduplicada na lista, mantida no texto.
+- A mesma citação repetida: deduplicada na lista, mantida no texto com o mesmo número `[n]`.
+- Trecho citado sem status de vigência (ou com status fora de `vigente`, `revogado`, `substituído`, `rascunho`): aviso de "vigência não confirmada" — nunca tratado como vigente.
 - Identificador com variação de formatação (espaços, caixa): normalizado antes da comparação, segundo a sintaxe definida no design.
 - Resposta que não usa a sintaxe de citação: tratada como sem citações → "não fundamentada".
 - Validator nunca chama modelo (garantido pelo contrato 001: o contexto de validator não expõe modelos).
@@ -93,9 +102,11 @@ Cada citação sobrevivente carrega documento, versão, status, seção e págin
 - **FR-001**: O validator de integridade DEVE extrair as citações da resposta segundo a sintaxe definida para o pack.
 - **FR-002**: Cada citação DEVE ser comparada ao conjunto de identificadores entregues à geração (Turn View); as não correspondentes DEVEM ser removidas e registradas.
 - **FR-003**: Sem citações válidas, a resposta DEVE receber a marcação "não fundamentada" e um aviso visível.
-- **FR-004**: Citação válida de documento não vigente DEVE resultar em aviso explícito na resposta, acrescentado pelo validator quando ausente.
+- **FR-004**: Citação válida de documento não vigente DEVE resultar em aviso explícito na resposta, acrescentado pelo validator quando ausente. Só o status `vigente` dispensa o aviso; status vazio ou desconhecido recebe o aviso de "vigência não confirmada" (clarificação de 2026-10-07).
 - **FR-005**: As citações sobreviventes DEVEM carregar documento, versão, status, seção e página.
+- **FR-009**: No texto entregue, cada citação válida DEVE aparecer como `[n]`, numerada pela ordem da primeira aparição e na mesma ordem da lista de citações (repetida reaproveita o número); marcadores de citação inválida DEVEM sair do texto (clarificação de 2026-10-07).
 - **FR-006**: Os validators DEVEM ser determinísticos e não chamar modelos.
+- **FR-008**: Na Fase 4 os validators DEVEM existir no pacote do pack, completos e testados com Turn Views sintéticas, e NÃO DEVEM ser publicados pelo pack; a publicação (pelo `pack.py` da 101) acontece na Fase 5, com a recuperação e a sintaxe de citação nas instruções (clarificação de 2026-10-07).
 - **FR-007**: As instruções do pack (101) DEVEM ensinar ao modelo a sintaxe de citação.
 
 ### Key Entities
