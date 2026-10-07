@@ -194,6 +194,7 @@ ai-scouting/                                   # submódulo → CaioFerreiraB/ai
     │   ├── pdfs.py                            # geração de PDFs sintéticos com fpdf2 (norma, manual, sem texto)
     │   └── make_corpus.py                     # corpus de demonstração do quickstart
     └── rag/
+        ├── test_vocabulary.py                 # ids de ramo e tipo do léxico (101) = BRANCHES e DocumentType
         ├── index/
         │   ├── test_filters.py                # tabela da semântica R5
         │   ├── test_conformance.py            # suíte do seam + IndexWriter + DocumentStore: memória, Qdrant local, servidor
@@ -201,6 +202,7 @@ ai-scouting/                                   # submódulo → CaioFerreiraB/ai
         │   ├── test_bm25.py                   # suíte do SparseEncoder
         │   └── test_model.py                  # IndexedChunk.to_chunk, IndexVersion.compatible_with
         └── ingestion/
+            ├── test_clock.py                  # suíte do Clock: SystemClock e FixedClock
             ├── test_catalog.py                # FR-011: campos faltantes, inválidos, desconhecidos
             ├── test_lineage.py                # FR-007, FR-008, SC-003; erros de linhagem
             ├── test_text.py                   # limpeza
@@ -222,7 +224,7 @@ e escrita no índice (R16) e o `pack.py` como composition root também do proces
 |---|---|
 | 103 (Fase 5) | Importa só `ai_scouting.rag.index.api`. Monta `IndexFilters` a partir do `retrieval_filters` da 101 (mesmas chaves: `effective_from`, `effective_until`, `include_superseded`, `previous_version`, `branch`, `document_types`; `topics` não chega ao índice). `search` já devolve só o que passa nos filtros, com `score` de RRF (por posição), ordenado e com desempate por `chunk_id`; `IndexUnavailable` e `IndexMismatch` são os erros explícitos da FR-007 dela. `IndexedChunk.to_chunk()` dá o `Chunk` da 001 |
 | 104 (Fase 5) | `status` é um de `vigente`, `revogado`, `substituido`, `rascunho` (ASCII — o que ela já compara dobrado); `STATUS_LABELS` tem a forma com acento para o aviso. `Chunk.document` é o título do catálogo; o `chunk_id` não tem espaço nem colchete. Um antecessor ainda em vigor por datas, com sucessor de vigência futura, chega `substituido` (R4) |
-| 101 US5 (Fase 5) | `retrievers()` monta `QdrantIndex(client, index_name, E5Embedder(dir), Bm25Encoder())` com a configuração da instalação (URL, chave, nome do índice, diretório do modelo — mesmas variáveis da CLI ou o `config_schema` do pack, decisão dela). Os ids de tipo e de ramo do léxico precisam continuar iguais a `DocumentType` e `BRANCHES` (um teste de consistência no pack) |
+| 101 US5 (Fase 5) | `retrievers()` monta `QdrantIndex(client, index_name, E5Embedder(dir), Bm25Encoder())` — `index_name` é a coleção que o `NamedRetriever` declara e o grant concede — com a configuração da instalação (URL, chave, nome do índice, diretório do modelo — mesmas variáveis da CLI ou o `config_schema` do pack, decisão dela). Os ids de tipo e de ramo do léxico precisam continuar iguais a `DocumentType` e `BRANCHES` (um teste de consistência no pack) |
 | 106 (Fase 8) | Lê chunks por `get(chunk_ids)` e o modelo; não precisa de nada novo |
 | 105 (Fase 6) | Compara embedders e estratégias trocando o adapter de `Embedder` ou a `ChunkingPolicy` e rodando `reindex`; a versão do índice registra o que foi medido |
 | Instalação (`agentic-deploy`, 002 US5) | Runtime precisa do diretório do modelo (`ai-scouting-corpus model fetch` no estágio `packs`, copiado para o `runtime`) e de um Qdrant ao lado do core; nada disso nesta passada |

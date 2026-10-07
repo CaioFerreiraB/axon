@@ -110,8 +110,8 @@ O texto original de cada documento permanece armazenado e recuperável; chunks s
 - PDF escaneado sem camada de texto: sinalizado e rejeitado na v1 (OCR fora de escopo).
 - Documento de tipo normativo sem nenhuma unidade (artigo ou regra) reconhecível: tratado como narrativo, com aviso no relatório da ingestão.
 - Dois documentos vigentes na mesma linhagem: a ingestão rejeita e pede resolução ao curador.
-- Metadado obrigatório ausente: documento rejeitado com lista de campos faltantes.
-- Modelo de embedding da consulta diferente do registrado no índice (pesos atualizados, adapter trocado sem reindexar): busca densa recusada, nomeando os dois modelos (FR-012).
+- Metadado obrigatório ausente: documento rejeitado com lista de campos faltantes; como toda rejeição, impede a execução inteira (FR-011).
+- Modelo de embedding da consulta diferente do registrado no índice (pesos atualizados, adapter trocado sem reindexar): busca recusada, nomeando os dois modelos (FR-012).
 
 ## Requirements *(mandatory)*
 
@@ -123,12 +123,12 @@ O texto original de cada documento permanece armazenado e recuperável; chunks s
 - **FR-004**: Material narrativo DEVE ser dividido em janelas que respeitam fronteiras semânticas, com tamanho configurável.
 - **FR-005**: Cada chunk DEVE ter identificador estável e determinístico, derivado de documento, versão, seção e página.
 - **FR-006**: Cada chunk DEVE carregar os metadados da tabela do design (documento, tipo, título, ramo, jurisdição, capítulo, seção, subseção, página, artigo, versão, datas, substituição, status).
-- **FR-007**: O modelo de vigência DEVE registrar versão, início e fim de vigência, documento sucessor e status (`vigente`, `revogado`, `substituído`, `rascunho`). A vigência é do documento inteiro: todos os chunks de uma versão compartilham a vigência dela. Alteração parcial (uma resolução que muda algumas regras) entra como nova versão consolidada da linhagem e como documento próprio da resolução; vigência por artigo ou regra está fora do escopo.
+- **FR-007**: O modelo de vigência DEVE registrar versão, início e fim de vigência, documento sucessor e status (`vigente`, `revogado`, `substituído`, `rascunho` — no índice, ids ASCII: `substituido`). A vigência é do documento inteiro: todos os chunks de uma versão compartilham a vigência dela. Alteração parcial (uma resolução que muda algumas regras) entra como nova versão consolidada da linhagem e como documento próprio da resolução; vigência por artigo ou regra está fora do escopo.
 - **FR-008**: Ingerir um sucessor DEVE atualizar o antecessor; no máximo um documento vigente por linhagem.
 - **FR-009**: O texto original DEVE ser preservado e recuperável a partir de qualquer chunk.
 - **FR-010**: A reindexação DEVE ser idempotente e registrar a versão do índice (estratégia de chunking + modelo de embedding, identificado pelo nome e pela impressão digital dos pesos).
-- **FR-012**: A busca DEVE codificar a pergunta com o mesmo modelo de embedding registrado na versão do índice; com um modelo diferente, a busca densa DEVE ser recusada, e a falha DEVE nomear os dois modelos (falha fechada, princípio VII).
-- **FR-011**: A ingestão DEVE ler os metadados do catálogo do corpus — uma entrada por documento, com arquivo (caminho relativo ao catálogo), `document_id` da linhagem, versão, tipo, título, ramo, jurisdição, datas de vigência e a versão que ele substitui (`supersedes`) — e DEVE rejeitar a entrada sem metadado obrigatório, listando os campos faltantes.
+- **FR-011**: A ingestão DEVE ler os metadados do catálogo do corpus — uma entrada por documento, com arquivo (caminho relativo ao catálogo), `document_id` da linhagem, versão, tipo, título, ramo, jurisdição, datas de vigência e a versão que ele substitui (`supersedes`) — e DEVE rejeitar a entrada sem metadado obrigatório, listando os campos faltantes. Qualquer rejeição impede a execução inteira: nada é aplicado e o índice publicado fica como estava.
+- **FR-012**: A busca DEVE codificar a pergunta com o mesmo modelo de embedding (e o mesmo codificador esparso) registrado na versão do índice; com um diferente, a busca DEVE ser recusada, e a falha DEVE nomear os dois (falha fechada, princípio VII).
 
 ### Key Entities
 

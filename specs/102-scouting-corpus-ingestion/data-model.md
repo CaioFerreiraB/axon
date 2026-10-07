@@ -140,7 +140,7 @@ Predicado puro `matches(filters, chunk) -> bool` em `rag/index/domain/filters.py
 
 | Elemento | Forma |
 |---|---|
-| alias | nome do índice (`AI_SCOUTING_INDEX`, default `scouting`) → build publicado |
+| alias | nome do índice (`AI_SCOUTING_INDEX`, default `scouting`) → build publicado. É a "coleção" da spec e do grant (a que o retriever declara) |
 | coleção | `<índice>__<carimbo>`; `metadata = {"index_version": …}` |
 | vetores | `dense` (cosseno, dimensão do embedder), `sparse` (`modifier=IDF`) |
 | ponto de chunk | id `uuid5(NAMESPACE_CHUNK, chunk_id)`; payload = `IndexedChunk` sem `score` + `kind="chunk"` |

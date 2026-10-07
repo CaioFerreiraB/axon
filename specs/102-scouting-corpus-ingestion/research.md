@@ -187,7 +187,9 @@ seguida de espaço e maiúscula, com uma lista curta de abreviações que não t
 `Sr.`, `Sra.`, `p.`, `ex.`, `etc.`). Empacotamento guloso de parágrafos até o máximo; parágrafo maior que o máximo
 divide-se em frases; frase maior que o máximo fica inteira (nunca se corta frase). Tamanho em **tokens estimados**
 (`⌈caracteres/4⌉`, como a estimativa do core); defaults `300–600` (faixa do design.md); sem sobreposição. A janela que
-fecha uma seção pode ficar abaixo do mínimo (fronteira semântica vence o tamanho).
+fecha uma seção pode ficar abaixo do mínimo (fronteira semântica vence o tamanho). "Configurável" (FR-004) é pela
+composição: o `pack.py` e o harness da 105 passam a `ChunkingPolicy`; a CLI usa os defaults, e o curador não ajusta
+número sem medição (princípio X).
 
 **Rationale**: "nenhum chunk corta frase" é verificável por construção; a estimativa por caracteres não acopla o
 chunking ao tokenizador do modelo de embedding (que é adapter e pode mudar). Os números entram na identidade da
@@ -253,7 +255,8 @@ gravados na versão do índice para a 105 medir (princípio X).
 ## R12 — Layout no Qdrant (verificado)
 
 **Decision**: um **build** do índice é uma coleção Qdrant; o nome configurado do índice (default `scouting`) é um
-**alias** para o build publicado. Na coleção: vetores nomeados `dense` (cosseno, dimensão do embedder) e `sparse`
+**alias** para o build publicado. Esse nome é a "coleção" da spec, a que o retriever declara (`NamedRetriever.collections`,
+101) e a que o Assistant concede no grant; a coleção Qdrant de cada build é detalhe do adapter. Na coleção: vetores nomeados `dense` (cosseno, dimensão do embedder) e `sparse`
 (`modifier=IDF`); `metadata` da coleção = a versão do índice (R14); pontos de **chunk** (com os dois vetores; payload =
 todos os campos do `IndexedChunk` + `kind: "chunk"` + `doc_key`) e pontos de **documento** sem vetor (payload = o
 registro do documento com as páginas originais + `kind: "document"`; R15). Índices de payload: `keyword` em `kind`,
@@ -355,7 +358,7 @@ Postgres (R12); guardar o PDF no Qdrant (binário de MBs no payload sem consumid
 | `Embedder` | `rag/index/ports.py` | `E5Embedder` (`adapters/e5.py`) | `HashingEmbedder` (determinístico, saco de palavras com hash) | suíte de forma (dimensão, norma 1, determinismo, prefixo pergunta ≠ passagem); contra o e5 real só com `AI_SCOUTING_EMBEDDING_DIR` |
 | `SparseEncoder` | `rag/index/ports.py` | `Bm25Encoder` (`adapters/bm25.py`) | o próprio `Bm25Encoder` (puro, sem I/O) | suíte de forma (ids estáveis, números preservados, acentos dobrados) |
 | `DocumentParser` | `rag/ingestion/ports.py` | `PdfiumParser` (`adapters/pdfium.py`) | `MemoryParser` (páginas dadas por caminho) | PDFs sintéticos gerados com `fpdf2` nos testes: texto por página, sha256, documento sem texto |
-| `Clock` | `rag/ingestion/ports.py` | relógio do sistema (UTC) | relógio fixo | trivial |
+| `Clock` | `rag/ingestion/ports.py` | `SystemClock` (UTC) | `FixedClock` | suíte curta: UTC, nunca anda para trás, o fixo é fixo |
 
 As portas de codificação e de escrita ficam em `rag/index/ports.py` (o design.md as listava em `ingestion/ports.py`):
 o `ChunkIndex` codifica a pergunta com o mesmo embedder da ingestão, e escrita, leitura e originais são o mesmo
@@ -396,7 +399,7 @@ pack é decisão da US5 da 101); um arquivo de configuração próprio (sem caso
 
 | Contrato | Regra |
 |---|---|
-| camadas do índice | `rag.index.adapters` → (`rag.index.ports` \| `rag.index.domain`) → `rag.index.api` |
+| camadas do índice | `rag.index.adapters` → `rag.index.domain` → `rag.index.ports` → `rag.index.api` (o domínio usa os tipos das portas) |
 | camadas da ingestão | `rag.ingestion.adapters` → `rag.ingestion.service` → (`rag.ingestion.ports` \| `rag.ingestion.domain`) |
 | `api.py` do índice não importa o resto do índice nem a ingestão | `forbidden` |
 | infraestrutura só em `adapters/` | `qdrant_client`, `onnxruntime`, `tokenizers`, `numpy`, `snowballstemmer`, `pypdfium2`, `yaml` proibidos em `rag.*.api`, `rag.*.domain`, `rag.*.ports`, `rag.ingestion.service` |
