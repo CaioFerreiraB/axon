@@ -173,6 +173,21 @@ agentic`, `controller` e `mcp`; `packs: [generic]` sem `flow` segue no `chat`. O
 em `tests/bootstrap/integration/test_generic_agentic_mcp.py`; `test_generic_agentic_real.py` repete com um Ollama de
 verdade, só com `OLLAMA_BASE_URL`.
 
+**Fase 4 em andamento.** A tag `contracts-v0.1.0` existe (ADR-021), e o pack de domínio `ai-scouting` (spec 101,
+Fase 4: US1–US3) mora no submódulo `ai-scouting/` (repositório privado `CaioFerreiraB/ai-scouting`): pack `scouting`
+0.1.0, dependendo só de `ai-core-contracts>=0.1,<0.2`, resolvido pela tag por SSH. Na Fase 4 o manifest declara só nome
+e versão (o `rag_first`, a coleção e o esquema de configuração chegam na Fase 5, com a US5); o prompt manda declarar
+que nenhum documento foi consultado e nunca citar documento (FR-011); e `prepare_context` é uma derivação pura de
+(pergunta, dia de referência, léxico) — ramo, temas, tipos de documento e vigência como **intervalo**, com consulta
+histórica (`include_superseded`, `previous_version`) —, publicada em `context` e `retrieval_filters`. O dia de
+referência é o de Brasília (UTC−03:00 fixo; o core entrega UTC). O léxico (`context/lexicon.py`) é dado em código; a
+semente foi aprovada como primeira versão. A suíte padrão roda só com os contratos (SC-003); a integração com a
+plataforma fica no grupo opcional `platform` (o `ai-core` pela mesma tag, Python 3.14) e usa só a superfície da 011
+para packs externos (variáveis `AI_CORE_*` e `platform(profile="test")`). Rode dentro de `ai-scouting/`:
+`uv run pytest && uv run mypy && uv run ruff check && uv run lint-imports`, e a integração com
+`uv run --python 3.14 --group platform pytest tests/integration`. Código do pack é commitado no `ai-scouting`; aqui, o
+SDD e o ponteiro do submódulo. Faltam na fase: o esqueleto da 104 e a US5 da 002 (build da instalação).
+
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
 true }`, suíte de conformidade nos próprios testes e zero import do core (import-linter, nas duas direções). Ele é

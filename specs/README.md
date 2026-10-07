@@ -183,7 +183,7 @@ Ao criar spec nova, use o próximo número livre **dentro do bloco** (ver [CLAUD
 | [009](009-core-observability-evaluation/spec.md) | Trace (Trace Sink) e harness de avaliação | `ai_core/observability`, `ai_core/eval` | 1–6 | Fase 1 implementada (US1: trace e Trace Sink); harness na Fase 6 |
 | [010](010-core-generic-pack/spec.md) | Pack genérico de referência | `ai-generic` (`packages/generic`) | 1, 3 | Fases 1 e 3 implementadas (US1, US2); FR-005 decidida: continua pack, sem flow preferido |
 | [011](011-core-bootstrap/spec.md) | Bootstrap e composition root: configuração, perfis de adapters, ordem de boot, CLI, health | `ai_core/bootstrap` | 1, 2, 3 | Fases 1 e 2 implementadas (US1–US5: perfis `memory`, `persistent` e `test`, autenticação real, CLI `ai-core`, saúde agregada); Fase 3: registry MCP e gateway de tools nos três perfis, `agentic`, `ai-core audit`, saúde por servidor MCP, trocas de porta |
-| [101](101-scouting-pack/spec.md) | Pack scouting: composição, contexto determinístico, prompts | `ai_scouting/pack.py`, `context/`, `prompts/` | 4 | Draft |
+| [101](101-scouting-pack/spec.md) | Pack scouting: composição, contexto determinístico, prompts | `ai_scouting/pack.py`, `context/`, `prompts/` | 4, 5 | Fase 4 implementada (US1, US2, US3) no submódulo `ai-scouting` (ADR-021); US4 e US5 na Fase 5 |
 | [102](102-scouting-corpus-ingestion/spec.md) | Ingestão, chunking estrutural, modelo de vigência, índice | `ai_scouting/rag/ingestion/`, `rag/index/` | 5 | Draft |
 | [103](103-scouting-retrieval/spec.md) | Retrieval híbrido e rerank | `ai_scouting/rag/retrieval/` | 5 | Draft |
 | [104](104-scouting-citations/spec.md) | Citações, proveniência e aviso de vigência | `ai_scouting/validators/` | 4–5 | Draft |

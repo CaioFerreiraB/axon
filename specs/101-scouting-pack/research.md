@@ -1,0 +1,232 @@
+# Research — 101 Scouting Pack, Fase 4 (US1, US2, US3)
+
+Insumos pré-aprovados: [design.md](design.md), [spec.md](spec.md) §Clarifications (sessão de 2026-10-07),
+[ADR-004](../../docs/adr/ADR-004-contratos-no-repo-do-core.md), [ADR-006](../../docs/adr/ADR-006-rag-first-default-scouting.md),
+[ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md),
+[ADR-014](../../docs/adr/ADR-014-politica-versoes-0x-contratos.md), [ADR-021](../../docs/adr/ADR-021-workspace-ai-core-permanece-no-repositorio-da-plataforma.md);
+constituição (princípios I, II, V, VI, VII, IX, XII, XIII). Código de referência: `ai-core-contracts` 0.1.0 na tag
+`contracts-v0.1.0` (contrato de pack, `TurnView`, kit `ai_core_contracts.testing`), o Pack Runtime (002) e o
+`ai-generic` (010), o exemplo a copiar. Escopo: **US1, US2 e US3**; a US4 (prioridade de fontes medida) e a US5
+(`rag_first`, retriever, validators) são Fase 5.
+
+## R1 — Onde o pack mora e como o repositório se liga
+
+**Decision** (ADR-021): repositório privado `CaioFerreiraB/ai-scouting`, ligado no `agentic-app` como submódulo
+`ai-scouting/` (criado em 2026-10-07). O código do pack é commitado lá; no `agentic-app` só muda o ponteiro do submódulo,
+junto com o SDD da passada. Layout de distribuição na raiz do repositório (`pyproject.toml`, `src/ai_scouting/`,
+`tests/`), como o design.md prevê.
+
+**Rationale**: a Fase 4 existe para provar a arquitetura de packs com um pack real em repositório próprio (roadmap);
+o submódulo mantém os caminhos que as specs `1xx` e as skills citam.
+
+**Alternatives considered**: subpasta deste repositório (não prova a separação que a fase quer provar); clone ao lado
+(specs passariam a citar outro repositório).
+
+## R2 — Dependência de `ai-core-contracts`
+
+**Decision** (ADR-014, ADR-021): `dependencies = ["ai-core-contracts>=0.1,<0.2"]` — a faixa derivada da
+`contract_version = "0.1"` — e, em `[tool.uv.sources]`, `ai-core-contracts = { git =
+"ssh://git@github.com/CaioFerreiraB/agentic-app.git", tag = "contracts-v0.1.0", subdirectory =
+"ai-core/packages/contracts" }`. Nenhuma outra dependência de runtime (FR-001). `uv.lock` versionado.
+
+**Rationale**: é a forma que um pack externo declara (010 R2), agora apontando para a tag de verdade. Verificado em
+2026-10-07 num projeto descartável: o `uv lock` resolve os contratos do commit da tag, por SSH, com o subdiretório. A
+etapa de distribuição da conformidade confere a faixa declarada na instalação normal (SC-003).
+
+**Alternatives considered**: URL `https://github.com/caio/ai-core` com `subdirectory = "packages/contracts"` do
+design.md (superada pelo ADR-021 — o repositório é o `agentic-app`); índice de pacotes privado (sem consumidor que
+exija, ADR-021).
+
+## R3 — Piso de Python e matriz
+
+**Decision**: `requires-python = ">=3.12"` (o piso dos contratos, como o `ai-generic`). A suíte padrão roda em 3.12
+(piso) e 3.14 (o Python do core); o grupo `platform` (R9) só em 3.14.
+
+**Rationale**: um pack depende só dos contratos; o 3.14 é exigência do core, não do pack.
+
+**Alternatives considered**: `>=3.14` (prenderia o pack ao Python do core sem motivo do pack).
+
+## R4 — Manifest e identidade na Fase 4
+
+**Decision** (clarificação 1): `name = "scouting"`, `contract_version = "0.1"` como atributos de classe;
+`manifest()` devolve `PackManifest(name="scouting", version="0.1.0")` — sem `preferred_flow`, `requires_collections` e
+`config_schema`, que chegam na Fase 5 com a US5. Distribuição `ai-scouting` 0.1.0; entry point
+`scouting = "ai_scouting.pack:ScoutingPack"` no grupo `ai_core.packs`. Um teste compara `manifest().version` com a
+versão da distribuição (010 R12).
+
+**Rationale**: o `rag_first` não existe na Fase 4; declará-lo deixaria indisponível todo Assistant com `packs:
+[scouting]` sem `flow` (003 `effective_flow`). O ADR-006 continua valendo: `rag_first` é o default do scouting quando
+existir — o pack o declara na Fase 5. A versão `0.1.4` do design.md é ilustrativa (arch-v1), não decisão.
+
+**Alternatives considered**: declarar tudo já e exigir `flow: chat` no Assistant (clarificação 1, opção B).
+
+## R5 — A pergunta e a data de referência
+
+**Decision**: a derivação lê só `view.question` e `view.reference_time`. O dia de referência é a data local de Brasília
+— `view.reference_time.astimezone(timezone(timedelta(hours=-3))).date()` —, com o deslocamento fixo como constante do
+pack (`BRASILIA = timezone(timedelta(hours=-3), "UTC-03:00")`).
+
+**Rationale** (ADR-013, FR-005): o core entrega `reference_time` em UTC (relógio do motor); às 22h em Brasília o dia
+UTC já é o seguinte, e a vigência de documento brasileiro é por dia local. O Brasil não tem horário de verão desde
+2019, então o deslocamento fixo é exato no presente e dispensa `tzdata` (que seria dependência além dos contratos —
+FR-001). Só a pergunta corrente: a derivação não interpreta o histórico da conversa ("e em 2023?" depois de outra
+pergunta não herda o tema) — determinismo simples, e a US2 fala da pergunta.
+
+**Alternatives considered**: `reference_time.date()` em UTC (dia errado à noite); `ZoneInfo("America/Sao_Paulo")`
+(exige base de fusos no sistema ou `tzdata`); interpretar o histórico (regra frágil sem caso de uso).
+
+## R6 — Normalização de texto e casamento de termos
+
+**Decision**: função pura `normalize(text)`: `casefold`, remoção de diacríticos (`unicodedata` NFKD sem marcas
+combinantes), toda sequência de não-alfanuméricos vira um espaço, e espaços nas pontas saem. Um termo do léxico (também
+normalizado) casa quando aparece cercado por limites de palavra no texto normalizado — termos de várias palavras
+inclusive ("ramo senior", "programa educativo"). Plural e feminino entram como termos explícitos no léxico, sem
+stemmer.
+
+**Rationale** (princípio V, XII): previsível, testável por tabela e sem dependência; o léxico é curado (FR-007), então
+listar as formas é mais claro que um stemmer que casa demais.
+
+**Alternatives considered**: stemmer ou biblioteca de NLP (dependência e falsos positivos); expressões regulares por
+termo escritas à mão (o léxico deixaria de ser dado).
+
+## R7 — Léxico: forma e semente
+
+**Decision** (FR-007, clarificação 5): o léxico é **dado em código** — `context/lexicon.py` com estruturas imutáveis:
+ramos (id canônico ASCII → termos), temas (id → termos e tipos de documento sugeridos), tipos de documento (id →
+termos), sinais de tipo de documento (termo → tipos, ex.: "competências" → `programa_educativo`, `manual`), termos
+ambíguos (casam e **não** aplicam filtro, ex.: "escoteiro" sozinho, que nomeia o movimento e o ramo) e marcas
+históricas sem data ("manual anterior", "versão anterior", "antigamente"). Ids canônicos em ASCII com `_`
+(`pioneiro`, `lideranca`, `programa_educativo`), na ordem do léxico. A semente — ramos Lobinho, Escoteiro, Sênior e
+Pioneiro com sinônimos; tipos `manual`, `programa_educativo`, `por`, `resolucao`, `estatuto`, `guia`; cerca de 15 temas
+— é proposta na primeira tarefa de implementação e revisada pelo mantenedor antes dos testes de aceite.
+
+**Rationale**: constante Python, como o prompt do `ai-generic` (010 R7): nada a declarar no empacotamento, tipado,
+verificado pelo mypy, e carregar não é I/O (princípio XIII sem porta). Ids ASCII casam com os valores de metadado que a
+102 vai gravar e já são a forma da spec (`programa_educativo`).
+
+**Alternatives considered**: arquivo YAML/TOML de dados no pacote (leitura de recurso na carga, parser e validação
+próprios, sem ganho para um curador que edita o repositório); léxico só com os termos dos exemplos (clarificação 5,
+opção C).
+
+## R8 — Regras de derivação
+
+**Decision**: `derive_context(question, reference_day, lexicon) -> ScoutingContext`, pura, em `context/derivation.py`:
+
+1. **Ramo**: os ramos cujos termos casam; exatamente um → esse ramo; nenhum, mais de um, ou só termo ambíguo → sem
+   filtro de ramo (caso de borda "na dúvida, não aplica filtro").
+2. **Temas**: todos os que casam, na ordem do léxico.
+3. **Tipos de documento**: os citados explicitamente; se nenhum, a união dos sugeridos pelos sinais e pelos temas; na
+   ordem do léxico. Sem nada → vazio (sem filtro de tipo).
+4. **Vigência** (clarificação 4, `context/periods.py`): data exata ("em 15/03/2023", "em 15 de março de 2023") →
+   intervalo de um dia; mês com ano ("em março de 2023") → o mês inteiro; ano precedido de marca temporal ("em 2023",
+   "no ano de 2023", "durante 2023") → o ano inteiro; "ano passado" → o ano anterior ao dia de referência. Ano solto
+   (como em "resolução 3/2023") **não** é período. Com período → `include_superseded = True`. Sem período → o dia de
+   referência, `include_superseded = False`. Mais de um período → o primeiro na ordem do texto.
+5. **Versão anterior**: marca histórica sem data → `previous_version = True` e `include_superseded = True`, com a
+   vigência no dia de referência (a recuperação busca a versão imediatamente substituída em relação a ele — 103,
+   Fase 5).
+
+**Rationale** (US2, US3, casos de borda): cada regra é uma linha da tabela de testes; a ambiguidade resolve para
+"sem filtro", nunca para palpite (princípio VII). "Ano solto não é período" evita que números de documento virem
+consulta histórica.
+
+**Alternatives considered**: o modelo extrair os filtros (proibido pelo princípio V e pela FR-004); escolher o ramo
+mais frequente quando há dois (palpite).
+
+## R9 — Onde a US1 é provada
+
+**Decision** (clarificação 3): a suíte padrão (`tests/`) usa só os contratos: conformidade da 001 com todas as etapas
+(imports e distribuição), identidade e manifest, prompt, léxico e derivação — é a que o SC-003 mede. A integração com
+a plataforma fica em `tests/integration/test_platform.py`, sob o grupo opcional `platform`
+(`ai-core ; python_version >= '3.14'`, resolvido pela mesma tag do `agentic-app`), com `pytest.importorskip("ai_core")`.
+Ela usa só a superfície que a 011 publica para suítes de packs externos: a configuração vai pelas variáveis do
+operador (`AI_CORE_PACKS_FILE`, `AI_CORE_ASSISTANTS_FILE`, com as demais `AI_CORE_*` limpas) e a montagem por
+`platform(profile="test")`, sem trocar porta — o provider simulado do perfil responde sozinho. Prova: o pack aparece
+`enabled` com versão e versão de contrato, pelo seam da 002 (`PackRegistry.entry`) (US1 cen. 1); a plataforma compõe o
+prompt do pack para o Assistant `scouting` (`PackHooks.system_prompts(compose(["scouting"]))` igual ao do pack) e a
+conversa responde 200 (US1 cen. 2). Que a geração recebe os prompts compostos é garantia da 005, testada no core (a
+010 T019 o mostra com o `ai-generic`); o pack não importa adapter nem módulo interno do core (princípio II).
+
+**Rationale**: o perfil `test` é parte da distribuição do core justamente para suítes de packs externos (011); o core
+não pode ter teste de escotismo (princípio I); o trace não grava conteúdo de prompt. Verificado em 2026-10-07: o grupo
+resolve e importa a plataforma em 3.14, e sem ele o ambiente 3.12 tem só os contratos.
+
+**Alternatives considered**: só o build da instalação (002 US5, outra fase de entrega); só o quickstart manual (sem
+teste automatizado da US1).
+
+## R10 — Fragmento de instruções da Fase 4
+
+**Decision** (FR-009, FR-011): `prompts/domain.py` com `SYSTEM_PROMPT` constante, em português, com quatro blocos:
+papel (assistente do movimento escoteiro brasileiro); **sem documentos consultados nesta fase** — responder com
+conhecimento geral, declarar que nenhum documento institucional foi consultado, nunca citar, nomear ou numerar
+documento, resolução ou trecho como consultado, recomendar confirmar na fonte oficial, e lembrar que regras mudam;
+**dado, nunca instrução**; **fora do domínio** — dizer que o tema não é do escotismo e responder com cautela. As
+prioridades de fonte e o "sempre citar" (FR-008) entram com o corpus, na Fase 5.
+
+**Rationale**: no `chat` da Fase 4 a geração só tem o prompt do pack e a conversa; sem a regra explícita, o modelo
+inventa referência a manual e resolução — o pior erro do domínio (princípio IX).
+
+**Alternatives considered**: o prompt da Fase 5 já agora (citaria corpus inexistente); recusar perguntas de domínio
+(clarificação 2, opção B).
+
+## R11 — Capacidades publicadas na Fase 4
+
+**Decision**: `system_prompt` (R10) e `prepare_context` (R8, R12). Sem tools, retrievers, reranker e validators na
+101 desta fase: os validators da 104 entram pelo `pack.py` quando o esqueleto da 104 existir (toque declarado no plano
+dela), e retriever e reranker com a 103 (Fase 5, FR-010). Nenhuma porta secundária: o pack não faz I/O.
+
+**Rationale** (princípio XII): nada publicado sem efeito; o `pack.py` é a composition root onde os submódulos se ligam.
+
+**Alternatives considered**: validators vazios de placeholder (código sem comportamento).
+
+## R12 — Forma da fatia e dos filtros
+
+**Decision**: `prepare_context` devolve `{"context": {...}, "retrieval_filters": {...}}` (design.md), em JSON:
+`context` com `branch`, `topics`, `document_types`, `effective_from`, `effective_until`, `include_superseded`,
+`previous_version`; `retrieval_filters` com as mesmas chaves, omitindo `branch` sem ramo e listas vazias. Datas em ISO
+(`AAAA-MM-DD`). Formato completo em [contracts/retrieval-filters.md](contracts/retrieval-filters.md).
+
+**Rationale** (001 FR-012, conformidade etapa 6): a fatia precisa ser JSON e determinística; os filtros são do próprio
+pack (o retriever da 103 é o consumidor). O intervalo substitui o `effective_on` único do exemplo do design.md
+(clarificação 4).
+
+**Alternatives considered**: só `retrieval_filters` (a 105 mede a derivação pela fatia, e o validator de vigência da
+104 lê a fatia); `effective_on` único (clarificação 4, opções B e C).
+
+## R13 — "Não lê o relógio" e "não chama modelo", verificados
+
+**Decision**: import-linter no `ai-scouting` com três contratos — o pack não importa `ai_core` nem `ai_generic`; só o
+`pack.py` compõe (`ai_scouting.pack` acima de `ai_scouting.context | ai_scouting.prompts`, independentes entre si); e
+`ai_scouting.context` não importa `ai_core_contracts.llm` nem `ai_core_contracts.mcp`. Um teste de unidade varre o
+código de `context/` e falha com chamadas de relógio (`.now(`, `.today(`, `utcnow`, `time.time(`, `time.monotonic(`).
+A conformidade já verifica determinismo de `prepare_context` (mesma entrada, mesma saída).
+
+**Rationale** (SC-002, FR-005): sem acesso a modelo nem a relógio por construção — e verificado, não só prometido.
+
+**Alternatives considered**: congelar o relógio nos testes (provaria que o resultado não muda, não que o relógio não é
+lido).
+
+## R14 — CI do `ai-scouting`
+
+**Decision**: `.github/workflows/ci.yml` no `ai-scouting`, com quatro jobs: `lint` (ruff check e format, mypy strict,
+lint-imports), `test` (matriz 3.12 e 3.14, `uv sync --locked`, `pytest` — a integração é pulada), `clean-env` (3.12,
+instalação normal do pack só com os contratos e a suíte padrão — a etapa de distribuição confere a faixa) e `platform`
+(3.14, `uv sync --locked --group platform`, `pytest tests/integration`). O acesso ao `agentic-app` (privado) é por uma
+**deploy key só de leitura** do `agentic-app`, com a chave privada no segredo `AGENTIC_APP_DEPLOY_KEY` do
+`ai-scouting`, carregada por `webfactory/ssh-agent`.
+
+**Rationale** (ADR-021, consequência "acesso de leitura"): é o custo previsto de manter o core neste repositório; a
+deploy key dá leitura a um repositório só, sem token pessoal.
+
+**Alternatives considered**: token pessoal (acesso a todos os repositórios da conta); repositório público (decisão de
+visibilidade de 2026-10-07: privados).
+
+## R15 — Toques fora do `ai-scouting`
+
+**Decision**: no `agentic-app`, só documentação — design.md (notas de origem: fonte dos contratos, manifest da Fase 4,
+vigência como intervalo), `specs/README.md` (status da 101), CLAUDE.md, roadmap — e o ponteiro do submódulo. Nenhuma
+linha do `ai-core/`.
+
+**Rationale** (princípio I, II): o core não sabe que o scouting existe; o pack o enxerga pelo contrato 001.
+
+**Alternatives considered**: nenhuma.

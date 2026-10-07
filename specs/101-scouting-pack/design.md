@@ -44,6 +44,11 @@ ai-core-contracts = { git = "https://github.com/caio/ai-core", tag = "contracts-
 
 Em desenvolvimento e CI, os contratos vêm da tag no repositório do core; na instalação, já estão na imagem base.
 
+> Atualizado em 2026-10-07 ([ADR-021](../../docs/adr/ADR-021-workspace-ai-core-permanece-no-repositorio-da-plataforma.md)):
+> o repositório do core é o `agentic-app`, então a fonte é `{ git = "ssh://git@github.com/CaioFerreiraB/agentic-app.git",
+> tag = "contracts-v0.1.0", subdirectory = "ai-core/packages/contracts" }`. A versão `0.1.4` acima é ilustrativa; o pack
+> começa em `0.1.0` ([research.md](research.md) R2, R4).
+
 ## Code pack
 
 ```python
@@ -59,6 +64,9 @@ class ScoutingPack:
             requires_collections=["scouting_docs"],
             config_schema=SCOUTING_CONFIG_SCHEMA,
         )
+
+    # Fase 4 (clarificação de 2026-10-07): o manifest declara só nome e versão; preferred_flow, requires_collections
+    # e config_schema entram na Fase 5, com a US5 (research.md R4).
 
     def system_prompt(self, ctx): ...
     async def prepare_context(self, view, ctx): ...     # [ADR-011] recebe TurnView, retorna a fatia
@@ -96,6 +104,10 @@ Sempre que possível por regra, léxico e metadado — **não** por chamada de L
 ```python
 {"context": {...}, "retrieval_filters": {"branch": "pioneiro", "document_types": [...], "effective_on": "2026-09-10", "include_superseded": False}}
 ```
+
+> Atualizado em 2026-10-07 (clarificação 4): a vigência é um **intervalo** — `effective_from`/`effective_until` no
+> lugar de `effective_on` —, e há `topics` e `previous_version`. Formato em
+> [contracts/retrieval-filters.md](contracts/retrieval-filters.md).
 
 ## Prioridades de fonte
 
