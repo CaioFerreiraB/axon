@@ -42,9 +42,10 @@ Vale para toda chamada com `response_format` do tipo `json_schema`, em **qualque
 - `strict` é forçado para `true`, mesmo que quem chama mande `false`. O `response_format` recebido não é alterado (cópia).
 - No OpenRouter, com `response_format`, o corpo leva também `"provider": {"require_parameters": true}`; sem
   `response_format`, não.
-- O esquema não é reescrito. Se o provider o recusa (por exemplo, `anyOf` na raiz no modo estrito da OpenAI) ou se nenhum
-  upstream do OpenRouter cumpre os parâmetros, a resposta de erro vira `ModelCallFailed` com o código e o corpo
-  truncado — e a chamada **não** é refeita sem a restrição (camada 3).
+- O esquema não é reescrito — **salvo** na OpenAI e nos modelos `openai/…` do OpenRouter, que recebem a conversão para o
+  subconjunto estrito (seção abaixo, ADR-023). Se o provider recusa o esquema ou se nenhum upstream do OpenRouter cumpre
+  os parâmetros, a resposta de erro vira `ModelCallFailed` com o código e o corpo truncado — e a chamada **não** é
+  refeita sem a restrição (camada 3).
 
 ## Mensagens de erro
 
@@ -79,3 +80,28 @@ Nunca levanta, nunca gera tokens. A lista truncada vale também para o Ollama (l
 Marcada e pulada sem `AI_CORE_OPENROUTER_API_KEY` (e `AI_CORE_OPENAI_API_KEY`, para o caso da OpenAI). Cobre o
 *Independent Test* da US4 — o controller com um esquema de ação recebe resposta parseável segundo o esquema — e a
 sondagem com modelo presente e ausente. Faz chamadas pagas: nunca roda por default ([quickstart.md](../quickstart.md)).
+
+## Subconjunto estrito da OpenAI (2026-10-07, ADR-023)
+
+Para `OpenAIProvider` (sempre) e `OpenRouterProvider` com modelo `openai/…`, com `response_format` do tipo
+`json_schema` (decisões em [research.md](../research.md) R27–R29):
+
+| Na ida (esquema enviado) | Na volta (conteúdo devolvido) |
+|---|---|
+| raiz que não é objeto → `{"type": "object", "properties": {"value": …}, "required": ["value"], "additionalProperties": false}` | `value` desembrulhado |
+| propriedade opcional → obrigatória e anulável | `null` introduzido pela conversão sai; `null` que o original admitia fica |
+| todo objeto com `additionalProperties: false`; `oneOf` → `anyOf`; sem `default`/`examples`/`title`; `const`/`enum` sem `type` ganham o `type` do valor | — |
+| nome de função fora de `^[a-zA-Z0-9_-]{1,64}$` (tools e `tool_calls` da transcrição) → apelido determinístico | `tool_calls` com o nome original |
+
+Sem equivalente estrito (objeto livre, `additionalProperties` aberto, `allOf`, `not`, `if`/`then`/`else`,
+`patternProperties`, nó sem tipo…): `ModelCallFailed(reason="esquema fora do subconjunto estrito da OpenAI: <caminho>:
+<motivo>")` **antes** de qualquer requisição. Com streaming, o conteúdo desfeito sai num pedaço só, antes do final.
+
+| # | Verificação |
+|---|---|
+| 8 | o corpo enviado pela OpenAI tem raiz objeto, todo campo em `required` e `additionalProperties: false`; o `response_format` recebido não muda |
+| 9 | o conteúdo devolvido está na forma do esquema original (sem `value`, sem os `null` introduzidos) e valida contra ele |
+| 10 | esquema sem equivalente estrito → `ModelCallFailed` antes da rede, com o caminho |
+| 11 | OpenRouter: `openai/…` convertido; outro autor (`z-ai/…`) enviado como veio |
+| 12 | nome com namespace (`demo.eco`) sai como apelido válido nas mensagens e nas tools; `tool_call` devolvida com o apelido volta como `demo.eco` |
+

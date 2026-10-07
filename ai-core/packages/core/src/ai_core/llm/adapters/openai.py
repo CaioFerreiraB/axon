@@ -12,3 +12,7 @@ class OpenAIProvider(RemoteProvider):
     NAME = "openai"
     DEFAULT_BASE_URL = "https://api.openai.com/v1"
     CREDENTIAL = "AI_CORE_OPENAI_API_KEY"
+
+    def _follows_openai_rules(self, model: str) -> bool:
+        """É a própria API da OpenAI (ADR-023)."""
+        return True

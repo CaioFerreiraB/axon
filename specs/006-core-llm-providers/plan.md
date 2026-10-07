@@ -325,3 +325,23 @@ as seções "Fase 3" de [contracts/model-router.md](contracts/model-router.md) e
 - VIII: o único lugar onde um terceiro escolheria o modelo (roteador do OpenRouter) é recusado na construção da
   referência.
 - XIII: uma porta nova, por I/O e troca prevista, com adapter em memória e conformidade; o SDK continua só em `adapters/`.
+
+---
+
+# Passada de 2026-10-07: subconjunto estrito da OpenAI (ADR-023)
+
+O adapter da OpenAI (e o do OpenRouter para `openai/…`) converte o esquema de saída para o subconjunto estrito na ida e
+desfaz na volta; a regra é pura, em `llm/domain/strict.py`. Supera a decisão da R19 de não reescrever o esquema e
+retira a pendência da 005, que não muda. Decisões em [research.md](research.md) R27–R31; contrato em
+[contracts/remote-adapters.md](contracts/remote-adapters.md), "Subconjunto estrito da OpenAI".
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| II. Seams | ✅ | Nenhum seam muda: a conversão e a inversa ficam dentro do adapter; quem chama recebe a forma original |
+| V. Determinismo | ✅ | Saída estruturada continua obrigatória; agora também no provider que exige o subconjunto |
+| VII. Falha fechada | ✅ | Sem equivalente estrito → erro antes da rede, com caminho; nunca reenvio sem restrição |
+| XIII. Portas e adapters | ✅ | Regra pura em `domain/`; o SDK só em `adapters/`; nenhuma porta nova |
+
+**Module boundary gate**: `ai_core/llm/domain/strict.py` (novo), `ai_core/llm/adapters/remote.py`, `openai.py`,
+`openrouter.py` e testes em `tests/llm/`; nenhum outro módulo. **Resultado**: PASS.
+

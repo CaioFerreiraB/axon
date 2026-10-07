@@ -7,10 +7,13 @@ sondagem por variante e com lista truncada (R22). US4: a restrição de formato 
 
 from __future__ import annotations
 
+import json
+import re
 from collections.abc import Mapping
 from typing import Any
 
 import httpx2
+import jsonschema
 import pytest
 from llm_testkit import (
     CHAT,
@@ -35,6 +38,8 @@ from ai_core.llm.adapters.openrouter import OpenRouterProvider
 from ai_core.llm.adapters.remote import RemoteProvider
 from ai_core.llm.adapters.secrets import InMemorySecretResolver
 from ai_core.llm.api import ModelCallFailed
+from ai_core.llm.domain.names import function_name
+from ai_core.llm.domain.strict import to_strict
 
 MESSAGES: list[Any] = [{"role": "user", "content": "oi"}]
 
@@ -201,7 +206,9 @@ async def test_strict_forcado(make: Any, extra: dict[str, Any]) -> None:
     assert corpo["type"] == "json_schema"
     assert corpo["json_schema"]["strict"] is True
     assert corpo["json_schema"]["name"] == "acao"
-    assert corpo["json_schema"]["schema"] == ESQUEMA
+    # Na OpenAI, o esquema vai no subconjunto estrito (ADR-023); nos demais, como veio.
+    esperado = to_strict(ESQUEMA).wire if case.name == "openai" else ESQUEMA
+    assert corpo["json_schema"]["schema"] == esperado
     assert enviado == formato(**extra), "o mapeamento recebido não pode mudar"
 
 
@@ -266,3 +273,124 @@ async def test_recusa_da_restricao_sem_reenvio(cls: Any, status: int, mensagem: 
     assert f"erro {status}" in erro.value.reason
     assert mensagem in erro.value.reason
     assert len(transporte.requests) == 1
+
+
+# --- subconjunto estrito da OpenAI (ADR-023; contracts/remote-adapters.md casos 8 a 11; T056) ------------------------
+
+ACAO: dict[str, Any] = {
+    "anyOf": [
+        {"type": "object", "properties": {"action": {"const": "answer"}}, "required": ["action"]},
+        {
+            "type": "object",
+            "properties": {
+                "action": {"const": "tool"},
+                "name": {"const": "clima.previsao"},
+                "arguments": {
+                    "type": "object",
+                    "properties": {"cidade": {"type": "string"}, "dias": {"type": "integer"}},
+                    "required": ["cidade"],
+                },
+            },
+            "required": ["action", "name", "arguments"],
+        },
+    ]
+}
+FORMATO_ACAO: dict[str, Any] = {"type": "json_schema", "json_schema": {"name": "acao", "schema": ACAO}}
+ESTRITO = '{"value": {"action": "tool", "name": "clima.previsao", "arguments": {"cidade": "Natal", "dias": null}}}'
+
+
+def _rotas_estritas(content: str = ESTRITO) -> dict[str, Handler]:
+    def chat(request: httpx2.Request) -> httpx2.Response:
+        if b'"stream":true' in request.content.replace(b" ", b""):
+            return sse_route(sse(delta_chunk(content[:20]), delta_chunk(content[20:]), final_chunk()))(request)
+        return json_route(completion(content=content))(request)
+
+    return {CHAT: chat, MODELS: models_route(MODEL)}
+
+
+@pytest.mark.us4
+@pytest.mark.parametrize(
+    ("cls", "model"),
+    [(OpenAIProvider, "gpt-4.1-nano"), (OpenRouterProvider, "openai/gpt-4.1-nano")],
+    ids=["openai", "openrouter-openai"],
+)
+async def test_estrito_corpo_enviado_e_conteudo_desfeito(cls: Any, model: str) -> None:
+    provider, transporte = build(cls, routes=_rotas_estritas())
+    original = json.loads(json.dumps(FORMATO_ACAO))
+
+    resposta = await provider.chat(MESSAGES, model, response_format=FORMATO_ACAO)
+
+    enviado = transporte.bodies()[-1]["response_format"]["json_schema"]
+    assert enviado["strict"] is True
+    assert enviado["schema"]["type"] == "object"
+    assert enviado["schema"]["required"] == ["value"]
+    ramo_tool = enviado["schema"]["properties"]["value"]["anyOf"][1]
+    assert ramo_tool["properties"]["arguments"]["required"] == ["cidade", "dias"]
+    assert ramo_tool["properties"]["arguments"]["additionalProperties"] is False
+    assert original == FORMATO_ACAO  # o response_format recebido não muda
+
+    acao = json.loads(resposta["message"]["content"] or "")
+    assert acao == {"action": "tool", "name": "clima.previsao", "arguments": {"cidade": "Natal"}}
+    jsonschema.validate(acao, ACAO)
+
+
+@pytest.mark.us4
+async def test_estrito_com_streaming_entrega_o_conteudo_desfeito() -> None:
+    provider, _ = build(OpenAIProvider, routes=_rotas_estritas())
+    pedacos = [
+        chunk
+        async for chunk in await provider.chat(MESSAGES, "gpt-4.1-nano", response_format=FORMATO_ACAO, stream=True)
+    ]
+    texto = "".join(chunk["delta"] for chunk in pedacos)
+    assert json.loads(texto) == {"action": "tool", "name": "clima.previsao", "arguments": {"cidade": "Natal"}}
+    assert pedacos[-1].get("finish_reason") == "stop"
+
+
+@pytest.mark.us4
+@pytest.mark.parametrize("cls", [OpenAIProvider, OpenRouterProvider], ids=["openai", "openrouter"])
+async def test_estrito_sem_equivalente_falha_antes_da_rede(cls: Any) -> None:
+    provider, transporte = build(cls)
+    livre = {
+        "type": "json_schema",
+        "json_schema": {"name": "x", "schema": {"type": "object", "properties": {"a": {"type": "object"}}}},
+    }
+    modelo = "openai/gpt-4.1-nano" if cls is OpenRouterProvider else "gpt-4.1-nano"
+    with pytest.raises(ModelCallFailed) as erro:
+        await provider.chat(MESSAGES, modelo, response_format=livre)
+    assert "subconjunto estrito da OpenAI" in erro.value.reason
+    assert "$.properties.a" in erro.value.reason
+    assert transporte.requests == []
+
+
+@pytest.mark.us4
+async def test_openrouter_de_outro_autor_envia_o_esquema_como_veio() -> None:
+    provider, transporte = build(OpenRouterProvider, routes=_rotas_estritas(content='{"action": "answer"}'))
+    resposta = await provider.chat(MESSAGES, "z-ai/glm-5.3-flash", response_format=FORMATO_ACAO)
+    enviado = transporte.bodies()[-1]["response_format"]["json_schema"]["schema"]
+    assert "anyOf" in enviado and "value" not in json.dumps(enviado)
+    assert resposta["message"]["content"] == '{"action": "answer"}'
+
+
+@pytest.mark.us4
+async def test_nomes_de_funcao_com_namespace_viram_apelido_e_voltam() -> None:
+    apelido = function_name("demo.eco")
+    resposta_com_tool = completion(
+        tool_calls=[{"id": "c1", "type": "function", "function": {"name": apelido, "arguments": "{}"}}]
+    )
+    provider, transporte = build(
+        OpenAIProvider, routes={CHAT: json_route(resposta_com_tool), MODELS: models_route(MODEL)}
+    )
+    transcricao: list[Any] = [
+        {"role": "user", "content": "oi"},
+        {"role": "assistant", "content": None, "tool_calls": [{"id": "c0", "name": "demo.eco", "arguments": "{}"}]},
+        {"role": "tool", "content": "ok", "tool_call_id": "c0"},
+    ]
+    tools: list[Any] = [{"name": "demo.eco", "description": "eco", "parameters": {"type": "object", "properties": {}}}]
+
+    resposta = await provider.chat(transcricao, "gpt-4.1-nano", tools=tools)
+
+    corpo = transporte.bodies()[-1]
+    assert corpo["messages"][1]["tool_calls"][0]["function"]["name"] == apelido
+    assert corpo["tools"][0]["function"]["name"] == apelido
+    assert re.match(r"^[a-zA-Z0-9_-]{1,64}$", apelido)
+    assert [call["name"] for call in resposta["message"].get("tool_calls", ())] == ["demo.eco"]

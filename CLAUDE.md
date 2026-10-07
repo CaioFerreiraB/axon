@@ -162,9 +162,13 @@ automático (`openrouter/auto` e o namespace `openrouter/…`) na construção, 
 instrumentado, com `ModelCall` de erro); o adapter envia `strict: true` e, no OpenRouter, `require_parameters`; recusa
 do provider é `ModelCallFailed`, sem reenvio. A 011 monta `llm_secrets` (ambiente no `memory`/`persistent`, memória
 vazia no `test`) antes de `providers`, que nos dois primeiros perfis tem `ollama`, `openai` e `openrouter`.
-Pendência da 005: o esquema de ação tem `anyOf` na raiz, que o modo estrito da OpenAI recusa — OpenAI como controller
-do `agentic` falha explicitamente até a 005 publicar um esquema de raiz objeto (006 R19). A integração paga
-(`tests/llm/integration/test_remote_real.py`) só roda com as credenciais no ambiente.
+Onde o provider segue as regras da API da OpenAI (`OpenAIProvider` e modelos `openai/…` do OpenRouter —
+`_follows_openai_rules`), o adapter as cumpre por quem chama (ADR-023): o esquema de saída vai no subconjunto estrito
+(`llm/domain/strict.py`: raiz embrulhada em `value`, opcional obrigatório e anulável, `additionalProperties: false`,
+`type` inferido em `const`/`enum`; o que não tem equivalente falha antes da rede) e a conversão é desfeita no conteúdo
+da volta; nomes de função com namespace viram apelidos na ida (`llm/domain/names.py`) e voltam nas `tool_calls`. Com
+isso a OpenAI serve de controller do `agentic` sem mudança na 005 (verificado com `openai/gpt-4.1-nano`). A integração
+paga (`tests/llm/integration/test_remote_real.py`) só roda com as credenciais no ambiente.
 A 010 fechou a fase (US2): o `ai-generic` **continua pack** — a FR-005 é regra permanente, e ele agrega `calculate` e
 `non_empty_answer` além do prompt — e **sem flow preferido** (FR-007): o Assistant genérico com MCP declara `flow:
 agentic`, `controller` e `mcp`; `packs: [generic]` sem `flow` segue no `chat`. O prompt é neutro quanto ao flow

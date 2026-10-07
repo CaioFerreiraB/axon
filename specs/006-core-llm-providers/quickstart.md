@@ -166,7 +166,8 @@ O modelo precisa anunciar `structured_outputs` no OpenRouter (`GET https://openr
 `supported_parameters`): com `require_parameters`, um modelo sem ele é recusado com 404 "No endpoints found that can
 handle the requested parameters" — é a FR-005 funcionando. Em 2026-10-07, `qwen/qwen3-8b` (o default anterior) e as
 variantes `:free` do Gemma 4 não o anunciavam; `~z-ai/glm-flash-latest` passou nos dois testes reais (este e o
-`agentic` da 010).
+`agentic` da 010). Em 2026-10-07, com o subconjunto estrito (ADR-023), `openai/gpt-4.1-nano` via OpenRouter também passou
+nos dois — a OpenAI serve de controller do `agentic`.
 
 ## Como a 011 monta (perfis `memory` e `persistent`)
 

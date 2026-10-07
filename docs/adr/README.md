@@ -27,6 +27,7 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 | [020](ADR-020-segredos-uma-fonte-por-perfil-uma-porta-por-modulo.md) | Segredos: uma fonte por perfil, uma porta por módulo; credencial ausente degrada, não derruba | Aceita | 011, 006, 007 |
 | [021](ADR-021-workspace-ai-core-permanece-no-repositorio-da-plataforma.md) | O workspace `ai-core` permanece no repositório da plataforma (refina o 004) | Aceita | 001, 010, 1xx |
 | [022](ADR-022-instalacao-constroi-o-core-num-estagio-proprio.md) | A instalação constrói o core num estágio do próprio Dockerfile | Aceita | 002 |
+| [023](ADR-023-adapter-da-openai-converte-para-o-subconjunto-estrito.md) | O adapter da OpenAI converte o esquema para o subconjunto estrito, e desfaz a conversão na resposta | Aceita | 006, 005 |
 
 ## Modelo para ADR novo
 

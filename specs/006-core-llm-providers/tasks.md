@@ -452,6 +452,39 @@ Task: "bootstrap/integration/test_providers_remotos.py (T035)"
 
 ---
 
+## Passada de 2026-10-07: subconjunto estrito da OpenAI (ADR-023; research R27–R31)
+
+Caminhos relativos a `ai-core/packages/core/`. Testes primeiro.
+
+- [X] T055 [P] Criar `tests/llm/unit/test_llm_strict.py` (R27, R28): conversão — raiz `anyOf` embrulhada em `value`;
+  opcional → obrigatório e anulável para `type` texto, `type` lista, `enum`, `const` e `anyOf`; `additionalProperties:
+  false` acrescentado; `oneOf` → `anyOf`; anotações removidas; `$defs` na nova raiz com `$ref` preservado; o esquema
+  recebido não muda —; recusas com o caminho na mensagem — objeto livre, `additionalProperties: true`, `allOf`, `if`,
+  `patternProperties`, nó sem tipo —; inversa — desembrulho, `null` introduzido removido, `null` original mantido,
+  ramo de `anyOf` escolhido por chaves e `const` (dois ramos de tool), arrays, conteúdo inválido devolvido como veio —;
+  e a propriedade: para o esquema de ação da 005 (`action_schema` com uma tool de parâmetro opcional), um valor no
+  formato estrito desfeito valida com `jsonschema` contra o esquema original
+- [X] T056 [P] Em `tests/llm/contract/test_remote_providers.py`, casos 8–11 de
+  [contracts/remote-adapters.md](contracts/remote-adapters.md) (marca `us4`): corpo da OpenAI com raiz objeto e tudo em
+  `required`; conteúdo devolvido na forma original; streaming com formato entrega o conteúdo desfeito num pedaço;
+  esquema sem equivalente → `ModelCallFailed` com o caminho e `transport.requests == []`; OpenRouter `openai/gpt-x`
+  convertido e `z-ai/glm` enviado como veio
+- [X] T057 Criar `src/ai_core/llm/domain/strict.py` com `StrictSchemaError`, `StrictPlan` (`wire`, `annotated`,
+  `wrapped`), `to_strict` e `from_strict` (T055 passa)
+- [X] T058 Em `src/ai_core/llm/adapters/remote.py`, `_needs_strict_subset(model) -> bool` (default `False`) e, em `chat`,
+  a conversão do `response_format` de esquema (erro → `ModelCallFailed` antes da rede, `"esquema fora do subconjunto
+  estrito da OpenAI: …"`) e a inversa no conteúdo — completo e com streaming; `OpenAIProvider` → `True`;
+  `OpenRouterProvider` → modelo começando por `openai/` (T056 passa)
+- [X] T059 Verificação a partir de `ai-core/`: `uv run pytest`, `mypy`, `ruff check packages`, `lint-imports`
+- [X] T060 Integração paga, uma execução: `tests/bootstrap/integration/test_generic_agentic_real.py -k openrouter`
+  (o `agentic` real da 010) com `OPENROUTER_MODEL` num modelo `openai/…` hospedado pela OpenAI; registrar o resultado no
+  quickstart
+- [X] T061 [P] Documentação: CLAUDE.md (a pendência da 005 sai; a conversão do subconjunto estrito na 006),
+  `docs/roadmap.md` (a pendência "esquema de ação de raiz objeto" sai das pendências entre specs) e a seção "Com os
+  providers reais" do [quickstart.md](quickstart.md) (a OpenAI como controller)
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

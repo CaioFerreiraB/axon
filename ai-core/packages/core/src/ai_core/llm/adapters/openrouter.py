@@ -27,6 +27,10 @@ class OpenRouterProvider(RemoteProvider):
         base, separator, _variant = model.rpartition(":")
         return bool(separator) and base in ids
 
+    def _follows_openai_rules(self, model: str) -> bool:
+        """Modelos da OpenAI pelo OpenRouter vão a upstream com as regras da API da OpenAI (ADR-023)."""
+        return model.casefold().startswith("openai/")
+
     def _payload(
         self,
         messages: Sequence[ChatMessage],

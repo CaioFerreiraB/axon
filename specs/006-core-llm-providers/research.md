@@ -413,3 +413,68 @@ caem nos contratos de camada que já existem. A 011 já importa `ai_core.llm.ada
 **Rationale**: o contrato da Fase 1 (R13) foi escrito por camada, não por arquivo.
 
 **Alternatives considered**: contrato por arquivo de provider (sem ganho; a camada é a fronteira que importa).
+
+---
+
+# Passada de 2026-10-07: subconjunto estrito da OpenAI (ADR-023)
+
+Insumos: [ADR-023](../../docs/adr/ADR-023-adapter-da-openai-converte-para-o-subconjunto-estrito.md); as regras do modo
+estrito na documentação da OpenAI (Structured Outputs, "Supported schemas": raiz objeto, sem `anyOf` na raiz; todo campo
+em `required`, opcional emulado com `null`; `additionalProperties: false` em todo objeto; sem `allOf`, `not`,
+`dependentRequired`, `if/then/else`; até 10 níveis e 5000 propriedades); o esquema de ação da 005
+(`graph/domain/actions.py`, que já tira `pattern` e troca `$ref` por objeto livre).
+
+## R27 — Regra de conversão (pura)
+
+**Decision**: `llm/domain/strict.py`, `to_strict(schema) -> StrictPlan` (o esquema de envio e um anotado, para a volta):
+em todo nó, `oneOf` → `anyOf`; anotações `default`, `examples`, `title`, `$comment`, `deprecated`, `readOnly`,
+`writeOnly` saem; objeto com `properties` ganha `additionalProperties: false` e todo nome em `required`, e cada
+propriedade que não estava em `required` vira anulável — `type` ganha `"null"` (e `enum`, `null`), `const` e esquema sem
+`type` com `anyOf` ganham o ramo `{"type": "null"}`. Raiz que não é objeto é embrulhada em `value` (com `$defs` na nova
+raiz). Recusa (`StrictSchemaError`, com o caminho JSON do ponto): objeto sem `properties`, `additionalProperties`
+diferente de `false`, `allOf`, `not`, `if`/`then`/`else`, `dependentRequired`, `dependentSchemas`, `patternProperties`,
+`unevaluatedProperties`, `unevaluatedItems`, `propertyNames`, `minProperties`, `maxProperties`, e nó sem `type`, `enum`,
+`const`, `anyOf` nem `$ref`.
+
+**Rationale** (ADR-023): é a emulação de opcional que a própria OpenAI documenta; recusar cedo o que não tem equivalente
+dá erro com caminho, em vez de um 400 genérico.
+
+**Alternatives considered**: deixar o provider recusar (a R19 — sem conversão, a OpenAI nunca serve de controller).
+
+## R28 — Conversão inversa
+
+**Decision**: `from_strict(value, plan)`: desembrulha `value` quando houve embrulho; percorre o valor junto do esquema
+anotado — em `anyOf`, escolhe o primeiro ramo cujo conjunto de chaves é exatamente o do valor e cujos `const`/`enum`
+casam; em objeto, remove a chave com `null` que a conversão tornou anulável (o `null` que o original admitia fica); em
+`array`, percorre os itens; `$ref` local (`#/$defs/…`) é resolvido. Conteúdo que não é JSON volta como veio (a 005 o lê
+como ação inválida).
+
+**Rationale**: o core recebe a forma do esquema original — a objeção da R19 deixa de valer.
+
+## R29 — Onde se aplica
+
+**Decision**: `RemoteProvider` ganha `_needs_strict_subset(model) -> bool` (default `False`); `OpenAIProvider` → sempre;
+`OpenRouterProvider` → modelo começando por `openai/`. Com `response_format` de esquema e o subconjunto exigido, o
+adapter converte antes de montar o corpo (erro → `ModelCallFailed` antes da rede) e desfaz no conteúdo da resposta; com
+streaming, junta os pedaços, desfaz e entrega o conteúdo num pedaço só, antes do final (só o controller usa formato, e
+ele não usa streaming). O `strict: true` (R18) e o `require_parameters` do OpenRouter continuam.
+
+Na mesma condição, os nomes de função (tools e `tool_calls` da transcrição) que não casam com `^[a-zA-Z0-9_-]{1,64}$`
+viram apelidos (`llm/domain/names.py`: prefixo legível e 8 hexadecimais do sha256) na ida e voltam ao nome original nas
+`tool_calls` da resposta; nó com `const`/`enum` sem `type` ganha o `type` inferido do valor. O gancho do adapter é
+`_follows_openai_rules(model)`. Ambas as regras apareceram no teste real com `openai/gpt-4.1-nano` via OpenRouter.
+
+**Rationale** (ADR-023): só onde a regra é exigida — outros providers aceitam esquemas que o subconjunto recusaria.
+
+## R30 — Testes
+
+**Decision**: `tests/llm/unit/test_llm_strict.py` (tabela de conversão, recusas com caminho, inversa, e a propriedade
+"o valor desfeito valida contra o esquema original" com `jsonschema`, inclusive para o esquema de ação da 005 com uma
+tool de parâmetro opcional); em `tests/llm/contract/test_remote_providers.py`, o corpo enviado pela OpenAI e pelo
+OpenRouter `openai/…` (raiz objeto, tudo em `required`), o conteúdo devolvido na forma original, a recusa antes da rede
+e o OpenRouter com outro autor sem conversão; integração paga opcional com o `agentic` real (010) num modelo
+`openai/…` hospedado pela OpenAI via OpenRouter.
+
+## R31 — Nenhum toque fora da 006
+
+**Decision**: a 005 não muda; a pendência "esquema de ação de raiz objeto" sai do roadmap e do CLAUDE.md.
