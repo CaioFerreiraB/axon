@@ -19,11 +19,21 @@
 - **Substituição**: preservar o modelo de chunk indexado, a porta `ChunkIndex` e a estabilidade dos identificadores de chunk; base de vetores, parser, chunker e embeddings podem ser trocados com reindexação (são adapters).
 - **Insumo técnico**: [design.md](design.md); [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md).
 
+## Clarifications
+
+### Session 2026-10-07
+
+- Q: Como o curador informa os metadados de cada documento (tipo, ramo, versão, datas de vigência, qual versão ele substitui) na ingestão? → A: Por um catálogo do corpus (`corpus.yaml`), com uma entrada por documento: arquivo (caminho relativo ao catálogo; os PDFs ficam fora do repositório do pack), `document_id` da linhagem, versão, tipo, título, ramo, jurisdição, datas e `supersedes`. A ingestão processa o catálogo inteiro.
+- Q: Qual modelo de embedding denso a ingestão e a busca usam até a medição da Fase 6 decidir? → A: `multilingual-e5-small`, dentro do processo do pack (ONNX, CPU), na ingestão e na codificação das perguntas — provisório pelo princípio X. O `bge-m3` pelo Ollama (ingestão na GPU do curador, perguntas no CPU do servidor) é o próximo candidato a testar, como outro adapter de `Embedder` com reindexação. O índice registra o modelo que o gerou, e a busca recusa a codificação densa com um modelo diferente.
+- Q: Como a ingestão decide se um documento é normativo (dividido por artigo ou regra) ou narrativo (dividido em janelas)? → A: Pelo tipo do documento no catálogo, numa tabela fixa do pack: `por`, `resolucao` e `estatuto` são normativos; `manual`, `programa_educativo` e `guia` são narrativos. Normativo sem nenhuma unidade reconhecida é tratado como narrativo, com aviso no relatório da ingestão.
+- Q: Quando uma resolução altera só algumas regras do POR, a vigência é controlada por documento inteiro ou por regra? → A: Por documento. A edição consolidada do POR entra como nova versão da linhagem e substitui a anterior inteira; cada resolução é um documento próprio, com vigência própria. Vigência por regra fica fora do escopo da v1.
+- Q: De onde vêm os PDFs do corpus inicial para a primeira ingestão real? → A: Do site oficial da UEB: um conjunto pequeno (POR consolidado, estatuto, uma resolução e um manual de ramo) baixado para uma pasta fora do repositório, com um `corpus.yaml` de rascunho (versões e datas tiradas dos próprios documentos) revisado pelo curador antes da ingestão real.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Curador ingere um documento (Priority: P1)
 
-O curador do corpus submete um documento (PDF). A ingestão extrai a estrutura, gera chunks, enriquece com metadados, calcula representações densa e esparsa e indexa na coleção.
+O curador do corpus registra um documento (PDF) no catálogo do corpus e roda a ingestão. Ela extrai a estrutura, gera chunks, enriquece com os metadados do catálogo, calcula representações densa e esparsa e indexa na coleção.
 
 **Why this priority**: Fase 5; sem corpus não há RAG.
 
@@ -42,7 +52,7 @@ Para material normativo, a unidade é a estrutura: um artigo é um chunk, com pa
 
 **Why this priority**: O chunk fica auto-contido para o modelo e a citação é derivável do próprio chunk.
 
-**Independent Test**: Ingerir uma norma de teste; cada artigo vira exatamente um chunk, com o prefixo completo.
+**Independent Test**: Ingerir uma norma de teste; cada artigo (ou regra) vira exatamente um chunk, com o prefixo completo.
 
 **Acceptance Scenarios**:
 
@@ -98,31 +108,34 @@ O texto original de cada documento permanece armazenado e recuperável; chunks s
 ### Edge Cases
 
 - PDF escaneado sem camada de texto: sinalizado e rejeitado na v1 (OCR fora de escopo).
-- Documento sem estrutura reconhecível: tratado como narrativo.
+- Documento de tipo normativo sem nenhuma unidade (artigo ou regra) reconhecível: tratado como narrativo, com aviso no relatório da ingestão.
 - Dois documentos vigentes na mesma linhagem: a ingestão rejeita e pede resolução ao curador.
 - Metadado obrigatório ausente: documento rejeitado com lista de campos faltantes.
+- Modelo de embedding da consulta diferente do registrado no índice (pesos atualizados, adapter trocado sem reindexar): busca densa recusada, nomeando os dois modelos (FR-012).
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
 - **FR-001**: A ingestão DEVE extrair estrutura, gerar chunks, enriquecer metadados e produzir representações densa e esparsa para cada chunk.
-- **FR-002**: Material normativo DEVE ser dividido por artigo, mantendo parágrafos, incisos e alíneas dentro do chunk do artigo.
+- **FR-002**: Material normativo DEVE ser dividido por artigo (ou regra, a unidade numerada do POR), mantendo parágrafos, incisos e alíneas dentro do chunk da unidade. Normativo ou narrativo decorre do tipo do documento no catálogo, por uma tabela fixa do pack: `por`, `resolucao` e `estatuto` são normativos; `manual`, `programa_educativo` e `guia`, narrativos. Tipo fora da tabela é metadado inválido (FR-011).
 - **FR-003**: Cada chunk normativo DEVE ser prefixado pelo caminho ancestral.
 - **FR-004**: Material narrativo DEVE ser dividido em janelas que respeitam fronteiras semânticas, com tamanho configurável.
 - **FR-005**: Cada chunk DEVE ter identificador estável e determinístico, derivado de documento, versão, seção e página.
 - **FR-006**: Cada chunk DEVE carregar os metadados da tabela do design (documento, tipo, título, ramo, jurisdição, capítulo, seção, subseção, página, artigo, versão, datas, substituição, status).
-- **FR-007**: O modelo de vigência DEVE registrar versão, início e fim de vigência, documento sucessor e status (`vigente`, `revogado`, `substituído`, `rascunho`).
+- **FR-007**: O modelo de vigência DEVE registrar versão, início e fim de vigência, documento sucessor e status (`vigente`, `revogado`, `substituído`, `rascunho`). A vigência é do documento inteiro: todos os chunks de uma versão compartilham a vigência dela. Alteração parcial (uma resolução que muda algumas regras) entra como nova versão consolidada da linhagem e como documento próprio da resolução; vigência por artigo ou regra está fora do escopo.
 - **FR-008**: Ingerir um sucessor DEVE atualizar o antecessor; no máximo um documento vigente por linhagem.
 - **FR-009**: O texto original DEVE ser preservado e recuperável a partir de qualquer chunk.
-- **FR-010**: A reindexação DEVE ser idempotente e registrar a versão do índice (estratégia de chunking + modelo de embedding).
-- **FR-011**: A ingestão DEVE rejeitar documentos sem metadados obrigatórios, listando os campos faltantes.
+- **FR-010**: A reindexação DEVE ser idempotente e registrar a versão do índice (estratégia de chunking + modelo de embedding, identificado pelo nome e pela impressão digital dos pesos).
+- **FR-012**: A busca DEVE codificar a pergunta com o mesmo modelo de embedding registrado na versão do índice; com um modelo diferente, a busca densa DEVE ser recusada, e a falha DEVE nomear os dois modelos (falha fechada, princípio VII).
+- **FR-011**: A ingestão DEVE ler os metadados do catálogo do corpus — uma entrada por documento, com arquivo (caminho relativo ao catálogo), `document_id` da linhagem, versão, tipo, título, ramo, jurisdição, datas de vigência e a versão que ele substitui (`supersedes`) — e DEVE rejeitar a entrada sem metadado obrigatório, listando os campos faltantes.
 
 ### Key Entities
 
+- **Corpus Catalog**: arquivo do curador (`corpus.yaml`) com uma entrada por documento; é a única fonte dos metadados e da relação de substituição. Os PDFs ficam fora do repositório do pack, em caminhos relativos ao catálogo.
 - **Document**: identificador, tipo, título, ramo, jurisdição, versão, datas de vigência, sucessor, status, original.
 - **Chunk**: identificador estável, texto com prefixo ancestral, metadados, representações densa e esparsa.
-- **Index Version**: estratégia de chunking + modelo de embedding + data.
+- **Index Version**: estratégia de chunking + modelo de embedding (nome e impressão digital dos pesos) + data.
 - **Chunk Index**: porta de consulta do índice (busca densa e esparsa com fusão, filtros de vigência e de contexto), consumida por 103 e 106.
 
 ## Success Criteria *(mandatory)*
@@ -133,10 +146,11 @@ O texto original de cada documento permanece armazenado e recuperável; chunks s
 - **SC-002**: Reingerir o mesmo documento produz 0 duplicatas e os mesmos identificadores.
 - **SC-003**: 0 linhagens com mais de um documento vigente.
 - **SC-004**: Uma reindexação completa do corpus inicial conclui dentro da janela de manutenção definida pelo operador (meta a medir).
+- **SC-005**: O corpus inicial real (POR consolidado, estatuto, uma resolução e um manual de ramo), com o catálogo revisado pelo curador, é ingerido sem rejeição, e SC-001 a SC-003 valem nele.
 
 ## Assumptions
 
 - Ingestão é offline, disparada pelo curador/operador; não há ingestão de longa duração que exija motor de workflow (ADR-010).
-- Modelo de embedding decidido por medição na Fase 5/6 (candidatos no design); a escolha não altera o modelo de chunk indexado nem a porta `ChunkIndex` — cada candidato é um adapter de embedding.
+- Modelo de embedding decidido por medição na Fase 6 (candidatos no design); até lá, `multilingual-e5-small` dentro do processo, e o `bge-m3` pelo Ollama é o próximo a testar. A escolha não altera o modelo de chunk indexado nem a porta `ChunkIndex` — cada candidato é um adapter de embedding.
 - Onde o texto original fica armazenado é decidido no plano; o acesso é por porta, e o armazenamento é adapter.
-- O corpus inicial é de documentos institucionais em português.
+- O corpus inicial é de documentos institucionais em português, públicos no site oficial da UEB; os PDFs e o catálogo ficam numa pasta fora do repositório do pack, e o rascunho do catálogo é revisado pelo curador antes da ingestão real. Os testes automatizados usam documentos sintéticos.

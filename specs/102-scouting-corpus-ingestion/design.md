@@ -18,6 +18,11 @@ ai-scouting/src/ai_scouting/rag/
     └── adapters/           # parser de PDF, embedders candidatos, armazenamento do original, CLI de ingestão
 ```
 
+> Atualizado em 2026-10-07 ([research.md](research.md) R16): `Embedder`, `SparseEncoder`, `IndexWriter` e
+> `DocumentStore` ficam em `index/ports.py` (o `ChunkIndex` codifica a pergunta com o mesmo embedder, e escrita, leitura
+> e originais são o mesmo armazenamento); `ingestion/ports.py` tem `DocumentParser` e `Clock`. Os adapters dos
+> embedders e do armazenamento ficam em `index/adapters/`.
+
 ## Pipeline
 
 ```mermaid
@@ -104,6 +109,10 @@ document
 **Decidir com medição**, contra o conjunto dourado (spec 105). Faixas iniciais de chunk e sobreposição também são calibradas lá.
 Cada candidato é um adapter de `Embedder`; a comparação da 105 roda o mesmo pipeline trocando só esse adapter.
 
+> Atualizado em 2026-10-07 (clarificação 2; [research.md](research.md) R10, R11): até a medição da Fase 6, o denso é o
+> `multilingual-e5-small` em ONNX, dentro do processo, fixado por revisão e sha256; o esparso é BM25 com stemmer
+> português e IDF no Qdrant. O `bge-m3` pelo Ollama é o próximo candidato. Sem sobreposição de janelas na v1.
+
 ## Seam: Índice do scouting **[ADR-012]**
 
 Substitui o antigo seam "Coleção indexada do scouting", que era o schema da coleção no Qdrant compartilhado entre
@@ -129,6 +138,12 @@ class IndexFilters:
 
 `IndexedChunk` carrega os metadados da tabela acima e se converte no `Chunk` do contrato 001.
 
+> Atualizado em 2026-10-07, antes de existir implementação ou consumidor ([research.md](research.md) R5, R14): a
+> vigência é um intervalo (`effective_from`/`effective_until`, clarificação 4 da 101) e há `previous_version`;
+> `version()` é assíncrono (ler a versão é I/O, e o pack monta o índice num hook síncrono); `search` devolve
+> `IndexedChunk` com `score`. O status é a posição na linhagem; a vigência numa data, as datas (R4). Contrato em
+> [contracts/chunk-index.md](contracts/chunk-index.md).
+
 ## Portas e adapters
 
 | Porta | Tipo | Adapters por fase | Teste |
@@ -138,3 +153,7 @@ class IndexFilters:
 | `Embedder` / `SparseEncoder` | secundária | candidatos da 105 (e5, bge-m3, hospedado) | codificador determinístico de teste |
 | `IndexWriter` | secundária | Qdrant | índice em memória |
 | `DocumentStore` | secundária | a decidir no plano (disco, Postgres ou payload) | em memória |
+
+> Atualizado em 2026-10-07 ([research.md](research.md) R12, R15): `DocumentStore` = payload — pontos de documento sem
+> vetor no próprio build do índice, com o texto original de cada página. A tabela completa de portas, adapters e alvos
+> da conformidade está na R16.
