@@ -99,3 +99,32 @@ O que a 002 registra depois de carregar este pack — é o que o teste de integr
 | validators | um: `non_empty_answer` |
 | `preferred_flow` | `None` |
 | `depends_on` / `requires_collections` | vazios |
+
+---
+
+# Fase 3 (2026-10-07): US2, FR-005, FR-007 e FR-008
+
+Decisões em [research.md](research.md) R13–R21. **Nenhuma entidade nova** e nenhum campo novo: o pack continua
+publicando `PackManifest`, um `system_prompt`, um `ToolSpec` e um `AnswerValidator`.
+
+## O que muda
+
+| Item | Fase 1 | Fase 3 |
+|---|---|---|
+| `system_prompt` | parágrafo "Sobre cálculos" (usar a ferramenta de cálculo) | parágrafo "Sobre resultados de ferramentas" (FR-008; texto em [contracts/generic-pack.md](contracts/generic-pack.md)) |
+| `PackManifest` | `name="generic"`, `version="0.1.0"`, sem `preferred_flow` | igual (FR-007, R15; versão em R17) |
+| Tool `calculate`, validator `non_empty_answer` | — | iguais |
+| Existência do pack (FR-005) | aberta | decidida: continua pack enquanto agregar hook além de prompt (R14) |
+
+## O Assistant genérico (formato da 003, referência)
+
+| Campo da declaração | Valor | Por quê |
+|---|---|---|
+| `flow` | `agentic` | o pack não declara flow preferido (R15) |
+| `packs` | `[generic]` | prompt, `calculate` e `non_empty_answer` |
+| `mcp` | `[<alias>]` | servidor global do `mcp.yaml` (007), com `policy.allowed_tools` |
+| `models.generation` | `<provider>/<modelo>` | a voz da resposta, com o prompt do pack |
+| `models.controller` | `<provider>/<modelo>` | exigido pelo `agentic` (ADR-019); não recebe o prompt do pack |
+| `models.allow` | os padrões dos dois | allowlist (006) |
+
+Sem `controller`, o Assistant fica indisponível (424 pela API) — regra da 003, não do pack.

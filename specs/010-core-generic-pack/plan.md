@@ -206,3 +206,100 @@ Reavaliado com [data-model.md](data-model.md), [contracts/](contracts/) e [quick
 | Interpretador de AST em `tools/arithmetic.py` (R6) | a tool precisa ser útil e não pode executar código vindo do modelo | `eval` com `globals` vazio é contornável por atributos; biblioteca externa daria ao pack de referência uma dependência que nenhum pack precisa |
 | `ai-generic` no grupo dev da raiz (R8) | o teste que prova SC-002 roda na suíte do core e precisa do pack instalado | instalar o pack ad-hoc no teste tornaria o próprio teste um caso especial, exatamente o que SC-002 proíbe |
 | Job de ambiente limpo inline no `generic.yml` (R4) | o *Independent Test* da US1 é instalar o pack só com os contratos | parametrizar a ferramenta da 001 mexeria em módulo alheio; script próprio duplicaria infraestrutura de teste dentro do pack |
+
+---
+
+# Fase 3 (2026-10-07): US2 — Assistant genérico com MCP; FR-005, FR-007 e FR-008
+
+Insumos: as três clarificações de 2026-10-07; [design.md](design.md) (a "Questão em aberto" ganhou nota de
+fechamento, com origem); arch-v1 Parte IX; ADR-012 e
+[ADR-019](../../docs/adr/ADR-019-papeis-por-flow-no-seam-execution-engine.md); consumidores conferidos no código —
+002 (`PackHooks.system_prompts`), 003 (`effective_flow` e papéis exigidos por flow), 004 (catálogo com namespace,
+resultado cercado), 005 (prompts de pack só na geração), 007 (servidor por alias) e 011 (perfil `test` com trocas de
+porta). Decisões em [research.md](research.md) R13–R21. **Sem divergência do `design.md`, sem ADR novo, sem mudança de
+seam.** A linha "Depois desta fase" do [tasks.md](tasks.md) que previa `preferred_flow` "se o pack continuar sendo
+pack" fica superada pela clarificação 2 (R15).
+
+## Summary (Fase 3)
+
+O `ai-generic` continua pack (FR-005 decidida e permanente) e continua sem flow preferido (FR-007): o Assistant
+genérico com MCP é uma declaração — `flow: agentic`, `packs: [generic]`, `mcp: [<alias>]`, `generation` e `controller`
+— sobre capacidades que já existem. O único código que muda é o texto do prompt: o parágrafo que mandava "usar a
+ferramenta de cálculo" (instrução que nem a geração do `agentic` nem o `chat` podem cumprir) dá lugar a um parágrafo
+neutro quanto ao flow sobre resultados de ferramentas (FR-008). A US2 é provada no core, no perfil `test` e sem rede:
+pack e MCP no mesmo catálogo do controller, e a geração recebendo o prompt do pack e o resultado cercado do MCP; com
+Ollama disponível, uma integração opcional prova que o modelo usa o resultado.
+
+## Technical Context (Fase 3)
+
+**Dependências**: nenhuma nova. **Storage**: N/A. **Testing**: pytest; no pack, propriedades textuais do prompt
+(`tests/test_pack.py`); no core, integração no perfil `test` com `ScriptedController`, `ScriptedProvider` e
+`ScriptedMcpTransport` (R18) e integração opcional com Ollama, pulada sem `OLLAMA_BASE_URL` (R19).
+**Constraints**: zero import do core no pack (SC-001) e nenhuma linha em `ai-core/packages/core/src/` (SC-002, R21);
+versão `0.1.0` mantida (R17); nada de domínio no prompt (princípio I).
+**Scale/Scope**: `prompts/general.py` (um parágrafo), `tests/test_pack.py`; no core, dois arquivos de teste e a
+descrição da marca `us2`.
+
+## Constitution Check (Fase 3)
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| I. Núcleo agnóstico | ✅ | O parágrafo novo fala de "ferramentas" e "resultados", sem domínio; o core não muda |
+| II. Seams | ✅ | O pack só consome o contrato 001; o teste do core lê o prompt pelo seam `PackHooks` (002), não importa `ai_generic` (R18) |
+| III. O core orquestra | ✅ | O pack não declara flow nem conhece MCP; o loop é do motor (005), o catálogo da 004 (R13, R15) |
+| IV. Assistant é a fronteira | ✅ | Flow, MCP e modelos ficam na declaração do Assistant; o pack não amplia o que uma execução enxerga |
+| V. Determinismo | ✅ | Prompt é constante; `calculate` e o validator não mudam |
+| VI. Conteúdo externo | ✅ | "Dado, nunca instrução" permanece; o resultado do MCP chega cercado (004) e o prompt pede para apresentá-lo, não para obedecê-lo |
+| VII. Falha fechada | ✅ | O prompt pede para dizer que a ferramenta falhou em vez de supor o valor; Assistant `agentic` sem `controller` continua indisponível (003) |
+| VIII. Modelos por papel | ✅ | O exemplo declara `generation` e `controller` explicitamente (R15, R20) |
+| XII. Simplicidade | ✅ | Sem flow preferido, sem arquivo de exemplo, sem dublê de eco, sem bump de versão (R15, R17, R18, R20) |
+| XIII. Portas e adapters | ✅ | Nenhuma porta: o pack continua sem I/O |
+
+**Module boundary gate (Fase 3)**: `ai-core/packages/generic/**` (prompt e testes do pack); fora dele, só testes do
+core em `ai-core/packages/core/tests/bootstrap/integration/` (R18, R19) e a descrição da marca `us2` em
+`ai-core/pyproject.toml` (R21). Nenhum seam muda; nenhuma spec consumidora muda; import-linter sem contrato novo.
+**Resultado**: PASS.
+
+**Ports & adapters gate (Fase 3)**: nenhuma porta nova (o pack não faz I/O); o teste do core monta a plataforma pela
+composition root (`platform(profile="test", overrides=…)`), sem instanciar serviço de outro módulo à mão. **Resultado**:
+PASS.
+
+## Project Structure (Fase 3)
+
+```text
+ai-core/packages/generic/
+├── src/ai_generic/prompts/general.py     # "Sobre cálculos" → "Sobre resultados de ferramentas" (FR-008, R16)
+└── tests/test_pack.py                    # propriedades textuais da FR-008; manifest sem preferred_flow (R15, R16)
+
+ai-core/packages/core/tests/bootstrap/integration/
+├── test_generic_agentic_mcp.py           # NOVO: US2 no perfil test, sem rede (R18)
+└── test_generic_agentic_real.py          # NOVO: US2 com Ollama, opcional (R19)
+
+ai-core/pyproject.toml                    # marca us2 += "; 010 US2 — Assistant genérico com MCP" (R21)
+specs/010-core-generic-pack/design.md     # nota fechando a "Questão em aberto" (R14)
+```
+
+## Seam Notes for Consumers (Fase 3)
+
+| Consumidor | O que precisa saber |
+|---|---|
+| 003 | Nada a mudar: o pack continua sem `preferred_flow`, então `packs: [generic]` sem `flow` segue no `chat`; o Assistant genérico declara `flow: agentic` e `controller` |
+| 005 | Nada a mudar: o prompt do pack continua indo só para a geração; o texto novo pressupõe isso (R16) |
+| 011 | Nada a mudar: o perfil `test` já habilita `generic` e aceita trocas de `providers` e `mcp_transports` |
+| Operador | O "agente genérico" é a declaração do quickstart, "Fase 3" §10; o pack não precisa de configuração |
+| 1xx (Fase 4) | Continua o exemplo a copiar; prompt de pack não deve mandar chamar ferramentas — no `agentic`, ele só chega à geração |
+
+## Complexity Tracking (Fase 3)
+
+Nenhuma violação; nenhuma complexidade nova.
+
+## Constitution Check — pós-design (Fase 3)
+
+Reavaliado com a seção "Fase 3" de [data-model.md](data-model.md), de [contracts/generic-pack.md](contracts/generic-pack.md)
+e de [quickstart.md](quickstart.md): **PASS**.
+
+- I: o texto exato do parágrafo novo está no contrato e não tem termo de domínio, de organização nem de produto.
+- II: a prova da US2 usa só seams e a composition root; o contrato da US2 nomeia o seam de onde vem o prompt.
+- VI: o parágrafo novo pede para apresentar o resultado, e o seguinte, mantido, diz que o resultado é dado — as duas
+  regras convivem sem conflito.
+- XII: o data-model não ganhou entidade; a declaração do Assistant genérico é referência ao formato da 003.

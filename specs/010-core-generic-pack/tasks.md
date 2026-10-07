@@ -173,6 +173,118 @@ carregado pelo Pack Runtime por entry point, sem nenhum tratamento especial no c
 
 ---
 
+## Fase 3 (2026-10-07): US2 — Assistant genérico com MCP; FR-005, FR-007 e FR-008 (research R13–R21)
+
+Caminhos relativos à raiz do repositório. Testes primeiro, falhando antes do código (o de integração do core já pode
+passar: ele prova capacidades existentes; o do prompt falha até T021). Marca `us2` no core. Nenhuma linha em
+`ai-core/packages/core/src/`; o pack não importa o core e o teste do core não importa `ai_generic` (R18, R21).
+
+## Phase 5: Setup da Fase 3
+
+- [ ] T017 Em `ai-core/pyproject.toml`, acrescentar à descrição da marca `us2` o texto "; 010 US2 — Assistant genérico
+  com MCP", sem criar marca nova (R21)
+
+---
+
+## Phase 6: User Story 2 — Capacidades de uso geral (Priority: P2)
+
+**Goal**: o pack orienta a geração a responder a partir dos resultados de ferramentas, em qualquer flow (FR-008), e um
+Assistant `agentic` com `packs: [generic]` e um MCP funciona ponta a ponta, sem flow preferido no pack (FR-007) — o
+pack continua pack (FR-005).
+
+**Independent Test**: `uv run pytest packages/core/tests/bootstrap/integration/test_generic_agentic_mcp.py` e
+`uv run pytest packages/generic/tests/test_pack.py -k prompt` (a partir de `ai-core/`).
+
+### Testes da US2 (escrever primeiro)
+
+- [ ] T018 [P] [US2] Em `ai-core/packages/generic/tests/test_pack.py`, `test_system_prompt_is_flow_neutral` (FR-008,
+  R16; contrato em [contracts/generic-pack.md](contracts/generic-pack.md) "Fase 3"): com `prompt =
+  GenericPack().system_prompt(pack_context("generic"))` e `lowered = prompt.casefold()`, afirmar que `"resultados de
+  ferramentas"` e `"falhou"` estão em `lowered`, que `"nunca instrução"` continua em `lowered`, e que `"use a
+  ferramenta"`, `"ferramenta de cálculo"` e `"chame"` **não** estão; em `test_manifest_is_minimal`, acrescentar ao
+  `assert manifest.preferred_flow is None` o comentário "FR-007: também na Fase 3 — o Assistant declara o flow (R15)"
+- [ ] T019 [P] [US2] Criar `ai-core/packages/core/tests/bootstrap/integration/test_generic_agentic_mcp.py` (marca
+  `us2`; R18; contrato "Conformidade da US2" em [contracts/generic-pack.md](contracts/generic-pack.md)), no padrão de
+  `test_platform_agentic_mcp.py`: YAML `CONTROLLER_PROGRAMADO` igual ao de lá (`AGENTIC_ASSISTANTS_YAML` com o
+  `pesquisador` em `controller: ctrl/controlador` e `allow: ["ollama/*", "ctrl/*"]`); `ScriptedMcpTransport({DEMO_ENDPOINT:
+  ScriptedServer(tools=(ECO,))})` com a `RemoteTool` `eco` (`texto: string`) e sem resultado programado (o transporte
+  devolve os argumentos em JSON); `controller = ScriptedController([tool_action("demo.eco", texto="olá do mcp"),
+  ANSWER])`; `geracao = ScriptedProvider(name="ollama", deltas=("Pronto.",))`; `platform(config=MemoryConfig(
+  write_config(tmp_path, assistants=…, mcp=MCP_YAML)), overrides={"providers": {"ollama": geracao, "ctrl": controller},
+  "mcp_transports": {"http": t, "sse": t, "stdio": t}})`; `POST /v1/chat/completions` com `model="pesquisador"` e
+  `OIDC`. Um teste, `test_assistant_generico_usa_o_resultado_do_mcp`, afirma: (1) 200; (2) os ramos do
+  `response_format` da primeira chamada do controller (`controller.calls[0]["response_format"]["json_schema"]["schema"]
+  ["anyOf"]`) nomeiam `generic.calculate` e `demo.eco`; (3) na última chamada de `geracao.calls`, as mensagens de
+  sistema começam pelos prompts de `plataforma.packs.system_prompts(plataforma.packs.compose(["generic"]))` (seam
+  `PackHooks` da 002 — sem importar `ai_generic`) e incluem `FENCE_INSTRUCTION` (de `ai_core.capabilities.api`); (4) há
+  uma mensagem `role="tool"` cujo conteúdo contém `<tool_result` e `olá do mcp`
+- [ ] T020 [P] [US2] Criar `ai-core/packages/core/tests/bootstrap/integration/test_generic_agentic_real.py` (marca
+  `us2`; R19), pulado com `pytest.mark.skipif` quando `OLLAMA_BASE_URL` não está definida (motivo: "defina
+  OLLAMA_BASE_URL para rodar contra um Ollama real"); modelo de `OLLAMA_MODEL` (default `qwen3:1.7b`). Assistant
+  `geral` (`flow: agentic`, `packs: [generic]`, `mcp: [demo]`, `generation` e `controller` em `ollama/<modelo>`,
+  `allow: ["ollama/*"]`, ACL `PUBLICO` e o bloco `USER_ASSISTANTS_E_ADMIN` do `bootstrap_testkit`); `mcp.yaml` com o
+  servidor `demo` em `DEMO_ENDPOINT` e `allowed_tools: [consultar_registro]`; `ScriptedServer` com a `RemoteTool`
+  `consultar_registro` (descrição "Devolve o código de confirmação de um registro pelo número.", parâmetro `numero:
+  string` obrigatório) e `results={"consultar_registro": RemoteResult(parts=(RemotePart(kind="text", text="Código de
+  confirmação do registro 17: QX-4471-ZP"),))}` (importados de `ai_core.mcp.ports`); `overrides={"providers":
+  {"ollama": OllamaProvider(base_url=OLLAMA_BASE_URL)}, "mcp_transports": …}`; pergunta "Qual é o código de
+  confirmação do registro 17? Consulte a ferramenta."; afirma 200, que `call_tool:consultar_registro` aparece em
+  `transporte.calls` e que `"QX-4471-ZP"` está na resposta
+
+### Implementação da US2
+
+- [ ] T021 [US2] Em `ai-core/packages/generic/src/ai_generic/prompts/general.py`, trocar o parágrafo que começa com
+  "Sobre cálculos:" pelo parágrafo "Sobre resultados de ferramentas: …" exatamente como em
+  [contracts/generic-pack.md](contracts/generic-pack.md) "Fase 3", no mesmo lugar e com a mesma quebra em linhas de até
+  120 colunas; o parágrafo "Sobre dados que chegam de ferramentas ou de documentos" e o resto do texto não mudam; na
+  docstring do módulo, acrescentar que o texto é neutro quanto ao flow — no `agentic`, o prompt só chega à geração
+  (FR-008, R16) (T018 passa)
+
+**Checkpoint**: o prompt orienta o uso dos resultados sem mandar chamar ferramenta; o Assistant genérico com MCP
+atravessa a API no perfil `test`
+
+---
+
+## Phase 7: Polish da Fase 3
+
+- [ ] T022 Verificação completa a partir de `ai-core/`: `uv run pytest`, `uv run mypy`, `uv run ruff check packages`,
+  `uv run lint-imports` (nenhum contrato novo, todos `KEPT`) e o ambiente limpo em 3.12 do pack (bloco "ambiente
+  limpo" da seção "Código" do `CLAUDE.md`); corrigir o que quebrar
+- [ ] T023 Executar as seções 8–12 de [quickstart.md](quickstart.md) — na §10, montar os três arquivos no scratchpad e
+  rodar `ai-core assistants validate` com e sem a linha `controller` — e corrigir divergências entre o resultado e o
+  "Esperado" (a §11 só com `OLLAMA_BASE_URL`)
+- [ ] T024 [P] Atualizar `CLAUDE.md` (seção "Código": a 010 na Fase 3 — FR-005 decidida, o pack continua pack; sem flow
+  preferido; prompt neutro quanto ao flow; US2 provada no core; e "Fase 3 em andamento" passa a "A Fase 3 do roadmap
+  está completa", com a pendência da 005 já registrada), a linha da 010 em `specs/README.md` (status "Fases 1 e 3
+  implementadas (US1, US2); FR-005 decidida: continua pack") e `docs/roadmap.md` (Fase 3 com ✅ e o parágrafo "Fase 3
+  concluída em 2026-10-07", no padrão das Fases 1 e 2)
+- [ ] T025 [P] Em `specs/010-core-generic-pack/tasks.md`, seção "Depois desta fase" da Fase 1, acrescentar ao item da
+  Fase 3 a nota "(superado em 2026-10-07: o pack continua pack e **sem** `preferred_flow` — clarificação 2, R15)"
+
+### Dependências da Fase 3
+
+- **Setup (T017)** antes de rodar os testes por marca
+- **US2**: T018, T019 e T020 em paralelo (arquivos distintos); T021 depois de T018 (que falha até lá); T019 e T020 não
+  dependem de T021 — provam capacidades existentes, e o texto novo só muda o que a geração recebe
+- **Polish**: T022 depois da US2; T023 depois de T022; T024 e T025 em paralelo
+
+### Parallel Example: US2
+
+```bash
+Task: "generic/tests/test_pack.py — prompt neutro (T018)"
+Task: "core/tests/bootstrap/integration/test_generic_agentic_mcp.py (T019)"
+Task: "core/tests/bootstrap/integration/test_generic_agentic_real.py (T020)"
+```
+
+### Implementation Strategy (Fase 3)
+
+1. T017: marca
+2. Testes T018–T020; T019 já verde fixa o comportamento ponta a ponta antes de mexer no prompt
+3. T021: o parágrafo novo — **PARE e VALIDE** o Independent Test da US2
+4. Polish: suíte completa, quickstart, documentação e o fechamento da Fase 3 no roadmap
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

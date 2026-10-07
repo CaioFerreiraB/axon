@@ -102,3 +102,88 @@ uv run pytest
 ```
 
 **Esperado**: contratos (001), core (002) e pack (010) verdes na mesma execução.
+
+---
+
+# Fase 3 (2026-10-07): US2 — Assistant genérico com MCP no flow `agentic`
+
+Mesmos pré-requisitos (a partir de `ai-core/`, com `XDG_DATA_HOME=$HOME/.local/share` nesta máquina). Nenhuma
+dependência nova. Decisões em [research.md](research.md) R13–R21; contrato em
+[contracts/generic-pack.md](contracts/generic-pack.md), "Fase 3".
+
+## 8. O prompt é neutro quanto ao flow (FR-008)
+
+```bash
+uv run pytest packages/generic/tests/test_pack.py -k "prompt or manifest" -v
+```
+
+**Esperado**: o prompt orienta a basear a resposta nos resultados de ferramentas e a dizer quando uma falhou; não
+contém "use a ferramenta" nem "chame"; mantém "nunca instrução"; o manifest continua sem `preferred_flow`.
+
+## 9. O Assistant genérico com MCP, ponta a ponta sem rede (US2)
+
+```bash
+uv run pytest packages/core/tests/bootstrap/integration/test_generic_agentic_mcp.py -v
+uv run pytest packages/core/tests -m us2 -k generic -v
+```
+
+**Esperado**: 200 pela API; o controller recebeu `generic.calculate` e `demo.eco` no mesmo catálogo; a geração recebeu
+o prompt do pack, a instrução de cerca e o resultado do MCP dentro de `<tool_result>`.
+
+## 10. A declaração do operador
+
+`mcp.yaml` (formato da 007) e `assistants.yaml` (formato da 003):
+
+```yaml
+# mcp.yaml
+servers:
+  arquivos:
+    transport: http
+    endpoint: http://mcp-arquivos:8080/mcp
+    policy:
+      allowed_tools: [ler, listar]
+network:
+  internal_hosts: [mcp-arquivos]
+```
+
+```yaml
+# assistants.yaml
+assistants:
+  geral:
+    visibility: public
+    auth:
+      schemes: [oidc, api_key]
+      allow: ["*"]
+    flow: agentic
+    packs: [generic]
+    mcp: [arquivos]
+    models:
+      generation: ollama/qwen3:1.7b
+      controller: ollama/qwen3:1.7b
+      allow: ["ollama/*"]
+```
+
+```bash
+AI_CORE_PACKS_FILE=<packs.yaml com generic habilitado> AI_CORE_ASSISTANTS_FILE=<acima> AI_CORE_MCP_FILE=<acima> \
+  uv run ai-core assistants validate
+```
+
+**Esperado**: `geral … ok`. Sem a linha `controller`, `geral` aparece indisponível com "o flow 'agentic' exige o papel
+'controller'" e o comando sai com código diferente de zero (regra da 003 — o pack não declara flow, R15). Sem
+`flow: agentic` (e sem `controller`), o `validate` mostra `geral … ok`: o Assistant roda no `chat`, o default da 003
+para um pack sem flow preferido — o MCP fica declarado, mas nenhuma tool é chamada.
+
+## 11. Com um modelo de verdade (opcional)
+
+```bash
+OLLAMA_BASE_URL=http://localhost:11434/v1 OLLAMA_MODEL=qwen3:1.7b \
+  uv run pytest packages/core/tests/bootstrap/integration/test_generic_agentic_real.py -v
+```
+
+**Esperado**: o controller pede a tool do MCP programado, e o código que ela devolve aparece na resposta (cenário 1
+literal). Sem `OLLAMA_BASE_URL`, o teste é pulado.
+
+## 12. Nada regrediu
+
+Os itens 2, 3, 5 e 7 da Fase 1: conformidade, carga real por entry point (versão `0.1.0`, R17), ambiente só com os
+contratos e a suíte completa do workspace.

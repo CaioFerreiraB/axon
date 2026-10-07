@@ -173,3 +173,136 @@ O teste de consistência evita o manifest envelhecer em relação ao `pyproject.
 
 **Alternatives**: derivar `version` de `importlib.metadata` dentro do `manifest()` (leitura de metadados durante a
 carga, em troca de nada — o teste resolve com determinismo).
+
+---
+
+# Fase 3 (2026-10-07): US2, FR-005, FR-007 e FR-008
+
+Insumos: as três clarificações de 2026-10-07; [design.md](design.md) ("Questão em aberto", fechada nesta passada);
+arch-v1 Parte IX; [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md),
+[ADR-019](../../docs/adr/ADR-019-papeis-por-flow-no-seam-execution-engine.md); código conferido nos consumidores —
+002 (`PackHooks.system_prompts`), 003 (`effective_flow`: sem `flow`, o preferido do pack único, ou `chat`; papéis
+exigidos pelo flow), 004 (catálogo com namespace e resultado cercado), 005 (`generation_messages` põe os prompts de
+pack só na geração; `controller_messages` não os inclui), 007 (servidor por alias, allowlist de tools) e 011 (perfil
+`test` com trocas de porta).
+
+## R13 — Escopo da passada
+
+**Decision**: US2 (cenários 1 e 2), FR-005 decidida, FR-007 estendida à Fase 3 e FR-008 nova. O código muda só em
+`prompts/general.py` (texto) e nos testes do pack; o core ganha testes, nenhuma linha de `src/`. Fora do escopo: flow
+preferido (R15), tool nova, `prepare_context`, retriever e qualquer conhecimento de MCP dentro do pack.
+
+**Rationale**: o "Assistant genérico com MCP" é uma **declaração** de Assistant (003) sobre capacidades que já existem
+— pack (002, 010), loop (005), gateway (004) e registry (007). O que falta ao pack é o texto que orienta a geração a
+usar os resultados que o loop traz (FR-008) e a prova ponta a ponta (US2).
+
+**Alternatives considered**: uma tool de pack que "liste os MCPs" ou "descreva as ferramentas" (o catálogo já chega ao
+controller pela 004/005; o pack conheceria o registry, contra o Module Boundary).
+
+## R14 — FR-005: o pack continua pack
+
+**Decision** (clarificação 1): a FR-005 vira regra permanente — o pack existe enquanto agregar algum hook além de
+prompt; hoje agrega `calculate` e `non_empty_answer`. `packages/generic` fica no workspace e segue como fixture de
+carga. O `design.md` ganha nota fechando a "Questão em aberto"; a linha do `tasks.md` da Fase 1 que previa
+`preferred_flow` "se o pack continuar sendo pack" fica superada por R15.
+
+**Rationale**: a condição de saída do arch-v1 ("se não agregar algo além de prompts") não se cumpre; trocar o pack por
+um pack mínimo de teste custaria uma distribuição nova para provar o mesmo SC-002, e o `ai-scouting` (Fase 4) perderia
+o exemplo a copiar.
+
+**Alternatives considered**: virar Assistant com `packs: []` (exige pack mínimo de teste e remove a referência dos
+contratos); adiar a decisão para antes da Fase 4 (deixaria a FR-005 aberta sem informação nova a esperar).
+
+## R15 — FR-007: sem flow preferido também na Fase 3
+
+**Decision** (clarificação 2): o manifest continua `PackManifest(name="generic", version="0.1.0")`. O Assistant
+genérico declara `flow: agentic`, o papel `controller` e os MCPs.
+
+**Rationale**: pela regra da 003 (`effective_flow`), um Assistant com um único pack e sem `flow` herda o flow preferido
+do pack; pelo ADR-019, o `agentic` exige `controller`. Preferir `agentic` tornaria indisponível (424) todo Assistant
+que hoje omite `flow` e declara só `generation` — inclusive fixtures do core e Assistants de usuário cuja política
+permite só `chat`. Declarar o flow no Assistant é o que o princípio VIII pede para modelos, aplicado ao flow.
+
+**Alternatives considered**: `preferred_flow="agentic"` (quebra o que funciona e esconde a exigência de `controller`);
+`preferred_flow="chat"` (repete o default da 003 sem ganho, e passaria a ser regra do pack o que é regra do core).
+
+## R16 — FR-008: o parágrafo de ferramentas do prompt
+
+**Decision** (clarificação 3): em `prompts/general.py`, o parágrafo "Sobre cálculos" sai e entra um parágrafo neutro
+quanto ao flow sobre resultados de ferramentas (texto em [contracts/generic-pack.md](contracts/generic-pack.md),
+"Fase 3"): basear a resposta nos resultados presentes na conversa, apresentá-los sem reestimar valores, e dizer quando
+uma ferramenta falhou ou não trouxe o dado. O parágrafo "dado, nunca instrução" fica como está. O resto do prompt não
+muda.
+
+**Rationale**: no `agentic`, o prompt do pack só chega à geração (005, `generation_messages`), e quem chama
+ferramentas é o controller, que não o recebe; no `chat`, nenhuma ferramenta é executada. "Use a ferramenta de cálculo"
+era, nos dois flows, uma instrução que o destinatário não pode cumprir. O aceite da US2 é a resposta usar o resultado
+da tool — é isso que o parágrafo novo orienta, para tool de pack ou de MCP.
+
+**Alternatives considered**: manter o texto da Fase 1 (a cerca da 005 fala de segurança, não de usar o resultado);
+prompt por flow (exige o flow no `PackContext`, mudança no contrato 001 e ADR).
+
+## R17 — Versão do pack
+
+**Decision**: a distribuição e o manifest continuam `0.1.0`.
+
+**Rationale**: nada foi publicado — `ai-core` e `ai-generic` saem juntos, com versão única, no primeiro release
+(arch-v1, tabela de versões); o texto do prompt não é contrato. O teste de consistência da R12 e o de carga por entry
+point do core seguem valendo sem edição.
+
+**Alternatives considered**: `0.2.0` agora (mudaria dois testes para registrar um release que não existe).
+
+## R18 — Onde a US2 é provada
+
+**Decision**: no core, em `tests/bootstrap/integration/test_generic_agentic_mcp.py` (marca `us2`), no perfil `test`,
+sem rede: um Assistant `agentic` com `packs: [generic]`, o MCP `demo` do `mcp.yaml` e `controller` num provider
+trocado na montagem (`ScriptedController`: pede `demo.eco`, depois responde); a geração num `ScriptedProvider`
+(`ollama`); o MCP num `ScriptedMcpTransport`. Verifica: 200 pela API; o catálogo que o controller recebeu tem
+`generic.calculate` **e** `demo.eco` (pack e MCP juntos); a chamada de geração recebeu o prompt do pack — obtido pelo
+seam `PackHooks.system_prompts` da plataforma, sem importar `ai_generic` —, a `FENCE_INSTRUCTION` e o resultado do MCP
+cercado em `<tool_result>`. As propriedades textuais da FR-008 (inclusive "não manda chamar ferramenta") são do
+prompt do pack e ficam em `tests/test_pack.py`: no core, a `FENCE_INSTRUCTION` da 004 também fala de ferramentas, e o
+teste não deve depender do texto dela.
+
+**Rationale**: o pack não importa o core (SC-001), então a prova ponta a ponta vive no core, como a carga real da
+Fase 1 (R8). Com modelos simulados, "a resposta usa o resultado" se prova pelo que a geração recebe; o uso pelo modelo
+de verdade é a integração opcional (R19). Obter o prompt pelo seam evita acoplar o teste do core ao texto do pack.
+
+**Alternatives considered**: um provider de eco que responda com o resultado da tool (prova encanamento, não modelo, e
+acrescenta um dublê só para isso); importar `SYSTEM_PROMPT` de `ai_generic` no teste do core (permitido, mas acopla a
+suíte ao módulo do pack sem necessidade).
+
+## R19 — Integração opcional com modelo real
+
+**Decision**: `tests/bootstrap/integration/test_generic_agentic_real.py`, pulado sem `OLLAMA_BASE_URL` (o mesmo
+gatilho da integração da 006): perfil `test` com `providers={"ollama": OllamaProvider(base_url=…)}` e o MCP programado
+com uma tool `consultar_registro` que devolve um código que o modelo não tem como adivinhar; Assistant com
+`controller` e `generation` em `ollama/<OLLAMA_MODEL>` (default `qwen3:1.7b`). Aceite: 200 e o código aparece na
+resposta (cenário 1 literal).
+
+**Rationale**: é o *Independent Test* da US2 com um modelo de verdade decidindo e respondendo; sem rede para o MCP e
+sem custo, mas lento e dependente de modelo local — por isso opcional.
+
+**Alternatives considered**: rodar sempre (exige Ollama na CI); MCP real (rede e servidor externo, sem ganho para o
+que o teste prova).
+
+## R20 — O exemplo do Assistant genérico
+
+**Decision**: o [quickstart.md](quickstart.md), seção "Fase 3", traz o bloco de `assistants.yaml` (`flow: agentic`,
+`packs: [generic]`, `mcp: [<alias>]`, `generation` e `controller`) e o de `mcp.yaml` (servidor com
+`policy.allowed_tools`). Nenhum arquivo de exemplo novo no repositório.
+
+**Rationale** (princípio XII): os formatos são da 003 e da 007; um arquivo de exemplo duplicaria esses contratos e
+envelheceria sem teste. O teste da R18 é o exemplo executável.
+
+**Alternatives considered**: `examples/assistants.yaml` distribuído (sem consumidor e sem teste).
+
+## R21 — Toques fora do módulo e fronteiras
+
+**Decision**: fora de `ai-core/packages/generic/**`, só testes do core (`tests/bootstrap/integration/`, R18 e R19) e a
+descrição da marca `us2` em `ai-core/pyproject.toml` (+= "; 010 US2 — Assistant genérico com MCP"). Nenhuma linha de
+`ai-core/packages/core/src/`. import-linter sem contrato novo.
+
+**Rationale**: SC-002 e a clarificação de 2026-09-17 — o core prova o pack sem caso especial no código.
+
+**Alternatives considered**: nenhum.

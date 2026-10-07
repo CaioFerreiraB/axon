@@ -48,3 +48,8 @@ em `adapters/`, e o `pack.py` como composition root do pack.
 ## Questão em aberto (arch-v1 Parte IX)
 
 Com o modelo de Assistants, `ai-generic` pode não precisar existir como pack: um Assistant com `packs: []`, flow `agentic` e MCPs configurados já é "um agente genérico". Avaliar na Fase 3 se o pack agrega algo além de prompts — e, se não agregar, ele vira um Assistant e `packs/generic` sai do workspace. Nesse caso, a fixture de carregamento de pack do core precisa de outro pack mínimo.
+
+> Fechada na clarificação de 2026-10-07 (FR-005): o pack agrega a tool `calculate` e o validator `non_empty_answer`,
+> então **continua pack**, e a regra fica permanente — se um dia contiver só prompts, vira Assistant e um pack mínimo de
+> teste assume a fixture. O manifest segue sem flow preferido (FR-007): o Assistant genérico declara `flow: agentic` e
+> `controller` ([research.md](research.md) R14, R15).
