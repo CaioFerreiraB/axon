@@ -286,6 +286,13 @@ sem custo, mas lento e dependente de modelo local — por isso opcional.
 **Alternatives considered**: rodar sempre (exige Ollama na CI); MCP real (rede e servidor externo, sem ganho para o
 que o teste prova).
 
+> Estendido em 2026-10-07: o mesmo teste roda também contra o OpenRouter, com `AI_CORE_OPENROUTER_API_KEY` (pago;
+> modelo em `OPENROUTER_MODEL`, default `~z-ai/glm-flash-latest`, o da 006), parametrizado por backend — cada um
+> pulado sem a própria variável. Primeira execução real: o controller recebeu o esquema de ação da 005 (`anyOf` na
+> raiz) com `strict` e `require_parameters`, chamou `demo.consultar_registro`, e a resposta trouxe o código — o cenário
+> 1 literal. Modelos sem `structured_outputs` no OpenRouter (os `:free` do Gemma 4) são recusados no controller com 404,
+> como a 006 FR-005 manda.
+
 ## R20 — O exemplo do Assistant genérico
 
 **Decision**: o [quickstart.md](quickstart.md), seção "Fase 3", traz o bloco de `assistants.yaml` (`flow: agentic`,

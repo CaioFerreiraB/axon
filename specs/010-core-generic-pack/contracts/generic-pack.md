@@ -139,5 +139,6 @@ resposta final.
    `PackHooks.system_prompts` — e a instrução de cerca;
 4. a mesma chamada recebe uma mensagem `tool` com o resultado do MCP dentro de `<tool_result>`.
 
-Opcional, com modelo real (R19): `test_generic_agentic_real.py`, pulado sem `OLLAMA_BASE_URL` — o código devolvido pela
-tool do MCP aparece na resposta.
+Opcional, com modelo real (R19): `test_generic_agentic_real.py`, parametrizado por backend — Ollama (pulado sem
+`OLLAMA_BASE_URL`) e OpenRouter (pulado sem `AI_CORE_OPENROUTER_API_KEY`) —: o código devolvido pela tool do MCP aparece
+na resposta.

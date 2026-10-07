@@ -177,11 +177,15 @@ para um pack sem flow preferido — o MCP fica declarado, mas nenhuma tool é ch
 
 ```bash
 OLLAMA_BASE_URL=http://localhost:11434/v1 OLLAMA_MODEL=qwen3:1.7b \
-  uv run pytest packages/core/tests/bootstrap/integration/test_generic_agentic_real.py -v
+  uv run pytest packages/core/tests/bootstrap/integration/test_generic_agentic_real.py -k ollama -v
+AI_CORE_OPENROUTER_API_KEY=… OPENROUTER_MODEL=~z-ai/glm-flash-latest \
+  uv run pytest packages/core/tests/bootstrap/integration/test_generic_agentic_real.py -k openrouter -v
 ```
 
 **Esperado**: o controller pede a tool do MCP programado, e o código que ela devolve aparece na resposta (cenário 1
-literal). Sem `OLLAMA_BASE_URL`, o teste é pulado.
+literal). Cada backend é pulado sem a própria variável. No OpenRouter, o modelo precisa anunciar
+`structured_outputs` (ver o quickstart da 006, "Com os providers reais"); sem isso, o controller é recusado com 404 e
+a resposta é 502.
 
 ## 12. Nada regrediu
 

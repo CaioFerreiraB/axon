@@ -153,7 +153,7 @@ tem a chamada de controller no `openrouter` e a de geração no `ollama`; `allow
 ## Com os providers reais (opcional, pago)
 
 ```bash
-AI_CORE_OPENROUTER_API_KEY=… OPENROUTER_MODEL=qwen/qwen3-8b \
+AI_CORE_OPENROUTER_API_KEY=… OPENROUTER_MODEL=~z-ai/glm-flash-latest \
   uv run pytest packages/core/tests/llm/integration/test_remote_real.py -v
 AI_CORE_OPENAI_API_KEY=… OPENAI_MODEL=gpt-4o-mini \
   uv run pytest packages/core/tests/llm/integration/test_remote_real.py -k openai -v
@@ -161,6 +161,12 @@ AI_CORE_OPENAI_API_KEY=… OPENAI_MODEL=gpt-4o-mini \
 
 Esperado: o controller com um esquema de ação de raiz objeto recebe JSON parseável segundo o esquema (Independent Test
 da US4); `probe` confirma o modelo e nega um inexistente. Sem as variáveis, os testes são pulados.
+
+O modelo precisa anunciar `structured_outputs` no OpenRouter (`GET https://openrouter.ai/api/v1/models`,
+`supported_parameters`): com `require_parameters`, um modelo sem ele é recusado com 404 "No endpoints found that can
+handle the requested parameters" — é a FR-005 funcionando. Em 2026-10-07, `qwen/qwen3-8b` (o default anterior) e as
+variantes `:free` do Gemma 4 não o anunciavam; `~z-ai/glm-flash-latest` passou nos dois testes reais (este e o
+`agentic` da 010).
 
 ## Como a 011 monta (perfis `memory` e `persistent`)
 

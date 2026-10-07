@@ -131,6 +131,7 @@ def test_roteamento_automatico_recusado_na_construcao_direta() -> None:
         "ollama/auto",
         "openai/gpt-4o-mini",
         "openai/openrouter/auto",
+        "openrouter/~z-ai/glm-flash-latest",
     ],
 )
 def test_roteamento_automatico_nao_atinge_modelo_explicito(texto: str) -> None:

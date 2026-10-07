@@ -42,7 +42,9 @@ REMOTOS = pytest.mark.parametrize(
     [
         pytest.param(
             OpenRouterProvider,
-            os.environ.get("OPENROUTER_MODEL", "qwen/qwen3-8b"),
+            # Default com `structured_outputs` no OpenRouter (2026-10-07): o `qwen/qwen3-8b` e os `:free` do Gemma não
+            # o anunciam, e o `require_parameters` os recusa com 404 — o controller exige esquema (R18).
+            os.environ.get("OPENROUTER_MODEL", "~z-ai/glm-flash-latest"),
             id="openrouter",
             marks=pytest.mark.skipif(
                 not os.environ.get(OpenRouterProvider.CREDENTIAL),

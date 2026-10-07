@@ -160,6 +160,7 @@ do `ModelRef` e o que o `ModelCallFailed` pode relatar.
 | No provider `openrouter`, a base do modelo (minúsculas, antes do primeiro `:`) não pode ser `auto` | `openrouter/auto`, `openrouter/AUTO`, `openrouter/auto:free` | — |
 | No provider `openrouter`, a base do modelo não pode começar com `openrouter/` | `openrouter/openrouter/auto`, `openrouter/openrouter/qualquer` | `openrouter/qwen/qwen3-8b`, `openrouter/qwen/qwen3-8b:free`, `…:nitro`, `…:floor` |
 | Outros providers não são afetados | — | `ollama/auto`, `openai/gpt-4o-mini` |
+| Aliases de versão do OpenRouter não são roteamento automático (clarificação de 2026-10-07) | — | `openrouter/~z-ai/glm-flash-latest` |
 
 Recusa = `ValueError("'<provider/modelo>' é roteamento automático, que escolhe o modelo sozinho: declare um modelo
 explícito (autor/modelo)")`, levantado na construção — `ModelRef(...)` e `ModelRef.parse(...)` —, antes da allowlist.
