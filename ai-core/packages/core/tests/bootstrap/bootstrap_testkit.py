@@ -143,14 +143,19 @@ servers:
 """
 """Um servidor global do operador. No perfil `test`, o transporte é programado: nada sai para a rede."""
 
-MCP_YAML_COM_PROBLEMA: Final = MCP_YAML + """
+MCP_YAML_COM_PROBLEMA: Final = (
+    MCP_YAML
+    + """
   sem_politica:
     transport: http
     endpoint: https://outro.test/mcp
 """
+)
 """`sem_politica` não declara `policy.allowed_tools`: fica indisponível, e o resto sobe (007, 011 FR-003)."""
 
-MCP_YAML_COM_CREDENCIAL: Final = MCP_YAML + """
+MCP_YAML_COM_CREDENCIAL: Final = (
+    MCP_YAML
+    + """
   cofre:
     transport: http
     endpoint: https://cofre.test/mcp
@@ -158,6 +163,7 @@ MCP_YAML_COM_CREDENCIAL: Final = MCP_YAML + """
     policy:
       allowed_tools: [abrir]
 """
+)
 """`cofre` referencia `AI_CORE_MCP_SECRET_FALTA`, que não existe: a etapa `mcp_registry` acusa (R23)."""
 
 AGENTIC_ASSISTANTS_YAML: Final = f"""

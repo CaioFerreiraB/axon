@@ -88,8 +88,10 @@ async def test_controller_pede_calculate_e_a_geracao_recebe_o_resultado_cercado(
     assert not [issue for issue in final.errors if issue.severity == "error"]
 
     first = controller.calls[0]
-    names = [branch["properties"].get("name", {}).get("const") for branch in first["response_format"]["json_schema"]
-             ["schema"]["anyOf"]]
+    names = [
+        branch["properties"].get("name", {}).get("const")
+        for branch in first["response_format"]["json_schema"]["schema"]["anyOf"]
+    ]
     assert names == [None, "generic.calculate"]
 
     sent = llm.calls[0]["messages"]
@@ -102,8 +104,9 @@ async def test_controller_pede_calculate_e_a_geracao_recebe_o_resultado_cercado(
     tipos = [
         (type(event).__name__, getattr(event, "role", None) or getattr(event, "action", None))
         for event in trace.events
-        if isinstance(event, ExecutionStarted | ModelCall | ControllerDecision | ToolCall | ValidationRun
-                      | ExecutionFinished)
+        if isinstance(
+            event, ExecutionStarted | ModelCall | ControllerDecision | ToolCall | ValidationRun | ExecutionFinished
+        )
     ]
     assert tipos == [
         ("ExecutionStarted", None),

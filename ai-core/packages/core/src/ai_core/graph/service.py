@@ -123,4 +123,3 @@ def _resolve_roles(router: ModelRouter, flow: str) -> None:
             router.for_role(role)
         except ModelRoutingError as error:
             raise ExecutionRequestInvalid(f"papel '{role}': {error}") from error
-

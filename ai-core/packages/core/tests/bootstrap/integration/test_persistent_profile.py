@@ -279,8 +279,12 @@ async def test_audit_lista_o_registro_gravado_pela_auditoria_da_004(
                 started_at=datetime(2026, 10, 2, 9, tzinfo=UTC),
             )
         )
-        await log.finish(record_id, status="ok", result="<tool_result>apagado</tool_result>",
-                         at=datetime(2026, 10, 2, 9, 0, 1, tzinfo=UTC))
+        await log.finish(
+            record_id,
+            status="ok",
+            result="<tool_result>apagado</tool_result>",
+            at=datetime(2026, 10, 2, 9, 0, 1, tzinfo=UTC),
+        )
 
     write_config(tmp_path)
     monkeypatch.setenv("AI_CORE_PROFILE", "persistent")
@@ -294,4 +298,3 @@ async def test_audit_lista_o_registro_gravado_pela_auditoria_da_004(
 
     assert await asyncio.to_thread(cli.main, ["audit", "--results"]) == 0
     assert "apagado" in capsys.readouterr().out
-

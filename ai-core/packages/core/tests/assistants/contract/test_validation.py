@@ -100,9 +100,7 @@ AGENTIC_MODELS = {"generation": "ollama/qwen3:1.7b", "controller": "ollama/qwen3
 
 def _com_tools() -> FakePackRegistry:
     """`generic` oferece a tool `calculate`; `rag` prefere `agentic` (o flow efetivo vem dele)."""
-    return FakePackRegistry(
-        pack_entry("generic", tools=("calculate",)), pack_entry("rag", preferred_flow="agentic")
-    )
+    return FakePackRegistry(pack_entry("generic", tools=("calculate",)), pack_entry("rag", preferred_flow="agentic"))
 
 
 @pytest.mark.us8

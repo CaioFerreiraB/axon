@@ -37,9 +37,7 @@ class SpyAudit(InMemoryAuditLog):
         await super().finish(record_id, status=status, result=result, at=at)
 
 
-async def montar(
-    audit: InMemoryAuditLog, **native_kwargs: Any
-) -> tuple[Any, Any, Calls, list[Sequence[AuditRecord]]]:
+async def montar(audit: InMemoryAuditLog, **native_kwargs: Any) -> tuple[Any, Any, Calls, list[Sequence[AuditRecord]]]:
     calls = Calls()
     seen: list[Sequence[AuditRecord]] = []
 

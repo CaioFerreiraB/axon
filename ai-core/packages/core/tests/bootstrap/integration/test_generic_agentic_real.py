@@ -91,7 +91,6 @@ servers:
 """
 
 
-
 def _assistants(model: str) -> str:
     provider = model.partition("/")[0]
     return f"""

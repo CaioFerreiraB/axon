@@ -37,9 +37,7 @@ async def test_dado_de_chamada_carrega_papel_provider_modelo_e_requisicao(
 
 async def test_duracao_vem_do_relogio_injetado(provider: ScriptedProvider, trace: Any) -> None:
     """250 ms entre as duas leituras programadas — o trace não lê o relógio do sistema (ADR-013)."""
-    router = service(provider, trace, ScriptedClock([1.0, 1.25])).for_execution(
-        policy=policy(), request_id=REQUEST_ID
-    )
+    router = service(provider, trace, ScriptedClock([1.0, 1.25])).for_execution(policy=policy(), request_id=REQUEST_ID)
     await router.for_role("generation").complete(MESSAGES)
     assert trace.events[0].duration_ms == pytest.approx(250.0)
 
@@ -77,9 +75,7 @@ async def test_streaming_emite_uma_vez_ao_terminar(provider: ScriptedProvider, t
     assert trace.events[0].finish_reason == "stop"
 
 
-async def test_streaming_abandonado_no_meio_ainda_emite(
-    provider: ScriptedProvider, trace: Any, clock: Any
-) -> None:
+async def test_streaming_abandonado_no_meio_ainda_emite(provider: ScriptedProvider, trace: Any, clock: Any) -> None:
     """Quem consome pode desistir (cliente HTTP desconectado); a chamada continua rastreável (SC-002)."""
     router = service(provider, trace, clock).for_execution(policy=policy(), request_id=REQUEST_ID)
     iterator = router.for_role("generation").stream(MESSAGES)
@@ -103,18 +99,14 @@ async def test_falha_no_meio_do_stream_emite_uma_vez(trace: Any, clock: Any) -> 
     assert trace.events[0].finish_reason == "error"
 
 
-async def test_resolucao_que_falha_antes_da_rede_nao_emite(
-    provider: ScriptedProvider, trace: Any, clock: Any
-) -> None:
+async def test_resolucao_que_falha_antes_da_rede_nao_emite(provider: ScriptedProvider, trace: Any, clock: Any) -> None:
     router = service(provider, trace, clock).for_execution(policy=policy(), request_id=REQUEST_ID)
     with pytest.raises(RoleNotConfigured):
         router.for_role("rerank")
     assert trace.events == []
 
 
-async def test_resolver_o_papel_nao_emite_nada_por_si(
-    provider: ScriptedProvider, trace: Any, clock: Any
-) -> None:
+async def test_resolver_o_papel_nao_emite_nada_por_si(provider: ScriptedProvider, trace: Any, clock: Any) -> None:
     router = service(provider, trace, clock).for_execution(policy=policy(), request_id=REQUEST_ID)
     router.for_role("generation")
     assert trace.events == []

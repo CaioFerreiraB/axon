@@ -72,4 +72,3 @@ class StreamingValidator(AnswerValidator, Protocol):
     """
 
     def open_stream(self, view: TurnView, ctx: ValidatorContext) -> AnswerStream: ...
-

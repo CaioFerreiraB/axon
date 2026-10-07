@@ -54,9 +54,7 @@ def test_politica_rejeita_papel_desconhecido() -> None:
 
 
 def test_papeis_configurados_saem_na_ordem_canonica() -> None:
-    policy = ModelPolicy(
-        roles={"generation": ModelRef.parse("ollama/g"), "controller": ModelRef.parse("ollama/c")}
-    )
+    policy = ModelPolicy(roles={"generation": ModelRef.parse("ollama/g"), "controller": ModelRef.parse("ollama/c")})
     assert policy.configured_roles() == ("controller", "generation")
     assert policy.configured_roles() == tuple(r for r in MODEL_ROLES if r in policy.roles)
 

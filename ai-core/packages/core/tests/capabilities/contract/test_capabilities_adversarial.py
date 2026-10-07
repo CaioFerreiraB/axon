@@ -16,9 +16,29 @@ pytestmark = pytest.mark.us3
 CATALOGO = {"alfa.ecoar", "fin.saldo"}
 
 PERTO = [
-    "alfa.ecoar ", " alfa.ecoar", "ALFA.ecoar", "alfa.Ecoar", "alfa..ecoar", "alfa.ecoar\x00", "alfa.\u0435coar",
-    "alfa.oculta", "alfa.buscar", "alfa.pagar", "fin.saldo\n", "fin.transferir", "~fin.saldo", "beta.ecoar",
-    "ecoar", "saldo", "alfa", "fin", "", ".", "alfa.ecoar.extra", "fin/saldo", "fin:saldo",
+    "alfa.ecoar ",
+    " alfa.ecoar",
+    "ALFA.ecoar",
+    "alfa.Ecoar",
+    "alfa..ecoar",
+    "alfa.ecoar\x00",
+    "alfa.\u0435coar",
+    "alfa.oculta",
+    "alfa.buscar",
+    "alfa.pagar",
+    "fin.saldo\n",
+    "fin.transferir",
+    "~fin.saldo",
+    "beta.ecoar",
+    "ecoar",
+    "saldo",
+    "alfa",
+    "fin",
+    "",
+    ".",
+    "alfa.ecoar.extra",
+    "fin/saldo",
+    "fin:saldo",
 ]
 
 

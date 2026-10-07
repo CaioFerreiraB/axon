@@ -292,9 +292,7 @@ def catalog_tool(
 
 def fenced(name: str, text: str, *, status: str = "ok", truncated: bool = False) -> str:
     """O formato da cerca da 004 (contracts/fencing.md), para o gateway falso produzir o mesmo que o real."""
-    return (
-        f'<tool_result name="{name}" status="{status}" truncated="{str(truncated).lower()}">\n{text}\n</tool_result>'
-    )
+    return f'<tool_result name="{name}" status="{status}" truncated="{str(truncated).lower()}">\n{text}\n</tool_result>'
 
 
 class FakeSession:
@@ -353,4 +351,3 @@ class FakeCapabilities:
         if self._error is not None:
             raise self._error
         return self.session
-

@@ -63,9 +63,7 @@ class ToolContext:
 
     request_id: str
     reference_time: datetime
-    retrieval_filters: Mapping[str, Mapping[str, JSONValue]] = field(
-        default_factory=lambda: MappingProxyType({})
-    )
+    retrieval_filters: Mapping[str, Mapping[str, JSONValue]] = field(default_factory=lambda: MappingProxyType({}))
 
     def __post_init__(self) -> None:
         if not self.request_id.strip():

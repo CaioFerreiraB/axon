@@ -40,9 +40,7 @@ async def test_a_tarefa_roda_no_inicio_e_a_cada_intervalo_e_e_cancelada_no_fim()
         runs.append(len(runs))
         return 0
 
-    async with app_lifespan(database=None, tasks=(PeriodicTask(name="expirar", interval=0.01, run=expire),))(
-        FastAPI()
-    ):
+    async with app_lifespan(database=None, tasks=(PeriodicTask(name="expirar", interval=0.01, run=expire),))(FastAPI()):
         await asyncio.sleep(0.05)
         assert len(runs) >= 2
     count = len(runs)
@@ -58,9 +56,7 @@ async def test_falha_numa_execucao_nao_mata_a_tarefa() -> None:
         if len(runs) == 1:
             raise RuntimeError("banco piscou")
 
-    async with app_lifespan(database=None, tasks=(PeriodicTask(name="instavel", interval=0.01, run=flaky),))(
-        FastAPI()
-    ):
+    async with app_lifespan(database=None, tasks=(PeriodicTask(name="instavel", interval=0.01, run=flaky),))(FastAPI()):
         await asyncio.sleep(0.05)
     assert len(runs) >= 2
 

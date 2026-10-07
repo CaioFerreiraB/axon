@@ -105,6 +105,7 @@ def test_o_relogio_do_perfil_de_teste_e_fixo() -> None:
     assert clock.now() == clock.now()
     assert clock.now().tzinfo is not None
 
+
 # --- Fase 2 (T023; contracts/profiles.md, "Fase 2") -------------------------------------------------------------------
 
 DSN = "postgresql://ai:segredo@127.0.0.1:1/ai"
@@ -157,9 +158,7 @@ def test_o_persistent_constroi_o_pool_fechado_e_os_adapters_postgres_sem_conecta
 
 
 def test_o_pool_do_persistent_nao_expoe_a_url() -> None:
-    built = profile_for("persistent").build(
-        "database", Settings(profile="persistent", database_url=DSN), {}
-    )
+    built = profile_for("persistent").build("database", Settings(profile="persistent", database_url=DSN), {})
     assert "segredo" not in repr(built) and "segredo" not in str(built)
 
 

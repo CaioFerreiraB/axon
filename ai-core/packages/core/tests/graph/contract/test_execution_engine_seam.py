@@ -115,9 +115,7 @@ async def test_provider_fora_do_ar_vira_evento_final_com_erro(grant: ExecutionGr
 
 
 async def test_hook_de_pack_que_levanta_vira_evento_final_nomeando_o_pack(grant: ExecutionGrant, trace: Any) -> None:
-    hooks = ScriptedHooks(
-        prepare_error=PackHookError("explodiu", pack="generic", hook="prepare_context")
-    )
+    hooks = ScriptedHooks(prepare_error=PackHookError("explodiu", pack="generic", hook="prepare_context"))
     final = (await collect(engine(hooks=hooks, trace=trace).run(grant, request())))[-1]
     assert isinstance(final, FinalEvent)
     assert final.errors[0].kind == "PackHookError"

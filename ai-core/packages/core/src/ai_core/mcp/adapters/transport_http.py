@@ -187,7 +187,10 @@ class HttpMcpTransport:
 
         if target.transport == "sse":
             return sse_client(
-                endpoint, headers=headers, timeout=limits.timeout, sse_read_timeout=limits.timeout,
+                endpoint,
+                headers=headers,
+                timeout=limits.timeout,
+                sse_read_timeout=limits.timeout,
                 httpx_client_factory=client,
             )
 

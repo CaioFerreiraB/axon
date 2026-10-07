@@ -34,9 +34,7 @@ async def test_nem_o_banco_nem_os_logs_contem_o_segredo(
 
     caplog.set_level(logging.DEBUG)
     clock = MutableClock()
-    transport = HttpMcpTransport(
-        dns=FixedDnsResolver(), internal_hosts=frozenset({"127.0.0.1"}), allowed_hosts=None
-    )
+    transport = HttpMcpTransport(dns=FixedDnsResolver(), internal_hosts=frozenset({"127.0.0.1"}), allowed_hosts=None)
     service = McpService(
         store=PostgresServerStore(pg_pool),
         config=McpConfig(internal_hosts=frozenset({"127.0.0.1"})),

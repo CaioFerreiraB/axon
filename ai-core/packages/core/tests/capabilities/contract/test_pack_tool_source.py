@@ -38,9 +38,7 @@ def runtime_source() -> PackToolSource:
             return tuple(native(name, tool, calls).spec for tool in tools)
 
         def retrievers_hook(self: object, ctx: object) -> tuple[object, ...]:
-            return tuple(
-                retrieval(name, r, calls, collections=cols).retriever for r, cols in retrievers
-            )
+            return tuple(retrieval(name, r, calls, collections=cols).retriever for r, cols in retrievers)
 
         return make_pack_class(name, tools=tools_hook, retrievers=retrievers_hook)
 

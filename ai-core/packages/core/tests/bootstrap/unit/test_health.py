@@ -244,8 +244,15 @@ class Registry:
         if not self.lists:
             raise RuntimeError("armazenamento do registry indisponível")
         return tuple(
-            McpServer(alias=alias, scope="global", owner=None, transport="http", endpoint=f"https://{alias}.test/mcp",
-                      policy=SecurityPolicy(allowed_tools=("eco",)), origin="file")
+            McpServer(
+                alias=alias,
+                scope="global",
+                owner=None,
+                transport="http",
+                endpoint=f"https://{alias}.test/mcp",
+                policy=SecurityPolicy(allowed_tools=("eco",)),
+                origin="file",
+            )
             for alias in self.aliases
         )
 
@@ -305,4 +312,3 @@ async def test_consulta_dentro_da_janela_nao_repete_as_checagens() -> None:
 async def test_sem_registry_nao_ha_item_de_mcp() -> None:
     report = await health().health()
     assert not [name for name in by_name(report) if name.startswith("mcp")]
-

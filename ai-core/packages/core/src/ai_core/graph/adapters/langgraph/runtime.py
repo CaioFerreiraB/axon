@@ -118,9 +118,7 @@ def _issue(error: Exception) -> ExecutionIssue:
     if isinstance(error, CatalogConflict):
         return ExecutionIssue(stage=STAGE_LOAD, kind=type(error).__name__, message=str(error))
     if isinstance(error, PackHookError):
-        return ExecutionIssue(
-            stage=error.hook, kind=type(error).__name__, message=f"pack '{error.pack}': {error}"
-        )
+        return ExecutionIssue(stage=error.hook, kind=type(error).__name__, message=f"pack '{error.pack}': {error}")
     if isinstance(error, ModelCallFailed):
         return ExecutionIssue(stage="generate", kind=type(error).__name__, message=str(error))
     return ExecutionIssue(stage=UNKNOWN_STAGE, kind=type(error).__name__, message=str(error))

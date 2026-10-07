@@ -115,9 +115,20 @@ def test_o_grant_do_motor_e_o_da_003() -> None:
 def test_nomes_publicos_do_seam() -> None:
     public = {name for name in vars(graph_api) if not name.startswith("_")}
     expected = {
-        "ExecutionEngine", "ExecutionEvent", "ExecutionGrant", "ExecutionIssue", "ExecutionRequest", "FinalEvent",
-        "ProgressEvent", "TokenEvent", "ExecutionError", "ExecutionRequestInvalid", "UnknownFlow", "FLOW_CHAT",
-        "FLOW_AGENTIC", "IssueSeverity",
+        "ExecutionEngine",
+        "ExecutionEvent",
+        "ExecutionGrant",
+        "ExecutionIssue",
+        "ExecutionRequest",
+        "FinalEvent",
+        "ProgressEvent",
+        "TokenEvent",
+        "ExecutionError",
+        "ExecutionRequestInvalid",
+        "UnknownFlow",
+        "FLOW_CHAT",
+        "FLOW_AGENTIC",
+        "IssueSeverity",
     }
     assert expected <= public
     assert not getattr(graph_api.ExecutionGrant, "_is_protocol", False)

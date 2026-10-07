@@ -30,10 +30,16 @@ CORPO: dict[str, Any] = {
 def test_corpo_completo_vira_rascunho() -> None:
     draft = draft_from_json(CORPO, scope="global")
     assert (draft.alias, draft.transport, draft.endpoint, draft.description) == (
-        "financeiro", "http", "http://mcp-financeiro:8080/mcp", "Saldos",
+        "financeiro",
+        "http",
+        "http://mcp-financeiro:8080/mcp",
+        "Saldos",
     )
     assert (draft.auth_type, draft.credential_ref, draft.enabled, draft.user_access) == (
-        "bearer", "financeiro_token", True, False,
+        "bearer",
+        "financeiro_token",
+        True,
+        False,
     )
     assert draft.policy.allowed_tools == ("saldo", "pagar")
     assert draft.policy.write_tools == ("pagar",)
@@ -42,8 +48,12 @@ def test_corpo_completo_vira_rascunho() -> None:
 
 def test_minimo_usa_os_defaults_da_007() -> None:
     draft = draft_from_json(
-        {"alias": "~agenda", "transport": "http", "endpoint": "https://a.example/mcp",
-         "policy": {"allowed_tools": ["listar"]}},
+        {
+            "alias": "~agenda",
+            "transport": "http",
+            "endpoint": "https://a.example/mcp",
+            "policy": {"allowed_tools": ["listar"]},
+        },
         scope="user",
     )
     assert (draft.auth_type, draft.credential_ref, draft.enabled, draft.user_access) == ("none", None, True, False)
@@ -82,9 +92,17 @@ def test_corpo_invalido_nomeia_o_campo(corpo: dict[str, Any], campo: str) -> Non
 
 def _servidor(**overrides: Any) -> McpServer:
     fields: dict[str, Any] = {
-        "alias": "financeiro", "scope": "global", "owner": None, "transport": "http",
-        "endpoint": "http://mcp-financeiro:8080/mcp", "auth_type": "bearer", "credential_ref": "financeiro_token",
-        "policy": SecurityPolicy(allowed_tools=("saldo",)), "origin": "registry", "created_at": AT, "updated_at": AT,
+        "alias": "financeiro",
+        "scope": "global",
+        "owner": None,
+        "transport": "http",
+        "endpoint": "http://mcp-financeiro:8080/mcp",
+        "auth_type": "bearer",
+        "credential_ref": "financeiro_token",
+        "policy": SecurityPolicy(allowed_tools=("saldo",)),
+        "origin": "registry",
+        "created_at": AT,
+        "updated_at": AT,
     }
     return McpServer(**(fields | overrides))
 
@@ -93,8 +111,22 @@ def test_servidor_em_json_so_com_o_nome_da_referencia() -> None:
     corpo = server_json(_servidor())
     assert corpo["auth"] == {"type": "bearer", "credential": "financeiro_token"}
     assert corpo["policy"]["allowed_tools"] == ["saldo"]
-    for chave in ("alias", "scope", "owner", "transport", "endpoint", "command", "description", "enabled",
-                  "user_access", "origin", "available", "reason", "created_at", "updated_at"):
+    for chave in (
+        "alias",
+        "scope",
+        "owner",
+        "transport",
+        "endpoint",
+        "command",
+        "description",
+        "enabled",
+        "user_access",
+        "origin",
+        "available",
+        "reason",
+        "created_at",
+        "updated_at",
+    ):
         assert chave in corpo
     assert corpo["created_at"] == AT.isoformat()
 
@@ -106,12 +138,18 @@ def test_entrada_do_arquivo_com_erro_sai_sem_politica() -> None:
 
 def test_resumo_sem_endpoint_nem_politica() -> None:
     assert summary_json(McpSummary(alias="~agenda", scope="user", description="minha")) == {
-        "alias": "~agenda", "scope": "user", "description": "minha",
+        "alias": "~agenda",
+        "scope": "user",
+        "description": "minha",
     }
 
 
 def test_saude_em_json() -> None:
     saude = ServerHealth(alias="financeiro", ok=False, detail="fora", tools=("saldo",), missing=("pagar",))
     assert health_json(saude) == {
-        "alias": "financeiro", "ok": False, "detail": "fora", "tools": ["saldo"], "missing": ["pagar"],
+        "alias": "financeiro",
+        "ok": False,
+        "detail": "fora",
+        "tools": ["saldo"],
+        "missing": ["pagar"],
     }

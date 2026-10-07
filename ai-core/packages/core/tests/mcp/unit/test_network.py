@@ -79,7 +79,11 @@ def test_nome_que_nao_resolve_e_bloqueado() -> None:
 def test_publico_passa_nos_dois_escopos_e_devolve_o_endereco() -> None:
     for scope in ("user", "global"):
         admission = admit(
-            "mcp.example", [ip_address(PUBLICO)], scope=scope, internal_hosts=INTERNOS, allowed_hosts=None  # type: ignore[arg-type]
+            "mcp.example",
+            [ip_address(PUBLICO)],
+            scope=scope,
+            internal_hosts=INTERNOS,
+            allowed_hosts=None,  # type: ignore[arg-type]
         )
         assert admission.allowed and admission.address == IPv4Address(PUBLICO)
 

@@ -68,9 +68,7 @@ def test_ajuda_lista_todos_os_subcomandos(capsys: Cap) -> None:
 
 
 @pytest.mark.parametrize(("grupo", "filhos"), [("packs", ("list", "check")), ("keys", ("create", "list", "revoke"))])
-def test_ajuda_de_cada_grupo_lista_os_comandos_do_modulo(
-    grupo: str, filhos: tuple[str, ...], capsys: Cap
-) -> None:
+def test_ajuda_de_cada_grupo_lista_os_comandos_do_modulo(grupo: str, filhos: tuple[str, ...], capsys: Cap) -> None:
     with pytest.raises(SystemExit):
         cli.main([grupo, "--help"])
     ajuda = capsys.readouterr().out
@@ -263,4 +261,3 @@ def test_audit_no_perfil_de_teste_sai_com_0_e_sem_registros(
     configurar()
     assert run(["audit", "--limit", "10"], server) == 0
     assert capsys.readouterr().out.strip() == ""
-

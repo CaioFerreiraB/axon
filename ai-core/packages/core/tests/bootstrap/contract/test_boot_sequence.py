@@ -136,7 +136,13 @@ def test_13_mcp_registry_entre_packs_e_engine(tmp_path: Path) -> None:
     plataforma = _boot(tmp_path, assistants=AGENTIC_ASSISTANTS_YAML, mcp=MCP_YAML)
     assert plataforma.ok, plataforma.report.render()
     assert [o.name for o in plataforma.report.stages] == [
-        "configuration", "adapters", "packs", "mcp_registry", "engine", "assistants", "api",
+        "configuration",
+        "adapters",
+        "packs",
+        "mcp_registry",
+        "engine",
+        "assistants",
+        "api",
     ]
     assert plataforma.mcp is not None and plataforma.capabilities is not None
 

@@ -11,7 +11,12 @@ from ai_core.observability.domain.records import record_type, to_record
 
 def test_tool_call_vira_registro_tool_call_sem_argumentos_nem_conteudo() -> None:
     event = ToolCall(
-        request_id="req-1", tool="financeiro.saldo", kind="mcp", status="ok", duration_ms=12.5, size_bytes=340,
+        request_id="req-1",
+        tool="financeiro.saldo",
+        kind="mcp",
+        status="ok",
+        duration_ms=12.5,
+        size_bytes=340,
         truncated=False,
     )
     record = to_record(event, AT)
@@ -35,7 +40,12 @@ def test_tool_inexistente_sai_sem_kind() -> None:
 @pytest.mark.parametrize(("field", "value"), [("duration_ms", -1.0), ("size_bytes", -1), ("tool", " ")])
 def test_campos_invalidos_sao_recusados(field: str, value: object) -> None:
     base: dict[str, object] = {
-        "request_id": "req-1", "tool": "a.b", "kind": "native", "status": "ok", "duration_ms": 1.0, "size_bytes": 1,
+        "request_id": "req-1",
+        "tool": "a.b",
+        "kind": "native",
+        "status": "ok",
+        "duration_ms": 1.0,
+        "size_bytes": 1,
     }
     with pytest.raises(ValueError):
         ToolCall(**(base | {field: value}))  # type: ignore[arg-type]

@@ -16,7 +16,6 @@ type PackTools = Mapping[str, frozenset[str]]
 """Por pack, os nomes das tools nativas e dos retrievers que ele oferece (catálogo coletado na carga, 002)."""
 
 
-
 def reference_reasons(
     definition: AssistantDefinition,
     *,
@@ -58,9 +57,7 @@ def static_reasons(
     )
 
 
-def role_reasons(
-    definition: AssistantDefinition, *, flow: str | None, flow_roles: FlowRoles | None
-) -> tuple[str, ...]:
+def role_reasons(definition: AssistantDefinition, *, flow: str | None, flow_roles: FlowRoles | None) -> tuple[str, ...]:
     """Papéis que o flow efetivo exige e o Assistant não declara (R19). A regra é do motor; aqui só se compara."""
     if flow is None or flow_roles is None:
         return ()

@@ -129,8 +129,10 @@ def test_chave_de_desenvolvimento_no_memory() -> None:
         ({"AI_CORE_PROFILE": "persistent"}, "AI_CORE_DATABASE_URL"),
         ({"AI_CORE_OIDC_ISSUER": "https://idp"}, "AI_CORE_OIDC_AUDIENCE"),
         ({"AI_CORE_DEV_API_KEY": "nao-e-chave"}, "AI_CORE_DEV_API_KEY"),
-        ({"AI_CORE_PROFILE": "persistent", "AI_CORE_DATABASE_URL": DSN, "AI_CORE_DEV_API_KEY": DEV_KEY},
-         "AI_CORE_DEV_API_KEY"),
+        (
+            {"AI_CORE_PROFILE": "persistent", "AI_CORE_DATABASE_URL": DSN, "AI_CORE_DEV_API_KEY": DEV_KEY},
+            "AI_CORE_DEV_API_KEY",
+        ),
         ({"AI_CORE_CONVERSATION_RETENTION_DAYS": "0"}, "AI_CORE_CONVERSATION_RETENTION_DAYS"),
         ({"AI_CORE_CONVERSATION_EXPIRY_INTERVAL": "-5"}, "AI_CORE_CONVERSATION_EXPIRY_INTERVAL"),
     ],

@@ -192,9 +192,7 @@ def assistants_e_pedidos(draw: st.DrawFn) -> tuple[dict[str, Any], str, Any]:
     if draw(st.booleans()):
         # Com namespace (003 Fase 3, R20): nome sem namespace deixaria o Assistant indisponível, e a propriedade não
         # chegaria ao grant.
-        body["allowed_tools"] = draw(
-            st.lists(st.sampled_from(["generic.calculate", "generic.buscar"]), unique=True)
-        )
+        body["allowed_tools"] = draw(st.lists(st.sampled_from(["generic.calculate", "generic.buscar"]), unique=True))
     if draw(st.booleans()):
         body["flow"] = draw(st.sampled_from(["chat", "agentic", "inexistente"]))
     parte = draw(

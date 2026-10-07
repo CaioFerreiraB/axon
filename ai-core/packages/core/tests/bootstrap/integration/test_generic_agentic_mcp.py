@@ -30,8 +30,8 @@ ECO = RemoteTool(
 )
 
 CONTROLLER_PROGRAMADO = AGENTIC_ASSISTANTS_YAML.replace(
-    "      controller: ollama/qwen3:1.7b\n      allow: [\"ollama/*\"]\n  perdido:",
-    "      controller: ctrl/controlador\n      allow: [\"ollama/*\", \"ctrl/*\"]\n  perdido:",
+    '      controller: ollama/qwen3:1.7b\n      allow: ["ollama/*"]\n  perdido:',
+    '      controller: ctrl/controlador\n      allow: ["ollama/*", "ctrl/*"]\n  perdido:',
 )
 """`pesquisador` (`flow: agentic`, `packs: [generic]`, `mcp: [demo]`) com o controller no provider `ctrl`."""
 

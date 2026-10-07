@@ -83,8 +83,13 @@ def test_mcp_de_outro_usuario_e_inexistente(client: TestClient) -> None:
 @pytest.mark.us4
 def test_available_mostra_proprios_e_globais_liberados_sem_detalhes(client: TestClient) -> None:
     admin = bearer(ADMIN_KEY)
-    liberado = {"alias": "agenda-da-casa", "transport": "http", "endpoint": AGENDA_URL, "user_access": True,
-                "policy": {"allowed_tools": ["listar"]}}
+    liberado = {
+        "alias": "agenda-da-casa",
+        "transport": "http",
+        "endpoint": AGENDA_URL,
+        "user_access": True,
+        "policy": {"allowed_tools": ["listar"]},
+    }
     fechado = liberado | {"alias": "interno", "user_access": False}
     assert client.post("/private/v1/mcp", headers=admin, json=liberado).status_code == 201
     assert client.post("/private/v1/mcp", headers=admin, json=fechado).status_code == 201
@@ -115,8 +120,12 @@ def test_recusas_nomeiam_o_campo(client: TestClient, corpo: dict[str, Any], camp
 def test_us4_cen1_mcp_proprio_e_assistant_que_o_usa_aparecem_nos_modelos(client: TestClient) -> None:
     ana = bearer(ANA_TOKEN)
     assert client.post("/v1/mcp", headers=ana, json=mcp_proprio()).status_code == 201
-    assistant = {"name": "com-agenda", "packs": ["generic"], "mcp": ["~agenda"],
-                 "models": {"generation": "ollama/qwen3:1.7b"}}
+    assistant = {
+        "name": "com-agenda",
+        "packs": ["generic"],
+        "mcp": ["~agenda"],
+        "models": {"generation": "ollama/qwen3:1.7b"},
+    }
     criado = client.post("/v1/assistants", headers=ana, json=assistant)
     assert criado.status_code == 201, criado.text
     assert criado.json()["status"]["available"] is True
@@ -128,8 +137,13 @@ def test_nenhuma_resposta_traz_valor_de_credencial(monkeypatch: pytest.MonkeyPat
     kit = build(servers={AGENDA_URL: AGENDA}, secrets={"cofre_token": "segredo-do-cofre"})
     client = TestClient(Platform(mcp=kit.service).app)
     admin = bearer(ADMIN_KEY)
-    corpo = {"alias": "cofre", "transport": "http", "endpoint": AGENDA_URL,
-             "auth": {"type": "bearer", "credential": "cofre_token"}, "policy": {"allowed_tools": ["listar"]}}
+    corpo = {
+        "alias": "cofre",
+        "transport": "http",
+        "endpoint": AGENDA_URL,
+        "auth": {"type": "bearer", "credential": "cofre_token"},
+        "policy": {"allowed_tools": ["listar"]},
+    }
     respostas = [
         client.post("/private/v1/mcp", headers=admin, json=corpo),
         client.get("/private/v1/mcp", headers=admin),

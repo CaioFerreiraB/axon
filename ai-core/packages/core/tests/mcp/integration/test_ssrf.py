@@ -139,9 +139,7 @@ def redirector(demo: tuple[int, Counter]) -> Iterator[tuple[int, Counter]]:
 
 
 @pytest.mark.parametrize("path", ["ip", "nome"])
-async def test_redirecionamento_para_o_destino_bloqueado_nao_chega(
-    redirector: tuple[int, Counter], path: str
-) -> None:
+async def test_redirecionamento_para_o_destino_bloqueado_nao_chega(redirector: tuple[int, Counter], path: str) -> None:
     """US6 cen. 2: o redirecionador é global e liberado; o destino do redirecionamento, não."""
     port, counter = redirector
     with pytest.raises(TransportFailure):

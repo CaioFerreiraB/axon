@@ -255,6 +255,8 @@ async def test_servico_novo_sobre_o_mesmo_armazenamento_continua_resolvendo(user
 # --- Fase 3 (T060; research R22): as regras novas na criação e na atualização ----------------------------------------
 
 FLOW_ROLES = {"chat": ("generation",), "agentic": ("controller", "generation")}
+
+
 def _regras() -> Any:
     return assistants_service(
         config(policies=[policy(match="*", flows=["chat", "agentic"], write_tools=True)]),

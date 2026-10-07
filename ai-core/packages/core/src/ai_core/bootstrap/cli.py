@@ -336,9 +336,7 @@ def _audit(args: argparse.Namespace, io: Io) -> int:
 
 async def _audit_query(parts: Mapping[str, Any], args: argparse.Namespace, io: Io) -> int:
     async with storage(parts) as session:
-        query = capabilities_service(
-            parts, audit=session["audit"], mcp=mcp_service(parts, store=session["mcp_store"])
-        )
+        query = capabilities_service(parts, audit=session["audit"], mcp=mcp_service(parts, store=session["mcp_store"]))
         return await audit_command(
             query,
             principal=args.principal,

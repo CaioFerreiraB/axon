@@ -18,9 +18,7 @@ from ai_core.mcp.api import McpServer, McpServerDraft, McpSummary, SecurityPolic
 type Scope = Literal["global", "user"]
 
 USER_PREFIX: Final = "~"
-FIELDS: Final = frozenset(
-    {"alias", "transport", "endpoint", "description", "auth", "enabled", "user_access", "policy"}
-)
+FIELDS: Final = frozenset({"alias", "transport", "endpoint", "description", "auth", "enabled", "user_access", "policy"})
 AUTH_FIELDS: Final = frozenset({"type", "credential"})
 POLICY_FIELDS: Final = frozenset({"allowed_tools", "write_tools", "timeout_ms", "max_response_bytes"})
 

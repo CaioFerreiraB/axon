@@ -62,7 +62,6 @@ def test_com_gateway_o_agentic_e_oferecido() -> None:
     assert engine(capabilities=FakeCapabilities()).flows() == frozenset({"chat", "agentic"})
 
 
-
 # --- ADR-019 (003, passada de encaixe da Fase 3; T053): papéis por flow como dado ------------------------------------
 
 

@@ -18,8 +18,8 @@ from ai_core.llm.adapters.fake import ScriptedProvider
 pytestmark = pytest.mark.us2
 
 POR_PAPEL = AGENTIC_ASSISTANTS_YAML.replace("    mcp: [demo]\n", "", 1).replace(
-    f"      controller: ollama/{MODEL}\n      allow: [\"ollama/*\"]\n  perdido:",
-    "      controller: openrouter/qwen/qwen3-8b\n      allow: [\"ollama/*\", \"openrouter/*\"]\n  perdido:",
+    f'      controller: ollama/{MODEL}\n      allow: ["ollama/*"]\n  perdido:',
+    '      controller: openrouter/qwen/qwen3-8b\n      allow: ["ollama/*", "openrouter/*"]\n  perdido:',
 )
 """`pesquisador` sem MCP, com o controller no OpenRouter e a geração no Ollama."""
 

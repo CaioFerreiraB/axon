@@ -196,9 +196,7 @@ class ModelRoutingService:
                 results.append(ModelHealth(role=role, ref=ref, available=False, detail=str(error)))
                 continue
             probe = await provider.probe(ref.model)
-            results.append(
-                ModelHealth(role=role, ref=ref, available=probe.available, detail=probe.detail)
-            )
+            results.append(ModelHealth(role=role, ref=ref, available=probe.available, detail=probe.detail))
         return tuple(results)
 
 
@@ -207,6 +205,4 @@ def _provider_for(providers: Mapping[str, ModelProvider], ref: ModelRef) -> Mode
         return providers[ref.provider]
     except KeyError:
         known = ", ".join(sorted(providers)) or "nenhum"
-        raise UnknownProvider(
-            f"provider '{ref.provider}' não registrado; providers conhecidos: {known}"
-        ) from None
+        raise UnknownProvider(f"provider '{ref.provider}' não registrado; providers conhecidos: {known}") from None

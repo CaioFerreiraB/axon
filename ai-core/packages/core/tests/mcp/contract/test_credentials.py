@@ -35,7 +35,7 @@ async def test_sem_autenticacao_nao_ha_cabecalho() -> None:
     kit = build()
     await kit.service.create_global(global_draft())
     await kit.service.client_for(grant("financeiro")).discover(["financeiro"])
-    (_operation, target), = kit.transport.calls
+    ((_operation, target),) = kit.transport.calls
     assert "Authorization" not in target.headers
 
 
@@ -48,7 +48,7 @@ async def test_stdio_recebe_os_segredos_no_ambiente() -> None:
     kit = build(config=McpConfig(entries=(entrada,)), secrets={"arquivos_token": SEGREDO})
     kit.transport.add("/bin/mcp", scripted())
     await kit.service.client_for(grant("arquivos")).discover(["arquivos"])
-    (_operation, target), = kit.transport.calls
+    ((_operation, target),) = kit.transport.calls
     assert dict(target.environment) == {"TOKEN": SEGREDO}
 
 

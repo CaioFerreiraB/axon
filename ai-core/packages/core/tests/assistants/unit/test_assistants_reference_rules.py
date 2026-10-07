@@ -64,9 +64,7 @@ def test_entrada_morta(entry: str, reason: str, field: str) -> None:
     assert tool_reasons(definition(**{field: (entry,)}), pack_tools=PACK_TOOLS) == (f"{field}: {reason}",)
 
 
-@pytest.mark.parametrize(
-    "entry", ["generic.calculate", "generic.buscar", "financeiro.qualquer", "demo.files.read"]
-)
+@pytest.mark.parametrize("entry", ["generic.calculate", "generic.buscar", "financeiro.qualquer", "demo.files.read"])
 def test_entrada_que_pode_casar(entry: str) -> None:
     assistant = definition(mcp=("financeiro", "demo"), allowed_tools=(entry,), write_tools=(entry,))
     assert tool_reasons(assistant, pack_tools=PACK_TOOLS) == ()

@@ -75,9 +75,7 @@ def test_modelo_fora_da_allowlist_falha_sem_tocar_o_provider(trace: Any) -> None
 def test_provider_desconhecido_falha_sem_tocar_a_rede(trace: Any) -> None:
     case = ScriptedCase()
     provider = case.ok()
-    router = routing(provider, trace).for_execution(
-        policy=policy(generation="openai/gpt-4o"), request_id=REQUEST_ID
-    )
+    router = routing(provider, trace).for_execution(policy=policy(generation="openai/gpt-4o"), request_id=REQUEST_ID)
     with pytest.raises(UnknownProvider) as error:
         router.for_role("generation")
     assert "openai" in str(error.value)
