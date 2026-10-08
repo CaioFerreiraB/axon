@@ -16,6 +16,8 @@ class ChunkIndex(Protocol):
         """Busca densa + esparsa com fusão no próprio armazenamento, já filtrada; no máximo `limit`, por score
         decrescente e, no empate, por `chunk_id`. Pergunta vazia ou só com termos de parada → []."""
 
+        # Cada resultado traz `similarity`: o cosseno entre o vetor denso da pergunta e o do trecho (ADR-025).
+
     async def get(self, chunk_ids: Sequence[str]) -> list[IndexedChunk]:
         """Os chunks existentes, na ordem pedida, com `score=None`; ids ausentes são omitidos."""
 
@@ -40,7 +42,8 @@ class IndexMismatch(Exception):
 | tipos | `document_types=("por",)` → só POR |
 | fusão | termo exato ("42") traz o `art42` pelo esparso; o vizinho denso também entra |
 | determinismo | mesma busca duas vezes → mesma lista; empates ordenados por `chunk_id` |
-| `get` | ordem pedida; ausente omitido |
+| `get` | ordem pedida; ausente omitido; `similarity` é `None` |
+| similaridade (ADR-025) | todo resultado de `search` traz `similarity` em `[-1, 1]` — o cosseno denso pergunta × trecho —, igual nos adapters para os mesmos vetores; o trecho idêntico à pergunta tem a maior |
 | versão | `version()` devolve a gravada pelo build publicado |
 | FR-012 | embedder com outra impressão digital (ou outro codificador esparso) → `IndexMismatch` com os dois nomes |
 | indisponível | índice inexistente → `IndexUnavailable`, não lista vazia |

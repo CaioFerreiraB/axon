@@ -19,6 +19,14 @@
 - **Substituição**: qualquer implementação do contrato `Retriever` serve — incluindo GraphRAG (106) — sem mudança em 101, 104 ou no core.
 - **Insumo técnico**: [design.md](design.md); [ADR-006](../../docs/adr/ADR-006-rag-first-default-scouting.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md).
 
+## Clarifications
+
+### Session 2026-10-08
+
+- Q: Que número a 103 devolve como `score` de cada trecho — o que o portão de cobertura do `rag_first` (005) compara com o limiar? → A: A similaridade densa (cosseno entre a pergunta e o trecho, de 0 a 1), absoluta e comparável entre perguntas e packs; a fusão RRF só decide a ordem. Exige um campo aditivo no modelo do índice da 102 (`similarity` no `IndexedChunk`), calculado pelo adapter com os vetores que a busca já devolve.
+- Q: Como o reranker v1 aplica o "reforço por metadados" (vigência, ramo, tipo) sobre os candidatos da fusão? → A: Como desempate, sem pesos: mantém a ordem da fusão e, entre candidatos empatados nela, prefere o vigente, depois o específico do ramo pedido, depois o de um tipo que a pergunta sugeriu; corta em N. Nenhum peso numérico na v1 (princípio X) — reforço com pesos entra se a 105 medir ganho.
+- Q: O que a 103 faz com os temas (`topics`) publicados pela 101, se o índice da 102 não guarda tema nos chunks? → A: Ignora na v1: os temas seguem na fatia da 101 (a 105 mede a derivação), mas não filtram nem reforçam a busca. Expandir a consulta acoplaria a 103 ao léxico da 101; etiquetar na ingestão mudaria a 102 sem medição.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Busca híbrida com fusão na própria base (Priority: P1)
@@ -66,15 +74,15 @@ Com data de referência passada e inclusão de revogados (filtros derivados em 1
 
 ### User Story 4 - Rerank barato na v1 (Priority: P2)
 
-Os candidatos são reordenados pela fusão mais reforço por metadados (vigência, tipo de documento, especificidade) e reduzidos a 3–8 trechos, com custo praticamente nulo.
+Os candidatos ficam na ordem da fusão; entre empatados nela, o reforço por metadados desempata — vigente, depois específico do ramo, depois do tipo sugerido pela pergunta — e a lista é reduzida a 3–8 trechos, com custo praticamente nulo.
 
 **Why this priority**: Um cross-encoder sobre 30 candidatos custa segundos no hardware alvo; a v1 precisa ser barata. O contrato permite evoluir sem mudar o core.
 
-**Independent Test**: Entre dois candidatos de mesmo score, o documento institucional e específico do ramo fica acima do genérico.
+**Independent Test**: Entre dois candidatos empatados na fusão, o vigente e específico do ramo fica acima do geral.
 
 **Acceptance Scenarios**:
 
-1. **Given** 30 candidatos, **When** o rerank roda, **Then** devolve no máximo N (configurável, 3–8) ordenados com o reforço por metadados.
+1. **Given** 30 candidatos, **When** o rerank roda, **Then** devolve no máximo N (configurável, 3–8), na ordem da fusão, com os empates desfeitos pelo reforço por metadados.
 2. **Given** a troca do reranker por um hospedado (v2), **When** configurada, **Then** nenhuma mudança é necessária no core nem em 101.
 
 ---
@@ -107,16 +115,17 @@ Os filtros de ramo e tipos de documento publicados por 101 restringem a busca.
 - **FR-001**: O retriever DEVE executar busca densa e esparsa e fundi-las na própria base de vetores.
 - **FR-002**: O retriever DEVE aplicar por default o filtro de vigência na data de referência recebida nos filtros (101 a deriva da Turn View — ADR-013); o retriever NÃO DEVE ler o relógio do sistema.
 - **FR-003**: O retriever DEVE aceitar data de referência e inclusão de revogados/substituídos a partir dos filtros recebidos.
-- **FR-004**: Cada chunk devolvido DEVE carregar proveniência completa (identificador, documento, versão, status atual, seção, página) e score.
-- **FR-005**: O reranker v1 DEVE combinar a fusão com reforço por metadados (vigência, tipo, especificidade) e devolver no máximo N trechos.
+- **FR-004**: Cada chunk devolvido DEVE carregar proveniência completa (identificador, documento, versão, status atual, seção, página) e score. O score é a similaridade densa entre a pergunta e o trecho (cosseno, 0–1), comparável entre perguntas e entre packs; a ordem vem da fusão (e do reranker), não do score.
+- **FR-005**: O reranker v1 DEVE manter a ordem da fusão, desfazer empates por metadados nesta ordem — vigente antes de não vigente, específico do ramo pedido antes de geral, tipo sugerido pela pergunta antes dos demais — e devolver no máximo N trechos. A v1 NÃO DEVE usar pesos numéricos (princípio X).
 - **FR-006**: O retriever DEVE estar disponível também como tool de recuperação para o loop agêntico.
 - **FR-007**: Indisponibilidade da coleção DEVE gerar erro explícito.
 - **FR-008**: Quantidades (candidatos, N após rerank) DEVEM ser configuráveis e calibradas pela spec 105.
+- **FR-009**: Os temas (`topics`) recebidos nos filtros NÃO DEVEM restringir nem reforçar a busca na v1; o retriever usa só vigência, ramo e tipos de documento.
 
 ### Key Entities
 
 - **Retrieval Query**: texto, filtros (ramo, tipos, data de referência, inclusão de revogados), quantidade.
-- **Candidate / Reranked Chunk**: chunk com score e proveniência.
+- **Candidate / Reranked Chunk**: chunk com score (similaridade densa) e proveniência, na ordem da fusão e do reranker.
 
 ## Success Criteria *(mandatory)*
 
@@ -130,4 +139,4 @@ Os filtros de ramo e tipos de documento publicados por 101 restringem a busca.
 ## Assumptions
 
 - Números iniciais: 20–30 candidatos, 3–8 após rerank — faixas a calibrar na Fase 6.
-- Progressão do reranker: v1 fusão + metadados; v2 hospedado; v3 cross-encoder local se o hardware crescer.
+- Progressão do reranker: v1 fusão + desempate por metadados; v2 hospedado; v3 cross-encoder local se o hardware crescer. Reforço com pesos só se a 105 medir ganho.

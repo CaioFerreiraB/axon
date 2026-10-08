@@ -44,6 +44,10 @@ Cross-encoder (~280M parâmetros) sobre 30 candidatos em 2 cores ARM custa segun
 
 O contrato `Reranker` permite os três sem mudança no core.
 
+> Atualizado em 2026-10-08 (clarificação 2; [research.md](research.md) R4, R5): o "boost por metadado" da v1 é um
+> **desempate sem pesos** — ordem da fusão; entre empatados, vigente, depois específico do ramo, depois tipo sugerido
+> pela pergunta. As marcas vão nos metadados do `Chunk`, e o reranker lê dali (não depende da ordem de entrada).
+
 ## Números
 
 ```text
@@ -60,6 +64,11 @@ Todos calibrados empiricamente, **contra o harness de avaliação** (specs 009/1
 ## Coverage signal
 
 O portão de cobertura do `rag_first` é do core (spec 005): ele olha o melhor score e a contagem de resultados devolvidos. Este módulo só precisa devolver scores comparáveis e resultados já filtrados.
+
+> Atualizado em 2026-10-08 (clarificação 1, [ADR-025](../../docs/adr/ADR-025-indice-do-scouting-devolve-a-similaridade-densa.md)):
+> o score devolvido é a **similaridade densa** pergunta × trecho (cosseno, `[0, 1]`), que a 102 passa a devolver em
+> `IndexedChunk.similarity`; o RRF só ordena e segue nos metadados (`fusion_score`). Os temas da 101 não são usados na
+> v1 (FR-009).
 
 ## Portas e adapters **[ADR-012]**
 

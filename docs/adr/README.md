@@ -29,6 +29,7 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 | [022](ADR-022-instalacao-constroi-o-core-num-estagio-proprio.md) | A instalação constrói o core num estágio do próprio Dockerfile | Aceita | 002 |
 | [023](ADR-023-adapter-da-openai-converte-para-o-subconjunto-estrito.md) | O adapter da OpenAI converte o esquema para o subconjunto estrito, e desfaz a conversão na resposta | Aceita | 006, 005 |
 | [024](ADR-024-validators-filtram-o-streaming.md) | Validators que reescrevem a resposta filtram o streaming | Aceita | 001, 002, 005, 104 |
+| [025](ADR-025-indice-do-scouting-devolve-a-similaridade-densa.md) | O índice do scouting devolve a similaridade densa de cada resultado | Aceita | 102, 103 |
 
 ## Modelo para ADR novo
 
