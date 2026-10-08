@@ -216,7 +216,7 @@ entre os candidatos.
   `corpus/corpus.yaml` se o Qdrant local tiver sido recriado) e registrar no fim do quickstart, numa tabela, os scores do
   topo de cada pergunta (primeira referência para o limiar da 105) e o tempo do rerank (SC-003); corrigir divergências
   entre o resultado e o "Esperado"
-- [ ] T023 Com o aval do mantenedor: commit e push do `ai-scouting` e conferir os jobs do `ci.yml` verdes
+- [X] T023 Com o aval do mantenedor: commit e push do `ai-scouting` e conferir os jobs do `ci.yml` verdes
 - [X] T024 [P] Atualizar no `agentic-app`: `CLAUDE.md` (seção "Código", parágrafo da Fase 5: a 103 existe —
   `ScoutingRetriever` sobre `rag.index.api`, score = similaridade densa (ADR-025), ordem da fusão com desempate por
   metadados, `MetadataReranker`, tool `search_docs` com default de 5 trechos; a 102 devolve `similarity`), a linha da
