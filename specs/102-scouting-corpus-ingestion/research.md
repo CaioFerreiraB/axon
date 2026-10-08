@@ -57,7 +57,9 @@ pior em PDFs institucionais; o `pypdfium2` tem wheel para todas as plataformas-a
 **todos** os problemas, cada um nomeando a entrada (índice e `document_id@version`, quando houver) e os campos
 faltantes ou inválidos. Campos obrigatórios: `file`, `document_id`, `version`, `type`, `title`, `jurisdiction`,
 `effective_date`. Opcionais: `branch` (ausente = documento geral), `publication_date`, `expiry_date`, `supersedes`
-(versão anterior da mesma linhagem), `status` (só `rascunho` ou `revogado`; os demais são derivados — R4). Regras:
+(versão anterior da mesma linhagem), `status` (só `rascunho` ou `revogado`; os demais são derivados — R4) e
+`source_url` (link http/https do arquivo oficial; vai para o registro do documento e não entra na chave de conteúdo —
+clarificação de 2026-10-08). Regras:
 `document_id` em `^[a-z0-9]+(-[a-z0-9]+)*$`; `version` em `^[0-9a-z]+(\.[0-9a-z]+)*$` (sem hífen, para a chave
 `document_id-version` ser inequívoca — R9); `type` na tabela fixa da FR-002; `branch` em `lobinho`, `escoteiro`,
 `senior`, `pioneiro` (os ids da 101); datas ISO; `file` relativo ao diretório do catálogo, sem sair dele; par
@@ -176,6 +178,18 @@ O prefixo com o título do catálogo, e não do PDF, é estável e é o que a ci
 **Alternatives considered**: detectar cabeçalhos por tamanho de fonte (exige layout do PDF; sem medição de que a
 regex não basta); dividir artigos longos (contraria "um artigo = um chunk"; o modelo denso trunca em 512 tokens — o
 esparso cobre o texto inteiro — e a 105 mede se isso pesa).
+
+> Atualizado em 2026-10-08 (corpus real, SC-005 — [quickstart.md](quickstart.md) §5): a tabela cresceu com o que o
+> POR 2025, o Estatuto 2024 e a Resolução CAN 08/2021 mostraram, cada ajuste com um caso sintético do mesmo formato.
+> **Unidade pelo tipo** (`UNIT_BY_TYPE`): regra no `por`, artigo no `estatuto` e na `resolucao` — a resolução cita a
+> nova redação das regras dentro do artigo. **Marcador partido** em duas linhas ("REGRA" / "001 DEFINIÇÃO…") é unido;
+> o rótulo mantém o número como o documento escreve ("Regra 033"). **Título de unidade em maiúsculas** abre unidade e
+> vira parágrafo próprio, mesmo sem pontuação na linha anterior (regras seguidas). **Página de índice** (3+ linhas com
+> pontilhado, ≥ 30% da página) sai inteira do chunking. **Cabeçalho corrido** que muda por capítulo sai quando traz o
+> número da própria página, de qualquer lado. **Crédito de foto** colado pela diagramação ("…Escotismo@ Nome")
+> sai. **"ANEXOS"** sem número abre a seção de anexos. **Nome de agrupamento em duas linhas** é unido. Na chave fixa
+> (preâmbulo, anexo), linha em maiúsculas é texto, não cabeçalho. Resultado: POR com 197 regras, Estatuto com 74
+> artigos, Resolução com 7 — nenhum aviso de "normativo sem unidade".
 
 ## R8 — Janelas narrativas
 
@@ -425,6 +439,13 @@ ao que o corpus real mostrar faz parte da tarefa; nenhum PDF nem catálogo real 
 não a unidade.
 
 **Alternatives considered**: versionar o corpus real nos testes (tamanho, direitos e mudança de versão sem controle).
+
+> Atualizado em 2026-10-08 (clarificação de 2026-10-08): o catálogo revisado e os PDFs passaram a morar no repositório
+> do `ai-scouting`, em `corpus/`, no git normal — ~33 MB, o maior arquivo com 24 MB, abaixo do limite de 100 MB por
+> arquivo e da recomendação de 1 GB por repositório do GitHub. O catálogo é dado de domínio curado, como o léxico, e
+> ganha histórico e revisão; os PDFs preservam o original mesmo se o site da UEB trocar o arquivo (princípio IX). Cada
+> entrada traz `source_url`. Alternativas: Git LFS (clones leves, mas exige `git-lfs` e consome cota; migrar depois
+> reescreve o histórico) e baixar pelo link conferindo o sha256 (não preserva o original). Testes seguem sintéticos.
 
 ## R20 — Efeitos fora desta passada (notas para consumidores)
 

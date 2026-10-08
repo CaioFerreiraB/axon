@@ -29,6 +29,10 @@
 - Q: Quando uma resolução altera só algumas regras do POR, a vigência é controlada por documento inteiro ou por regra? → A: Por documento. A edição consolidada do POR entra como nova versão da linhagem e substitui a anterior inteira; cada resolução é um documento próprio, com vigência própria. Vigência por regra fica fora do escopo da v1.
 - Q: De onde vêm os PDFs do corpus inicial para a primeira ingestão real? → A: Do site oficial da UEB: um conjunto pequeno (POR consolidado, estatuto, uma resolução e um manual de ramo) baixado para uma pasta fora do repositório, com um `corpus.yaml` de rascunho (versões e datas tiradas dos próprios documentos) revisado pelo curador antes da ingestão real.
 
+### Session 2026-10-08
+
+- Q: Onde ficam o catálogo e os PDFs do corpus — fora do repositório do pack, como dizem as clarificações 1 e 5? → A: No repositório do `ai-scouting`, em `corpus/`, no git normal (sem LFS): o corpus inicial tem ~33 MB, e o maior arquivo, 24 MB, fica bem abaixo dos 100 MB por arquivo do GitHub. Cada entrada do catálogo traz `source_url`, o link oficial do arquivo, que vai para o registro do documento no índice. Substitui o "fora do repositório do pack" das clarificações 1 e 5.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Curador ingere um documento (Priority: P1)
@@ -127,12 +131,12 @@ O texto original de cada documento permanece armazenado e recuperável; chunks s
 - **FR-008**: Ingerir um sucessor DEVE atualizar o antecessor; no máximo um documento vigente por linhagem.
 - **FR-009**: O texto original DEVE ser preservado e recuperável a partir de qualquer chunk.
 - **FR-010**: A reindexação DEVE ser idempotente e registrar a versão do índice (estratégia de chunking + modelo de embedding, identificado pelo nome e pela impressão digital dos pesos).
-- **FR-011**: A ingestão DEVE ler os metadados do catálogo do corpus — uma entrada por documento, com arquivo (caminho relativo ao catálogo), `document_id` da linhagem, versão, tipo, título, ramo, jurisdição, datas de vigência e a versão que ele substitui (`supersedes`) — e DEVE rejeitar a entrada sem metadado obrigatório, listando os campos faltantes. Qualquer rejeição impede a execução inteira: nada é aplicado e o índice publicado fica como estava.
+- **FR-011**: A ingestão DEVE ler os metadados do catálogo do corpus — uma entrada por documento, com arquivo (caminho relativo ao catálogo), `document_id` da linhagem, versão, tipo, título, ramo, jurisdição, datas de vigência, a versão que ele substitui (`supersedes`) e, opcional, o link oficial do arquivo (`source_url`) — e DEVE rejeitar a entrada sem metadado obrigatório, listando os campos faltantes. Qualquer rejeição impede a execução inteira: nada é aplicado e o índice publicado fica como estava.
 - **FR-012**: A busca DEVE codificar a pergunta com o mesmo modelo de embedding (e o mesmo codificador esparso) registrado na versão do índice; com um diferente, a busca DEVE ser recusada, e a falha DEVE nomear os dois (falha fechada, princípio VII).
 
 ### Key Entities
 
-- **Corpus Catalog**: arquivo do curador (`corpus.yaml`) com uma entrada por documento; é a única fonte dos metadados e da relação de substituição. Os PDFs ficam fora do repositório do pack, em caminhos relativos ao catálogo.
+- **Corpus Catalog**: arquivo do curador (`corpus.yaml`) com uma entrada por documento; é a única fonte dos metadados e da relação de substituição. Mora no repositório do pack, em `corpus/`, com os PDFs ao lado, em caminhos relativos ao catálogo (clarificação de 2026-10-08).
 - **Document**: identificador, tipo, título, ramo, jurisdição, versão, datas de vigência, sucessor, status, original.
 - **Chunk**: identificador estável, texto com prefixo ancestral, metadados, representações densa e esparsa.
 - **Index Version**: estratégia de chunking + modelo de embedding (nome e impressão digital dos pesos) + data.
@@ -153,4 +157,4 @@ O texto original de cada documento permanece armazenado e recuperável; chunks s
 - Ingestão é offline, disparada pelo curador/operador; não há ingestão de longa duração que exija motor de workflow (ADR-010).
 - Modelo de embedding decidido por medição na Fase 6 (candidatos no design); até lá, `multilingual-e5-small` dentro do processo, e o `bge-m3` pelo Ollama é o próximo a testar. A escolha não altera o modelo de chunk indexado nem a porta `ChunkIndex` — cada candidato é um adapter de embedding.
 - Onde o texto original fica armazenado é decidido no plano; o acesso é por porta, e o armazenamento é adapter.
-- O corpus inicial é de documentos institucionais em português, públicos no site oficial da UEB; os PDFs e o catálogo ficam numa pasta fora do repositório do pack, e o rascunho do catálogo é revisado pelo curador antes da ingestão real. Os testes automatizados usam documentos sintéticos.
+- O corpus inicial é de documentos institucionais em português, públicos no site oficial da UEB; os PDFs e o catálogo ficam em `corpus/` no repositório do pack (clarificação de 2026-10-08), e o rascunho do catálogo é revisado pelo curador antes da ingestão real. Os testes automatizados usam documentos sintéticos.

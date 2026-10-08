@@ -20,7 +20,7 @@ R15, R17.
 | `ingest <corpus.yaml>` | valida tudo; com a versão do índice igual à publicada, monta um build novo reaproveitando o que não mudou e publica; sem índice, cria o primeiro | relatório (abaixo) |
 | `reindex <corpus.yaml>` | como `ingest`, sem reaproveitar nada: recodifica tudo com a configuração atual e publica uma versão nova | relatório |
 | `status` | versão publicada, contagem de documentos e chunks por linhagem e status, builds órfãos | tabela |
-| `original <chunk_id>` | o texto original das páginas do chunk, com documento, versão, faixa de páginas e `sha256` da fonte | texto |
+| `original <chunk_id>` | o texto original das páginas do chunk, com documento, versão, faixa de páginas, `sha256` da fonte e o `source_url`, se houver | texto |
 | `model fetch <dir>` | baixa `onnx/model.onnx` e `onnx/tokenizer.json` do `intfloat/multilingual-e5-small` na revisão fixada e confere os sha256; arquivo presente e íntegro não é baixado de novo | caminhos e hashes |
 
 ## Códigos de saída

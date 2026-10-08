@@ -63,14 +63,43 @@ Depois, quebre o catálogo de propósito — tire o `title` de uma entrada e dec
 
 ## 5. Corpus real (SC-005, manual)
 
-1. Baixar do site oficial da UEB o POR consolidado, o estatuto, uma resolução e um manual de ramo para uma pasta fora
-   do repositório (ex.: `~/corpus-ueb/`).
-2. Escrever `~/corpus-ueb/corpus.yaml` de rascunho com versões e datas tiradas dos próprios documentos
-   ([formato](contracts/corpus-catalog.md)).
+1. Baixar do site oficial da UEB o POR consolidado, o estatuto, uma resolução e um manual de ramo.
+2. Escrever o `corpus.yaml` de rascunho com versões e datas tiradas dos próprios documentos e o `source_url` de cada
+   arquivo ([formato](contracts/corpus-catalog.md)).
 3. **O curador revisa o catálogo.**
-4. `uv run ai-scouting-corpus ingest ~/corpus-ueb/corpus.yaml` contra o Qdrant local.
+4. `uv run ai-scouting-corpus ingest corpus/corpus.yaml` contra o Qdrant local.
+
+Desde 2026-10-08 o resultado mora no repositório do `ai-scouting`, em `corpus/` (catálogo e PDFs, git normal).
 
 Esperado: nenhuma rejeição; o relatório mostra unidades normativas reconhecidas no POR, no estatuto e na resolução
 (nenhum aviso de "normativo sem unidade"); `status` com uma vigente por linhagem; amostra de chunks normativos com o
 prefixo completo e o rótulo da unidade (SC-001); a duração anotada como primeira medida do SC-004. Ajustes na tabela
-de marcadores pedidos pelo corpus real entram com teste sintético do mesmo formato. Nada do corpus real é commitado.
+de marcadores pedidos pelo corpus real entram com teste sintético do mesmo formato; os testes automatizados não leem o
+corpus real.
+
+### Ensaio de 2026-10-08 (antes da revisão do curador)
+
+Catálogo de rascunho em `~/corpus-ueb/corpus.yaml` (POR 2025 v2.1, Estatuto 2024, Resolução CAN 08/2021, "Escotistas
+em Ação — Ramo Lobinho" 2ª ed.), ingerido num índice de ensaio (`AI_SCOUTING_INDEX=ueb-ensaio`), máquina de
+desenvolvimento x86 com o e5 em CPU — **não** é o hardware alvo.
+
+| Medida | Resultado |
+|---|---|
+| Rejeições | 0 |
+| Chunks | 413 — POR 229 (197 regras), Estatuto 75 (74 artigos), Resolução 8 (7 artigos), manual 101 |
+| SC-001 | 278 chunks normativos, todos com prefixo ancestral e citação derivável |
+| SC-002 | reingestão: 413 ids, todos reaproveitados, 0 duplicatas (8 s) |
+| SC-003 | uma vigente por linhagem |
+| SC-004 (primeira medida) | ingestão completa 1m16s; `reindex` completo 0m51s, pico de 1,3 GB de RSS (lote do e5 = 8) |
+| Avisos | 44 — regras e artigos acima de 512 tokens estimados (o denso trunca; o esparso cobre) e páginas sem texto |
+
+### Ingestão real de 2026-10-08 (catálogo revisado pelo curador)
+
+Mesmo catálogo, revisado e aceito com os valores provisórios marcados "A CONFIRMAR" (início de vigência do POR 2025
+v2.1, data de aprovação do Estatuto 2024, vigência própria da Resolução CAN 08/2021 e do manual de 2016 depois da
+Resolução CAN 05/2025). Índice `scouting`, Qdrant `v1.19.2` local, mesma máquina de desenvolvimento.
+
+| Medida | Resultado |
+|---|---|
+| Rejeições | 0 — 4 documentos, 413 chunks, uma vigente por linhagem (`status`) |
+| SC-004 | ingestão completa 0m48s; `reindex` completo 0m47s; pico de 1,3 GB de RSS nos dois |

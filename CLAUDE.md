@@ -206,6 +206,25 @@ keys só de leitura do `agentic-app` e do `ai-scouting`). Os contratos estão em
 (`open_answer_stream`) e o motor passa cada pedaço da geração por ele, emitindo depois, como token, o que os validators
 em lote só acrescentam. O `citation_integrity` da 104 já filtra (nenhuma citação inventada sai, nem em streaming).
 
+**A Fase 5 do roadmap está em andamento.** A 102 (US1–US5) existe no `ai-scouting`: `rag/index/` é o seam *Índice do
+scouting* — `api.py` com `IndexedChunk`, `IndexFilters` (vigência como intervalo, `include_superseded`,
+`previous_version`, ramo ou geral, tipos), `IndexVersion` e `ChunkIndex` (`search`/`get`/`version`, erros
+`IndexUnavailable` e `IndexMismatch`) —, com o `QdrantIndex` (um build por coleção atrás de um alias trocado numa
+operação, RRF nativo sobre `dense` + `sparse` com IDF, versão do índice na `metadata` da coleção, texto original em
+pontos sem vetor) e o `MemoryIndex` (as mesmas fórmulas), numa suíte de conformidade contra memória, Qdrant local e
+servidor (`AI_SCOUTING_TEST_QDRANT_URL`, job `qdrant` da CI). O denso é o `multilingual-e5-small` em ONNX no processo,
+fixado por revisão e sha256 (`ai-scouting-corpus model fetch`, nunca baixa em runtime); o esparso, BM25 com stemmer
+português. `rag/ingestion/` é o pipeline offline: catálogo `corpus.yaml` validado por inteiro, linhagem sem relógio
+(status pela posição; vigência numa data pelas datas), PDFium, limpeza (índice, cabeçalho corrido, hifenização,
+crédito de foto), unidade normativa pelo tipo (regra no POR, artigo no estatuto e na resolução), janelas que não
+cortam frase, ids determinísticos e execução tudo ou nada que reaproveita os vetores do que não mudou. A CLI
+`ai-scouting-corpus` (`ingest`, `reindex`, `status`, `original`, `model fetch`) é composta no `pack.py`. O corpus
+inicial — POR 2025 v2.1, Estatuto 2024, Resolução CAN 08/2021 e "Escotistas em Ação — Ramo Lobinho", catálogo revisado
+pelo curador, `source_url` em cada entrada — mora em `ai-scouting/corpus/`, no git normal; ingerido, dá 413 chunks
+(197 regras, 74 artigos). Configuração por `AI_SCOUTING_QDRANT_URL`, `AI_SCOUTING_QDRANT_API_KEY`, `AI_SCOUTING_INDEX` e
+`AI_SCOUTING_EMBEDDING_DIR`. Seguem na Fase 5: 103 (retriever e rerank sobre `rag.index.api`), 104 (publicação dos
+validators), 005 US3–US4 (`rag_first`) e 101 US4–US5.
+
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
 true }`, suíte de conformidade nos próprios testes e zero import do core (import-linter, nas duas direções). Ele é

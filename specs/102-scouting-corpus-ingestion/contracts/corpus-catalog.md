@@ -1,12 +1,14 @@
 # Contrato — catálogo do corpus (`corpus.yaml`)
 
-Arquivo do curador; a única fonte dos metadados e da relação de substituição (clarificação 1). Fica numa pasta fora do
-repositório do pack, junto com os PDFs, que ele referencia por caminho relativo. Decisões em
+Arquivo do curador; a única fonte dos metadados e da relação de substituição (clarificação 1). Mora no repositório do
+`ai-scouting`, em `corpus/corpus.yaml`, com os PDFs ao lado, referenciados por caminho relativo (clarificação de
+2026-10-08). Decisões em
 [research.md](../research.md) R3 e R4; tipos em [data-model.md](../data-model.md).
 
 ```yaml
 documents:
   - file: por/por-2023.pdf
+    source_url: https://www.escoteiros.org.br/wp-content/uploads/por-2023.pdf   # opcional: o link oficial do arquivo
     document_id: por
     version: "2023"
     type: por
@@ -53,6 +55,7 @@ documents:
 | `file` fora do diretório do catálogo ou inexistente | entrada N: arquivo |
 | (`document_id`, `version`) repetido | as duas entradas |
 | `status: revogado` sem `expiry_date` | entrada N |
+| `source_url` que não é link `http(s)://` sem espaço | entrada N: campo inválido |
 | linhagem (R4): `supersedes` inexistente, substituída por duas, ciclo, sucessor que não começa depois, `expiry_date` incoerente, mais de uma vigente | a linhagem, nomeando as versões |
 | PDF sem texto em nenhuma página | entrada N: sem camada de texto (OCR fora do escopo) |
 

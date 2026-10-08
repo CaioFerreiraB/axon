@@ -31,6 +31,7 @@ Uma entrada por versão de documento. Formato do arquivo em [contracts/corpus-ca
 | `expiry_date` | data | não | obrigatório com `status: revogado`; derivado para substituídas (R4) |
 | `supersedes` | versão | não | versão da mesma linhagem |
 | `status` | `rascunho` \| `revogado` | não | os demais status são derivados |
+| `source_url` | link | não | `https?://` sem espaço — o arquivo oficial; vai para o registro, fora da chave de conteúdo |
 
 Validação acumula todos os problemas: `CatalogProblem(entry: int, key: str | None, fields: tuple[str, ...], message)`.
 
@@ -121,10 +122,11 @@ Predicado puro `matches(filters, chunk) -> bool` em `rag/index/domain/filters.py
 |---|---|
 | `SparseVector` | `indices: tuple[int, ...]` (u32, ordenados, únicos), `values: tuple[float, ...]` |
 | `EncodedChunk` | `chunk: IndexedChunk` (sem score), `dense: tuple[float, ...]`, `sparse: SparseVector` |
-| `StoredDocument` | `doc_key`, `document_id`, `version`, `content_key`, `entry` (os campos do catálogo), `validity`, `source_file`, `source_sha256`, `chunk_ids` |
+| `DocumentFields` | os campos de documento que todo chunk da versão repete: `document_id`, `version`, `document_type`, `document_title`, `jurisdiction`, `branch`, `publication_date`, `effective_date`, `expiry_date`, `status`, `superseded_by`, `successor_expiry_date`; `doc_key` derivado |
+| `StoredDocument` | `fields: DocumentFields`, `content_key`, `source_file`, `source_sha256`, `chunk_ids`, `source_url`; `doc_key` derivado |
 | `DocumentRecord` | `StoredDocument` + `pages: tuple[str, ...]` (texto original bruto) |
 | `Build` | `name` (`<índice>__<AAAAMMDDTHHMMSSZ>`, com `-<n>` se o nome já existe), `version: IndexVersion` |
-| `Original` | `chunk_id`, `doc_key`, `document_title`, `version`, `page_start`, `page_end`, `pages` (o texto delas), `source_file`, `source_sha256` |
+| `Original` | `chunk_id`, `doc_key`, `document_title`, `version`, `page_start`, `page_end`, `pages` (o texto delas), `source_file`, `source_sha256`, `source_url` |
 
 `content_key = sha256(source_sha256 | document_type | title | parser)` — igual entre builds = chunks reaproveitáveis
 (R13).
@@ -134,7 +136,7 @@ Predicado puro `matches(filters, chunk) -> bool` em `rag/index/domain/filters.py
 | Tipo | Campos |
 |---|---|
 | `DocumentOutcome` | `doc_key`, `chunks`, `reused: bool`, `normative_units`, `warnings` (página sem texto, normativo sem unidade, unidade acima de 512 tokens estimados) |
-| `IngestionReport` | `ok`, `problems` (catálogo, linhagem, parser), `documents`, `removed` (doc_keys que saíram), `version`, `build`, `duration_s` |
+| `IngestionReport` | `ok`, `problems` (catálogo, linhagem, parser, versão), `documents`, `removed` (doc_keys que saíram), `version`, `build`; a duração é medida pela CLI |
 
 ## Mapa no Qdrant (detalhe do adapter, não seam)
 
