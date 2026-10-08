@@ -140,7 +140,7 @@ O texto original de cada documento permanece armazenado e recuperável; chunks s
 - **Document**: identificador, tipo, título, ramo, jurisdição, versão, datas de vigência, sucessor, status, original.
 - **Chunk**: identificador estável, texto com prefixo ancestral, metadados, representações densa e esparsa.
 - **Index Version**: estratégia de chunking + modelo de embedding (nome e impressão digital dos pesos) + data.
-- **Chunk Index**: porta de consulta do índice (busca densa e esparsa com fusão, filtros de vigência e de contexto), consumida por 103 e 106.
+- **Chunk Index**: porta de consulta do índice (busca densa e esparsa com fusão, filtros de vigência e de contexto, e a similaridade densa de cada resultado — ADR-025), consumida por 103 e 106.
 
 ## Success Criteria *(mandatory)*
 

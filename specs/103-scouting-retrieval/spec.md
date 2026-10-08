@@ -119,7 +119,7 @@ Os filtros de ramo e tipos de documento publicados por 101 restringem a busca.
 - **FR-005**: O reranker v1 DEVE manter a ordem da fusão, desfazer empates por metadados nesta ordem — vigente antes de não vigente, específico do ramo pedido antes de geral, tipo sugerido pela pergunta antes dos demais — e devolver no máximo N trechos. A v1 NÃO DEVE usar pesos numéricos (princípio X).
 - **FR-006**: O retriever DEVE estar disponível também como tool de recuperação para o loop agêntico.
 - **FR-007**: Indisponibilidade da coleção DEVE gerar erro explícito.
-- **FR-008**: Quantidades (candidatos, N após rerank) DEVEM ser configuráveis e calibradas pela spec 105.
+- **FR-008**: Quantidades DEVEM ser configuráveis e calibradas pela spec 105: a 103 configura quantos trechos devolve quando o chamador não diz (`default_limit`) e o teto do que aceita (`max_limit`); o número de candidatos e o N após o rerank chegam do chamador (`top_k` — a 005 no `rag_first`).
 - **FR-009**: Os temas (`topics`) recebidos nos filtros NÃO DEVEM restringir nem reforçar a busca na v1; o retriever usa só vigência, ramo e tipos de documento.
 
 ### Key Entities

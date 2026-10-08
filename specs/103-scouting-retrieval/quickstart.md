@@ -16,6 +16,8 @@ a conformidade do `Reranker` com chunks crus, a integração com o `QdrantIndex`
 ## 2. Corpus real com o e5
 
 Pré-requisito: o índice `scouting` ingerido a partir de `corpus/corpus.yaml` (quickstart da 102, §5) num Qdrant local.
+É aqui — e no caso com o e5 de `test_integration.py`, que a CI pula por falta do modelo — que a paráfrase da US1
+(cen. 2) é verificada.
 
 ```bash
 export AI_SCOUTING_QDRANT_URL=http://localhost:56333 AI_SCOUTING_EMBEDDING_DIR=~/.cache/ai-scouting/e5-small
