@@ -222,8 +222,14 @@ cortam frase, ids determinísticos e execução tudo ou nada que reaproveita os 
 inicial — POR 2025 v2.1, Estatuto 2024, Resolução CAN 08/2021 e "Escotistas em Ação — Ramo Lobinho", catálogo revisado
 pelo curador, `source_url` em cada entrada — mora em `ai-scouting/corpus/`, no git normal; ingerido, dá 413 chunks
 (197 regras, 74 artigos). Configuração por `AI_SCOUTING_QDRANT_URL`, `AI_SCOUTING_QDRANT_API_KEY`, `AI_SCOUTING_INDEX` e
-`AI_SCOUTING_EMBEDDING_DIR`. Seguem na Fase 5: 103 (retriever e rerank sobre `rag.index.api`), 104 (publicação dos
-validators), 005 US3–US4 (`rag_first`) e 101 US4–US5.
+`AI_SCOUTING_EMBEDDING_DIR`. A 103 (US1–US5) também existe: `rag/retrieval/` tem o `ScoutingRetriever` (o `Retriever`
+da 001 sobre `rag.index.api`), que traduz os `retrieval_filters` da 101 sem ler relógio (temas ignorados; filtros
+ausentes ou com chave desconhecida → `InvalidFilters`), devolve `score` = similaridade densa — a 102 passou a devolver
+`IndexedChunk.similarity` (ADR-025) — e ordena pela fusão com empates desfeitos por metadados (vigente, ramo, tipo),
+sem pesos, gravando as marcas nos metadados; o `MetadataReranker` reconstrói essa ordem sem depender da entrada; a
+tool `search_docs` devolve 5 trechos por padrão (teto 30). No corpus real a similaridade do e5 é comprimida (coberto
+0,85–0,92; fora do corpus até 0,84): o limiar do portão precisa da 105. Seguem na Fase 5: 104 (publicação dos
+validators), 005 US3–US4 (`rag_first`) e 101 US4–US5 (o `pack.py` publica retriever, reranker e `rag_first`).
 
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =

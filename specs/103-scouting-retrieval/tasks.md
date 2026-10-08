@@ -34,12 +34,12 @@ alterado da 102 (ADR-025); filtros e ordem são tabelas de casos — testes prim
 
 ## Phase 1: Setup
 
-- [ ] T001 No `pyproject.toml`, acrescentar os contratos do import-linter de research R9: `layers`
+- [X] T001 No `pyproject.toml`, acrescentar os contratos do import-linter de research R9: `layers`
   `ai_scouting.rag.retrieval.retriever | ai_scouting.rag.retrieval.reranker` → `ai_scouting.rag.retrieval.domain`;
   `forbidden`: `ai_scouting.rag.retrieval` ↛ `ai_scouting.rag.index.domain`, `ai_scouting.rag.index.ports`,
   `ai_scouting.rag.index.adapters`, `ai_scouting.rag.ingestion`, `qdrant_client`, `onnxruntime`, `tokenizers`, `numpy`,
   `snowballstemmer`, `pypdfium2`, `yaml`
-- [ ] T002 Criar o esqueleto: `retrieval/__init__.py` (docstring: retriever e reranker do scouting, spec 103),
+- [X] T002 Criar o esqueleto: `retrieval/__init__.py` (docstring: retriever e reranker do scouting, spec 103),
   `retrieval/domain/__init__.py` e `tests/rag/retrieval/__init__.py` (vazio); `retriever.py` e `reranker.py` nascem nas
   US1 e US4 (o contrato de camadas da T001 exige que os módulos existam — criar os dois com só a docstring)
 
@@ -49,30 +49,30 @@ alterado da 102 (ADR-025); filtros e ordem são tabelas de casos — testes prim
 
 **⚠️ CRITICAL**: a similaridade da 102 e o domínio (configuração, filtros, ordem) servem a todas as histórias.
 
-- [ ] T003 [P] Acrescentar a `tests/rag/index/test_conformance.py` (alvos memória, Qdrant local e servidor) os casos do
+- [X] T003 [P] Acrescentar a `tests/rag/index/test_conformance.py` (alvos memória, Qdrant local e servidor) os casos do
   ADR-025: todo resultado de `search` tem `similarity` em `[-1, 1]`; um trecho com o mesmo texto da pergunta tem a maior
   similaridade; `get` devolve `similarity=None`; a similaridade de um mesmo trecho para a mesma pergunta é igual no
   `MemoryIndex` e no `QdrantIndex` (tolerância 1e-5); e a `tests/rag/index/test_model.py`: `IndexedChunk` recusa
   `similarity` fora de `[-1, 1]` (tolerância 1e-6) e `to_chunk()` continua usando `score` (a fusão)
-- [ ] T004 Implementar o ADR-025 na 102: `IndexedChunk.similarity: float | None = None` com a validação em
+- [X] T004 Implementar o ADR-025 na 102: `IndexedChunk.similarity: float | None = None` com a validação em
   `index/api.py`; `chunk_from_payload(payload, score=None, similarity=None)` em `index/domain/points.py`; no
   `MemoryIndex.search`, a similaridade é `cosine(dense_query, e.dense)`; no `QdrantIndex.search`,
   `query_points(..., with_vectors=["dense"])` e a mesma função `cosine` de `index/domain/scoring.py` sobre o vetor
   devolvido (faz T003 passar nos três alvos)
-- [ ] T005 [P] Escrever `tests/rag/retrieval/test_config.py`: `RetrievalConfig()` = (`default_limit=5`, `max_limit=30`);
+- [X] T005 [P] Escrever `tests/rag/retrieval/test_config.py`: `RetrievalConfig()` = (`default_limit=5`, `max_limit=30`);
   "`1 ≤ default_limit ≤ max_limit`" — (0, 30), (31, 30) e (5, 0) levantam `ValueError`
-- [ ] T006 [P] Escrever `tests/rag/retrieval/test_filters.py` com a tabela de [data-model.md](data-model.md): o
+- [X] T006 [P] Escrever `tests/rag/retrieval/test_filters.py` com a tabela de [data-model.md](data-model.md): o
   exemplo do contrato da 101 vira o `IndexFilters` esperado (datas, `include_superseded`, `previous_version`, `branch`,
   `document_types`); só as datas → defaults `False`, sem ramo, sem tipos; `topics` não muda o resultado; `None`, sem
   `effective_from`, sem `effective_until`, data inválida (`"2026-13-01"`), `include_superseded: "sim"`, `document_types`
   que não é lista e chave desconhecida (`"tema"`) → `InvalidFilters` nomeando a chave; ramo ou tipo fora do vocabulário
   → `InvalidFilters` (o `ValueError` do `IndexFilters` traduzido)
-- [ ] T007 [P] Escrever `tests/rag/retrieval/test_ordering.py`: `marks(indexed, filters)` dá `branch_match` só com ramo
+- [X] T007 [P] Escrever `tests/rag/retrieval/test_ordering.py`: `marks(indexed, filters)` dá `branch_match` só com ramo
   pedido e igual ao do trecho (geral não casa) e `type_match` só com `document_types` pedidos e o tipo dentro; a chave
   `(-fusion_score, status != vigente, not branch_match, not type_match, chunk_id)` ordena uma tabela de chunks (fusão
   maior primeiro; no empate, vigente; depois ramo; depois tipo; depois `chunk_id`); `ordered(chunks)` põe os chunks sem
   `fusion_score` nos metadados depois dos anotados, na ordem de entrada
-- [ ] T008 Implementar `retrieval/domain/config.py` (`RetrievalConfig`), `retrieval/domain/filters.py`
+- [X] T008 Implementar `retrieval/domain/config.py` (`RetrievalConfig`), `retrieval/domain/filters.py`
   (`InvalidFilters(key, message)`, `index_filters(raw: Mapping[str, JSONValue] | None) -> IndexFilters`) e
   `retrieval/domain/ordering.py` (`FUSION_SCORE`, `BRANCH_MATCH`, `TYPE_MATCH` como nomes de chave; `marks`,
   `sort_key`, `ordered`) — só stdlib, `ai_core_contracts` e `rag.index.api` (faz T005–T007 passarem)
@@ -91,7 +91,7 @@ entre os candidatos.
 
 ### Tests for User Story 1
 
-- [ ] T009 [P] [US1] Escrever em `tests/rag/retrieval/test_retriever.py` (com `MemoryIndex` + `HashingEmbedder` +
+- [X] T009 [P] [US1] Escrever em `tests/rag/retrieval/test_retriever.py` (com `MemoryIndex` + `HashingEmbedder` +
   `Bm25Encoder` da 102 e um corpus sintético pequeno — POR com `regra33` e `regra5`, manual, norma): "o que diz a Regra
   33" traz `regra33` no topo (componente esparsa — US1 cen. 1); cada `Chunk` tem `chunk_id`, `document` (título),
   `version`, `status`, `section`, `page` e `score` em `[0, 1]` igual à `similarity` limitada (FR-004); `metadata` traz
@@ -99,14 +99,14 @@ entre os candidatos.
   → no máximo 30; `top_k=0` → `ValueError`; pergunta só de stopwords → `[]`; índice sem build →
   `IndexUnavailable` (FR-007); embedder divergente → `IndexMismatch`; `search_docs(retriever, collection="scouting")`
   é um `NamedRetriever` com nome `search_docs`, coleções `{"scouting"}`, descrição não vazia e o próprio retriever
-- [ ] T010 [P] [US1] Escrever `tests/rag/retrieval/test_integration.py`: o mesmo corpus no `QdrantIndex` em modo local
+- [X] T010 [P] [US1] Escrever `tests/rag/retrieval/test_integration.py`: o mesmo corpus no `QdrantIndex` em modo local
   devolve, para "o que diz a Regra 33", o mesmo topo e os mesmos `chunk_id`s que o `MemoryIndex`; e um caso com o
   `E5Embedder` (pulado sem `AI_SCOUTING_EMBEDDING_DIR`): a paráfrase "o que levar para acampar com a patrulha" traz o
   trecho de acampamento entre os 3 primeiros e com `score` maior que o de um trecho de outro tema (US1 cen. 2)
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] Implementar `retrieval/retriever.py`: `ScoutingRetriever(index: ChunkIndex, config: RetrievalConfig =
+- [X] T011 [US1] Implementar `retrieval/retriever.py`: `ScoutingRetriever(index: ChunkIndex, config: RetrievalConfig =
   RetrievalConfig())` com `async search(query, *, top_k: int | None = None, filters=None) -> list[Chunk]` (filtros por
   `index_filters`, limite por R6, `index.search(query, filters=..., limit=...)`, `marks`, conversão `to_chunk()` com
   `score = min(max(similarity, 0.0), 1.0)` e os metadados de ordem, `ordered`) e `search_docs(retriever, *, collection:
@@ -127,7 +127,7 @@ entre os candidatos.
 
 ### Tests for User Story 2
 
-- [ ] T012 [P] [US2] Acrescentar a `tests/rag/retrieval/test_retriever.py`: manual 2023 (`substituido`, fim em
+- [X] T012 [P] [US2] Acrescentar a `tests/rag/retrieval/test_retriever.py`: manual 2023 (`substituido`, fim em
   2026-02-28) e 2026 (`vigente`) e um rascunho 2027 indexados; filtros do dia 2026-10-07 (formato da 101) → só a 2026,
   nenhum rascunho; e, em `tests/test_purity.py`, acrescentar `ai_scouting.rag.retrieval` à lista de pacotes puros,
   trocando a varredura para subpastas (`rglob("*.py")`, para cobrir `retrieval/domain/`) — o retriever não lê o relógio
@@ -135,7 +135,7 @@ entre os candidatos.
 
 ### Implementation for User Story 2
 
-- [ ] T013 [US2] Fazer T012 passar ajustando só `retrieval/domain/filters.py` ou `retrieval/retriever.py`, se preciso
+- [X] T013 [US2] Fazer T012 passar ajustando só `retrieval/domain/filters.py` ou `retrieval/retriever.py`, se preciso
 
 ---
 
@@ -147,14 +147,14 @@ entre os candidatos.
 
 ### Tests for User Story 3
 
-- [ ] T014 [P] [US3] Acrescentar a `tests/rag/retrieval/test_retriever.py`: filtros 2023-01-01..2023-12-31 com
+- [X] T014 [P] [US3] Acrescentar a `tests/rag/retrieval/test_retriever.py`: filtros 2023-01-01..2023-12-31 com
   `include_superseded: true` → a 2023, com `Chunk.status == "substituido"` e `metadata["superseded_by"] ==
   "manual-x-2026"`; os mesmos sem `include_superseded` → a 2023 ainda (estava em vigor no fim de 2023); `previous_version:
   true` no dia 2026-10-07 → só a 2023
 
 ### Implementation for User Story 3
 
-- [ ] T015 [US3] Fazer T014 passar ajustando só `retrieval/`, se preciso
+- [X] T015 [US3] Fazer T014 passar ajustando só `retrieval/`, se preciso
 
 ---
 
@@ -166,7 +166,7 @@ entre os candidatos.
 
 ### Tests for User Story 4
 
-- [ ] T016 [P] [US4] Escrever `tests/rag/retrieval/test_reranker.py`: 30 candidatos anotados → no máximo `top_k`, na
+- [X] T016 [P] [US4] Escrever `tests/rag/retrieval/test_reranker.py`: 30 candidatos anotados → no máximo `top_k`, na
   ordem da chave da R4 (US4 cen. 1); dois empatados na fusão, um geral e um do ramo pedido → o do ramo primeiro; o
   resultado não depende da ordem de entrada (entrada embaralhada e ordenada por `score` dão a mesma saída); chunks crus,
   como o kit da 001 (`chunk("a"), chunk("b"), chunk("c")`, `top_k=2`) → 2 chunks, todos da entrada, sem exceção (R5);
@@ -175,7 +175,7 @@ entre os candidatos.
 
 ### Implementation for User Story 4
 
-- [ ] T017 [US4] Implementar `retrieval/reranker.py`: `MetadataReranker` com `async rerank(query, documents, *, top_k:
+- [X] T017 [US4] Implementar `retrieval/reranker.py`: `MetadataReranker` com `async rerank(query, documents, *, top_k:
   int = 5) -> list[Chunk]` usando `ordered` de `retrieval/domain/ordering.py` e o corte (faz T016 passar)
 
 ---
@@ -188,7 +188,7 @@ entre os candidatos.
 
 ### Tests for User Story 5
 
-- [ ] T018 [P] [US5] Acrescentar a `tests/rag/retrieval/test_retriever.py`: com manuais do `pioneiro` e do `escoteiro`
+- [X] T018 [P] [US5] Acrescentar a `tests/rag/retrieval/test_retriever.py`: com manuais do `pioneiro` e do `escoteiro`
   e um POR geral, `branch: "pioneiro"` → só pioneiro e geral, com `branch_match` verdadeiro nos do pioneiro; sem ramo →
   todos; `document_types: ["por"]` → só POR, com `type_match` verdadeiro; `topics: ["uniforme"]` acrescentado aos
   filtros não muda nenhum resultado (FR-009); um ramo sem nenhum trecho próprio combinado com `document_types` que
@@ -196,7 +196,7 @@ entre os candidatos.
 
 ### Implementation for User Story 5
 
-- [ ] T019 [US5] Fazer T018 passar ajustando só `retrieval/`, se preciso
+- [X] T019 [US5] Fazer T018 passar ajustando só `retrieval/`, se preciso
 
 **Checkpoint**: todas as histórias funcionais.
 
@@ -204,20 +204,20 @@ entre os candidatos.
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T020 [P] Criar `tests/rag/retrieval/sanity.py` (roteiro do [quickstart.md](quickstart.md) §2; não é teste da
+- [X] T020 [P] Criar `tests/rag/retrieval/sanity.py` (roteiro do [quickstart.md](quickstart.md) §2; não é teste da
   CI): monta `QdrantIndex` + `E5Embedder` + `Bm25Encoder` com `AI_SCOUTING_QDRANT_URL`, `AI_SCOUTING_EMBEDDING_DIR` e
   `AI_SCOUTING_INDEX`, roda as cinco perguntas da tabela do quickstart com os filtros do dia (formato da 101), imprime os
   3 primeiros de cada uma com `score`, `fusion_score` e `chunk_id`, e mede o tempo de `MetadataReranker.rerank` sobre 30
   candidatos
-- [ ] T021 Verificação completa dentro de `ai-scouting/`: `uv run pytest` em 3.14 e em 3.12, `uv run ruff check`,
+- [X] T021 Verificação completa dentro de `ai-scouting/`: `uv run pytest` em 3.14 e em 3.12, `uv run ruff check`,
   `uv run ruff format --check`, `uv run mypy`, `uv run lint-imports`, a conformidade do índice contra o servidor
   (`AI_SCOUTING_TEST_QDRANT_URL`) e os casos com o e5 (`AI_SCOUTING_EMBEDDING_DIR`); corrigir o que quebrar
-- [ ] T022 Executar [quickstart.md](quickstart.md) §2 com o índice `scouting` do corpus real (reingerir a partir de
+- [X] T022 Executar [quickstart.md](quickstart.md) §2 com o índice `scouting` do corpus real (reingerir a partir de
   `corpus/corpus.yaml` se o Qdrant local tiver sido recriado) e registrar no fim do quickstart, numa tabela, os scores do
   topo de cada pergunta (primeira referência para o limiar da 105) e o tempo do rerank (SC-003); corrigir divergências
   entre o resultado e o "Esperado"
 - [ ] T023 Com o aval do mantenedor: commit e push do `ai-scouting` e conferir os jobs do `ci.yml` verdes
-- [ ] T024 [P] Atualizar no `agentic-app`: `CLAUDE.md` (seção "Código", parágrafo da Fase 5: a 103 existe —
+- [X] T024 [P] Atualizar no `agentic-app`: `CLAUDE.md` (seção "Código", parágrafo da Fase 5: a 103 existe —
   `ScoutingRetriever` sobre `rag.index.api`, score = similaridade densa (ADR-025), ordem da fusão com desempate por
   metadados, `MetadataReranker`, tool `search_docs` com default de 5 trechos; a 102 devolve `similarity`), a linha da
   103 em `specs/README.md` (status "Fase 5 implementada (US1–US5)") e, no mesmo commit, o ponteiro do submódulo
