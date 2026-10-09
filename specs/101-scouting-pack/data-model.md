@@ -7,7 +7,7 @@ ASCII minúsculo com `_`.
 
 | Campo | Valor | Origem |
 |---|---|---|
-| Distribuição | `ai-scouting` 0.1.0 | R4 |
+| Distribuição | `ai-scouting` 0.1.0; 0.2.0 a partir da Fase 5 | R4, R20 |
 | Pacote | `ai_scouting` | design.md |
 | Entry point | `scouting = "ai_scouting.pack:ScoutingPack"` em `ai_core.packs` | FR-002 |
 | `ScoutingPack.name` | `"scouting"` | FR-002 |
@@ -17,7 +17,8 @@ ASCII minúsculo com `_`.
 
 `PackManifest(name="scouting", version="0.1.0")`. Sem `preferred_flow`, `depends_on`, `requires_collections` e
 `config_schema` na Fase 4; os três primeiros-de-domínio (`preferred_flow="rag_first"`,
-`requires_collections=["scouting_docs"]`, `config_schema` com o nome da coleção) chegam na Fase 5, com a US5.
+`requires_collections=["scouting"]` — a coleção lógica fixa, R17 —, `config_schema` com o índice) chegam na Fase 5, com
+a US5.
 
 ## `Lexicon` (`context/lexicon.py` — FR-007, R7)
 

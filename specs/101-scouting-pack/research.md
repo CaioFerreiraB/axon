@@ -351,6 +351,11 @@ trechos explícito evita citação inventada quando a busca vem vazia.
 
 **Alternatives considered**: apontar o grupo `platform` para um commit (tag é o que a ADR-021 prevê).
 
+> Nota da implementação (2026-10-09, T029): o `uv` recusa duas fontes para a mesma distribuição — o core na `v0.2.0`
+> resolve `ai-core-contracts` da própria tag. Os dois vêm, então, da **mesma** tag, `v0.2.0` (como na Fase 4, quando
+> ambos vinham de `contracts-v0.1.0`). Nela os contratos são os da `contracts-v0.1.1` (versão `0.1.1`; a única
+> diferença é uma linha em branco).
+
 ## R23 — Testes
 
 **Decision**: unidade — leitura da configuração (defaults, exclusividade URL/caminho, `e5` sem diretório ou sem

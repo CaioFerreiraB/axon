@@ -59,7 +59,10 @@ Código e testes do pack: commit no `ai-scouting`. No `agentic-app`: o SDD da pa
 ## Fase 5 (2026-10-09)
 
 - `version = "0.2.0"`; dependências de runtime da 102 e da 103 já presentes; nenhuma nova.
-- `[tool.uv.sources]`: `ai-core-contracts` pela tag `contracts-v0.1.1`; `ai-core` (grupo `platform`) pela tag do core com
-  o `rag_first` (`v0.2.0`, criada ao fim da 005 US3–US4).
+- `[tool.uv.sources]`: `ai-core-contracts` e `ai-core` (grupo `platform`) pela mesma tag, `v0.2.0` (a do core com o
+  `rag_first`, criada ao fim da 005 US3–US4); nela os contratos são os `0.1.1` da `contracts-v0.1.1` (R22, nota).
 - O job `platform` roda também `tests/integration/test_rag.py` (US5 ponta a ponta, sem rede: Qdrant embutido e o
   embedder de teste).
+- A partir da `v0.2.0` o `agentic-app` tem os submódulos `ai-scouting` e `agentic-deploy`, que o `uv` inicializa ao
+  clonar a tag e que a deploy key não lê: cada job do `ci.yml` marca os dois com `git config --global
+  submodule.<nome>.update none` antes de resolver as dependências (o pacote não precisa deles).

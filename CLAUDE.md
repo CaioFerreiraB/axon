@@ -206,7 +206,7 @@ keys só de leitura do `agentic-app` e do `ai-scouting`). Os contratos estão em
 (`open_answer_stream`) e o motor passa cada pedaço da geração por ele, emitindo depois, como token, o que os validators
 em lote só acrescentam. O `citation_integrity` da 104 já filtra (nenhuma citação inventada sai, nem em streaming).
 
-**A Fase 5 do roadmap está em andamento.** A 102 (US1–US5) existe no `ai-scouting`: `rag/index/` é o seam *Índice do
+**A Fase 5 do roadmap está completa.** A 102 (US1–US5) existe no `ai-scouting`: `rag/index/` é o seam *Índice do
 scouting* — `api.py` com `IndexedChunk`, `IndexFilters` (vigência como intervalo, `include_superseded`,
 `previous_version`, ramo ou geral, tipos), `IndexVersion` e `ChunkIndex` (`search`/`get`/`version`, erros
 `IndexUnavailable` e `IndexMismatch`) —, com o `QdrantIndex` (um build por coleção atrás de um alias trocado numa
@@ -244,9 +244,25 @@ teto (`fit_chunks`), e o `generation_context` é exatamente o que entrou. Todo t
 inteiro (`render_within`). `flow_roles()["rag_first"] == ("generation",)`; `RagSettings` vem de `AI_CORE_RAG_CANDIDATES`
 (20), `AI_CORE_RAG_PASSAGES` (5) e `AI_CORE_RAG_MIN_SCORE` (sem valor = sem limiar), pela 011, que também passou a
 atender o `CollectionCatalog` da 003 pelo Pack Registry (`PackCollectionCatalog`: existem as coleções dos retrievers de
-packs habilitados). Prova ponta a ponta sem rede em `tests/bootstrap/integration/test_platform_rag_first.py`. Seguem na
-Fase 5: a tag `v0.2.0`, 104 (publicação dos validators) e 101 US4–US5 (o `pack.py` publica retriever, reranker e
-`rag_first`).
+packs habilitados). Prova ponta a ponta sem rede em `tests/bootstrap/integration/test_platform_rag_first.py`. O core está na tag `v0.2.0`
+(contratos `0.1.1`, `ai-generic` 0.1.0).
+O pack `scouting` está em 0.2.0 (101 US4–US5, com a 104 publicada): o manifest declara `rag_first`, a coleção lógica
+fixa `scouting` (o que se configura é o **índice**, o alias no Qdrant) e o `config_schema` — `qdrant_url` (default
+`http://localhost:6333`) ou `qdrant_path` (embutido), `index` (`scouting`), `embedder` (`e5`, que exige `embedding_dir`
+com `model.onnx` e `tokenizer.json`, ou `hashing`, só para suítes), `default_limit`/`max_limit` (5/30) —, com os
+defaults e as combinações conferidos por `read_config` no `pack.py` (configuração inválida deixa o pack em erro, na
+introspecção; `packs.yaml` sem `config` falha, porque o default é o e5). A chave do Qdrant vem só de
+`AI_SCOUTING_QDRANT_API_KEY`. O `pack.py` compõe, dentro dos hooks, o `QdrantIndex` (cliente sem checagem de versão na
+carga), o `ScoutingRetriever` (tool `scouting.search_docs`), o `MetadataReranker` e os validators `citation_integrity`
+e `validity_notice`, nessa ordem. O prompt da Fase 5 traz as cinco prioridades de fonte (US4), a citação `[[id]]` pelo
+identificador depois de `id:` (ADR-026), o caminho sem trechos ("nenhum documento oficial foi encontrado") e a
+vigência. Contratos e core vêm da **mesma** tag `v0.2.0` (o `uv` não aceita duas fontes para os contratos). A US5 é
+provada ponta a ponta no grupo `platform` (`tests/integration/test_rag.py`: Qdrant embutido, embedder de teste, uma
+chamada de modelo, citação `[1]`), e uma conversa real com o índice e o e5 cita POR e manual com página e vigência.
+A CI do `ai-scouting` marca os submódulos do `agentic-app` com `update = none` antes do `uv sync` (o `uv` os
+inicializaria ao clonar a tag, e a deploy key não os lê). Seguem: o `agentic-deploy` (`CORE_REF` `v0.2.0`, o mesmo
+cuidado com os submódulos, o e5 e o Qdrant na instalação), os valores "A CONFIRMAR" do catálogo
+com o curador e a 105 (limiar do portão — sem ele, pergunta fora do corpus ainda chega à geração com trechos).
 
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
