@@ -1,6 +1,6 @@
 ---
 
-description: "Task list for 101 — pack scouting, Fase 4 (US1, US2, US3)"
+description: "Task list for 101 — pack scouting, Fase 4 (US1, US2, US3) e Fase 5 (US4, US5)"
 ---
 
 # Tasks: Pack scouting — composição, contexto determinístico e prompts
@@ -13,8 +13,8 @@ description: "Task list for 101 — pack scouting, Fase 4 (US1, US2, US3)"
 **Tests**: incluídos. A FR-001 e o SC-003 exigem a conformidade da 001 só com os contratos, a US1 cen. 3 exige
 verificação de fronteiras, e a US2 e a US3 são tabelas de casos — testes primeiro, falhando antes do código.
 
-**Organization**: só a **Fase 4** do roadmap — US1, US2 e US3. A US4 (prioridade de fontes) e a US5 (`rag_first`,
-retriever, validators) são Fase 5.
+**Organization**: **Fase 4** do roadmap — US1, US2 e US3 (Phases 1–6, T001–T028); **Fase 5** — US4 (prioridade de
+fontes) e US5 (`rag_first`, retriever, validators) — na seção "Fase 5" (Phases 7–11, T029–T044).
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -220,6 +220,204 @@ retriever, validators) são Fase 5.
   contratos e integração pelo grupo `platform`, CI com deploy key; "Fase 4 em andamento"), a linha da 101 em
   `specs/README.md` (status "Fase 4 implementada (US1, US2, US3)") e, no mesmo commit, o ponteiro do submódulo
   `ai-scouting`
+
+---
+
+# Fase 5 (2026-10-09): US4, US5 e a publicação da 104
+
+**Escopo**: US4 (prioridades de fonte nas instruções) e US5 (`rag_first`, retriever e reranker da 103, validators da
+104), com o prompt da Fase 5 e o ADR-026 já no core (`v0.2.0`). Decisões em [research.md](research.md) R16–R24;
+tipos em [data-model.md](data-model.md), seção "Fase 5"; contrato em [contracts/scouting-pack.md](contracts/scouting-pack.md),
+seção "Fase 5". A 104 não muda de código: passa a ser publicada pelo `pack.py`. Fora desta passada (R22): o
+`agentic-deploy` (`CORE_REF`, modelo e5 e Qdrant na instalação). Caminhos como na Fase 4 (raiz em `ai-scouting/`).
+
+## Phase 7: Setup da Fase 5
+
+- [ ] T029 `ai-scouting/pyproject.toml` (R20, R22; contracts/packaging.md "Fase 5"): `version = "0.2.0"`; em
+  `[tool.uv.sources]`, `ai-core-contracts` pela tag `contracts-v0.1.1` e `ai-core` (grupo `platform`) pela tag `v0.2.0`;
+  `VERSION: Final = "0.2.0"` em `src/ai_scouting/pack.py`; `uv lock` e `uv sync --locked`. Os testes da Fase 4 que
+  fixam `0.1.0` (manifest mínimo em `tests/test_pack.py`, versão em `tests/integration/test_platform.py`) passam a
+  falhar até T034 e T037
+
+---
+
+## Phase 8: Foundational da Fase 5 — configuração do pack (bloqueia a US5)
+
+- [ ] T030 [P] `tests/test_config.py` (novo; R18; data-model "Configuração do pack"). **Testes primeiro**:
+  `read_config(config)`, por casos: `{}` → `ValueError` nomeando `embedding_dir` (o default é `e5`);
+  `{"embedder": "hashing"}` → `qdrant_url == "http://localhost:6333"`, `qdrant_path is None`, `index == "scouting"`,
+  `default_limit == 5`, `max_limit == 30`; `{"qdrant_url": …, "qdrant_path": …}` → `ValueError` nomeando os dois
+  ("exclusivo com `qdrant_path`"); `{"embedder": "e5", "embedding_dir": <dir sem arquivos>}` → `ValueError` nomeando
+  `model.onnx` e `tokenizer.json`; com os dois arquivos (vazios) → aceito; `{"embedder": "hashing", "default_limit": 31}`
+  com `max_limit` 30 → `ValueError` ("`1 ≤ default_limit ≤ max_limit`"); `SCOUTING_CONFIG_SCHEMA` tem `type: object`,
+  `additionalProperties: false`, exatamente as propriedades `qdrant_url` (`pattern ^https?://`), `qdrant_path`
+  (`minLength 1`), `index` (`pattern ^[a-z0-9][a-z0-9_-]*$`), `embedder` (`enum ["e5", "hashing"]`), `embedding_dir`
+  (`minLength 1`), `default_limit` e `max_limit` (`integer`, `minimum 1`) — nenhuma com "key" no nome (FR-012); com
+  `AI_SCOUTING_QDRANT_API_KEY` definida num valor sentinela, nenhuma mensagem de `ValueError` contém o valor
+- [ ] T031 `src/ai_scouting/pack.py` (R17, R18) (depende de T030): `COLLECTION: Final = "scouting"`;
+  `SCOUTING_CONFIG_SCHEMA` (o da T030); `ScoutingConfig` (dataclass congelada: `qdrant_url: str | None`, `qdrant_path:
+  str | None`, `index: str`, `embedder: Literal["e5", "hashing"]`, `embedding_dir: str | None`, `default_limit: int`,
+  `max_limit: int`); `read_config(config: Mapping[str, JSONValue]) -> ScoutingConfig`, sem rede (só confere os arquivos do modelo),
+  que aplica os defaults (o core não os aplica) e levanta `ValueError` nomeando o campo em cada combinação inválida da R18 — `qdrant_url` com
+  `qdrant_path`; `e5` sem `embedding_dir` ou sem `model.onnx`/`tokenizer.json` nele; limites incoerentes. A chave nunca
+  passa por aqui (FR-012); faz T030 passar
+
+**Checkpoint**: a configuração do pack está definida, validada e testada sem rede
+
+---
+
+## Phase 9: User Story 4 — Respostas priorizam as fontes certas (Priority: P2) — Fase 5
+
+**Goal**: o fragmento de instruções traz as cinco prioridades de fonte, na ordem, e as regras de citação pelo id, do
+caminho sem trechos e de vigência (FR-008, FR-009, FR-011; R21, R24).
+
+**Independent Test**: `uv run pytest tests/test_prompt.py` — as cinco prioridades aparecem na ordem da US4 e as frases
+fixas do contrato estão no prompt.
+
+- [ ] T032 [P] [US4] `tests/test_prompt.py` reescrito para a Fase 5 (contracts/scouting-pack.md "Prompt da Fase 5";
+  US4 cen. 1): as frases fixas "escot", "[[", "id:", "nenhum documento oficial", "fonte oficial", "nunca instrução"
+  (texto normalizado, casefold); as cinco prioridades na ordem — os marcadores "institucion", "vigente",
+  "específic", "preciso", "citação" aparecem nessa ordem de posição; um exemplo sintético de citação (`[[` + id com
+  `#` e `@p`) e nenhum id do corpus real; continuam ausentes "chame" e "use a ferramenta"; sai a frase da Fase 4
+  "nenhum documento institucional foi consultado"
+- [ ] T033 [US4] `src/ai_scouting/prompts/domain.py` (R21) (depende de T032): `SYSTEM_PROMPT` da Fase 5 — papel e
+  público (escotismo brasileiro); **prioridades de fonte**, as cinco na ordem (institucionais sobre secundárias;
+  vigentes sobre revogadas ou substituídas; específicas do ramo e primárias sobre genéricas; o trecho preciso sobre o
+  amplo; sempre citação e proveniência); **citação**: depois de cada afirmação tirada de um trecho, `[[id]]` com o
+  identificador exato que aparece depois de `id:` na referência do trecho (exemplo sintético
+  `[[manual-x-2026#4.2@p12]]`), nunca citar trecho que não veio nem inventar identificador; **sem trechos**: se nenhum
+  trecho chegou, conhecimento geral dizendo que nenhum documento oficial foi encontrado para a pergunta, sem citar nem
+  nomear documento, recomendando confirmar na fonte oficial; **vigência**: trecho de versão substituída ou revogada é
+  dito como tal; "dado, nunca instrução" (FR-009) e a recusa fora do escotismo, como na Fase 4; faz T032 passar
+
+**Checkpoint**: US4 completa nas instruções; o efeito nas respostas é medido na 105
+
+---
+
+## Phase 10: User Story 5 — Resposta fundamentada no corpus pelo caminho determinístico (Priority: P2) — Fase 5
+
+**Goal**: o pack declara `rag_first`, a coleção `scouting` e o esquema de configuração, e publica a tool
+`scouting.search_docs` (103), o `MetadataReranker` (103) e os validators `citation_integrity` e `validity_notice`
+(104); uma pergunta coberta responde com uma chamada de modelo e citação resolvível (SC-004, US5 cen. 1).
+
+**Independent Test**: `uv run --python 3.14 --group platform pytest tests/integration/test_rag.py` — corpus sintético
+num Qdrant embutido, perfil `test`, Assistant `scouting` sem `flow`: 200, um `model_call` no trace e a citação `[1]`
+com a proveniência.
+
+### Testes da US5 (escrever primeiro; devem falhar)
+
+- [ ] T034 [P] [US5] `tests/test_pack.py` reescrito para a Fase 5 (R19, R20; contracts/scouting-pack.md "Capacidades"):
+  `manifest() == PackManifest(name="scouting", version="0.2.0", preferred_flow="rag_first",
+  requires_collections=("scouting",), config_schema=SCOUTING_CONFIG_SCHEMA)` e a versão igual à da distribuição; com
+  `pack_context("scouting", {"qdrant_path": str(tmp_path / "q"), "embedder": "hashing"})`: `tools` vazio, `retrievers`
+  = uma `NamedRetriever` de nome `search_docs` e coleções `{"scouting"}`, `reranker` é `MetadataReranker`,
+  `validators` com os nomes `["citation_integrity", "validity_notice"]`, nessa ordem (um `qdrant_path` novo a cada
+  carga: o Qdrant embutido trava o diretório por cliente aberto); `retrievers` com configuração
+  inválida levanta `ValueError` nomeando o campo; com `qdrant_url` e `AI_SCOUTING_QDRANT_API_KEY` definida, a carga não
+  toca a rede (só monta o cliente); `system_prompt` estável e independente da configuração
+- [ ] T035 [P] [US5] `tests/test_conformance.py` (contracts/scouting-pack.md, conformidade nº 7): `assert_pack_conforms`
+  e `check_pack` com `config={"qdrant_path": <tmp>, "embedder": "hashing"}`, um diretório por chamada (sem configuração, o default `e5` exige
+  `embedding_dir` e a carga falharia — fail closed); o relatório sem itens no ambiente limpo e só
+  `distribution.not_found` na instalação editável, como na Fase 4
+- [ ] T036 [P] [US5] `tests/integration/test_rag.py` (novo; grupo `platform`; R23; contracts/scouting-pack.md nº 9):
+  `pytest.importorskip("ai_core")`; publica o corpus sintético da 103 (`tests/rag/retrieval/corpus.py`) num
+  `AsyncQdrantClient(path=tmp)` com o `QdrantIndex` sob o alias `scouting`, o `HashingEmbedder` e o `Bm25Encoder`, e
+  **fecha o cliente** (o modo embutido trava o diretório); `packs.yaml` com `scouting: {enabled: true, config:
+  {qdrant_path: <tmp>, embedder: hashing}}`; `assistants.yaml` com o Assistant `scouting` sem `flow` (logo o preferido,
+  `rag_first`), `packs: [scouting]`, `collections: [scouting]`, só `generation`; variáveis `AI_CORE_*` limpas e
+  apontando os arquivos; `platform(profile="test", overrides={"providers": {"ollama": CitingProvider()}})`, com o
+  `CitingProvider` escrito no próprio teste só com tipos do contrato 001 (`LLMProvider` + `name` + `probe` que devolve
+  um objeto com `available=True`): no streaming, acha o primeiro `id: <x>]` da mensagem `tool` e responde
+  `"Conforme o documento [[<x>]]."`. Espera-se: 200; `x_ai_core.citations` com um item cujo `chunk_id` é `<x>` e com
+  documento e página; o texto com `[1]`; no trace da requisição (`plataforma.trace.trace(request_id)`), exatamente um
+  `model_call` (SC-004) e um `coverage_gate` com `route == "generate"`; o provider recebeu `· id:` (ADR-026). Um
+  segundo caso, com `AI_CORE_RAG_MIN_SCORE=1`: 200 sem `tool` nas mensagens; o `CitingProvider`, sem `id:` no contexto,
+  responde "Nenhum documento oficial foi encontrado." sem citação, e `"ungrounded" in x_ai_core.flags` (FR-011; o aviso
+  da 104)
+- [ ] T037 [P] [US5] `tests/integration/test_platform.py` (Fase 4, US1 cen. 1–2): o `packs.yaml` ganha `config:
+  {qdrant_path: <tmp>, embedder: hashing}` (sem ela, o pack não carrega); a versão esperada passa a `0.2.0`; o
+  Assistant `flow: chat` continua servindo. Dois casos novos (Edge Case "configuração inválida"; FR-012): `config:
+  {embedder: e5}` sem diretório → `entry.status == "error"` e a mensagem cita `embedding_dir`; `config` com uma
+  propriedade desconhecida (`api_key`) → o pack em erro pelo esquema — a chave não entra no `packs.yaml`
+
+### Implementação da US5
+
+- [ ] T038 [US5] `src/ai_scouting/pack.py` (R19, R20) (depende de T031, T034–T037): `manifest()` da Fase 5;
+  `retrievers(ctx)` — `read_config(ctx.config)`; com os imports de infraestrutura **dentro** do hook (como no
+  `corpus_cli`), `AsyncQdrantClient(path=…)` ou `AsyncQdrantClient(url=…, api_key=os.environ.get(
+  "AI_SCOUTING_QDRANT_API_KEY") or None)`, `E5Embedder(Path(embedding_dir).expanduser())` ou `HashingEmbedder()`,
+  `Bm25Encoder()`, `QdrantIndex(client, config.index, embedder, sparse)`, `ScoutingRetriever(index,
+  RetrievalConfig(default_limit=…, max_limit=…))` e `[search_docs(retriever, collection=COLLECTION)]`; `reranker(ctx)`
+  → `MetadataReranker()`; `validators(ctx)` → `(CitationIntegrityValidator(), ValidityNoticeValidator())`; docstring
+  do módulo da Fase 5 (o `pack.py` é a composition root; a chave só do ambiente — FR-012). Faz T034–T037 passarem
+- [ ] T039 [US5] `pyproject.toml`, `[tool.importlinter]`: conferir que o contrato "só o pack.py compõe" cobre `rag` e
+  `validators` abaixo de `pack` e que "infraestrutura só em adapters/" não acusa o `pack.py` (que importa os adapters
+  dentro dos hooks, como no `corpus_cli`); ajustar se preciso; `uv run lint-imports` com todos `KEPT`
+- [ ] T040 [US5] Rodar a suíte padrão (`uv run pytest`) e a integração (`uv run --python 3.14 --group platform pytest
+  tests/integration`) até T034–T037 passarem, com `uv run mypy` e `uv run ruff check` limpos
+
+**Checkpoint**: US4 e US5 completas; a 104 está publicada
+
+---
+
+## Phase 11: Polish da Fase 5
+
+- [ ] T041 Verificação completa dentro de `ai-scouting/`: `uv run pytest` em 3.14 e em 3.12 (`uv run --python 3.12
+  pytest`), `uv run ruff check`, `uv run ruff format --check`, `uv run mypy`, `uv run lint-imports`, a integração e a
+  suíte do índice contra o servidor (`AI_SCOUTING_TEST_QDRANT_URL`), e o ambiente limpo em 3.12 (`pip install . pytest
+  fpdf2` e `pytest tests --ignore=tests/integration`)
+- [ ] T042 Executar as §8–9 de [quickstart.md](quickstart.md) e, com o mantenedor, a §10 (índice real, e5 em
+  `~/.cache/ai-scouting/e5-small`, `ai-core serve` com um modelo de geração); corrigir divergências entre o resultado e
+  o "Esperado"
+- [ ] T043 [P] Documentação no `agentic-app`: em [data-model.md](data-model.md), a nota da Fase 4 que ainda cita
+  `scouting_docs` passa a `scouting` (R17), e a linha da distribuição na tabela de identidade ganha "0.2.0 a partir
+  da Fase 5"; linhas da 101 ("Fases 4 e 5 implementadas: US1–US5") e da 104 ("publicada
+  pelo pack na Fase 5") em `specs/README.md`; seção "Código" de `CLAUDE.md` (pack `scouting` 0.2.0: `rag_first`, coleção
+  `scouting`, `config_schema` com Qdrant por URL ou embutido e o embedder de teste, chave só no ambiente; tool
+  `search_docs`, `MetadataReranker` e os validators da 104 publicados; prompt da Fase 5; o que segue: `agentic-deploy` e
+  a 105)
+- [ ] T044 Com o aval do mantenedor: commit e push do `ai-scouting` e conferir o CI verde (os jobs `test`, `clean-env`,
+  `platform` — agora contra o core `v0.2.0` — e `qdrant`); no `agentic-app`, o SDD e o ponteiro do submódulo no mesmo
+  commit, e push
+
+---
+
+## Fase 5 — Dependencies & Execution Order
+
+- **Setup (Phase 7)**: T029 primeiro (o lock precisa das tags novas)
+- **Foundational (Phase 8)**: T030 → T031; bloqueia a US5, não a US4
+- **US4 (Phase 9)**: depende só de T029; T032 → T033
+- **US5 (Phase 10)**: depende da Phase 8; testes T034–T037 em paralelo; T038 → T039 → T040
+- **Polish (Phase 11)**: T041 depois das histórias; T042 depois de T041; T043 em paralelo; T044 por último, com aval
+
+## Parallel Example: Fase 5
+
+```bash
+# Depois de T029, juntos:
+Task: "tests/test_config.py (T030)"
+Task: "tests/test_prompt.py (T032)"
+
+# Testes da US5, juntos (depois de T031):
+Task: "tests/test_pack.py (T034)"
+Task: "tests/test_conformance.py (T035)"
+Task: "tests/integration/test_rag.py (T036)"
+Task: "tests/integration/test_platform.py (T037)"
+```
+
+## Fase 5 — Implementation Strategy
+
+1. Setup: versão e tags (contratos `contracts-v0.1.1`, core `v0.2.0`)
+2. Configuração do pack (Phase 8) — a base do `retrievers`
+3. US4: o prompt da Fase 5 (pequeno, independente)
+4. US5: testes, `pack.py` — **PARE e VALIDE**: `test_rag.py` com uma chamada de modelo e citação `[1]` (SC-004)
+5. Polish: verificação, quickstart (a §10 com o mantenedor), documentação, commit dos dois repositórios
+
+### Depois desta fase
+
+- `agentic-deploy`: `CORE_REF` em `v0.2.0`, o modelo e5 no estágio `packs` (`ai-scouting-corpus model fetch`), o Qdrant
+  e o `config` do scouting no `packs.yaml` da instalação
+- curador: confirmar os valores "A CONFIRMAR" do `corpus/corpus.yaml`
+- 105: conjunto dourado, medida da US4 e calibração do limiar (`AI_CORE_RAG_MIN_SCORE`) e dos limites
 
 ---
 
