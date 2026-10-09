@@ -623,7 +623,9 @@ score, limiar, coberto e rota — sem texto.
 **Decision**: sem cobertura e com `controller` na política de modelos do grant → rota `controller`, com o limite de
 iterações do grant (ou 3) e a sessão já aberta pelo `retrieve`; o loop começa com a transcrição vazia (os trechos
 recusados pelo portão não entram). Sem `controller` → `generate` sem trechos e `notice` `CoverageInsufficient`.
-`flow_roles()["rag_first"] = ("generation",)`.
+`flow_roles()["rag_first"] = ("generation",)`. O `controller` declarado num Assistant `rag_first` é resolvido antes do
+primeiro evento, como os papéis exigidos (FR-013): papel fora da allowlist é erro de requisição, não falha no meio da
+escalada.
 
 **Rationale**: o Assistant escolhe se paga o loop; sem ele, a pergunta sem cobertura cai no caminho "nenhum documento
 encontrado" do prompt do pack, sem citar trecho irrelevante.
@@ -632,8 +634,9 @@ encontrado" do prompt do pack, sem citar trecho irrelevante.
 
 ### R41 — Como os trechos chegam à geração (ADR-026; princípio VI)
 
-**Decision**: no caminho coberto, o nó `gate` grava um passo de tool sintético por pack — chamada `<pack>.<tool>` com
-`{"query": <pergunta>}` e resultado `session.fence_chunks(<tool>, trechos)` —, no mesmo formato nativo de tool do
+**Decision**: no caminho coberto, o nó `gate` grava um passo de tool sintético por tool de recuperação com trecho
+entregue (um por pack no caso comum) — chamada `<pack>.<tool>` com `{"query": <pergunta>}` e resultado
+`session.fence_chunks(<tool>, trechos)` —, no mesmo formato nativo de tool do
 `agentic` (`assistant` com `tool_calls` + `tool`), com a `FENCE_INSTRUCTION` no sistema. A renderização é a do
 ADR-026: `[documento — seção, p. N · id: <chunk_id>]` + texto.
 

@@ -230,8 +230,16 @@ Decisões em [research.md](research.md) R35–R48.
 
 ### Estado interno (privado)
 
-`retrieved: tuple[Chunk, ...]` (todos os candidatos), `reranked: tuple[Chunk, ...]` (junção do R38), e a rota ganha
-`"end"` (recuperação que falhou).
+`retrieved: tuple[Passage, ...]` (todos os candidatos, com o pack e a tool de origem) e `reranked: tuple[Passage, ...]`
+(junção do R38); a rota ganha `"end"` (recuperação que falhou). `Passage(pack, tool, chunk)` é dado puro de
+`domain/gate.py`; a Turn View expõe só os `chunk`.
+
+### Domínio (puro)
+
+| Elemento | Regra |
+|---|---|
+| `ToolStep.synthetic: bool = False` | marca o passo que o portão grava (R41); entra na geração como um passo executado, e a projeção não soma os chunks dele em `retrieved` (já estão nos candidatos) |
+| `optional_roles(flow)` | `("controller",)` no `rag_first`, `()` nos outros; papel opcional declarado no grant é resolvido antes do primeiro evento (FR-013, R40) |
 
 ### Turn View no `rag_first`
 
@@ -246,14 +254,16 @@ Decisões em [research.md](research.md) R35–R48.
 | `kind` | Severidade | Quando |
 |---|---|---|
 | `RetrievalFailed` | `error` | tool de recuperação com status diferente de `ok`; a execução termina sem gerar |
-| `RerankFailed` | `notice` | o reranker de um pack levantou; vale a ordem do retriever |
+| `RerankFailed` | `notice` | o reranker de um pack levantou, devolveu trecho que não veio da recuperação ou mais que `top_k`; vale a ordem do retriever |
 | `CoverageInsufficient` | `notice` | sem cobertura e sem `controller`; a geração roda sem trechos |
 | `ContextTrimmed` | `notice` | trechos de menor posição tirados para caber no teto |
 
 ### Trace (009, aditivo — ADR-017)
 
 `CoverageGate(request_id, candidates, passages, best_score: float | None, threshold: float | None, covered: bool,
-route)` — sem texto nem identificadores de trecho.
+route)` — sem texto nem identificadores de trecho. `route ∈ {"generate", "controller", "fallback"}` (`fallback` = gerar
+sem trechos); `covered` vale exatamente quando `route == "generate"`; `passages ≤ candidates`; `best_score` é `None`
+exatamente quando `passages == 0`.
 
 ### Fora da 005 (toques declarados)
 
