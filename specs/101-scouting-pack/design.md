@@ -109,6 +109,10 @@ Sempre que possível por regra, léxico e metadado — **não** por chamada de L
 > lugar de `effective_on` —, e há `topics` e `previous_version`. Formato em
 > [contracts/retrieval-filters.md](contracts/retrieval-filters.md).
 
+> Atualizado em 2026-10-09 (Fase 5 — research R17, R18): `requires_collections=["scouting"]` (o nome lógico fixo no
+> pack; o índice no Qdrant é o `index` da configuração), versão `0.2.0`, e o `config_schema` da R18. O Assistant típico
+> concede `collections: [scouting]`.
+
 ## Prioridades de fonte
 
 1. Documentos institucionais sobre fontes secundárias

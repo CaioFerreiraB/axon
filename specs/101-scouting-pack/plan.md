@@ -205,3 +205,99 @@ Reavaliado com [data-model.md](data-model.md), [contracts/](contracts/) e [quick
 | Grupo `platform` com o `ai-core` no repositório do pack (R9) | a US1 exige provar carga e prompt na plataforma real, e o core não pode ter teste de escotismo (princípio I) | só quickstart manual deixaria a US1 sem teste automatizado; pôr o teste no core violaria o princípio I |
 | Deploy key do `agentic-app` na CI do `ai-scouting` (R14) | os contratos vêm do `agentic-app`, privado (ADR-021) | token pessoal daria acesso a todos os repositórios da conta |
 | Dia de referência em UTC−03:00 fixo (R5) | o core entrega UTC; vigência de documento brasileiro é por dia local | `ZoneInfo` exigiria `tzdata`, dependência além dos contratos (FR-001) |
+
+# Fase 5 (2026-10-09): US4, US5 — `rag_first`, retriever e reranker da 103, validators da 104, prompt com citação
+
+Insumos: as clarificações de 2026-10-08 e 2026-10-09; a 102 e a 103 implementadas; os validators da 104; o core
+conferido no código (configuração de pack validada pelo esquema sem defaults; coleções do grant conferidas pelo
+retriever; renderização da 004 sem o `chunk_id`). Um ADR novo: [ADR-026](../../docs/adr/ADR-026-o-modelo-ve-o-identificador-de-cada-trecho.md)
+(o modelo vê o identificador de cada trecho — implementado na 004 e na 005, na passada da 005 US3). Pesquisa em
+[research.md](research.md) R16–R24.
+
+## Summary (Fase 5)
+
+O pack passa a declarar `rag_first` como flow preferido, a coleção `scouting` e um `config_schema` (Qdrant por URL ou
+embutido, índice, embedder e limites), e a publicar a recuperação da 103 (tool `scouting.search_docs` e o reranker) e
+os validators da 104. O prompt troca o bloco "sem documentos" pelas prioridades de fonte, a citação `[[id]]` pelo
+identificador que o core mostra (ADR-026), o caminho sem trechos (conhecimento geral com ressalva) e a vigência. A
+passada é implementada depois da 005 US3–US4, com o teste ponta a ponta da US5 contra o `rag_first` real.
+
+## Technical Context (Fase 5)
+
+**Language/Version**: Python ≥ 3.12; integração com a plataforma em 3.14
+
+**Primary Dependencies**: as da 102/103 (já no pack); `ai-core-contracts` pela tag `contracts-v0.1.1`; o grupo
+`platform` pelo core `v0.2.0` (com `rag_first` e ADR-026)
+
+**Storage**: o índice da 102 (Qdrant), configurado pelo `packs.yaml`
+
+**Testing**: unidade (configuração, manifest, capacidades, prompt), conformidade da 001 com configuração de teste,
+ponta a ponta no perfil `test` da plataforma com Qdrant embutido e o embedder de teste
+
+**Target Platform / Constraints**: as da Fase 4; a chave do Qdrant só no ambiente (FR-012); nenhum relógio (FR-005)
+
+**Scale/Scope**: `pack.py`, `prompts/domain.py`, `pyproject.toml` e testes; nenhum módulo novo
+
+## Constitution Check (Fase 5)
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| I. Núcleo agnóstico | ✅ | O ADR-026 muda o core de forma genérica (mostrar o `chunk_id` do contrato); nada de escotismo no core |
+| II. Seams | ✅ | O pack consome os contratos 001 e, dentro do repositório, os seams da 102/103/104; a mudança no formato visto pelo modelo tem ADR |
+| III. O core orquestra | ✅ | O pack só seleciona `rag_first` por nome; o portão e a escalada são da 005 |
+| IV. Assistant é a fronteira | ✅ | A tool só aparece com a coleção `scouting` concedida; filtros vêm da fatia do pack |
+| V. Determinismo | ✅ | Recuperação, rerank e validação sem modelo; uma chamada de modelo no caminho coberto (SC-004) |
+| VI. Conteúdo externo | ✅ | O prompt mantém "dado, nunca instrução"; o gateway cerca o resultado |
+| VII. Falha fechada | ✅ | Configuração incoerente impede a carga; índice ausente ou modelo divergente é erro explícito na busca |
+| IX. Proveniência | ✅ | Citação mecânica publicada; aviso de fonte não vigente publicado |
+| X. Medir antes de calibrar | ✅ | Limites e limiar seguem provisórios; US4 medida na 105 |
+| XII. Simplicidade | ✅ | Sem módulo novo; embedder de teste por configuração em vez de um perfil novo |
+| XIII. Portas e adapters | ✅ | O `pack.py` é a composition root; imports de infraestrutura dentro dos hooks |
+
+**Module boundary gate (Fase 5)**: `ai-scouting/src/ai_scouting/{pack.py,prompts/domain.py}`, `pyproject.toml`,
+`uv.lock`, testes; nenhum toque no core nesta passada (a 004/005 recebem o ADR-026 na passada da 005); seams
+consumidos listados na R19; conformidade da 001 com configuração; import-linter já cobre `rag` abaixo de `pack`.
+
+**Ports & adapters gate (Fase 5)**: nenhuma porta nova; o `pack.py` instancia os adapters da 102/103 (é a composition
+root do pack); segredos só do ambiente, lidos na composição.
+
+**Resultado do gate (antes da Phase 0)**: PASS.
+
+## Project Structure (Fase 5)
+
+```text
+ai-scouting/
+├── pyproject.toml                   # version 0.2.0; fontes contracts-v0.1.1 e core v0.2.0 (R22)
+├── src/ai_scouting/
+│   ├── pack.py                      # manifest Fase 5, SCOUTING_CONFIG_SCHEMA, leitura da configuração, hooks (R17–R20)
+│   └── prompts/domain.py            # SYSTEM_PROMPT da Fase 5 (R21)
+└── tests/
+    ├── test_pack.py                 # + configuração, manifest, capacidades
+    ├── test_prompt.py               # + blocos e frases da Fase 5; prioridades na ordem (US4)
+    ├── test_conformance.py          # + configuração de teste
+    └── integration/test_rag.py      # US5 ponta a ponta (grupo platform)
+```
+
+## Seam Notes for Consumers (Fase 5)
+
+| Consumidor | O que precisa saber |
+|---|---|
+| 005 US3–US4 | Implementa o ADR-026 (formato com `· id: <chunk_id>`) na geração do `rag_first` e, junto, na renderização da 004; expõe a configuração do limiar do portão que o teste da US5 usa |
+| 003 / operador | O Assistant do scouting concede `collections: [scouting]`; sem `flow`, roda no `rag_first` |
+| 104 | Publicada por esta passada (FR-008); nenhum código muda |
+| Instalação (`agentic-deploy`) | `packs.yaml` com `config` do scouting; modelo e5 e Qdrant na instalação; `CORE_REF` no core `v0.2.0` |
+| 105 | Mede a US4 (prioridades) e calibra limites e limiar |
+
+## Complexity Tracking (Fase 5)
+
+| Complexidade | Why Needed | Simpler Alternative Rejected Because |
+|---|---|---|
+| Embedder de teste selecionável por configuração | o teste ponta a ponta da US5 roda sem o modelo de 470 MB | baixar o e5 na CI a cada execução; ou provar a US5 só com unidades |
+| ADR-026 (mudança no core) | sem o id visível nenhuma citação passa no validator | pôr o id no texto do `Chunk` (mistura apresentação com dado, e cada pack repetiria) |
+
+## Constitution Check — pós-design (Fase 5)
+
+Reavaliado com as seções "Fase 5" de [data-model.md](data-model.md), [contracts/scouting-pack.md](contracts/scouting-pack.md),
+[contracts/packaging.md](contracts/packaging.md) e [quickstart.md](quickstart.md): **PASS**. A configuração tem regra
+para cada combinação inválida (VII); o prompt cobre as prioridades, a citação pelo id, o caminho sem trechos e a
+vigência (IX); o único efeito fora do pack — o ADR-026 — está atribuído à passada da 005.

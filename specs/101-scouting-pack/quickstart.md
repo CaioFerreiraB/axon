@@ -104,3 +104,33 @@ rm /tmp/ai-scouting-ci /tmp/ai-scouting-ci.pub
 ```
 
 **Esperado**: os quatro jobs do `ci.yml` (lint, test em 3.12 e 3.14, clean-env, platform) verdes no primeiro push.
+
+# Fase 5 (2026-10-09): US4, US5
+
+Pré-requisitos: a 005 US3–US4 implementada e a tag do core `v0.2.0` (R16, R22).
+
+## 8. Suíte padrão e conformidade
+
+```bash
+uv run pytest && uv run mypy && uv run ruff check && uv run lint-imports
+```
+
+Esperado: os testes da configuração do pack, do manifest da Fase 5, das capacidades e do prompt (as cinco prioridades
+na ordem — US4) passam; a conformidade da 001 passa com `config={"qdrant_path": …, "embedder": "hashing"}`.
+
+## 9. US5 na plataforma (sem rede)
+
+```bash
+uv run --python 3.14 --group platform pytest tests/integration/test_rag.py
+```
+
+Esperado: uma pergunta coberta pelo corpus sintético responde 200, com **uma** chamada de modelo no trace da requisição
+(SC-004) e a citação `[1]` com documento, versão, seção e página (US5 cen. 1).
+
+## 10. Conversa real (opcional)
+
+Com o índice `scouting` do corpus real (102 quickstart §5), o e5 em `~/.cache/ai-scouting/e5-small` e um modelo de
+geração (Ollama ou OpenRouter): `packs.yaml` com `config: {qdrant_url: http://localhost:56333, embedding_dir:
+~/.cache/ai-scouting/e5-small}`, Assistant `scouting` concedendo a coleção `scouting`, `ai-core serve`, e as perguntas do
+quickstart da 103. Esperado: respostas com `[n]` e a lista de citações; para "receita de bolo de cenoura", o portão
+escala ou a resposta vem com a ressalva de "nenhum documento oficial" e a marca de não fundamentada.

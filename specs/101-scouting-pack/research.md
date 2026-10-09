@@ -230,3 +230,149 @@ linha do `ai-core/`.
 **Rationale** (princípio I, II): o core não sabe que o scouting existe; o pack o enxerga pelo contrato 001.
 
 **Alternatives considered**: nenhuma.
+
+# Fase 5 (2026-10-09): US4 e US5 — `rag_first`, retriever e reranker da 103, validators da 104, prompt com citação
+
+Insumos: as cinco clarificações de 2026-10-08/09; a 103 (`ScoutingRetriever`, `MetadataReranker`, `search_docs`,
+`RetrievalConfig`) e a 102 (`QdrantIndex`, `E5Embedder`, `Bm25Encoder`, `HashingEmbedder`) já implementadas; os
+validators da 104 (`CitationIntegrityValidator` com `open_stream`, `ValidityNoticeValidator`), prontos desde a Fase 4;
+o core conferido no código — o `packs.yaml` aceita `config`, validado contra o `config_schema` (002, `jsonschema`, sem
+aplicar defaults); o `requires_collections` só aparece na introspecção, e o que o grant confere são as coleções que o
+retriever declara (003, 004); a renderização de tool da 004 não mostra o `chunk_id` (resolvido pelo
+[ADR-026](../../docs/adr/ADR-026-o-modelo-ve-o-identificador-de-cada-trecho.md)). Escopo: **US4, US5** e a publicação
+dos validators da 104 (104 FR-008).
+
+## R16 — Escopo e ordem da passada
+
+**Decision** (clarificação 4): a passada é planejada agora e implementada **depois** da 005 US3–US4 (`rag_first`) —
+que inclui o formato do ADR-026 na 004 e na 005 — e da tag do core que as traz (R22). Toques no `ai-scouting`:
+`pack.py` (manifest, `system_prompt`, `retrievers`, `reranker`, `validators`), `prompts/domain.py` (prompt da Fase 5),
+`pyproject.toml` (versão e fontes), testes. Na 104 nada muda no código: ela só passa a ser publicada; o status dela é
+atualizado no fechamento.
+
+**Rationale**: declarar `rag_first` antes de o motor tê-lo deixaria o Assistant do scouting indisponível; e o teste
+ponta a ponta da US5 (uma chamada de modelo, citação válida) só faz sentido contra o flow real.
+
+**Alternatives considered**: `agentic` como preferido até a 005 (clarificação 4, opção C); declarar já e aceitar o
+424 (opção B).
+
+## R17 — Coleção lógica fixa, índice configurável
+
+**Decision**: a coleção que o grant concede é fixa no pack — `COLLECTION = "scouting"` — e vai no
+`requires_collections` do manifest e no `NamedRetriever` da tool. O que a configuração escolhe é o **índice** (o alias
+no Qdrant, `index`, default `scouting`). A premissa da spec que citava `scouting_docs` passa a `scouting`.
+
+**Rationale**: `manifest()` não recebe configuração, então o nome exigido não pode depender dela; e o core confere o
+Assistant contra as coleções que o retriever declara. Separar o nome lógico do alias deixa o operador trocar o índice
+físico sem mexer em Assistant. O default igual ao alias que a ingestão já usa (`scouting`) mantém o caminho simples.
+
+**Alternatives considered**: coleção configurável (o manifest ficaria dessincronizado do retriever); manter
+`scouting_docs` (divergiria do índice já ingerido e da 102/103).
+
+## R18 — `config_schema` (clarificação 1, FR-003, FR-012)
+
+**Decision**: JSON Schema com `additionalProperties: false`:
+
+| Campo | Tipo | Default (aplicado pelo pack) | Regra |
+|---|---|---|---|
+| `qdrant_url` | string `^https?://` | `http://localhost:6333` | exclusivo com `qdrant_path` |
+| `qdrant_path` | string | — | Qdrant embutido num diretório (testes e desenvolvimento) |
+| `index` | string `^[a-z0-9][a-z0-9_-]*$` | `scouting` | o alias no Qdrant |
+| `embedder` | `e5` \| `hashing` | `e5` | `hashing` é o embedder de teste da 102, sem semântica — só para suítes |
+| `embedding_dir` | string | — | obrigatório com `e5`; precisa ter `model.onnx` e `tokenizer.json` |
+| `default_limit`, `max_limit` | inteiro ≥ 1 | 5, 30 | os da 103 (`RetrievalConfig`) |
+
+A chave do Qdrant vem só de `AI_SCOUTING_QDRANT_API_KEY` (FR-012): fora do esquema, do `packs.yaml` e de qualquer
+mensagem. O `jsonschema` do core não aplica defaults — o pack os aplica ao ler `ctx.config`. Combinação inválida
+(`qdrant_url` com `qdrant_path`, `e5` sem diretório ou sem os arquivos, limites incoerentes) levanta `ValueError`
+nomeando o campo na carga: o pack não carrega e o erro aparece na introspecção e no `ai-core packs check` (princípio
+VII).
+
+**Rationale**: o boot valida cedo o que dá para validar (esquema, combinação, arquivos do modelo); o que depende de
+rede (Qdrant fora, índice ausente, modelo divergente) aparece na primeira busca como `IndexUnavailable`/`IndexMismatch`,
+erro explícito (103 FR-007). O embedder `hashing` é o equivalente, para o pack, ao perfil `test` da 011: escolhido por
+configuração, documentado como de teste.
+
+**Alternatives considered**: tudo por ambiente (clarificação 1, B); tudo no arquivo, inclusive a chave (C); conferir o
+sha256 do modelo na carga (470 MB lidos a cada boot; a FR-012 da 102 já recusa modelo divergente na busca).
+
+## R19 — Composição no `pack.py`
+
+**Decision**: `retrievers(ctx)` lê a configuração (R18), monta `AsyncQdrantClient` (URL com a chave do ambiente, ou
+`path`), o embedder (`E5Embedder(dir)` ou `HashingEmbedder()`), `Bm25Encoder`, `QdrantIndex(client, index, …)`,
+`ScoutingRetriever(index, RetrievalConfig(...))` e devolve `[search_docs(retriever, collection="scouting")]`.
+`reranker(ctx)` → `MetadataReranker()`. `validators(ctx)` → `[CitationIntegrityValidator(), ValidityNoticeValidator()]`,
+nessa ordem (o aviso de vigência lê as citações que a integridade validou). Os imports de infraestrutura ficam dentro
+dos hooks, como no `corpus_cli`: ler a identidade do pack (002) continua barato. Os hooks são chamados uma vez, na
+carga (001 FR-019).
+
+**Rationale**: o `pack.py` é a composition root (princípio XIII); os hooks recebem a configuração já validada pelo
+esquema.
+
+**Alternatives considered**: um módulo `wiring.py` (contraria a letra "num pack, esse papel é do `pack.py`").
+
+## R20 — Manifest e versão
+
+**Decision**: `PackManifest(name="scouting", version="0.2.0", preferred_flow="rag_first", requires_collections=
+["scouting"], config_schema=SCOUTING_CONFIG_SCHEMA)`; a distribuição sobe para `0.2.0` (o teste compara as duas).
+Consequência: um Assistant com `packs: [scouting]` sem `flow` roda no `rag_first` — exige o core com o flow (R22).
+
+**Rationale**: FR-003; capacidades novas e configuração nova pedem versão nova do pack.
+
+**Alternatives considered**: manter `0.1.x` (esconderia uma mudança de comportamento para quem instala).
+
+## R21 — Prompt da Fase 5 (FR-008, FR-009, FR-011, US4; 104 FR-007; ADR-026)
+
+**Decision**: o bloco "sem documentos consultados" da Fase 4 dá lugar a quatro blocos:
+
+| Bloco | Conteúdo |
+|---|---|
+| Prioridades de fonte (US4) | as cinco, na ordem: institucionais sobre secundárias; vigentes sobre revogadas ou substituídas; específicas do ramo e primárias sobre genéricas; o trecho preciso sobre o amplo; sempre citação e proveniência |
+| Citação (104 FR-007, ADR-026) | depois de cada afirmação tirada de um trecho, `[[id]]` com o identificador exato que aparece depois de `id:` na referência do trecho (exemplo sintético: `[[manual-x-2026#4.2@p12]]`); nunca citar trecho que não veio, nunca inventar identificador |
+| Sem trechos (FR-011, clarificação 2) | se nenhum trecho chegou, responder com conhecimento geral dizendo que nenhum documento oficial foi encontrado para a pergunta, sem citar nem nomear documento, e recomendar a fonte oficial |
+| Vigência | trecho de versão substituída ou revogada é dito como tal |
+
+Papel, "dado, nunca instrução" (FR-009) e "fora do escotismo" continuam. O prompt não manda chamar ferramenta (não
+contém "chame" nem "use a ferramenta"): no `agentic` ele só chega à geração.
+
+**Rationale**: é o que a FR-008 e a 104 FR-007 pedem, com o formato garantido pelo ADR-026; manter o caminho sem
+trechos explícito evita citação inventada quando a busca vem vazia.
+
+**Alternatives considered**: um prompt para cada flow (o prompt é do pack, não do flow — 010 FR-008).
+
+## R22 — Dependências e tags
+
+**Decision**: `ai-core-contracts` continua `>=0.1,<0.2`, com a fonte na tag `contracts-v0.1.1` (já existe; formaliza o
+`StreamingValidator` do ADR-024). O grupo `platform` passa para a tag do core que trouxer o `rag_first` e o ADR-026
+(`v0.2.0`, criada no `agentic-app` ao fim da 005 US3–US4 — ADR-021). Fora desta passada: o `CORE_REF` default do
+`agentic-deploy` e o modelo e5 e o Qdrant na instalação (nota da 102 R20).
+
+**Rationale**: o pack depende só dos contratos; o teste de plataforma precisa do core com o flow.
+
+**Alternatives considered**: apontar o grupo `platform` para um commit (tag é o que a ADR-021 prevê).
+
+## R23 — Testes
+
+**Decision**: unidade — leitura da configuração (defaults, exclusividade URL/caminho, `e5` sem diretório ou sem
+arquivos, limites), manifest (`rag_first`, coleção, esquema), capacidades (uma tool `search_docs` com a coleção
+`scouting`, o reranker, os dois validators na ordem), prompt (os blocos e as frases fixas da R21; as cinco prioridades
+na ordem — US4); conformidade da 001 com `config={"qdrant_path": tmp, "embedder": "hashing"}`; ponta a ponta no grupo
+`platform` — corpus sintético ingerido num `qdrant_path` com o `HashingEmbedder`, perfil `test` com o `packs.yaml`
+apontando para ele, Assistant `scouting` sem `flow` (logo `rag_first`), o provider de geração programado (troca de
+porta `providers` da 011) para citar o primeiro `id:` que vir no contexto; espera-se 200, **uma** chamada de modelo no
+trace da requisição (SC-004) e a citação `[1]` com a proveniência do trecho (US5 cen. 1).
+
+**Rationale**: SC-003 segue valendo (a suíte padrão roda sem o core); a US5 é provada contra o flow e a renderização
+reais. O limiar do portão no teste vem da configuração da 005 (o `HashingEmbedder` tem outra escala de similaridade).
+
+**Alternatives considered**: provar a US5 só com unidades (não prova o "uma chamada de modelo").
+
+## R24 — US4 nas instruções (clarificação 3)
+
+**Decision**: as prioridades vivem só no prompt; o teste da US4 confere as cinco, na ordem. A marca institucional /
+secundária no catálogo e no índice entra quando chegar a primeira fonte secundária (102); o efeito nas respostas é
+medido na 105.
+
+**Rationale**: o corpus é todo institucional; uma marca sem valor diferente seria peso morto.
+
+**Alternatives considered**: campo `institutional` já (clarificação 3, B).

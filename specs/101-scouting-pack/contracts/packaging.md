@@ -55,3 +55,11 @@ segredo `AGENTIC_APP_DEPLOY_KEY` do `ai-scouting` e é carregada por `webfactory
 
 Código e testes do pack: commit no `ai-scouting`. No `agentic-app`: o SDD da passada e o novo ponteiro do submódulo
 (`git add ai-scouting`), no mesmo commit de fechamento.
+
+## Fase 5 (2026-10-09)
+
+- `version = "0.2.0"`; dependências de runtime da 102 e da 103 já presentes; nenhuma nova.
+- `[tool.uv.sources]`: `ai-core-contracts` pela tag `contracts-v0.1.1`; `ai-core` (grupo `platform`) pela tag do core com
+  o `rag_first` (`v0.2.0`, criada ao fim da 005 US3–US4).
+- O job `platform` roda também `tests/integration/test_rag.py` (US5 ponta a ponta, sem rede: Qdrant embutido e o
+  embedder de teste).

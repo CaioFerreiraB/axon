@@ -94,3 +94,40 @@ Exemplos de aceite (dia de referência 2026-10-07):
 ## Estado
 
 Nenhum. A derivação é função de (pergunta, dia de referência, léxico); a mesma entrada dá a mesma fatia.
+
+# Fase 5 (2026-10-09): US4, US5
+
+## `PackManifest` (Fase 5 — R20)
+
+`name="scouting"`, `version="0.2.0"`, `preferred_flow="rag_first"`, `requires_collections=("scouting",)`,
+`config_schema=SCOUTING_CONFIG_SCHEMA`. A coleção lógica é a constante `COLLECTION = "scouting"` (R17).
+
+## Configuração do pack (`packs.yaml` → `ctx.config` — R18)
+
+| Campo | Tipo | Default | Regra (na carga; violação → `ValueError` nomeando o campo, o pack não carrega) |
+|---|---|---|---|
+| `qdrant_url` | string `^https?://` | `http://localhost:6333` (sem `qdrant_path`) | exclusivo com `qdrant_path` |
+| `qdrant_path` | string não vazia | — | Qdrant embutido (testes, desenvolvimento) |
+| `index` | string `^[a-z0-9][a-z0-9_-]*$` | `scouting` | alias no Qdrant |
+| `embedder` | `"e5"` \| `"hashing"` | `"e5"` | `hashing` só para suítes |
+| `embedding_dir` | string não vazia | — | obrigatório com `e5`; com `model.onnx` e `tokenizer.json` dentro |
+| `default_limit`, `max_limit` | inteiro ≥ 1 | 5, 30 | `1 ≤ default_limit ≤ max_limit` (`RetrievalConfig` da 103) |
+
+Fora do esquema: a chave do Qdrant, só em `AI_SCOUTING_QDRANT_API_KEY` (FR-012). `additionalProperties: false`.
+
+## Capacidades publicadas (US5, FR-010)
+
+| Hook | Fase 5 |
+|---|---|
+| `system_prompt` | o prompt da Fase 5 (R21) |
+| `prepare_context` | igual à Fase 4 |
+| `retrievers` | `[search_docs(ScoutingRetriever(QdrantIndex(...), RetrievalConfig(...)), collection="scouting")]` → tool `scouting.search_docs` |
+| `reranker` | `MetadataReranker()` |
+| `validators` | `[CitationIntegrityValidator(), ValidityNoticeValidator()]`, nessa ordem |
+| `tools` | nenhuma (a recuperação é tool derivada do retriever — 001) |
+
+## Prompt (R21)
+
+Blocos: papel; prioridades de fonte (as cinco, na ordem da US4); citação `[[id]]` pelo identificador depois de `id:`
+(ADR-026); sem trechos → conhecimento geral com ressalva (FR-011); vigência; dado, nunca instrução (FR-009); fora do
+escotismo.

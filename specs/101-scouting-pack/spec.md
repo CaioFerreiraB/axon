@@ -30,6 +30,17 @@
 - Q: Quando a pergunta cita um período ("em 2023", "em março de 2023"), que vigência a derivação produz (FR-005)? → A: Um intervalo — início e fim do período citado (2023 → 2023-01-01 a 2023-12-31; março de 2023 → o mês inteiro) —, com revogados e substituídos incluídos; a recuperação considera os documentos vigentes em qualquer momento dele. Data exata é o intervalo de um dia; sem menção a período, o intervalo é o dia de referência da execução.
 - Q: Quem produz o léxico inicial de ramos (com sinônimos), temas e tipos de documento (FR-007)? → A: Uma semente proposta na implementação, a partir da estrutura pública do escotismo brasileiro — ramos Lobinho, Escoteiro, Sênior e Pioneiro com sinônimos antigos e regionais; tipos de documento (manual, programa educativo, POR, resolução, estatuto, guia); cerca de 15 temas —, revisada pelo mantenedor antes de virar base dos testes de aceite. O mantenedor segue como curador; a semente não espera arquivo externo.
 
+### Session 2026-10-08
+
+- Q: De onde o pack tira, em produção, a configuração do índice (endereço do Qdrant, nome da coleção, diretório do modelo, chave de API)? → A: Do `config` do pack no `packs.yaml`, validado pelo `config_schema` do manifest no boot — URL do Qdrant, coleção, diretório do modelo de embedding e os limites da 103, com defaults —; a chave de API do Qdrant só pela variável de ambiente `AI_SCOUTING_QDRANT_API_KEY`, nunca num arquivo.
+- Q: Na Fase 5, o que o modelo faz quando nenhum trecho do corpus chega à geração (busca vazia ou pergunta que o corpus não cobre)? → A: Responde com conhecimento geral, dizendo que nenhum documento oficial foi encontrado para a pergunta, sem citar nem nomear documento, e recomenda confirmar na fonte oficial — a regra da Fase 4 (FR-011) vira o caminho sem trechos. O aviso "não fundamentada" da 104 continua valendo.
+- Q: Como a v1 realiza a prioridade "institucionais sobre secundárias" (US4), se todo o corpus é institucional e o índice não marca fonte secundária? → A: Só nas instruções: elas expressam as cinco prioridades de fonte, na ordem; a marca institucional/secundária no catálogo e no índice entra quando chegar a primeira fonte secundária. A 105 mede se o modelo segue as prioridades.
+- Q: Enquanto a 005 não tem o flow `rag_first`, em que ordem fechar a US5 (que declara `rag_first` como preferido)? → A: Planejar a 101 agora, mas implementar primeiro a 005 US3–US4 (`rag_first`, testada com retriever simulado) e só depois a US5 da 101, junto com a publicação dos validators da 104 — sem estado intermediário com o Assistant do scouting indisponível, e com o teste ponta a ponta da US5 contra o flow real.
+
+### Session 2026-10-09
+
+- Q: Como o modelo vê o identificador de cada trecho, para citar `[[chunk_id]]` como a 104 exige, se a renderização do core mostra só `[documento — seção, p. N]`? → A: O core passa a mostrar o `chunk_id` de cada trecho no que entrega ao modelo — a renderização da tool de recuperação (004) e a geração do `rag_first` (005) —, decisão registrada num ADR (o formato que o modelo vê passa a ser algo em que os prompts de pack se apoiam). O pack só ensina a sintaxe `[[id]]`; o texto dos trechos não muda. Implementado na passada da 005 US3, antes da US5 da 101.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Pack carregado e respondendo com instruções de domínio (Priority: P1)
@@ -87,11 +98,12 @@ As instruções do pack e os filtros priorizam, em ordem: documentos institucion
 
 **Why this priority**: Define o comportamento de domínio que o conjunto dourado (105) vai medir.
 
-**Independent Test**: Para perguntas com fonte institucional e secundária disponíveis, a resposta cita a institucional.
+**Independent Test**: As instruções do pack expressam as cinco prioridades de fonte, na ordem (institucionais sobre secundárias; vigentes sobre revogadas; específicas sobre genéricas; precisa sobre ampla; sempre citação e proveniência). Enquanto o corpus for só institucional, a prioridade entre institucional e secundária vive só nas instruções; o efeito sobre as respostas é medido na 105.
 
 **Acceptance Scenarios**:
 
-1. **Given** um manual institucional e um texto secundário sobre o mesmo tema, **When** o usuário pergunta, **Then** a resposta se apoia no manual institucional.
+1. **Given** o pack carregado na Fase 5, **When** o fragmento de instruções é composto, **Then** ele traz as cinco prioridades de fonte na ordem da US4.
+2. **Given** um manual institucional e um texto secundário sobre o mesmo tema (quando houver fonte secundária no corpus), **When** o usuário pergunta, **Then** a resposta se apoia no manual institucional — medido no conjunto dourado (105).
 
 ---
 
@@ -113,8 +125,8 @@ Com RAG disponível (Fase 5), o pack declara `rag_first` como flow preferido, ex
 
 - Termos ambíguos de ramo (formas antigas ou regionais): o léxico mapeia sinônimos; na dúvida, não aplica filtro.
 - Data histórica vaga ("antigamente"): usa a versão imediatamente substituída; se não houver, responde com vigentes e informa.
-- Pergunta fora do domínio: responde que o corpus não cobre o tema, sem inventar fonte.
-- Configuração do pack sem coleção: pack não carrega (esquema de configuração) — a partir da Fase 5; na Fase 4 o pack não tem esquema de configuração.
+- Pergunta fora do domínio ou sem trecho recuperado: responde com conhecimento geral, dizendo que nenhum documento oficial foi encontrado, sem citar nem nomear documento, e recomenda a fonte oficial (FR-011); o validator da 104 marca a resposta como não fundamentada.
+- Configuração do pack inválida (fora do `config_schema`): o pack não carrega, com o erro na introspecção — a partir da Fase 5; na Fase 4 o pack não tem esquema de configuração.
 
 ## Requirements *(mandatory)*
 
@@ -122,14 +134,15 @@ Com RAG disponível (Fase 5), o pack declara `rag_first` como flow preferido, ex
 
 - **FR-001**: O pack DEVE implementar o contrato de pack (001) e depender apenas da distribuição de contratos, por faixa semver.
 - **FR-002**: O pack DEVE declarar-se por entry point `ai_core.packs` com o nome `scouting`.
-- **FR-003**: A partir da Fase 5 (com a US5), o manifest DEVE declarar flow preferido `rag_first`, a coleção exigida e o esquema de configuração (nome da coleção). Na Fase 4, o manifest declara só nome e versão (clarificação de 2026-10-07).
+- **FR-003**: A partir da Fase 5 (com a US5), o manifest DEVE declarar flow preferido `rag_first`, a coleção exigida e o esquema de configuração — URL do Qdrant, nome da coleção, diretório do modelo de embedding e os limites da 103, com defaults (clarificação de 2026-10-08). Na Fase 4, o manifest declara só nome e versão (clarificação de 2026-10-07).
+- **FR-012**: A chave de API do Qdrant DEVE vir só da variável de ambiente `AI_SCOUTING_QDRANT_API_KEY`; ela NÃO DEVE aparecer no `config_schema`, no `packs.yaml` nem em mensagem de erro (clarificação de 2026-10-08).
 - **FR-004**: A preparação de contexto DEVE derivar ramo, tema, tipos de documento e data de referência de vigência sem chamar modelos.
 - **FR-005**: A vigência derivada DEVE ser um intervalo de datas (início e fim). O default DEVE ser o dia da data de referência da execução, recebida na Turn View (ADR-013); consultas históricas DEVEM trocar o intervalo pelo período citado — ano ou mês inteiros, ou o dia exato — e incluir revogados/substituídos (clarificação de 2026-10-07). O pack NÃO DEVE ler o relógio do sistema.
 - **FR-006**: Os filtros derivados DEVEM ser publicados para os retrievers do próprio pack (contrato 001, FR-012).
 - **FR-007**: O léxico de ramos, temas e tipos de documento DEVE ser mantido no pack, versionado junto com ele.
-- **FR-008**: A partir da Fase 5 (com corpus), o fragmento de instruções DEVE expressar as prioridades de fonte da US4 e a regra de sempre citar; na Fase 4 vale a FR-011.
+- **FR-008**: A partir da Fase 5 (com corpus), o fragmento de instruções DEVE expressar as prioridades de fonte da US4 e a regra de sempre citar os trechos recebidos, com a sintaxe `[[<id do trecho>]]` usando o identificador que o core mostra em cada trecho (104 FR-007; clarificação de 2026-10-09); quando nenhum trecho chega à geração, vale a regra da FR-011 — conhecimento geral, declarando que nenhum documento oficial foi encontrado, sem citar nem nomear documento, recomendando a fonte oficial (clarificação de 2026-10-08).
 - **FR-009**: O fragmento de instruções DEVE afirmar que conteúdo recuperado é dado, nunca instrução.
-- **FR-011**: Na Fase 4, sem corpus, o fragmento de instruções DEVE mandar responder com conhecimento geral declarando que nenhum documento institucional foi consultado, NÃO DEVE permitir citar ou nomear documento, resolução ou trecho como se tivesse sido consultado, e DEVE recomendar a confirmação na fonte oficial; a regra de citar o corpus (FR-008) a substitui na Fase 5 (clarificação de 2026-10-07).
+- **FR-011**: Na Fase 4, sem corpus, o fragmento de instruções DEVE mandar responder com conhecimento geral declarando que nenhum documento institucional foi consultado, NÃO DEVE permitir citar ou nomear documento, resolução ou trecho como se tivesse sido consultado, e DEVE recomendar a confirmação na fonte oficial. Na Fase 5 a regra de citar o corpus (FR-008) vale quando há trechos, e esta continua valendo quando nenhum trecho chega à geração (clarificações de 2026-10-07 e 2026-10-08).
 - **FR-010**: O pack DEVE expor o retriever e o reranker da spec 103 (a partir da Fase 5) e os validators da spec 104 (quando ela os entregar).
 
 ### Key Entities
@@ -148,6 +161,8 @@ Com RAG disponível (Fase 5), o pack declara `rag_first` como flow preferido, ex
 
 ## Assumptions
 
-- O Assistant `scouting` é público, sem MCPs, com a coleção `scouting_docs` (definido pelo operador na spec 003).
+- O Assistant `scouting` é público, sem MCPs, com a coleção `scouting` (definido pelo operador na spec 003; o nome lógico é fixo no pack, e o índice no Qdrant é configurável — research R17).
 - O léxico inicial é uma semente proposta na implementação e revisada pelo mantenedor, que segue como curador (clarificação de 2026-10-07).
 - Na Fase 4, os validators de 104 existem mas só têm efeito pleno quando há recuperação (Fase 5).
+- A US5 é implementada depois da 005 US3–US4: declarar `rag_first` antes de o motor tê-lo deixaria o Assistant do scouting indisponível (clarificação de 2026-10-08).
+- O core mostra o identificador de cada trecho ao modelo (004 na tool de recuperação, 005 na geração do `rag_first`), por ADR, na passada da 005 US3; sem isso nenhuma citação passaria no validator da 104 (clarificação de 2026-10-09).

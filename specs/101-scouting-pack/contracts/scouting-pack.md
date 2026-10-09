@@ -50,3 +50,44 @@ Tools, retrievers, reranker e validators — os defaults de `PackBase` valem. Os
 | 4 | invariantes do léxico | `tests/test_lexicon.py` |
 | 5 | `context/` sem chamada de relógio; import-linter (três contratos) | `tests/test_purity.py`, `lint-imports` |
 | 6 | US1 cen. 1–2 na plataforma (`enabled` e versões pelo seam `PackRegistry`; prompt composto pelo seam `PackHooks`; conversa 200), só pela superfície da 011 para packs externos | `tests/integration/test_platform.py` (grupo `platform`) |
+
+# Fase 5 (2026-10-09): o pack com RAG
+
+Decisões em [research.md](../research.md) R16–R24; tipos em [data-model.md](../data-model.md), seção "Fase 5".
+
+## Manifest e configuração
+
+`manifest()` → `PackManifest(name="scouting", version="0.2.0", preferred_flow="rag_first", requires_collections=
+["scouting"], config_schema=SCOUTING_CONFIG_SCHEMA)`. Consequências: o bloco do pack no `packs.yaml` aceita `enabled`
+e `config` (validado pelo esquema); um Assistant com `packs: [scouting]` sem `flow` roda no `rag_first`; o Assistant
+precisa conceder a coleção `scouting` para a tool aparecer.
+
+## Capacidades
+
+| Hook | Contrato |
+|---|---|
+| `retrievers(ctx)` | uma `NamedRetriever` `search_docs`, coleções `{"scouting"}`, sobre o índice configurado; erros de índice na busca, não na carga |
+| `reranker(ctx)` | `MetadataReranker` (103) |
+| `validators(ctx)` | `citation_integrity` e depois `validity_notice` (104) |
+| `system_prompt(ctx)` | o prompt da R21 |
+
+## Prompt da Fase 5
+
+| Bloco | Exigência | Verificada por |
+|---|---|---|
+| Prioridades (US4, FR-008) | as cinco, na ordem | `tests/test_prompt.py` |
+| Citação (104 FR-007, ADR-026) | `[[id]]` com o identificador depois de `id:`; nunca inventar nem citar trecho ausente | idem |
+| Sem trechos (FR-011) | conhecimento geral dizendo que nenhum documento oficial foi encontrado; não citar nem nomear documento; fonte oficial | idem |
+| Vigência | trecho de versão substituída ou revogada é dito como tal | idem |
+| Dado, nunca instrução (FR-009); fora do domínio | como na Fase 4 | idem |
+
+Frases fixas: "escot", "[[", "id:", "nenhum documento oficial", "fonte oficial", "nunca instrução". Continua sem
+"chame" e sem "use a ferramenta".
+
+## Conformidade (Fase 5)
+
+| # | Verificação | Onde |
+|---|---|---|
+| 7 | `assert_pack_conforms` com `config={"qdrant_path": …, "embedder": "hashing"}` | `tests/test_conformance.py` |
+| 8 | configuração: defaults, exclusividade, `e5` sem arquivos, limites; chave fora de mensagens | `tests/test_pack.py` |
+| 9 | US5 ponta a ponta: `rag_first`, uma chamada de modelo, citação `[1]` com proveniência | `tests/integration/test_rag.py` (grupo `platform`, core `v0.2.0`) |
