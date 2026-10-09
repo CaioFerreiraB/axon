@@ -352,3 +352,93 @@ Reavaliado com [data-model.md](data-model.md), [contracts/agentic-flow.md](contr
 | Dois canais de stream consumidos juntos, `custom` e `values` (R2) | `custom` dá o evento ao vivo, `values` dá o estado final completo | só `custom` obrigaria cada nó a repetir o estado no evento; só `values` entregaria o token depois do nó terminar, matando o streaming |
 | Esquema `anyOf` com um ramo por tool (R17) | é o que transforma a saída estruturada em proteção real no modelo pequeno: nome e forma dos argumentos restringidos | esquema plano deixaria os argumentos livres, que é exatamente onde o arch-v1 §9 diz que o modelo erra |
 | `ExecutionIssue.severity` (R23, ADR-018) | o loop cria seis registros que não são falha; sem gravidade, o sucesso no trace e o `finish_reason` da 008 mentem | lista de `kind`s acoplaria a 008 aos nomes da 005; usar `flags` contraria a US2 cen. 2 |
+
+## Fase 5 (US3, US4, flow `rag_first`; ADR-026) — 2026-10-09
+
+Insumos lidos: [design.md](design.md) ("`rag_first` — retrieval determinístico"), ADR-005, ADR-006, ADR-017, ADR-019 e
+o [ADR-026](../../docs/adr/ADR-026-o-modelo-ve-o-identificador-de-cada-trecho.md); as duas clarificações de 2026-10-09;
+o motor atual, o gateway (004), o Pack Hooks (002) e o pack `scouting` conferidos no código. Pesquisa em
+[research.md](research.md) R35–R48. **Mudanças de seam**: `FLOW_RAG_FIRST`, `flow_roles()["rag_first"]` e
+`RagSettings` na 005 (nome de flow já previsto na FR-003 e no ADR-001; papéis por flow são o seam do ADR-019);
+`PackHooks.reranker` na 002 (previsto no design dela para a Fase 5); `ToolSession.fence_chunks` e a renderização com
+`· id:` na 004 (ADR-026); `CoverageGate` na 009 (aditivo, ADR-017).
+
+### Summary — Fase 5
+
+O motor ganha o flow `rag_first`: depois da preparação, recupera pelo gateway com as tools de recuperação do catálogo
+(filtros do pack, opacos), reordena com o reranker de cada pack, aplica o portão de cobertura sobre o score — sem
+limiar até a 105 calibrar — e gera com uma única chamada de modelo, com os trechos cercados e visíveis com o
+identificador (ADR-026). Sem cobertura, escala para o loop se o Assistant tem `controller`; senão, gera sem trechos e
+registra. Recuperação que falha encerra com erro. A validação usa o `generation_context` exato, inclusive depois do
+corte por posição no teto.
+
+### Technical Context — o que muda
+
+- **Dependências**: nenhuma nova. Seams consumidos: os mesmos do `agentic` + `PackHooks.reranker` (002).
+- **Configuração**: `RagSettings` pela 011 (`AI_CORE_RAG_*`).
+- **Testing**: gateway falso do testkit com tools de recuperação programadas; Pack Hooks com reranker falso; contagem de
+  `ModelCall` para a SC-003.
+
+### Constitution Check — Fase 5
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| I | ✅ | Nada de domínio: o motor só vê `Chunk`, score e o `chunk_id` do contrato |
+| II | ✅ | Seams via `api.py`; mudanças listadas acima, com ADR-026 (004) e ADR-017 (009); 002 cumpre o próprio design |
+| III | ✅ | O motor é dono da topologia; packs fornecem retriever e reranker |
+| IV | ✅ | A recuperação passa pelo catálogo do grant: sem coleção concedida, não há tool, e não há resultado |
+| V | ✅ | Portão determinístico; uma chamada de modelo no caminho coberto (SC-003); controller só na escalada |
+| VI | ✅ | Trechos cercados, no papel de tool, com `FENCE_INSTRUCTION` |
+| VII | ✅ | Recuperação que falha encerra com `error`; degradações (rerank, cobertura, corte) são `notice` |
+| X | ✅ | Sem limiar por default; números do operador; a 105 calibra |
+| XIII | ✅ | Portão, junção e corte em `domain/`, puros; nós finos |
+
+**Module boundary gate (Fase 5)**: `ai_core/graph/**` e `tests/graph/**`; toques declarados em `ai_core/packs/`
+(reranker), `ai_core/capabilities/` (renderização e `fence_chunks`), `ai_core/observability/` (`CoverageGate`) e
+`ai_core/bootstrap/` (configuração e `flows()`), com testes de cada um; import-linter sem contrato novo.
+
+**Ports & adapters gate (Fase 5)**: nenhuma porta nova; a configuração chega por construção.
+
+**Resultado do gate (antes da Phase 0)**: PASS.
+
+### Project Structure — Fase 5
+
+```text
+ai-core/packages/core/src/ai_core/
+├── graph/
+│   ├── api.py                        # FLOW_RAG_FIRST, flow_roles, RagSettings
+│   ├── service.py                    # rag_first em flows() com o gateway; RagSettings no contexto
+│   ├── domain/gate.py                # portão de cobertura e junção por pack (R38, R39)
+│   ├── domain/budget.py              # + fit_chunks (R42)
+│   └── adapters/langgraph/
+│       ├── flows.py                  # + rag_first_graph
+│       ├── state.py                  # + retrieved, reranked; rota "end"
+│       ├── view.py                   # Turn View do rag_first (R43)
+│       └── nodes/rag.py              # retrieve, rerank, gate (R37–R41)
+├── packs/{api.py,service.py}         # PackHooks.reranker(composition, pack) (R38)
+├── capabilities/{api.py,service.py,domain/rendering.py}   # · id: e fence_chunks (ADR-026)
+├── observability/api.py              # CoverageGate (R39)
+└── bootstrap/                        # AI_CORE_RAG_* → RagSettings; ExecutionService com rag (R44)
+```
+
+### Seam Notes for Consumers — Fase 5
+
+| Consumidor | O que precisa saber |
+|---|---|
+| 003 | `flow_roles()["rag_first"] = ("generation",)`: Assistant `rag_first` sem `controller` é válido |
+| 008 | `RetrievalFailed` é `error` → 502 sem streaming (FR-022 dela); os `notice` não mudam o status |
+| 101 (US5) | O flow existe a partir da tag `v0.2.0`; o modelo vê `· id: <chunk_id>`; o limiar é do operador |
+| 105 | Calibra `AI_CORE_RAG_MIN_SCORE`, candidatos e trechos; o `CoverageGate` no trace dá o melhor score por pergunta |
+
+### Constitution Check — pós-design (Fase 5)
+
+Reavaliado com a seção "Fase 5" de [data-model.md](data-model.md), [contracts/rag-first-flow.md](contracts/rag-first-flow.md)
+e [quickstart.md](quickstart.md): **PASS** — cada rota do portão tem cenário; os registros novos têm severidade; os
+toques fora da 005 estão nomeados e cobertos por ADR ou pelo design da spec dona.
+
+### Complexity Tracking — Fase 5
+
+| Complexidade | Why Needed | Simpler Alternative Rejected Because |
+|---|---|---|
+| Passo de tool sintético para os trechos (R41) | conteúdo externo cercado e no papel de tool, como no loop; geração e Turn View sem caminho novo | bloco de sistema daria autoridade de sistema a conteúdo externo |
+| Rerank por pack e junção por score (R38) | o reranker de um pack depende das marcas do retriever dele | reranker único para a composição não tem dono com dois packs |

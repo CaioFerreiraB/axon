@@ -195,6 +195,11 @@ flowchart TD
 
 Portão **determinístico**: score do melhor chunk abaixo de um limiar, ou nenhum resultado após os filtros do pack (no scouting, os filtros de vigência fazem "nenhum documento vigente" virar "nenhum resultado"). Não é pergunta ao LLM.
 
+> Atualizado em 2026-10-09 (clarificações da Fase 5; [research.md](research.md) R36–R44): a escalada para o loop só
+> acontece se o Assistant tem `controller`; sem ele, a geração roda sem trechos com um `notice`. Recuperação que falha
+> encerra sem gerar. Limiar, candidatos e trechos são configuração do operador (`AI_CORE_RAG_*`), sem limiar por
+> default. Os trechos chegam à geração cercados, como passo de tool, no formato do ADR-026 (com `· id:`).
+
 ### Escape hatch: rotina de pack [ADR-011]
 
 ```mermaid

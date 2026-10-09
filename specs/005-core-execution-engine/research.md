@@ -540,3 +540,173 @@ não importam `langgraph`/`langchain_core`. Os contratos "só pelo `api.py`" de 
   `notice` `AnswerRewritten`. A resposta parcial de uma falha continua sendo o que saiu — agora já filtrado.
 - **Rationale** (ADR-024, princípio XI): streaming desde o primeiro token, sem citação inventada no texto.
 - **Alternatives**: desligar o streaming de tokens com validator que reescreve (20 a 60 s sem nada no hardware alvo).
+
+## Fase 5 (US3, US4, flow `rag_first`; ADR-026) — 2026-10-09
+
+> Insumos: as duas clarificações de 2026-10-09 (spec), o [design.md](design.md) ("`rag_first` — retrieval
+> determinístico"), ADR-005, ADR-006, ADR-017, ADR-019 e o [ADR-026](../../docs/adr/ADR-026-o-modelo-ve-o-identificador-de-cada-trecho.md).
+> Conferido no código: o motor (flows `chat`/`agentic`, nós finos, `validate_answer` com `generation_context`, teto por
+> omissão de resultados), o gateway da 004 (exceção de retriever vira resultado `error`/`timeout`; o resultado traz os
+> `chunks`; a renderização não mostra o `chunk_id`), o `PackHooks` da 002 (ainda sem o hook de rerank que o design dela
+> prevê para a Fase 5) e o pack `scouting` (103: `score` = similaridade densa em `[0, 1]`, comprimida no e5).
+
+### R35 — Escopo da passada e toques fora da 005
+
+**Decision**: `rag_first` (US3) e a validação nele (US4), com o ADR-026. Toques declarados ("passada de encaixe"):
+**002** — `PackHooks.reranker(composition, pack)`, o hook que o design.md da 002 prevê para a Fase 5; **004** — o
+`· id: <chunk_id>` na renderização de recuperação e `ToolSession.fence_chunks(name, chunks)` (ADR-026, decisão 2);
+**009** — o evento aditivo `CoverageGate` (ADR-017); **011** — `RagSettings` pelas variáveis `AI_CORE_RAG_*` e o
+`rag_first` em `flows()` quando há gateway. Na 003 nada muda: ela lê os papéis por flow do motor (ADR-019). Ao fim,
+a tag do core `v0.2.0` (R48).
+
+**Rationale**: o `rag_first` é o primeiro flow que recupera sem o controller; o resto são as portas que ele usa.
+
+**Alternatives considered**: implementar o rerank fora do Pack Hooks (o motor chamaria pack direto — viola FR-002).
+
+### R36 — Topologia
+
+**Decision** (design.md): `START → prepare_context → retrieve → rerank → gate`, e do portão:
+
+| Rota | Quando |
+|---|---|
+| `generate` com os trechos | coberto |
+| `controller` (loop do `agentic`, nós existentes) | sem cobertura e o grant tem `controller` |
+| `generate` sem trechos | sem cobertura e sem `controller` (registra `notice`) |
+| fim, sem geração | recuperação falhou (R37) |
+
+`generate → validate_answer → END`, como nos outros flows. As arestas só leem a rota que o nó calculou por
+`domain/gate.py`.
+
+**Rationale**: reaproveita os nós do `agentic` e o caminho de geração e validação; a decisão é pura.
+
+**Alternatives considered**: um sub-grafo para o loop escalado (os nós já existem; uma aresta basta).
+
+### R37 — Recuperação pelo gateway (ADR-005)
+
+**Decision**: o nó `retrieve` abre a sessão de tools (como o `load_capabilities`, com os filtros das fatias no
+`ToolContext`) e executa **cada tool `retrieval` do catálogo** com `{"query": <pergunta>, "top_k": candidates}`. O
+gateway emite o `ToolCall` (009) e repassa os filtros de forma opaca (US3 cen. 4). Resultado com `status` diferente de
+`ok` (o retriever levantou, estourou o prazo) vira registro `error` `RetrievalFailed`, nomeando a tool e o motivo, e a
+execução termina **sem gerar**: o Assistant depende do índice e fica indisponível com erro explícito, nunca degradado
+para "sem resultado" (princípio VII; 103 FR-007). Catálogo sem tool de recuperação = nenhum resultado.
+
+**Rationale**: "retrieval é tool, um único ponto de execução" — trace, prazo, tamanho e filtros vêm de graça.
+
+**Alternatives considered**: chamar os retrievers pelo Pack Toolset direto (dois caminhos de execução); tratar falha como
+"sem resultado" (o portão escalaria em silêncio, e a resposta diria que não há documento quando há).
+
+### R38 — Rerank por pack (002 `PackHooks.reranker`)
+
+**Decision**: os chunks agrupam por pack (o prefixo `<pack>.` da tool); com `reranker(composition, pack)`, cada grupo
+vai a `rerank(pergunta, chunks, top_k=passages)`; sem reranker, os primeiros `passages` na ordem do retriever. Um pack
+só: a lista dele. Vários: junção estável por `score` decrescente, cortada em `passages` (a premissa da spec). Reranker
+que levanta → `notice` `RerankFailed` e a ordem do retriever: degradação explícita.
+
+**Rationale**: o reranker do scouting depende das marcas que o retriever dele grava (103 R4); rerankear os chunks de
+outro pack não faria sentido. A assinatura por pack refina a `reranker(composition)` ilustrativa do design da 002.
+
+**Alternatives considered**: um reranker para a composição inteira (qual, com dois packs?).
+
+### R39 — Portão de cobertura (FR-007; clarificação 1)
+
+**Decision**: função pura `domain/gate.py`: `coberto = há chunks e (sem limiar ou maior score ≥ limiar)`. O score é o
+`Chunk.score` (no scouting, a similaridade densa — 103). Sem limiar configurado (o default), só a ausência de resultado
+escala. A decisão vira o evento `CoverageGate` (009, aditivo pelo ADR-017): `request_id`, candidatos, trechos, melhor
+score, limiar, coberto e rota — sem texto.
+
+**Rationale**: o princípio X proíbe fixar o número; a medida vem da 105.
+
+**Alternatives considered**: limiar default "intuitivo" (o ensaio da 103 mostrou que 0,5 ou 0,7 deixariam passar tudo).
+
+### R40 — Escalada (FR-007a; clarificação 2)
+
+**Decision**: sem cobertura e com `controller` na política de modelos do grant → rota `controller`, com o limite de
+iterações do grant (ou 3) e a sessão já aberta pelo `retrieve`; o loop começa com a transcrição vazia (os trechos
+recusados pelo portão não entram). Sem `controller` → `generate` sem trechos e `notice` `CoverageInsufficient`.
+`flow_roles()["rag_first"] = ("generation",)`.
+
+**Rationale**: o Assistant escolhe se paga o loop; sem ele, a pergunta sem cobertura cai no caminho "nenhum documento
+encontrado" do prompt do pack, sem citar trecho irrelevante.
+
+**Alternatives considered**: exigir `controller` sempre (clarificação 2, B); nunca escalar (C).
+
+### R41 — Como os trechos chegam à geração (ADR-026; princípio VI)
+
+**Decision**: no caminho coberto, o nó `gate` grava um passo de tool sintético por pack — chamada `<pack>.<tool>` com
+`{"query": <pergunta>}` e resultado `session.fence_chunks(<tool>, trechos)` —, no mesmo formato nativo de tool do
+`agentic` (`assistant` com `tool_calls` + `tool`), com a `FENCE_INSTRUCTION` no sistema. A renderização é a do
+ADR-026: `[documento — seção, p. N · id: <chunk_id>]` + texto.
+
+**Rationale**: o conteúdo recuperado é externo e entra cercado e no papel de menor autoridade, como no loop; a
+geração e a projeção na Turn View funcionam sem caminho novo.
+
+**Alternatives considered**: um bloco de sistema com os trechos (daria autoridade de sistema a conteúdo externo).
+
+### R42 — Teto de contexto no `rag_first` (FR-011)
+
+**Decision**: função pura `fit_chunks` (em `domain/budget.py`): com teto, tira os trechos de **menor posição** até o
+contexto da geração caber; `notice` `ContextTrimmed` com a contagem. Sem teto, vão os `passages`.
+
+**Rationale**: o que vale menos sai primeiro (a regra que o `budget.py` já anuncia para a Fase 5); a omissão por
+mensagem inteira apagaria todos os trechos de uma vez.
+
+**Alternatives considered**: cortar o texto de cada trecho (quebraria a citação).
+
+### R43 — Turn View no `rag_first` (US4)
+
+**Decision**: `retrieved` = todos os candidatos; `reranked` = a lista do R38; `generation_context` = os trechos que
+couberam (R42) — o que os validators da 104 conferem (US4 cen. 2). No loop escalado, a projeção do `agentic`. O estado
+ganha `retrieved` e `reranked`.
+
+**Rationale**: é o que o contrato da Turn View promete e o que a citação mecânica precisa.
+
+**Alternatives considered**: nenhum.
+
+### R44 — Configuração (clarificação 1)
+
+**Decision**: `RagSettings(candidates=20, passages=5, min_score=None)` em `api.py`, validado (`candidates ≥ 1`,
+`passages ≥ 1`, `min_score` em `[0, 1]`); a 011 lê `AI_CORE_RAG_CANDIDATES`, `AI_CORE_RAG_PASSAGES` e
+`AI_CORE_RAG_MIN_SCORE` (valor inválido impede o boot, nomeando a variável) e o passa ao `ExecutionService`.
+
+**Rationale**: um Assistant `rag_first` hoje; por Assistant entra quando houver o segundo.
+
+**Alternatives considered**: no grant (clarificação 1, B).
+
+### R45 — Progresso (FR-012, SC-004)
+
+**Decision**: eventos de progresso `retrieve`, `rerank` e `gate` (com contagem no detalhe), antes de qualquer espera
+longa.
+
+**Rationale**: o primeiro sinal chega antes da geração.
+
+**Alternatives considered**: nenhum.
+
+### R46 — Testes
+
+**Decision**: domínio por tabela (portão, junção, `fit_chunks`); o flow com o gateway falso do testkit (tools de
+recuperação programadas) e o Pack Hooks com reranker falso: US3 cen. 1–4, US4 cen. 1–2, SC-003 (uma chamada de modelo
+no caminho coberto, contando os `ModelCall`), recuperação que falha (erro, sem geração), sem `controller` (`notice`,
+`generation_context` vazio), com `controller` (vai ao loop); 004: a renderização com `· id:` e `fence_chunks`; 002: o
+hook por pack, isolado; 011: as variáveis e o `rag_first` em `flows()`; integração no perfil `test` com um pack de
+teste que tem retriever.
+
+**Rationale**: os mesmos andaimes do `agentic`.
+
+**Alternatives considered**: nenhum.
+
+### R47 — Fronteiras de import
+
+**Decision**: nada novo: a 005 importa da 002 e da 004 só os `api.py`; `domain/gate.py` e `fit_chunks` são puros.
+
+**Rationale**: princípio XIII.
+
+**Alternatives considered**: nenhum.
+
+### R48 — Release
+
+**Decision**: ao fim da passada, a tag do core `v0.2.0` (core e `ai-generic`) no `agentic-app` (ADR-021); os contratos
+não mudam (`0.1.1`). O pack `scouting` (101 US5) e a instalação apontam para ela.
+
+**Rationale**: a 101 precisa do `rag_first` e do ADR-026 numa referência estável.
+
+**Alternatives considered**: apontar para um commit.

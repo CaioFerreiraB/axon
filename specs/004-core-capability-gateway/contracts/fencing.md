@@ -29,7 +29,7 @@ do gateway (nativa e recuperação) ou o menor entre o do gateway e o do servido
 | Tipo | Conteúdo |
 |---|---|
 | nativa | texto devolvido como está; qualquer outro valor em JSON (`ensure_ascii=False`, chaves ordenadas) |
-| recuperação | um bloco por chunk: `[documento — seção, p. N]` e o texto; sem chunks, "nenhum resultado" |
+| recuperação | um bloco por chunk: `[documento — seção, p. N · id: <chunk_id>]` e o texto ([ADR-026](../../../docs/adr/ADR-026-o-modelo-ve-o-identificador-de-cada-trecho.md), implementado na passada da 005 Fase 5); sem chunks, "nenhum resultado" |
 | MCP | o conteúdo do `ToolResult` da 007 (que já vem cortado no limite do servidor) |
 
 ## `FENCE_INSTRUCTION`

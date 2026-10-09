@@ -215,3 +215,51 @@ e um compartimento para a `ToolSession` aberta no passo `load_capabilities`. A T
 | Teto de contexto | loop para (`ContextLimit`) ou resultados antigos omitidos (`ContextTrimmed`) | `ControllerDecision(action="limit", reason="context")` quando para |
 | Falha do controller | geração com o que há; `ModelCallFailed` (`error`) | `ExecutionError(stage="controller")`; o `ModelCall` da falha vem da 006 |
 | Tool que falha, estoura prazo ou volta grande | resultado cercado com o status da 004, que volta ao controller | `ToolCall` (004) |
+
+## Fase 5 (US3, US4, flow `rag_first`) — 2026-10-09
+
+Decisões em [research.md](research.md) R35–R48.
+
+### Seam (`api.py`)
+
+| Elemento | Mudança |
+|---|---|
+| `FLOW_RAG_FIRST` | `"rag_first"`; em `flows()` quando há gateway de tools (como o `agentic`) |
+| `flow_roles()` | `"rag_first": ("generation",)` — o `controller` é opcional (FR-007a) |
+| `RagSettings` | `candidates: int = 20`, `passages: int = 5`, `min_score: float \| None = None`; `≥ 1`, `≥ 1`, `[0, 1]` |
+
+### Estado interno (privado)
+
+`retrieved: tuple[Chunk, ...]` (todos os candidatos), `reranked: tuple[Chunk, ...]` (junção do R38), e a rota ganha
+`"end"` (recuperação que falhou).
+
+### Turn View no `rag_first`
+
+| Campo | Caminho coberto | Sem cobertura, sem `controller` | Loop escalado |
+|---|---|---|---|
+| `retrieved` | candidatos | candidatos | os da recuperação inicial + os do loop |
+| `reranked` | junção do R38 | junção do R38 | junção do R38 |
+| `generation_context` | os trechos que couberam (R42) | vazio | os do loop entregues (como no `agentic`) |
+
+### Registros (`ExecutionIssue`)
+
+| `kind` | Severidade | Quando |
+|---|---|---|
+| `RetrievalFailed` | `error` | tool de recuperação com status diferente de `ok`; a execução termina sem gerar |
+| `RerankFailed` | `notice` | o reranker de um pack levantou; vale a ordem do retriever |
+| `CoverageInsufficient` | `notice` | sem cobertura e sem `controller`; a geração roda sem trechos |
+| `ContextTrimmed` | `notice` | trechos de menor posição tirados para caber no teto |
+
+### Trace (009, aditivo — ADR-017)
+
+`CoverageGate(request_id, candidates, passages, best_score: float | None, threshold: float | None, covered: bool,
+route)` — sem texto nem identificadores de trecho.
+
+### Fora da 005 (toques declarados)
+
+| Módulo | Mudança |
+|---|---|
+| 002 | `PackHooks.reranker(composition, pack) -> Reranker \| None` |
+| 004 | renderização `[documento — seção, p. N · id: <chunk_id>]`; `ToolSession.fence_chunks(name, chunks) -> FencedToolResult` |
+| 009 | evento `CoverageGate` |
+| 011 | `AI_CORE_RAG_CANDIDATES`, `AI_CORE_RAG_PASSAGES`, `AI_CORE_RAG_MIN_SCORE` → `RagSettings` |

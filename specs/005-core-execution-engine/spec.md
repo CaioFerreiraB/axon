@@ -40,6 +40,11 @@
 
 - Q: Com streaming, como a resposta corrigida pelos validators chega ao cliente? → A: A geração passa cada pedaço pelo filtro do Pack Hooks e emite só o que ele libera, com a cauda no fim; depois dos validators restantes, o que eles só acrescentam sai como token, e reescrita no meio fica registrada como `notice` (`AnswerRewritten`). Os dois modos da API entregam o mesmo texto (ADR-024).
 
+### Session 2026-10-09
+
+- Q: Onde ficam os números do `rag_first` (limiar do portão, candidatos, trechos levados à geração) e qual o default do limiar antes da calibração da 105? → A: Configuração do operador, por variáveis `AI_CORE_RAG_*` — limiar, candidatos e trechos —, com defaults 20 candidatos, 5 trechos e **sem limiar**: até a 105 calibrar, o portão só escala quando não há resultado depois dos filtros. Um limiar provisório pode ser configurado pelo operador; nenhum é fixado no código (princípio X).
+- Q: Quando o portão escala, o que o motor faz se o Assistant não declara o papel `controller`? → A: Escala para o loop agêntico só se o Assistant declara `controller`; sem ele, gera **sem trechos** — o caminho em que o prompt do pack diz que nenhum documento foi encontrado — e registra um `notice` de cobertura insuficiente. O `rag_first` exige só o papel `generation` (ADR-019).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Conversa direta com resposta em streaming (Priority: P1)
@@ -86,8 +91,9 @@ Num Assistant de flow `rag_first`, o motor recupera e reordena documentos determ
 **Acceptance Scenarios**:
 
 1. **Given** resultados cujo melhor score está acima do limiar, **When** o portão avalia, **Then** a execução vai direto à geração, sem chamada de controller.
-2. **Given** zero resultados após filtros ou melhor score abaixo do limiar, **When** o portão avalia, **Then** a execução escala para o loop agêntico.
-3. **Given** um pack que publicou filtros de recuperação na preparação de contexto, **When** a recuperação roda, **Then** os filtros são repassados aos retrievers desse pack sem interpretação pelo motor.
+2. **Given** zero resultados após filtros ou melhor score abaixo do limiar, e um Assistant com o papel `controller`, **When** o portão avalia, **Then** a execução escala para o loop agêntico.
+3. **Given** a mesma falta de cobertura num Assistant sem `controller`, **When** o portão avalia, **Then** a geração roda sem trechos (`generation_context` vazio) e a execução registra um `notice` de cobertura insuficiente.
+4. **Given** um pack que publicou filtros de recuperação na preparação de contexto, **When** a recuperação roda, **Then** os filtros são repassados aos retrievers desse pack sem interpretação pelo motor.
 
 ---
 
@@ -156,7 +162,8 @@ Quando o catálogo inclui a rotina de um pack, o controller pode invocá-la como
 - **FR-005**: No flow `agentic`, o controller DEVE emitir exatamente uma ação estruturada por iteração, sob restrição de formato de saída.
 - **FR-006**: Toda execução DEVE ter contador de iterações e respeitar o limite do grant; ao atingi-lo, DEVE seguir para a geração e registrar o truncamento. Sem limite declarado no grant, o limite é **3** — constante do motor, não configurável pelo operador.
 - **FR-006a**: No flow `agentic`, falha da chamada ao modelo do `controller` depois do primeiro evento NÃO DEVE encerrar a execução nem ser repetida: o motor DEVE seguir para a geração com o que acumulou e registrar o erro, nomeando provider e modelo.
-- **FR-007**: No flow `rag_first`, o portão de cobertura DEVE ser determinístico: melhor score abaixo de limiar configurável ou nenhum resultado após filtros → escalar; caso contrário → gerar.
+- **FR-007**: No flow `rag_first`, o portão de cobertura DEVE ser determinístico: melhor score abaixo de limiar configurável ou nenhum resultado após filtros → escalar; caso contrário → gerar. Limiar, número de candidatos pedidos aos retrievers e número de trechos levados à geração DEVEM ser configuração do operador (`AI_CORE_RAG_*`), com defaults 20 candidatos, 5 trechos e sem limiar — sem limiar, só a ausência de resultado escala (clarificação de 2026-10-09).
+- **FR-007a**: Quando o portão escala, o motor DEVE ir para o loop agêntico só se o grant tem o papel `controller`; sem ele, DEVE gerar sem trechos e registrar um `notice` de cobertura insuficiente. Os papéis exigidos pelo `rag_first` são só `generation` (`flow_roles`, ADR-019).
 - **FR-008**: O motor DEVE repassar de forma opaca aos retrievers de um pack os filtros de recuperação que esse pack publicou.
 - **FR-009**: Mensagens, chamadas de tool, resultados de tool e erros DEVEM acumular sem perda entre iterações e ramos.
 - **FR-010**: O motor DEVE produzir, para os hooks de pack, a Turn View definida em 001, incluindo o conjunto exato de chunks entregues à geração.
@@ -194,4 +201,4 @@ Quando o catálogo inclui a rotina de um pack, o controller pode invocá-la como
 - O contexto de cada execução é montado pelo próprio motor, a partir do grant, com os seams que a composition root (011) injeta no boot.
 - Na composição de vários packs em `rag_first`, a recuperação consulta os retrievers de todos os packs do grant e une os resultados por score; se isso se mostrar inadequado, a regra muda aqui sem afetar packs.
 - Defaults do hardware alvo: limite de iterações 3 quando o Assistant não declara outro (FR-006) e catálogo mínimo em contexto.
-- O limiar do portão de cobertura é calibrado na Fase 6 (spec 105), não aqui.
+- O limiar do portão de cobertura é calibrado na Fase 6 (spec 105), não aqui; até lá o default é não ter limiar, e o operador pode configurar um provisório.

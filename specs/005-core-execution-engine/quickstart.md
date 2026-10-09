@@ -148,3 +148,19 @@ engine = ExecutionService(
 ```
 
 O `grant` é o `ExecutionGrant` da 003 — o mesmo que a 008 já passa.
+
+## Fase 5 — flow `rag_first` (US3, US4)
+
+Dentro de `ai-core/`:
+
+```bash
+uv run pytest packages/core/tests/graph packages/core/tests/capabilities packages/core/tests/packs packages/core/tests/bootstrap
+uv run mypy && uv run ruff check packages && uv run lint-imports
+```
+
+Esperado: o portão por tabela; o `rag_first` com retriever e reranker simulados — uma chamada de modelo no caminho
+coberto (SC-003), escalada para o loop com `controller`, geração sem trechos e `notice` sem `controller`, erro sem
+geração quando a recuperação falha, `generation_context` com os trechos que couberam no teto; a renderização de
+recuperação com `· id: <chunk_id>` (ADR-026); o hook de rerank por pack (002); as variáveis `AI_CORE_RAG_*` (011).
+
+Com o pack `scouting` e o corpus real, a verificação ponta a ponta é a da US5 da 101 (quickstart dela, §9–10).
