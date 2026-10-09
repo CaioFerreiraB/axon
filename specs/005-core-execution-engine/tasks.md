@@ -691,7 +691,7 @@ exatamente o conjunto de trechos entregue à geração — inclusive depois do c
   platform --with-editable ../ai-core/packages/core pytest tests/integration` — a troca vale só para essa execução, sem
   mexer no `pyproject.toml` nem no lock; se o `--with-editable` não sobrepuser a fonte da tag, a tarefa fica reduzida à
   suíte padrão do pack (`uv run pytest`)
-- [ ] T094 Release (R48; ADR-021), **só com aprovação do mantenedor**: `version = "0.2.0"` em
+- [X] T094 Release (R48; ADR-021), **só com aprovação do mantenedor**: `version = "0.2.0"` em
   `ai-core/packages/core/pyproject.toml` (os contratos ficam em `0.1.1`; o `ai-generic` não muda), `uv lock`, commit,
   tag anotada `v0.2.0` no `agentic-app` e push da tag
 
