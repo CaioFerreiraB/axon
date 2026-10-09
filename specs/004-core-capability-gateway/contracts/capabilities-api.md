@@ -13,6 +13,7 @@ class ToolSession(Protocol):                 # Capability Catalog + Tool Gateway
     @property
     def unavailable(self) -> Mapping[str, str]: ...
     async def execute(self, call: ToolCall) -> FencedToolResult: ...
+    def fence_chunks(self, name: str, chunks: Sequence[Chunk]) -> FencedToolResult: ...   # ADR-026, decisão 2
 
 class AuditQuery(Protocol):
     async def records(self, filter: AuditFilter) -> Sequence[AuditRecord]: ...
@@ -49,6 +50,8 @@ FENCE_INSTRUCTION: Final[str]               # fragmento para o texto de sistema 
 | Escrita: auditoria aberta **antes** do despacho; sem auditoria, sem execução | FR-011, SC-002 | `test_audit_write.py` |
 | Duas chamadas iguais → dois registros | Edge Cases | idem |
 | Um `ToolCall` no trace por `execute`, sem argumentos nem conteúdo | FR-014 | `test_session_execute.py` |
+| Recuperação acima do limite → cortada por trecho inteiro; `chunks` = só os que aparecem no texto | 005 US4 cen. 2 | `test_session_execute.py` |
+| `fence_chunks`: trechos já recuperados na cerca de um resultado de recuperação, no formato do ADR-026 e cortados como acima; não executa retriever, não emite `ToolCall`, não audita; nome que não é tool de recuperação do catálogo → `ValueError`. É como a 004 cumpre a decisão 2 do ADR-026 (a renderização fica no domínio e é exposta pelo `api.py`) | ADR-026; 005 R41 | `test_session_fence_chunks.py` |
 
 ## Suítes adversariais
 

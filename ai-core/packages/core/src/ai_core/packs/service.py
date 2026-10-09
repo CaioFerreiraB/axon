@@ -260,6 +260,13 @@ class PackRuntime:
     def system_prompts(self, composition: Composition) -> tuple[str, ...]:
         return tuple(loaded.system_prompt for _, loaded in self._members(composition) if loaded.system_prompt)
 
+    def reranker(self, composition: Composition, pack: str) -> Reranker | None:
+        """O reranker coletado na carga (o hook de catálogo não roda de novo); pack fora da composição é erro."""
+        for name, loaded in self._members(composition):
+            if name == pack:
+                return loaded.reranker
+        raise ValueError(f"pack '{pack}' fora da composição {list(composition.packs)}")
+
     async def prepare(self, composition: Composition, view: TurnView, slices: Slices) -> Slices:
         members = self._members(composition)
         current: dict[str, dict[str, JSONValue]] = {name: dict(slices.get(name, {})) for name, _ in members}

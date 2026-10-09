@@ -54,7 +54,7 @@ async def test_recuperacao_recebe_os_filtros_da_fatia_do_proprio_pack() -> None:
 
     assert resultado.status == "ok" and resultado.kind == "retrieval"
     assert [c.chunk_id for c in resultado.chunks] == ["c1", "c2"]
-    assert "[doc-1 — Seção 1, p. 3]" in resultado.text
+    assert "[doc-1 — Seção 1, p. 3 · id: c1]" in resultado.text
     ((name, query, top_k, filters),) = kit.calls.retrieval
     assert (name, query, top_k) == ("alfa.buscar", "férias", 2)
     assert dict(filters or {}) == {"ano": 2026}, "nunca os filtros de outro pack, nunca do modelo"
@@ -115,6 +115,21 @@ async def test_resposta_acima_do_limite_e_cortada_com_marca() -> None:
     assert "[… resposta cortada:" in resultado.text and 'truncated="true"' in resultado.text
     corpo = resultado.text.split("\n", 1)[1].rsplit("\n", 1)[0]
     assert len(corpo.encode("utf-8")) <= 1024
+
+
+async def test_recuperacao_acima_do_limite_corta_por_trecho_inteiro() -> None:
+    """005 US4 cen. 2 (T061): os `chunks` do resultado são só os que aparecem no texto que o modelo recebe."""
+    trechos = tuple(chunk(n, text="w" * 400) for n in range(1, 6))
+    _kit, session = await open_with(
+        lambda c: retrieval("alfa", "buscar", c, chunks=trechos), limits=GatewayLimits(max_response_bytes=1024)
+    )
+    resultado = await session.execute(ToolCall(name="alfa.buscar", arguments={"query": "x"}))
+
+    assert resultado.status == "ok" and resultado.truncated and 'truncated="true"' in resultado.text
+    assert 0 < len(resultado.chunks) < len(trechos)
+    for trecho in trechos:
+        assert (f"id: {trecho.chunk_id}]" in resultado.text) == (trecho in resultado.chunks)
+    assert "trecho(s) omitido(s)" in resultado.text
 
 
 async def test_mcp_cortado_pelo_servidor_continua_marcado_e_o_gateway_corta_de_novo() -> None:

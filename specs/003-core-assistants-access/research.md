@@ -221,6 +221,10 @@ portas são assíncronas porque os donos vão ler de armazenamento.
 **Alternatives considered**: aceitar referências sem validar até a Fase 3 (aliases fantasmas entrariam no grant);
 recusar `mcp` e `collections` não vazios como erro de configuração (a US6 não seria testável nesta fase).
 
+> Nota de 2026-10-09 (passada de encaixe da Fase 5, 011 research R35): as coleções vêm do Pack Registry
+> (`PackCollectionCatalog`) — as que os retrievers dos packs habilitados declaram —, porque o índice mora no pack. A
+> porta não mudou.
+
 ## R12 — `visibility` muda defaults de segurança, não a listagem
 
 **Decision**: descoberta = exatamente o conjunto que o Principal resolveria, excluídos os indisponíveis. Validação: um

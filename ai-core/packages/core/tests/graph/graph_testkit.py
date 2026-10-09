@@ -6,6 +6,9 @@ e é o que faz valer a promessa do SC-001 de que as suítes de conformidade e de
 Fase 3 (research R29): o controller é um provider de teste com roteiro (`ScriptedController`), que entra no roteador
 real da 006 sob o provider `ctrl`; o gateway é um falso (`FakeCapabilities`/`FakeSession`) que cumpre os `Protocol`s da
 004 com os value objects dela. O grant é o da 003 (ADR-018).
+
+Fase 5 (research R46): o mesmo gateway falso com tools de recuperação programadas — trechos, falhas e o
+`fence_chunks` no formato do ADR-026 — e o Pack Hooks com rerankers por pack (`ScriptedReranker`).
 """
 
 from __future__ import annotations
@@ -19,7 +22,7 @@ from ai_core.assistants.api import ExecutionGrant, Limits, Principal
 from ai_core.capabilities.api import CatalogTool, FencedToolResult, ToolCall, ToolContext
 from ai_core.graph.adapters.clock import FixedClock
 from ai_core.graph.adapters.langgraph import langgraph_runtime
-from ai_core.graph.api import ExecutionRequest
+from ai_core.graph.api import ExecutionRequest, RagSettings
 from ai_core.graph.ports import FlowRuntime
 from ai_core.graph.service import ExecutionService
 from ai_core.llm.adapters.fake import ScriptedProvider
@@ -79,6 +82,16 @@ def agentic(**overrides: Any) -> ExecutionGrant:
     return Grant(**({"flow": "agentic"} | overrides))
 
 
+def rag(*, controller: bool = False, **overrides: Any) -> ExecutionGrant:
+    """Grant `rag_first` do pack de teste `docs`; sem `controller` por default (FR-007a)."""
+    fields: dict[str, Any] = {
+        "flow": "rag_first",
+        "composition": Composition(packs=("docs",)),
+        "models": models(controller=controller),
+    }
+    return Grant(**(fields | overrides))
+
+
 class ScriptedHooks:
     """`PackHooks` programável: prompts, fatias e validators, com opção de levantar como um pack defeituoso faria."""
 
@@ -91,6 +104,7 @@ class ScriptedHooks:
         prepare_error: Exception | None = None,
         validate_error: Exception | None = None,
         answer_filter: Any = None,
+        rerankers: Mapping[str, Any] | None = None,
     ) -> None:
         self._prompts = tuple(prompts)
         self._slice_update = slice_update or {"preparado": True}
@@ -98,6 +112,7 @@ class ScriptedHooks:
         self._prepare_error = prepare_error
         self._validate_error = validate_error
         self._answer_filter = answer_filter
+        self._rerankers = dict(rerankers or {})
         self.prepare_views: list[TurnView] = []
         self.stream_views: list[TurnView] = []
         self.validate_streamed: list[StreamedValidation | None] = []
@@ -106,6 +121,11 @@ class ScriptedHooks:
 
     def system_prompts(self, composition: Composition) -> tuple[str, ...]:
         return self._prompts
+
+    def reranker(self, composition: Composition, pack: str) -> Any:
+        """O reranker programado para o pack, ou `None` (002, Fase 5)."""
+        assert pack in composition.packs, f"reranker pedido para pack fora da composição: {pack}"
+        return self._rerankers.get(pack)
 
     async def prepare(self, composition: Composition, view: TurnView, slices: Slices) -> Slices:
         if self._prepare_error is not None:
@@ -196,10 +216,13 @@ def engine(
     flows: FlowRuntime | None = None,
     capabilities: Any = None,
     controller: ScriptedController | None = None,
+    rag: RagSettings | None = None,
 ) -> ExecutionService:
     """Monta o motor com o adapter de fluxo real. Trocar o grafo é trocar `flows` — e só isto muda nos testes."""
     sink = trace or RecordingTraceSink()
     extra: dict[str, Any] = {} if capabilities is None else {"capabilities": capabilities}
+    if rag is not None:
+        extra["rag"] = rag
     return ExecutionService(
         flows=flows or langgraph_runtime(),
         hooks=hooks or ScriptedHooks(),
@@ -305,12 +328,15 @@ class FakeSession:
         results: Mapping[str, str] | None = None,
         chunks: Mapping[str, Sequence[Chunk]] | None = None,
         unavailable: Mapping[str, str] | None = None,
+        failures: Mapping[str, tuple[Literal["error", "timeout"], str]] | None = None,
     ) -> None:
         self._tools = {tool.name: tool for tool in tools}
         self._results = dict(results or {})
         self._chunks = dict(chunks or {})
         self._unavailable = dict(unavailable or {})
+        self._failures = dict(failures or {})
         self.calls: list[ToolCall] = []
+        self.fenced_calls: list[tuple[str, tuple[Chunk, ...]]] = []
 
     @property
     def tools(self) -> Mapping[str, CatalogTool]:
@@ -328,13 +354,30 @@ class FakeSession:
             return FencedToolResult(
                 name=call.name, kind=None, status="unknown", text=fenced(call.name, text, status="unknown"), error=text
             )
-        content = self._results.get(call.name, f"resultado {len(self.calls)}")
+        if call.name in self._failures:
+            status, reason = self._failures[call.name]
+            return FencedToolResult(
+                name=call.name,
+                kind=tool.kind,
+                status=status,
+                text=fenced(call.name, reason, status=status),
+                error=reason,
+            )
+        chunks = tuple(self._chunks.get(call.name, ()))
+        default = rendered(chunks) if tool.kind == "retrieval" else f"resultado {len(self.calls)}"
+        content = self._results.get(call.name, default)
         return FencedToolResult(
-            name=call.name,
-            kind=tool.kind,
-            status="ok",
-            text=fenced(call.name, content),
-            chunks=tuple(self._chunks.get(call.name, ())),
+            name=call.name, kind=tool.kind, status="ok", text=fenced(call.name, content), chunks=chunks
+        )
+
+    def fence_chunks(self, name: str, chunks: Sequence[Chunk]) -> FencedToolResult:
+        """Como o da 004: só tool de recuperação do catálogo; sem execução nem limite de bytes (o teste não precisa)."""
+        tool = self._tools.get(name)
+        if tool is None or tool.kind != "retrieval":
+            raise ValueError(f"fence_chunks: {name!r} não é tool de recuperação do catálogo")
+        self.fenced_calls.append((name, tuple(chunks)))
+        return FencedToolResult(
+            name=name, kind="retrieval", status="ok", text=fenced(name, rendered(chunks)), chunks=tuple(chunks)
         )
 
 
@@ -351,3 +394,100 @@ class FakeCapabilities:
         if self._error is not None:
             raise self._error
         return self.session
+
+
+# --- Fase 5: recuperação, rerank e trechos (T069, research R46) ------------------------------------------------------
+
+
+def chunk(
+    chunk_id: str,
+    score: float = 0.5,
+    *,
+    document: str = "Doc",
+    section: str | None = None,
+    page: int | None = None,
+    text: str | None = None,
+) -> Chunk:
+    return Chunk(
+        chunk_id=chunk_id,
+        text=text if text is not None else f"texto de {chunk_id}",
+        score=score,
+        document=document,
+        section=section,
+        page=page,
+    )
+
+
+def rendered(chunks: Sequence[Chunk]) -> str:
+    """O formato da renderização de recuperação da 004 (ADR-026), para o gateway falso produzir o mesmo que o real."""
+    if not chunks:
+        return "nenhum resultado"
+    blocks = []
+    for item in chunks:
+        reference = item.document
+        if item.section:
+            reference += f" — {item.section}"
+        if item.page is not None:
+            reference += f", p. {item.page}"
+        blocks.append(f"[{reference} · id: {item.chunk_id}]\n{item.text}")
+    return "\n\n".join(blocks)
+
+
+def retrieval_tool(name: str = "docs.search") -> CatalogTool:
+    return catalog_tool(name, description="Busca trechos.", parameters=RETRIEVAL_PARAMETERS, kind="retrieval")
+
+
+RETRIEVAL_PARAMETERS: Final[Mapping[str, JSONValue]] = {
+    "type": "object",
+    "properties": {"query": {"type": "string"}, "top_k": {"type": "integer"}},
+    "required": ["query"],
+}
+
+
+class ScriptedReranker:
+    """`Reranker` (001) programável: reordena pelos ids de `order` (ou inverte), levanta `error`, acrescenta `extra`."""
+
+    def __init__(
+        self, *, order: Sequence[str] | None = None, error: Exception | None = None, extra: Sequence[Chunk] = ()
+    ) -> None:
+        self._order = None if order is None else list(order)
+        self._error = error
+        self._extra = tuple(extra)
+        self.calls: list[tuple[str, tuple[Chunk, ...], int]] = []
+
+    async def rerank(self, query: str, documents: Sequence[Chunk], *, top_k: int = 5) -> Sequence[Chunk]:
+        self.calls.append((query, tuple(documents), top_k))
+        if self._error is not None:
+            raise self._error
+        if self._order is None:
+            chosen = list(reversed(documents))
+        else:
+            by_id = {item.chunk_id: item for item in documents}
+            chosen = [by_id[chunk_id] for chunk_id in self._order if chunk_id in by_id]
+        return [*chosen[:top_k], *self._extra]
+
+
+QUESTION: Final = MESSAGES[-1]["content"]
+
+
+def docs_session(chunks: Sequence[Chunk] = (), **kwargs: Any) -> FakeSession:
+    """Sessão com a tool de recuperação `docs.search` devolvendo `chunks`."""
+    return FakeSession((retrieval_tool(),), chunks={"docs.search": chunks}, **kwargs)
+
+
+def rag_run(
+    *,
+    session: FakeSession | None = None,
+    grant: ExecutionGrant | None = None,
+    hooks: Any = None,
+    trace: RecordingTraceSink | None = None,
+    script: Sequence[Line] = (),
+    settings: RagSettings | None = None,
+    llm: ScriptedProvider | None = None,
+) -> tuple[Any, ScriptedController, FakeCapabilities, ScriptedProvider]:
+    """Um turno `rag_first`: eventos, controller, gateway e o provider da geração (para ler as mensagens enviadas)."""
+    controller = ScriptedController(script)
+    caps = FakeCapabilities(session if session is not None else docs_session())
+    generation = llm or provider(deltas=("Resposta.",))
+    motor = engine(capabilities=caps, controller=controller, hooks=hooks, trace=trace, llm=generation, rag=settings)
+    return motor.run(grant or rag(), request()), controller, caps, generation

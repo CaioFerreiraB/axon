@@ -13,7 +13,7 @@ from typing import Any, Final
 from langgraph.config import get_stream_writer
 from langgraph.runtime import get_runtime
 
-from ai_core.capabilities.api import ToolCall, ToolContext
+from ai_core.capabilities.api import ToolCall, ToolContext, ToolSession
 from ai_core.graph.adapters.langgraph.nodes.common import PROGRESS
 from ai_core.graph.adapters.langgraph.state import AgentContext, AgentState
 from ai_core.graph.api import ExecutionIssue
@@ -57,16 +57,16 @@ def _retrieval_filters(slices: Mapping[str, Mapping[str, JSONValue]]) -> dict[st
     return filters
 
 
-async def load_capabilities(state: AgentState) -> dict[str, Any]:
-    """Abre a sessão de tools da execução (004) depois da preparação, com os filtros das fatias (R16).
+async def open_session(state: AgentState, *, stage: str) -> tuple[ToolSession, list[ExecutionIssue]]:
+    """Abre a sessão de tools da execução (004) depois da preparação, com os filtros das fatias, e a guarda no
+    compartimento (R16). Usada pelo `load_capabilities` e pelo `retrieve` do `rag_first` (R37).
 
     MCP que falhou na descoberta fica fora do catálogo e vira registro `error` — degradação explícita, nunca silenciosa
-    (princípio VII, R23). Catálogo vazio vai direto à geração, sem chamar o controller (R27).
+    (princípio VII, R23).
     """
     ctx = _context()
-    _progress(STAGE_LOAD)
     if ctx.capabilities is None or ctx.grant is None:
-        raise RuntimeError("flow agentic sem gateway de tools")
+        raise RuntimeError(f"flow {state['flow']} sem gateway de tools")
     session = await ctx.capabilities.open(
         ctx.grant,
         ToolContext(
@@ -77,9 +77,16 @@ async def load_capabilities(state: AgentState) -> dict[str, Any]:
     )
     ctx.tools.session = session
     issues = [
-        ExecutionIssue(stage=STAGE_LOAD, kind="McpUnavailable", message=f"MCP '{alias}': {reason}")
+        ExecutionIssue(stage=stage, kind="McpUnavailable", message=f"MCP '{alias}': {reason}")
         for alias, reason in session.unavailable.items()
     ]
+    return session, issues
+
+
+async def load_capabilities(state: AgentState) -> dict[str, Any]:
+    """Abre a sessão (`open_session`); catálogo vazio vai direto à geração, sem chamar o controller (R27)."""
+    _progress(STAGE_LOAD)
+    session, issues = await open_session(state, stage=STAGE_LOAD)
     return {"route": STAGE_CONTROLLER if session.tools else "generate", "errors": issues}
 
 

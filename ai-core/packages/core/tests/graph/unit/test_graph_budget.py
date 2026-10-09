@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from math import ceil
 
 import pytest
 
-from ai_core.graph.domain.budget import OMITTED, estimate_tokens, exceeds, trim_results
+from ai_core.graph.domain.budget import OMITTED, estimate_tokens, exceeds, fit_chunks, trim_results
 from ai_core_contracts import ChatMessage
 
 pytestmark = pytest.mark.us2
@@ -95,3 +96,44 @@ def test_nunca_altera_mensagens_que_nao_sao_de_tool() -> None:
 
 def test_a_marca_de_omissao() -> None:
     assert OMITTED == "[resultado omitido: teto de contexto]"
+
+
+# --- Fase 5: corte de trechos por posição (T067; research R42) -------------------------------------------------------
+
+
+def _build(items: Sequence[str]) -> list[ChatMessage]:
+    return [{"role": "system", "content": "s" * 30}, *({"role": "tool", "content": item} for item in items)]
+
+
+@pytest.mark.us3
+def test_sem_teto_vao_todos() -> None:
+    fitted = fit_chunks(["a" * 300, "b" * 300], _build, None)
+    assert fitted.items == ("a" * 300, "b" * 300) and fitted.dropped == 0 and not fitted.overflow
+
+
+@pytest.mark.us3
+def test_tira_do_fim_ate_caber_sem_reordenar() -> None:
+    items = ["a" * 30, "b" * 30, "c" * 30, "d" * 30]
+    ceiling = estimate_tokens(_build(items[:2]))
+    calls: list[tuple[str, ...]] = []
+
+    def build(kept: Sequence[str]) -> list[ChatMessage]:
+        calls.append(tuple(kept))
+        return _build(kept)
+
+    fitted = fit_chunks(items, build, ceiling)
+    assert fitted.items == tuple(items[:2]) and fitted.dropped == 2 and not fitted.overflow
+    assert all(call == tuple(items[: len(call)]) for call in calls), "build recebe sempre um prefixo"
+
+
+@pytest.mark.us3
+def test_nem_sem_itens_cabe() -> None:
+    fitted = fit_chunks(["a" * 30], _build, 5)
+    assert fitted.items == () and fitted.dropped == 1 and fitted.overflow
+
+
+@pytest.mark.us3
+def test_cabe_inteiro_no_teto() -> None:
+    items = ["a" * 30, "b" * 30]
+    fitted = fit_chunks(items, _build, estimate_tokens(_build(items)))
+    assert fitted.items == tuple(items) and fitted.dropped == 0

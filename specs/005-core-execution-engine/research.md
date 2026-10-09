@@ -599,7 +599,9 @@ para "sem resultado" (princípio VII; 103 FR-007). Catálogo sem tool de recuper
 
 **Decision**: os chunks agrupam por pack (o prefixo `<pack>.` da tool); com `reranker(composition, pack)`, cada grupo
 vai a `rerank(pergunta, chunks, top_k=passages)`; sem reranker, os primeiros `passages` na ordem do retriever. Um pack
-só: a lista dele. Vários: junção estável por `score` decrescente, cortada em `passages` (a premissa da spec). Reranker
+só: a lista dele. Vários: junção pelas cabeças dos grupos — a cada passo, a de maior `score` (empate: o pack que vem antes) —, cortada
+em `passages` (a premissa da spec); a ordem dentro de cada pack é a do reranker dele, que no scouting vem da fusão e não
+do score (anotado na implementação, T066). Reranker
 que levanta → `notice` `RerankFailed` e a ordem do retriever: degradação explícita.
 
 **Rationale**: o reranker do scouting depende das marcas que o retriever dele grava (103 R4); rerankear os chunks de

@@ -31,6 +31,9 @@ DEFAULT_TOOL_MAX_RESPONSE_BYTES: Final = 16_384
 TOOL_TIMEOUT_RANGE: Final = (1_000, 300_000)
 TOOL_MAX_RESPONSE_RANGE: Final = (1_024, 1_048_576)
 """As faixas de `GatewayLimits` (004), repetidas aqui para que o erro nomeie a variável (FR-001, research R27)."""
+DEFAULT_RAG_CANDIDATES: Final = 20
+DEFAULT_RAG_PASSAGES: Final = 5
+"""Os defaults de `RagSettings` (005, research R44). Sem limiar por default: a 105 calibra (princípio X)."""
 
 PREFIX: Final = "AI_CORE_"
 
@@ -68,6 +71,10 @@ class Settings:
     mcp_discovery_ttl: float = DEFAULT_MCP_DISCOVERY_TTL
     tool_timeout_ms: int = DEFAULT_TOOL_TIMEOUT_MS
     tool_max_response_bytes: int = DEFAULT_TOOL_MAX_RESPONSE_BYTES
+    rag_candidates: int = DEFAULT_RAG_CANDIDATES
+    rag_passages: int = DEFAULT_RAG_PASSAGES
+    rag_min_score: float | None = None
+    """O limiar do portão do `rag_first` (005 FR-007): sem valor, só a ausência de resultado escala."""
 
     def __post_init__(self) -> None:
         if self.profile not in PROFILES:
@@ -101,6 +108,13 @@ class Settings:
             raise ConfigurationError(f"{PREFIX}MCP_DISCOVERY_TTL: precisa ser positivo")
         _within(f"{PREFIX}TOOL_TIMEOUT_MS", self.tool_timeout_ms, TOOL_TIMEOUT_RANGE)
         _within(f"{PREFIX}TOOL_MAX_RESPONSE_BYTES", self.tool_max_response_bytes, TOOL_MAX_RESPONSE_RANGE)
+        # As regras de `RagSettings` (005), aqui para que o erro nomeie a variável.
+        if self.rag_candidates < 1:
+            raise ConfigurationError(f"{PREFIX}RAG_CANDIDATES: precisa ser ao menos 1: {self.rag_candidates}")
+        if self.rag_passages < 1:
+            raise ConfigurationError(f"{PREFIX}RAG_PASSAGES: precisa ser ao menos 1: {self.rag_passages}")
+        if self.rag_min_score is not None and not 0.0 <= self.rag_min_score <= 1.0:  # NaN também cai aqui
+            raise ConfigurationError(f"{PREFIX}RAG_MIN_SCORE: precisa estar entre 0 e 1: {self.rag_min_score}")
 
 
 def _within(variable: str, value: int, bounds: tuple[int, int]) -> None:
@@ -148,6 +162,9 @@ class EnvConfigSource:
             mcp_discovery_ttl=self._float("MCP_DISCOVERY_TTL", DEFAULT_MCP_DISCOVERY_TTL),
             tool_timeout_ms=self._int("TOOL_TIMEOUT_MS", DEFAULT_TOOL_TIMEOUT_MS),
             tool_max_response_bytes=self._int("TOOL_MAX_RESPONSE_BYTES", DEFAULT_TOOL_MAX_RESPONSE_BYTES),
+            rag_candidates=self._int("RAG_CANDIDATES", DEFAULT_RAG_CANDIDATES),
+            rag_passages=self._int("RAG_PASSAGES", DEFAULT_RAG_PASSAGES),
+            rag_min_score=self._optional_float("RAG_MIN_SCORE"),
         )
 
     def _optional(self, name: str) -> str | None:
@@ -169,6 +186,10 @@ class EnvConfigSource:
             return int(raw)
         except ValueError as error:
             raise ConfigurationError(f"{PREFIX}{name}: precisa ser um número inteiro: {raw!r}") from error
+
+    def _optional_float(self, name: str) -> float | None:
+        raw = self._environ.get(f"{PREFIX}{name}")
+        return None if not raw else self._float(name, 0.0)
 
     def _float(self, name: str, default: float) -> float:
         raw = self._environ.get(f"{PREFIX}{name}")

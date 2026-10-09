@@ -29,7 +29,7 @@ from ai_core.capabilities.api import (
 from ai_core.capabilities.domain.arguments import validate_arguments
 from ai_core.capabilities.domain.catalog import Entry, assemble
 from ai_core.capabilities.domain.fencing import cut, fence
-from ai_core.capabilities.domain.rendering import render_chunks, render_value
+from ai_core.capabilities.domain.rendering import render_value, render_within
 from ai_core.capabilities.ports import AuditLog, Clock, PackToolSource
 from ai_core.mcp.api import McpClients, RestrictedMcpClient, UnknownServer
 from ai_core.observability.api import ExecutionError, TraceSink
@@ -213,14 +213,25 @@ class Session:
                 found = await retriever.search(query, top_k=top_k, filters=filters)
             else:
                 found = await retriever.search(query, filters=filters)
-            chunks = tuple(found)
-            return _Outcome(status="ok", content=render_chunks(chunks), chunks=chunks)
+            return self._chunks_outcome(tuple(found))
         assert entry.alias is not None
         result = await self._client.execute(entry.alias, entry.local_name, call.arguments)
         content = render_value(result.content)
         if result.error is not None:
             return _Outcome(status="error", content=content, error=result.error, truncated=result.truncated)
         return _Outcome(status="ok", content=content, truncated=result.truncated)
+
+    def fence_chunks(self, name: str, chunks: Sequence[Chunk]) -> FencedToolResult:
+        """Trechos já recuperados, na cerca de um resultado de recuperação (ADR-026; 005 research R41)."""
+        entry = self._entries.get(name)
+        if entry is None or entry.tool.kind != "retrieval":
+            raise ValueError(f"fence_chunks: {name!r} não é tool de recuperação do catálogo")
+        return self._finish(name, entry, self._chunks_outcome(tuple(chunks)))
+
+    def _chunks_outcome(self, chunks: tuple[Chunk, ...]) -> _Outcome:
+        """Corte por trecho inteiro: `chunks` são só os que o modelo vê (005 US4, cenário 2)."""
+        rendered = render_within(chunks, max_bytes=self._limits.max_response_bytes)
+        return _Outcome(status="ok", content=rendered.text, chunks=rendered.chunks, truncated=rendered.truncated)
 
     def _finish(self, name: str, entry: Entry | None, outcome: _Outcome) -> FencedToolResult:
         """Corte pelo limite do gateway — em MCP o do servidor já veio aplicado, e vale o menor — e cerca (R6, R7)."""

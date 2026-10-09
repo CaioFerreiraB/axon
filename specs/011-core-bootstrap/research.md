@@ -510,3 +510,30 @@ loopback; a clarificação 2 pede sem rede).
 | 008 | rotas de MCP em `/v1/mcp` e `/private/v1/mcp` (o `McpService` da plataforma já existe em `Platform.mcp`); saúde por servidor na API; `finish_reason` por `severity` (ADR-018) |
 | 003 | acusar Assistant `agentic` sem papel `controller`; exemplo de `allowed_tools` com namespace; regra de colisão alias × pack |
 | 006 | US4: `strict` e recusa de provider sem saída estruturada no `controller` |
+
+## Passada de encaixe da Fase 5 (005 US3, US4) — 2026-10-09
+
+### R34 — `AI_CORE_RAG_*` e o `rag_first` em `flows()`
+
+**Decision**: `Settings` ganha `rag_candidates`, `rag_passages` e `rag_min_score` (as regras de `RagSettings` da 005,
+repetidas para que o erro nomeie a variável, como as faixas do gateway no R27); a etapa `engine` passa
+`RagSettings` ao `ExecutionService`. Com o gateway, o motor oferece `rag_first` nos três perfis.
+
+**Rationale**: a clarificação 1 de 2026-10-09 da 005 (configuração do operador, sem limiar por default).
+
+**Alternatives considered**: no grant (por Assistant) — quando houver o segundo Assistant `rag_first`.
+
+### R35 — Catálogo de coleções a partir do Pack Registry
+
+**Decision**: a porta `CollectionCatalog` da 003 passa a ser atendida por `PackCollectionCatalog` (em
+`ai_core/assistants/adapters/catalogs.py`): existem as coleções que os retrievers dos packs **habilitados** declaram
+(`NamedRetriever.collections`, contrato 001, visto pelo Pack Registry). Pack desligado ou em erro não oferece coleção.
+
+**Rationale**: o R11 da 003 previa que "o índice (Fase 5)" atenderia a porta por troca de adapter. O índice, porém, mora
+no pack que o declara (102, no `ai-scouting`); o core só conhece as coleções pelos retrievers. Sem a troca, todo
+Assistant que declara `collections` ficava indisponível (424), e o catálogo da 004 já exige todas as coleções do
+retriever no grant — as duas regras se fecham. Nenhum seam muda: é a troca de adapter que o R11 anunciou.
+
+**Alternatives considered**: coleções declaradas pelo operador num arquivo (mais uma fonte para desalinhar do pack);
+aceitar qualquer nome (referência fantasma no grant, contra o R11).
+

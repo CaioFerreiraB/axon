@@ -76,7 +76,8 @@ class PackHooks(Protocol):
     def system_prompts(self, composition: Composition) -> tuple[str, ...]: ...
     async def prepare(self, composition: Composition, view: TurnView, slices: Slices) -> Slices: ...
     async def validate(self, composition: Composition, view: TurnView, slices: Slices) -> ValidationOutcome: ...
-    # Fase 5 / 001 US5 (assinaturas do design.md): reranker(composition) e routine(composition, pack)
+    def reranker(self, composition: Composition, pack: str) -> Reranker | None: ...   # Fase 5 (005 research R38)
+    # 001 US5 (assinatura do design.md): routine(composition, pack)
 
 # Fase 3 (US3 cen. 1; research R18, R19) — consumido pela 004
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -98,6 +99,7 @@ class PackToolset(Protocol):
 | `compose(names)` | recusa nome desconhecido, pack `disabled`/`error` (mensagem inclui o erro do pack), nome repetido, dependência ausente ou depois do dependente | FR-008, US2 cenário 3, R10 |
 | `system_prompts` | fragmentos não vazios, na ordem da composição; vêm do catálogo coletado na carga | US3 cenário 2, 001 FR-019 |
 | `prepare` | um pack por vez, na ordem; Turn View recortada (própria fatia + `depends_on`); retorno precisa ser mapeamento JSON; merge raso na fatia do pack; devolve as fatias novas | FR-008, FR-009, R7 |
+| `reranker(composition, pack)` | o reranker que o pack declarou, coletado na carga (o hook não roda de novo), ou `None`; por pack porque o reranker pode depender do que o retriever do próprio pack grava — refina a `reranker(composition)` ilustrativa do design.md (005 research R38); pack fora da composição → `ValueError`; composição revalidada | 005 FR-002, US3 |
 | `validate` | validators na ordem da composição e do pack; `answer`/`citations` encadeados; exceção interrompe | R8, edge case |
 | exceção ou retorno inválido em hook | `PackHookError` com `pack` e `hook`; nenhuma resposta parcial | FR-011, US3 cenário 4 |
 | composição recebida | revalidada pelo Pack Hooks antes de executar | R10 |

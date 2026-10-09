@@ -12,6 +12,7 @@ from typing import Final
 from ai_core.graph.api import (
     FLOW_AGENTIC,
     FLOW_CHAT,
+    FLOW_RAG_FIRST,
     ExecutionGrant,
     ExecutionRequest,
     ExecutionRequestInvalid,
@@ -24,17 +25,27 @@ USER_ROLE = "user"
 REQUIRED_ROLES: Final[Mapping[str, tuple[ModelRole, ...]]] = {
     FLOW_CHAT: ("generation",),
     FLOW_AGENTIC: ("controller", "generation"),
+    FLOW_RAG_FIRST: ("generation",),
 }
 """Papéis que cada flow usa. `run()` os resolve antes do primeiro evento (FR-013, research R25): papel ausente ou fora
 da allowlist é erro de requisição, não falha no meio do loop."""
 
-TOOL_FLOWS: Final = frozenset({FLOW_AGENTIC})
-"""Flows que só existem com o gateway de tools da 004 (research R16)."""
+OPTIONAL_ROLES: Final[Mapping[str, tuple[ModelRole, ...]]] = {FLOW_RAG_FIRST: ("controller",)}
+"""Papéis que o flow usa só quando o grant os declara: no `rag_first`, o `controller` decide se o portão escala para o
+loop (FR-007a, research R40). Declarado, é resolvido antes do primeiro evento, como os exigidos (FR-013)."""
+
+TOOL_FLOWS: Final = frozenset({FLOW_AGENTIC, FLOW_RAG_FIRST})
+"""Flows que só existem com o gateway de tools da 004 (research R16, R37)."""
 
 
 def required_roles(flow: str) -> tuple[ModelRole, ...]:
     """Papéis exigidos pelo flow; nenhum para um flow sem entrada (um flow de teste, por exemplo)."""
     return REQUIRED_ROLES.get(flow, ())
+
+
+def optional_roles(flow: str) -> tuple[ModelRole, ...]:
+    """Papéis que o flow usa se o grant os declarar; nenhum para os outros flows."""
+    return OPTIONAL_ROLES.get(flow, ())
 
 
 def offered(names: Collection[str], *, tools: bool) -> frozenset[str]:

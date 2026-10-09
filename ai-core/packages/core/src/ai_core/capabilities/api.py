@@ -191,6 +191,16 @@ class ToolSession(Protocol):
 
     async def execute(self, call: ToolCall) -> FencedToolResult: ...
 
+    def fence_chunks(self, name: str, chunks: Sequence[Chunk]) -> FencedToolResult:
+        """Os trechos que o motor já recuperou por `execute`, cercados como um resultado da tool de recuperação `name`.
+
+        É como a 004 cumpre a decisão 2 do ADR-026: a geração do `rag_first` (005) mostra os trechos no mesmo formato
+        (`[documento — seção, p. N · id: <chunk_id>]`) e na mesma cerca, cortados por trecho inteiro no limite do
+        gateway. Não executa retriever, não emite `ToolCall` nem audita. `name` fora do catálogo ou de tool que não é de
+        recuperação → `ValueError`.
+        """
+        ...
+
 
 class Capabilities(Protocol):
     async def open(self, grant: ExecutionGrant, context: ToolContext) -> ToolSession:

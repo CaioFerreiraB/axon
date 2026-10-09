@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Protocol
 
 from ai_core.capabilities.api import Capabilities
-from ai_core.graph.api import ExecutionEvent, ExecutionGrant
+from ai_core.graph.api import ExecutionEvent, ExecutionGrant, RagSettings
 from ai_core.llm.api import ModelRouter
 from ai_core.observability.api import TraceSink
 from ai_core.packs.api import Composition, PackHooks
@@ -43,7 +43,9 @@ class ExecutionPlan:
     e ao identificador da requisição, e a composição já foi validada. O filtro por Assistant acontece antes, na
     construção do plano, nunca dentro de um nó — e o catálogo de tools, na abertura da sessão pela 004, com o grant.
 
-    `max_iterations` e `max_context_tokens` só são preenchidos nos flows de tool: o `chat` não lê limites (R22).
+    `max_iterations` e `max_context_tokens` só são preenchidos nos flows de tool: o `chat` não lê limites (R22). `rag` e
+    `escalate` só no `rag_first`: os números do operador e se o portão pode escalar para o loop (o grant declara
+    `controller`; R40, R44).
     """
 
     flow: str
@@ -60,6 +62,8 @@ class ExecutionPlan:
     capabilities: Capabilities | None = None
     max_iterations: int | None = None
     max_context_tokens: int | None = None
+    rag: RagSettings | None = None
+    escalate: bool = False
 
 
 class FlowRuntime(Protocol):

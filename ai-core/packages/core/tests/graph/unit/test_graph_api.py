@@ -132,3 +132,44 @@ def test_nomes_publicos_do_seam() -> None:
     }
     assert expected <= public
     assert not getattr(graph_api.ExecutionGrant, "_is_protocol", False)
+
+
+# --- Fase 5 (T064; research R44; data-model "Fase 5") ----------------------------------------------------------------
+
+
+@pytest.mark.us3
+def test_nome_do_flow_rag_first_e_nomes_publicos() -> None:
+    assert graph_api.FLOW_RAG_FIRST == "rag_first"
+    public = {name for name in vars(graph_api) if not name.startswith("_")}
+    assert {"FLOW_RAG_FIRST", "RagSettings"} <= public
+    assert {"FLOW_RAG_FIRST", "RagSettings"} <= set(graph_api.__all__)
+
+
+@pytest.mark.us3
+def test_numeros_do_rag_first_por_default() -> None:
+    settings = graph_api.RagSettings()
+    assert (settings.candidates, settings.passages, settings.min_score) == (20, 5, None)
+
+
+@pytest.mark.us3
+@pytest.mark.parametrize(
+    ("fields", "named"),
+    [
+        ({"candidates": 0}, "candidates"),
+        ({"passages": 0}, "passages"),
+        ({"candidates": True}, "candidates"),
+        ({"passages": 2.0}, "passages"),
+        ({"min_score": -0.01}, "min_score"),
+        ({"min_score": 1.01}, "min_score"),
+        ({"min_score": float("nan")}, "min_score"),
+    ],
+)
+def test_numeros_invalidos_sao_recusados_nomeando_o_campo(fields: dict[str, object], named: str) -> None:
+    with pytest.raises(ValueError, match=named):
+        graph_api.RagSettings(**fields)  # type: ignore[arg-type]
+
+
+@pytest.mark.us3
+@pytest.mark.parametrize("min_score", [0.0, 1.0, 0.5])
+def test_limiar_nas_bordas_e_aceito(min_score: float) -> None:
+    assert graph_api.RagSettings(min_score=min_score).min_score == min_score

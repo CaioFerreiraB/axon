@@ -22,16 +22,23 @@ def turn_view(state: AgentState) -> TurnView:
     No `agentic` (research R26), `tool_results` são os resultados **entregues à geração**, na ordem — sem os omitidos
     pelo teto, que são sempre os mais antigos; `retrieved` são os chunks de todos os resultados de recuperação, e
     `generation_context`, os dos que ficaram. O `agentic` não reordena: `reranked` fica vazio.
+
+    No `rag_first` (research R43): `retrieved` = os candidatos da recuperação inicial + os chunks dos passos do loop,
+    quando escalou; `reranked` = a junção do rerank; `generation_context` = os chunks dos passos entregues — no caminho
+    coberto, o passo sintético do portão com os trechos que couberam no teto; sem cobertura e sem `controller`, nenhum.
+    Os passos sintéticos não somam em `retrieved`: os trechos deles já estão entre os candidatos.
     """
     executed = [step for step in state.get("steps", ()) if isinstance(step, ToolStep)]
     delivered = executed[state.get("omitted", 0) :]
+    candidates = tuple(item.chunk for item in state.get("retrieved", ()))
     return TurnView(
         request_id=state["request_id"],
         assistant=state["assistant"],
         reference_time=state["reference_time"],
         question=state["question"],
         messages=state.get("messages", ()),
-        retrieved=_chunks(executed),
+        retrieved=candidates + _chunks([step for step in executed if not step.synthetic]),
+        reranked=tuple(item.chunk for item in state.get("reranked", ())),
         generation_context=_chunks(delivered),
         tool_results=tuple(_tool_result(step) for step in delivered),
         answer=state.get("answer"),

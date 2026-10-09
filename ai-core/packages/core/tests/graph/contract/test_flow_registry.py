@@ -6,10 +6,11 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
-from graph_testkit import FakeCapabilities, Grant, agentic, engine, request
+from graph_testkit import FakeCapabilities, Grant, agentic, engine, rag, request
 
-from ai_core.graph.api import ExecutionEvent, FinalEvent, UnknownFlow
+from ai_core.graph.api import ExecutionEvent, ExecutionRequestInvalid, FinalEvent, UnknownFlow
 from ai_core.graph.ports import ExecutionPlan
+from ai_core.llm.api import ModelPolicy, ModelRef
 
 
 class SpyRuntime:
@@ -59,7 +60,7 @@ def test_sem_gateway_o_agentic_nao_e_oferecido() -> None:
 
 @pytest.mark.us2
 def test_com_gateway_o_agentic_e_oferecido() -> None:
-    assert engine(capabilities=FakeCapabilities()).flows() == frozenset({"chat", "agentic"})
+    assert engine(capabilities=FakeCapabilities()).flows() == frozenset({"chat", "agentic", "rag_first"})
 
 
 # --- ADR-019 (003, passada de encaixe da Fase 3; T053): papéis por flow como dado ------------------------------------
@@ -73,7 +74,11 @@ def test_papeis_por_flow_sem_gateway() -> None:
 @pytest.mark.us2
 def test_papeis_por_flow_com_gateway() -> None:
     motor = engine(capabilities=FakeCapabilities())
-    assert motor.flow_roles() == {"chat": ("generation",), "agentic": ("controller", "generation")}
+    assert motor.flow_roles() == {
+        "chat": ("generation",),
+        "agentic": ("controller", "generation"),
+        "rag_first": ("generation",),
+    }
     assert set(motor.flow_roles()) == set(motor.flows())
 
 
@@ -81,3 +86,35 @@ def test_papeis_por_flow_com_gateway() -> None:
 def test_flow_sem_regra_de_papeis_nao_exige_nenhum(trace: Any) -> None:
     motor = engine(flows=SpyRuntime(frozenset({"chat", "experimental"})), trace=trace)
     assert motor.flow_roles() == {"chat": ("generation",), "experimental": ()}
+
+
+# --- Fase 5 (T073; research R40, ADR-019) ---------------------------------------------------------------------------
+
+
+@pytest.mark.us3
+def test_rag_first_so_com_o_gateway_e_exige_so_generation() -> None:
+    assert "rag_first" not in engine().flows()
+    with pytest.raises(UnknownFlow, match="rag_first"):
+        engine().run(rag(), request())
+    motor = engine(capabilities=FakeCapabilities())
+    assert "rag_first" in motor.flows()
+    assert motor.flow_roles()["rag_first"] == ("generation",)
+
+
+@pytest.mark.us3
+def test_rag_first_sem_controller_e_aceito() -> None:
+    events = engine(capabilities=FakeCapabilities()).run(rag(controller=False), request())
+    assert hasattr(events, "__aiter__")
+
+
+@pytest.mark.us3
+def test_controller_declarado_fora_da_allowlist_falha_antes_do_primeiro_evento() -> None:
+    policy = ModelPolicy(
+        roles={
+            "generation": ModelRef(provider="ollama", model="m"),
+            "controller": ModelRef(provider="outro", model="x"),
+        },
+        allow=("ollama/*",),
+    )
+    with pytest.raises(ExecutionRequestInvalid, match="controller"):
+        engine(capabilities=FakeCapabilities()).run(rag(models=policy), request())

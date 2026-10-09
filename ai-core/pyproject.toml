@@ -41,8 +41,8 @@ asyncio_mode = "auto"
 markers = [
     "us1: 007 US1 — MCP global sem código nem restart",
     "us2: 007 US2 — credencial por referência; 005 US2 — flow agentic; 006 US2 — modelo por papel; 010 US2 — Assistant genérico com MCP",
-    "us3: 007 US3 — cliente restrito ao grant; 006 US3 — providers externos e roteamento automático",
-    "us4: 007 US4 — MCPs de usuário; 006 US4 — saída estruturada no controller",
+    "us3: 007 US3 — cliente restrito ao grant; 006 US3 — providers externos e roteamento automático; 005 US3 — flow rag_first",
+    "us4: 007 US4 — MCPs de usuário; 006 US4 — saída estruturada no controller; 005 US4 — validação no rag_first",
     "us5: 007 US5 — política por servidor; 006 US5 — allowlist de modelo",
     "us6: 007 US6 — proteções de rede; 003 US6 — Assistants de usuário",
     "us8: 003 US8 — validação de Assistants",

@@ -212,7 +212,7 @@ async def test_o_boot_migra_mcp_e_capabilities_e_oferece_agentic(
 
     plataforma = _platform(tmp_path, banco_limpo)
     assert plataforma.ok, plataforma.report.render()
-    assert plataforma.engine is not None and plataforma.engine.flows() == frozenset({"chat", "agentic"})
+    assert plataforma.engine is not None and plataforma.engine.flows() == frozenset({"chat", "agentic", "rag_first"})
     async with await psycopg.AsyncConnection.connect(banco_limpo) as connection:
         for schema in ("mcp", "capabilities"):
             cursor = await connection.execute(f"SELECT count(*) FROM {schema}.schema_version")

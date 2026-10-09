@@ -187,8 +187,60 @@ class ControllerDecision:
             raise ValueError(f"motivo de limite desconhecido: {self.reason!r}")
 
 
+type GateRoute = Literal["generate", "controller", "fallback"]
+
+_GATE_ROUTES: Final[frozenset[str]] = frozenset({"generate", "controller", "fallback"})
+
+
+def _require_count(field: str, value: int) -> None:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"{field} precisa ser inteiro não negativo: {value!r}")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class CoverageGate:
+    """A decisão do portão de cobertura do `rag_first` (005 FR-007, research R39), acrescentada sob o ADR-017.
+
+    Sem texto nem identificador de trecho: as contagens de candidatos e de trechos, o melhor score dos trechos, o
+    limiar do operador (`None` = sem limiar), se cobriu e a rota — `generate` (com os trechos), `controller` (escalada
+    para o loop) ou `fallback` (geração sem trechos). É o que a 105 lê para calibrar o limiar.
+    """
+
+    request_id: str
+    candidates: int
+    passages: int
+    best_score: float | None
+    threshold: float | None
+    covered: bool
+    route: GateRoute
+
+    def __post_init__(self) -> None:
+        _require_text("request_id", self.request_id)
+        _require_count("candidates", self.candidates)
+        _require_count("passages", self.passages)
+        if self.passages > self.candidates:
+            raise ValueError(f"passages ({self.passages}) maior que candidates ({self.candidates})")
+        if (self.best_score is None) != (self.passages == 0):
+            raise ValueError("best_score existe exatamente quando há trechos")
+        if self.best_score is not None and self.best_score != self.best_score:  # NaN, sem importar `math`
+            raise ValueError("best_score não pode ser NaN")
+        if self.threshold is not None and not 0.0 <= self.threshold <= 1.0:
+            raise ValueError(f"threshold fora de [0, 1]: {self.threshold!r}")
+        if self.route not in _GATE_ROUTES:
+            raise ValueError(f"rota desconhecida: {self.route!r}")
+        if self.covered != (self.route == "generate"):
+            raise ValueError("covered vale exatamente quando a rota é generate")
+
+
 type TraceEvent = (
-    ExecutionStarted | ModelCall | ValidationRun | ToolCall | ControllerDecision | ExecutionError | ExecutionFinished
+    ExecutionStarted
+    | ModelCall
+    | ValidationRun
+    | ToolCall
+    | ControllerDecision
+    | CoverageGate
+    | ExecutionError
+    | ExecutionFinished
 )
 """Dados de trace que os emissores mandam. Tipo novo entra aqui sem mudar o seam."""
 

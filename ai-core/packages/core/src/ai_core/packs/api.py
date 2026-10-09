@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Literal, Protocol
 
-from ai_core_contracts import Citation, JSONValue, NamedRetriever, ToolSpec, TurnView, ValidationResult
+from ai_core_contracts import Citation, JSONValue, NamedRetriever, Reranker, ToolSpec, TurnView, ValidationResult
 
 type Slices = Mapping[str, Mapping[str, JSONValue]]
 """Fatia de cada pack da composição, mantida pelo motor entre os passos de uma execução."""
@@ -161,6 +161,14 @@ class PackHooks(Protocol):
     ) -> ValidationOutcome:
         """Validators em sequência, com resposta e citações encadeadas. Com `streamed`, as execuções do filtro valem
         pelos primeiros validators da sequência, e só os restantes rodam, sobre a resposta já filtrada (ADR-024)."""
+        ...
+
+    def reranker(self, composition: Composition, pack: str) -> Reranker | None:
+        """O reranker que `pack` declarou, coletado na carga, ou `None` (Fase 5; 005 research R38).
+
+        Por pack porque o reranker de um pack pode depender do que o retriever dele grava nos chunks; o motor reordena
+        cada grupo com o reranker do próprio pack. Pack fora da composição → `ValueError` nomeando o pack.
+        """
         ...
 
 

@@ -246,3 +246,43 @@ async def test_sem_validators_o_filtro_deixa_tudo_passar() -> None:
     assert _feed_all(answer_filter, ["Bras", "ília"]) == "Brasília"
     streamed = answer_filter.finish()
     assert (streamed.tail, streamed.answer, streamed.runs) == ("", "Brasília", ())
+
+
+# --- reranker por pack (005 Fase 5, research R38; T062) --------------------------------------------------------------
+
+
+class _Reranker:
+    async def rerank(self, query: str, documents: Any, *, top_k: int = 5) -> Any:
+        return list(documents)[:top_k]
+
+
+def test_reranker_e_o_objeto_coletado_na_carga() -> None:
+    reranker = _Reranker()
+    calls: list[str] = []
+
+    def hook(self: Any, ctx: PackContext) -> Any:
+        calls.append(ctx.pack_name)
+        return reranker
+
+    com = make_pack_class("com", reranker=hook)
+    sem = make_pack_class("sem")
+    runtime = _runtime(com, sem)
+    composicao = runtime.compose(["com", "sem"])
+    assert runtime.reranker(composicao, "com") is reranker
+    assert runtime.reranker(composicao, "com") is reranker
+    assert runtime.reranker(composicao, "sem") is None
+    assert calls == ["com"], "o hook de catálogo roda uma vez, na carga"
+
+
+def test_reranker_de_pack_fora_da_composicao_e_erro_nomeando_o_pack() -> None:
+    runtime = _runtime(make_pack_class("a"), make_pack_class("b"))
+    with pytest.raises(ValueError, match="'b'"):
+        runtime.reranker(runtime.compose(["a"]), "b")
+
+
+def test_reranker_revalida_a_composicao() -> None:
+    runtime = load_runtime(
+        make_pack_class("a"), make_pack_class("desligado"), settings={"a": PackSettings(enabled=True)}
+    )
+    with pytest.raises(CompositionError):
+        runtime.reranker(Composition(packs=("a", "desligado")), "a")

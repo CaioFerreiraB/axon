@@ -19,6 +19,8 @@ EXPECTED_NAMES = {
     "ToolCall",
     "ControllerDecision",
     "DecisionAction",
+    "CoverageGate",
+    "GateRoute",
     "ExecutionError",
     "ExecutionFinished",
     "TraceEvent",

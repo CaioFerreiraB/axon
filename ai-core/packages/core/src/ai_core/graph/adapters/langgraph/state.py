@@ -18,7 +18,8 @@ from datetime import datetime
 from typing import Annotated, Literal, TypedDict
 
 from ai_core.capabilities.api import Capabilities, ToolCall, ToolSession
-from ai_core.graph.api import ExecutionGrant, ExecutionIssue
+from ai_core.graph.api import ExecutionGrant, ExecutionIssue, RagSettings
+from ai_core.graph.domain.gate import Passage
 from ai_core.graph.domain.transcript import Step
 from ai_core.llm.api import ModelRouter
 from ai_core.observability.api import TraceSink
@@ -31,7 +32,8 @@ class AgentState(TypedDict, total=False):
 
     `errors`, `steps` e `decisions` acumulam com reducer: é o que impede perda entre as iterações do loop (FR-009,
     SC-005). `messages` é lista simples porque as mensagens deste projeto são as do contrato 001, não as do framework.
-    Os campos do loop só existem no `agentic`; o `chat` não os lê.
+    Os campos do loop só existem no `agentic` (e no loop escalado do `rag_first`); o `chat` não os lê. `retrieved` e
+    `reranked` só existem no `rag_first` (R43).
     """
 
     # identidade — escrita uma vez
@@ -57,9 +59,13 @@ class AgentState(TypedDict, total=False):
     iteration: int
     limit: int | None
     ceiling: int | None
-    route: Literal["controller", "execute_tool", "generate"]
+    route: Literal["controller", "execute_tool", "generate", "rerank", "end"]
     pending: ToolCall | None
     omitted: int
+
+    # recuperação (rag_first) — research R37, R38, R43
+    retrieved: tuple[Passage, ...]
+    reranked: tuple[Passage, ...]
 
     # acumuladores (reducer obrigatório)
     errors: Annotated[list[ExecutionIssue], operator.add]
@@ -92,3 +98,5 @@ class AgentContext:
     grant: ExecutionGrant | None = None
     capabilities: Capabilities | None = None
     tools: ToolSlot = field(default_factory=ToolSlot)
+    rag: RagSettings | None = None
+    escalate: bool = False

@@ -54,6 +54,8 @@ class LangGraphRuntime:
             "ceiling": plan.max_context_tokens,
             "pending": None,
             "omitted": 0,
+            "retrieved": (),
+            "reranked": (),
         }
         context = AgentContext(
             composition=plan.composition,
@@ -62,6 +64,8 @@ class LangGraphRuntime:
             trace=plan.trace,
             grant=plan.grant,
             capabilities=plan.capabilities,
+            rag=plan.rag,
+            escalate=plan.escalate,
         )
 
         generated = ""

@@ -11,15 +11,17 @@ from collections.abc import AsyncIterator, Mapping
 
 from ai_core.capabilities.api import Capabilities
 from ai_core.graph.api import (
+    FLOW_RAG_FIRST,
     ExecutionEvent,
     ExecutionGrant,
     ExecutionRequest,
     ExecutionRequestInvalid,
     FinalEvent,
+    RagSettings,
 )
 from ai_core.graph.domain.limits import effective_limit
 from ai_core.graph.domain.outcome import succeeded
-from ai_core.graph.domain.request import TOOL_FLOWS, offered, required_roles, validate
+from ai_core.graph.domain.request import TOOL_FLOWS, offered, optional_roles, required_roles, validate
 from ai_core.graph.ports import Clock, ExecutionPlan, FlowRuntime
 from ai_core.llm.api import ModelRole, ModelRouter, ModelRouting, ModelRoutingError
 from ai_core.observability.api import ExecutionFinished, ExecutionStarted, TraceSink
@@ -40,6 +42,7 @@ class ExecutionService:
         trace: TraceSink,
         clock: Clock,
         capabilities: Capabilities | None = None,
+        rag: RagSettings | None = None,
     ) -> None:
         self._flows = flows
         self._hooks = hooks
@@ -47,6 +50,7 @@ class ExecutionService:
         self._trace = trace
         self._clock = clock
         self._capabilities = capabilities
+        self._rag = rag or RagSettings()
 
     def flows(self) -> frozenset[str]:
         """Nomes de flow disponíveis; `assistants validate` (003) os usa como dado. Sem o gateway de tools da 004, os
@@ -65,9 +69,11 @@ class ExecutionService:
         """
         question = validate(request, grant, self.flows())
         router = self._routing.for_execution(policy=grant.models, request_id=request.request_id)
-        _resolve_roles(router, grant.flow)
+        declared = set(grant.models.configured_roles())
+        _resolve_roles(router, (*required_roles(grant.flow), *(r for r in optional_roles(grant.flow) if r in declared)))
         reference_time = request.reference_time or self._clock.now()
         tools = grant.flow in TOOL_FLOWS
+        rag_first = grant.flow == FLOW_RAG_FIRST
         plan = ExecutionPlan(
             flow=grant.flow,
             request_id=request.request_id,
@@ -83,6 +89,8 @@ class ExecutionService:
             capabilities=self._capabilities if tools else None,
             max_iterations=effective_limit(grant.limits.max_iterations) if tools else None,
             max_context_tokens=grant.limits.max_context_tokens if tools else None,
+            rag=self._rag if rag_first else None,
+            escalate=rag_first and "controller" in declared,
         )
         return self._events(plan, stream=request.stream)
 
@@ -116,9 +124,10 @@ class ExecutionService:
             )
 
 
-def _resolve_roles(router: ModelRouter, flow: str) -> None:
-    """Papéis do flow resolvidos antes do primeiro evento (FR-013, research R25). Resolver não faz I/O (006)."""
-    for role in required_roles(flow):
+def _resolve_roles(router: ModelRouter, roles: tuple[ModelRole, ...]) -> None:
+    """Papéis do flow resolvidos antes do primeiro evento (FR-013, research R25) — os exigidos e os opcionais que o
+    grant declara (R40). Resolver não faz I/O (006)."""
+    for role in roles:
         try:
             router.for_role(role)
         except ModelRoutingError as error:

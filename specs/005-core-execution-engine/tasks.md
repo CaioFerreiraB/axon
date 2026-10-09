@@ -425,9 +425,9 @@ usa. Caminhos relativos a `ai-core/packages/core/`.
 
 **⚠️ CRITICAL**: nenhuma tarefa da US3 antes desta fase
 
-- [ ] T059 [P] Em `ai-core/pyproject.toml`, acrescentar "005 US3 — flow rag_first" à descrição da marca `us3` e "005
+- [X] T059 [P] Em `ai-core/pyproject.toml`, acrescentar "005 US3 — flow rag_first" à descrição da marca `us3` e "005
   US4 — validação no rag_first" à da `us4`
-- [ ] T060 [P] Toque declarado na 004 — renderização com o identificador ([ADR-026](../../docs/adr/ADR-026-o-modelo-ve-o-identificador-de-cada-trecho.md),
+- [X] T060 [P] Toque declarado na 004 — renderização com o identificador ([ADR-026](../../docs/adr/ADR-026-o-modelo-ve-o-identificador-de-cada-trecho.md),
   decisão 1). **Teste primeiro** em `tests/capabilities/unit/test_rendering.py`: chunk com seção e página →
   `[Doc — Regra 33, p. 9 · id: doc#r33@p9]` + quebra de linha + texto; sem seção → `[Doc, p. 9 · id: …]`; sem página →
   `[Doc — Regra 33 · id: …]`; sem as duas → `[Doc · id: …]`; o texto do chunk sai igual (decisão 4); sem chunks continua
@@ -440,7 +440,7 @@ usa. Caminhos relativos a `ai-core/packages/core/`.
   `tests/graph/` que comparem o texto renderizado; na documentação da 004, tirar de
   `specs/004-core-capability-gateway/contracts/fencing.md` a nota "implementado na passada da 005 Fase 5" e acrescentar
   "recuperação cortada por trecho inteiro; `chunks` = os que entraram"
-- [ ] T061 Toque declarado na 004 — `ToolSession.fence_chunks(name, chunks) -> FencedToolResult` (ADR-026, decisão 2;
+- [X] T061 Toque declarado na 004 — `ToolSession.fence_chunks(name, chunks) -> FencedToolResult` (ADR-026, decisão 2;
   R41) (depende de T060). **Teste primeiro** em `tests/capabilities/contract/test_session_fence_chunks.py`: com a sessão
   real (`CapabilityService.open`) e uma tool `retrieval` no catálogo, `fence_chunks("<pack>.<tool>", chunks)` devolve
   `kind="retrieval"`, `status="ok"`, `chunks` iguais aos recebidos (mesma ordem), `text` = a cerca de
@@ -455,7 +455,7 @@ usa. Caminhos relativos a `ai-core/packages/core/`.
   são só os que aparecem no texto. A linha em `specs/004-core-capability-gateway/contracts/capabilities-api.md`, citando
   que `fence_chunks` é como a 004 cumpre a decisão 2 do ADR-026 (a renderização fica no domínio e é exposta pelo
   `api.py`)
-- [ ] T062 [P] Toque declarado na 002 — `PackHooks.reranker(composition, pack) -> Reranker | None` (R38; design.md da
+- [X] T062 [P] Toque declarado na 002 — `PackHooks.reranker(composition, pack) -> Reranker | None` (R38; design.md da
   002, Fase 5). **Teste primeiro** em `tests/packs/contract/test_packs_hooks_seam.py`: pack com reranker → o **mesmo**
   objeto coletado na carga (o hook de catálogo não é chamado de novo); pack sem reranker → `None`; pack fora da
   composição → `ValueError` nomeando o pack; a composição é revalidada como nos outros hooks (`CompositionError` para
@@ -463,7 +463,7 @@ usa. Caminhos relativos a `ai-core/packages/core/`.
   `PackRuntime` (`src/ai_core/packs/service.py`, por `_members`); a assinatura por pack em
   `specs/002-core-pack-runtime/contracts/pack-runtime-api.md` (troca a `reranker(composition)` ilustrativa, citando o
   R38 da 005)
-- [ ] T063 [P] Toque declarado na 009 — evento `CoverageGate` (ADR-017; R39). **Teste primeiro** em
+- [X] T063 [P] Toque declarado na 009 — evento `CoverageGate` (ADR-017; R39). **Teste primeiro** em
   `tests/observability/unit/test_observability_coverage_gate.py`: `CoverageGate(request_id, candidates, passages,
   best_score, threshold, covered, route)`; `request_id` não vazio; `candidates` e `passages` inteiros `≥ 0` (não `bool`),
   com `passages ≤ candidates`; `best_score` `None` **se e só se** `passages == 0`; `threshold` `None` ou em `[0, 1]`;
@@ -473,17 +473,17 @@ usa. Caminhos relativos a `ai-core/packages/core/`.
   o membro na união `TraceEvent`; o nome em `EXPECTED_NAMES` de `tests/observability/unit/test_observability_api.py`; na
   documentação da 009: `contracts/trace-api.md` (nome, campos, ADR-017), `contracts/record-format.md` (um exemplo de
   `coverage_gate`) e `data-model.md`
-- [ ] T064 [P] `src/ai_core/graph/api.py` (R44; data-model "Fase 5"). **Teste primeiro** em
+- [X] T064 [P] `src/ai_core/graph/api.py` (R44; data-model "Fase 5"). **Teste primeiro** em
   `tests/graph/unit/test_graph_api.py`: `FLOW_RAG_FIRST == "rag_first"`; `RagSettings()` tem `candidates == 20`,
   `passages == 5`, `min_score is None`; `candidates < 1`, `passages < 1` e valores `bool` → `ValueError` nomeando o
   campo; `min_score` fora de `[0, 1]` ou NaN → `ValueError`; `0.0` e `1.0` aceitos; os nomes públicos ganham
   `FLOW_RAG_FIRST` e `RagSettings`. Depois: as duas definições (`RagSettings` congelada, `kw_only`, `slots`, docstring
   citando a clarificação 1 de 2026-10-09: sem limiar, só a ausência de resultado escala; a 105 calibra) e o `__all__`
-- [ ] T065 `src/ai_core/graph/domain/request.py` (R40; FR-007a) (depende de T064). **Teste primeiro** em
+- [X] T065 `src/ai_core/graph/domain/request.py` (R40; FR-007a) (depende de T064). **Teste primeiro** em
   `tests/graph/unit/test_graph_request.py`: `REQUIRED_ROLES[FLOW_RAG_FIRST] == ("generation",)`; `FLOW_RAG_FIRST in
   TOOL_FLOWS`; `optional_roles(FLOW_RAG_FIRST) == ("controller",)` e `()` nos outros flows; `offered(..., tools=False)`
   tira também o `rag_first`. Depois: a entrada em `REQUIRED_ROLES`, `TOOL_FLOWS` e `OPTIONAL_ROLES`/`optional_roles`
-- [ ] T066 [P] `src/ai_core/graph/domain/gate.py` (R37–R40) — puro: stdlib, contratos e os `api.py` da 004. **Teste
+- [X] T066 [P] `src/ai_core/graph/domain/gate.py` (R37–R40) — puro: stdlib, contratos e os `api.py` da 004. **Teste
   primeiro** em `tests/graph/unit/test_graph_gate.py`, por tabela: `Passage(pack, tool, chunk)` congelada;
   `retrieval_tools(tools)` → as `CatalogTool` de `kind == "retrieval"`, na ordem do catálogo; `pack_of(name)` → o
   prefixo antes do primeiro `.`; `first(passages, n)` → os `n` primeiros; `accept_reranked(documents, reranked, top_k)`
@@ -494,17 +494,17 @@ usa. Caminhos relativos a `ai-core/packages/core/`.
   conta); `gate_route(covered, *, escalate)` → `"generate"` coberto, `"controller"` sem cobertura com `escalate`,
   `"fallback"` sem; hypothesis: `merge` nunca devolve mais que `passages`, só itens dos grupos, e preserva a ordem
   relativa de cada grupo. Depois: o módulo
-- [ ] T067 [P] `src/ai_core/graph/domain/budget.py` — `fit_chunks` (R42). **Teste primeiro** em
+- [X] T067 [P] `src/ai_core/graph/domain/budget.py` — `fit_chunks` (R42). **Teste primeiro** em
   `tests/graph/unit/test_graph_budget.py`: `fit_chunks(items, build, ceiling) -> Fitted(items, dropped, overflow)`;
   sem teto, todos e `dropped == 0`; com teto, tira do **fim** (menor posição) um a um até `not exceeds(build(kept),
   ceiling)`; nunca reordena; se nem sem itens cabe, `items == ()` e `overflow is True`; `build` recebe sempre um prefixo
   da lista. Depois: a função genérica e `Fitted`; o docstring do módulo deixa de anunciar o corte como futuro
-- [ ] T068 [P] `src/ai_core/graph/domain/transcript.py` (R41, R43). **Teste primeiro** em
+- [X] T068 [P] `src/ai_core/graph/domain/transcript.py` (R41, R43). **Teste primeiro** em
   `tests/graph/unit/test_graph_transcript.py`: `ToolStep` aceita `synthetic: bool = False`; um passo sintético entra em
   `generation_messages` exatamente como um passo executado (`assistant` com `tool_calls` + `tool` com o texto cercado,
   `FENCE_INSTRUCTION` no sistema). Depois: o campo, com docstring (o passo que o portão grava; a projeção não soma os
   chunks dele em `retrieved`)
-- [ ] T069 `tests/graph/graph_testkit.py` (R46) (depende de T061, T062, T064): `chunk(chunk_id, score, *,
+- [X] T069 `tests/graph/graph_testkit.py` (R46) (depende de T061, T062, T064): `chunk(chunk_id, score, *,
   document="Doc", section=None, page=None, text=None)`; `rendered(chunks)` no formato do ADR-026; `ScriptedReranker(*,
   order=None, error=None, extra=None)` (reordena pelos `chunk_id` programados ou inverte; levanta `error`; acrescenta
   `extra` para simular trecho estranho; guarda `calls` com pergunta, documentos e `top_k`); `ScriptedHooks` ganha
@@ -534,7 +534,7 @@ geração quando a recuperação falha (quickstart, Fase 5).
 > Escrever primeiro e ver falhar. `tests/graph/contract/` e `tests/graph/unit/` (exceto `test_state_view.py`) não
 > importam `langgraph` (SC-001).
 
-- [ ] T070 [P] [US3] `tests/graph/contract/test_rag_first_flow.py` (contracts/rag-first-flow.md; US3 cen. 1–4, SC-003):
+- [X] T070 [P] [US3] `tests/graph/contract/test_rag_first_flow.py` (contracts/rag-first-flow.md; US3 cen. 1–4, SC-003):
   **cen. 1** — pack `docs` com a tool `docs.search` e 8 chunks; a tool é executada uma vez com `{"query": <pergunta>,
   "top_k": 20}`; o reranker recebe os 8 e `top_k=5`; no trace, exatamente um `ModelCall` (papel `generation`) e nenhum do
   `controller` (SC-003); as mensagens da geração têm os prompts do pack, a `FENCE_INSTRUCTION`, a conversa, um
@@ -549,7 +549,7 @@ geração quando a recuperação falha (quickstart, Fase 5).
   mensagem `tool`; registro `CoverageInsufficient` (`notice`, estágio `gate`); `route="fallback"`; a execução não falha.
   **cen. 4** — a fatia do pack com `RETRIEVAL_FILTERS_KEY` chega intacta ao `ToolContext` da sessão
   (`FakeCapabilities.opened`), por pack; o motor não lê os filtros
-- [ ] T071 [P] [US3] `tests/graph/contract/test_rag_first_failures.py` (R37, R38; princípio VII): tool de recuperação
+- [X] T071 [P] [US3] `tests/graph/contract/test_rag_first_failures.py` (R37, R38; princípio VII): tool de recuperação
   com status `error` ou `timeout` → `FinalEvent` com `answer == ""` e o registro `RetrievalFailed` (`error`, estágio
   `retrieve`, nomeando a tool e o motivo), um `ExecutionError` no trace, **nenhum** `ModelCall`, nenhum validator,
   nenhum `CoverageGate`, e `ExecutionFinished(ok=False)`; com duas tools, a segunda não é executada depois da falha da
@@ -557,39 +557,40 @@ geração quando a recuperação falha (quickstart, Fase 5).
   reranker que devolve trecho que não veio da recuperação, ou mais que `top_k` → idem; pack sem reranker → os 5
   primeiros, sem registro; catálogo sem tool de recuperação → nenhum candidato, sem cobertura (rota pelo `controller`);
   MCP em `unavailable` → `McpUnavailable` (`error`), como no `agentic`; com `controller` e catálogo vazio → `fallback`
-- [ ] T072 [P] [US3] `tests/graph/contract/test_rag_first_packs.py` (R38, R41): dois packs, cada um com a sua tool de
-  recuperação e o seu reranker — cada reranker recebe só os chunks do seu pack; a junção ordena por score, estável, e
-  corta em `passages`; a geração recebe um passo sintético por tool com trecho entregue, na ordem dos packs, e nenhum
-  passo para o pack sem trecho entregue
-- [ ] T073 [P] [US3] `tests/graph/contract/test_flow_registry.py` (R40, ADR-019): com gateway, `flows() == {"chat",
+- [X] T072 [P] [US3] `tests/graph/contract/test_rag_first_packs.py` (R38, R41): dois packs, cada um com a sua tool de
+  recuperação e o seu reranker — cada reranker recebe só os chunks do seu pack; a junção vai pelas cabeças dos grupos
+  (maior score primeiro, sem desfazer a ordem de cada reranker) e corta em `passages`; a geração recebe um passo
+  sintético por tool com trecho entregue, na ordem em que cada tool aparece na junção, e nenhum passo para o pack sem
+  trecho entregue
+- [X] T073 [P] [US3] `tests/graph/contract/test_flow_registry.py` (R40, ADR-019): com gateway, `flows() == {"chat",
   "agentic", "rag_first"}` e `flow_roles()["rag_first"] == ("generation",)`; sem gateway, `rag_first` não é oferecido;
   `run` com grant `rag_first` sem `controller` é aceito; com `controller` declarado fora da allowlist →
   `ExecutionRequestInvalid` nomeando o papel, na própria chamada (FR-013)
-- [ ] T074 [P] [US3] `tests/graph/unit/test_state_view.py` (R43; tabela "Turn View no `rag_first`" do data-model):
+- [X] T074 [P] [US3] `tests/graph/unit/test_state_view.py` (R43; tabela "Turn View no `rag_first`" do data-model):
   coberto — `retrieved` = todos os candidatos, `reranked` = a junção, `generation_context` e `tool_results` = os do
   passo sintético; `fallback` — `generation_context` e `tool_results` vazios, `retrieved` e `reranked` preenchidos;
   escalado — `retrieved` = candidatos + chunks dos passos do loop, `generation_context` = os do loop entregues; os
   passos sintéticos nunca duplicam chunks em `retrieved`
-- [ ] T075 [P] [US3] `tests/graph/contract/test_rag_first_properties.py` (hypothesis; SC-003, SC-005): para 0–30 chunks
+- [X] T075 [P] [US3] `tests/graph/contract/test_rag_first_properties.py` (hypothesis; SC-003, SC-005): para 0–30 chunks
   com scores arbitrários em `[0, 1]`, `min_score` arbitrário ou `None` e grant sem `controller` — exatamente um
   `FinalEvent`, sempre o último; no máximo uma chamada de geração e nenhuma do controller; `generation_context ⊆
   reranked ⊆ retrieved`; `len(reranked) ≤ passages`; o `CoverageGate` é emitido uma vez e concorda com a rota
 
 ### Implementation for User Story 3
 
-- [ ] T076 [US3] `src/ai_core/graph/ports.py` e `src/ai_core/graph/service.py` (R40, R44) (depende de T064, T065):
+- [X] T076 [US3] `src/ai_core/graph/ports.py` e `src/ai_core/graph/service.py` (R40, R44) (depende de T064, T065):
   `ExecutionPlan` ganha `rag: RagSettings | None = None` e `escalate: bool = False`; `ExecutionService(..., rag:
   RagSettings | None = None)` (default `RagSettings()`); no `rag_first`, o plano leva `rag` e `escalate = "controller"
   in grant.models.roles`, e cada papel de `optional_roles(flow)` declarado no grant é resolvido antes do primeiro evento,
   com o mesmo `ExecutionRequestInvalid` do obrigatório (faz T073 passar)
-- [ ] T077 [US3] `src/ai_core/graph/adapters/langgraph/state.py` e `runtime.py` (R43; data-model "Estado interno")
+- [X] T077 [US3] `src/ai_core/graph/adapters/langgraph/state.py` e `runtime.py` (R43; data-model "Estado interno")
   (depende de T066, T076): `AgentState` ganha `retrieved: tuple[Passage, ...]` e `reranked: tuple[Passage, ...]`, e a
   rota ganha `"end"`; `AgentContext` ganha `rag` e `escalate`; o estado inicial do runtime com `retrieved=()` e
   `reranked=()`, e o contexto com os campos do plano
-- [ ] T078 [US3] `src/ai_core/graph/adapters/langgraph/nodes/agentic.py`: extrair de `load_capabilities` a abertura da
+- [X] T078 [US3] `src/ai_core/graph/adapters/langgraph/nodes/agentic.py`: extrair de `load_capabilities` a abertura da
   sessão (`ToolContext` com os filtros das fatias, guarda no `ToolSlot`, registros `McpUnavailable`) para uma função
   reaproveitada pelo `retrieve`, sem mudar o comportamento do `agentic` (os testes da US2 continuam verdes)
-- [ ] T079 [US3] `src/ai_core/graph/adapters/langgraph/nodes/rag.py` (R37–R42, R45) (depende de T061, T062, T063,
+- [X] T079 [US3] `src/ai_core/graph/adapters/langgraph/nodes/rag.py` (R37–R42, R45) (depende de T061, T062, T063,
   T066–T068, T077, T078): `retrieve` — progresso; abre a sessão; para cada tool de `retrieval_tools`, `execute` com
   `{"query": <pergunta>, "top_k": rag.candidates}`; status ≠ `ok` → `RetrievalFailed` (`error`) + `ExecutionError`
   (009) e rota `"end"`, sem executar as tools seguintes; senão, `retrieved` como `Passage`s na ordem do catálogo e
@@ -602,13 +603,13 @@ geração quando a recuperação falha (quickstart, Fase 5).
   `<pack>.<tool>` com `{"query": <pergunta>}`, resultado `session.fence_chunks`), `ContextTrimmed` (`notice`, com a
   contagem) quando corta, e os passos no estado; `"fallback"` → `CoverageInsufficient` (`notice`) e rota `generate`;
   `"controller"` → rota `controller` com a transcrição vazia (faz T070–T072 passarem)
-- [ ] T080 [US3] `src/ai_core/graph/adapters/langgraph/view.py` (R43) (depende de T077): `retrieved` = os chunks de
+- [X] T080 [US3] `src/ai_core/graph/adapters/langgraph/view.py` (R43) (depende de T077): `retrieved` = os chunks de
   `state["retrieved"]` + os dos passos não sintéticos; `reranked` = os de `state["reranked"]`; `generation_context` e
   `tool_results` dos passos entregues, como hoje; docstring com a tabela do `rag_first` (faz T074 passar)
-- [ ] T081 [US3] `src/ai_core/graph/adapters/langgraph/flows.py` (R36) (depende de T079): `rag_first_graph()` com
+- [X] T081 [US3] `src/ai_core/graph/adapters/langgraph/flows.py` (R36) (depende de T079): `rag_first_graph()` com
   `prepare_context → retrieve → (rerank | END)`, `rerank → gate → (generate | controller)`, `controller ⇄ execute_tool →
   generate → validate_answer → END`, arestas só lendo a rota calculada; `compiled_flows()` registra os três flows
-- [ ] T082 [US3] Rodar `uv run pytest packages/core/tests/graph` a partir de `ai-core/` até T070–T075 passarem (e as
+- [X] T082 [US3] Rodar `uv run pytest packages/core/tests/graph` a partir de `ai-core/` até T070–T075 passarem (e as
   suítes das US1 e US2 continuarem verdes), com `uv run mypy` e `uv run ruff check packages` limpos
 
 **Checkpoint**: a US3 está completa e testável sozinha, com gateway e reranker falsos
@@ -625,14 +626,14 @@ exatamente o conjunto de trechos entregue à geração — inclusive depois do c
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T083 [P] [US4] `tests/graph/contract/test_rag_first_validation.py` (US4 cen. 1–2; R42, R43): **cen. 1** — dois
+- [X] T083 [P] [US4] `tests/graph/contract/test_rag_first_validation.py` (US4 cen. 1–2; R42, R43): **cen. 1** — dois
   validators rodam na ordem da composição e recebem a Turn View com `generation_context` igual aos 5 trechos entregues,
   na ordem, e `retrieved`/`reranked` preenchidos; o filtro de streaming (`open_answer_stream`) recebe a mesma
   `generation_context`; **cen. 2** — com `max_context_tokens` que só comporta 3 dos 5 trechos: saem os 2 de menor
   posição, a mensagem `tool` não contém os ids deles, `generation_context` tem só os 3, e há um `ContextTrimmed`
   (`notice`) com a contagem; teto que não comporta nenhum trecho → nenhuma mensagem `tool`, `generation_context` vazio,
   `ContextTrimmed` com a contagem total
-- [ ] T084 [P] [US4] `tests/graph/integration/test_rag_first_with_pack.py` (R46; ADR-026): `PackRuntime` real com um
+- [X] T084 [P] [US4] `tests/graph/integration/test_rag_first_with_pack.py` (R46; ADR-026): `PackRuntime` real com um
   pack de teste em memória (`InMemoryPackSource`) que declara um retriever (coleção concedida no grant), um reranker e
   um validator que aceita só `[[chunk_id]]` presente no `generation_context`; gateway real da 004 (`CapabilityService`,
   como em `test_agentic_with_generic_pack.py`): a geração vê `· id: <chunk_id>` em cada trecho; resposta citando um id
@@ -640,7 +641,7 @@ exatamente o conjunto de trechos entregue à geração — inclusive depois do c
 
 ### Implementation for User Story 4
 
-- [ ] T085 [US4] Ajustes em `nodes/rag.py`, `nodes/common.py` ou `view.py` até T083–T084 passarem; `uv run pytest
+- [X] T085 [US4] Ajustes em `nodes/rag.py`, `nodes/common.py` ou `view.py` até T083–T084 passarem; `uv run pytest
   packages/core/tests/graph` verde
 
 **Checkpoint**: US3 e US4 completas no motor
@@ -651,17 +652,19 @@ exatamente o conjunto de trechos entregue à geração — inclusive depois do c
 
 **Purpose**: a composition root passa `RagSettings` ao motor e o `rag_first` atravessa a API (R44; R35)
 
-- [ ] T086 [P] `src/ai_core/bootstrap/settings.py`. **Teste primeiro** em `tests/bootstrap/unit/test_settings.py`:
+- [X] T086 [P] `src/ai_core/bootstrap/settings.py`. **Teste primeiro** em `tests/bootstrap/unit/test_settings.py`:
   `Settings` tem `rag_candidates == 20`, `rag_passages == 5`, `rag_min_score is None`; `EnvConfigSource` lê
   `AI_CORE_RAG_CANDIDATES`, `AI_CORE_RAG_PASSAGES` e `AI_CORE_RAG_MIN_SCORE` (vazia = sem limiar); `0`, negativo, texto,
   `1.5` e `nan` → `ConfigurationError` nomeando a variável. Depois: os campos, a validação no `__post_init__` (mesmas
   regras de `RagSettings`, mensagem com a variável) e a leitura; a tabela de
   `specs/011-core-bootstrap/contracts/configuration.md`
-- [ ] T087 `src/ai_core/bootstrap/wiring.py` (depende de T076, T086): `_engine` passa `rag=RagSettings(candidates=…,
+- [X] T087 `src/ai_core/bootstrap/wiring.py` (depende de T076, T086): `_engine` passa `rag=RagSettings(candidates=…,
   passages=…, min_score=…)` ao `ExecutionService`. **Teste** em `tests/bootstrap/unit/test_profiles.py` (ou no teste de
   perfis já existente): nos três perfis, `engine.flows()` contém `rag_first` e `flow_roles()["rag_first"] ==
-  ("generation",)`
-- [ ] T088 [US3] `tests/bootstrap/integration/test_platform_rag_first.py` (teste de ponta a ponta da US3; depende de T087): perfil `test` com
+  ("generation",)`. *Acrescido na implementação*: a porta `CollectionCatalog` da 003 passa a ser atendida pelo Pack
+  Registry (`PackCollectionCatalog`, 011 research R35) — sem isso, todo Assistant com `collections` ficava
+  indisponível (424)
+- [X] T088 [US3] `tests/bootstrap/integration/test_platform_rag_first.py` (teste de ponta a ponta da US3; depende de T087): perfil `test` com
   `overrides={"pack_source": InMemoryPackSource(...), "providers": {...}}` — um pack de teste com retriever (coleção
   `docs`) e reranker; `assistants.yaml` com um Assistant `flow: rag_first`, `packs: [<pack>]`, `collections: [docs]` e
   só `generation` — servido (não 424); pela API, 200 e as mensagens enviadas ao provider têm `· id: <chunk_id>`; o
@@ -672,18 +675,18 @@ exatamente o conjunto de trechos entregue à geração — inclusive depois do c
 
 ## Phase 12: Polish da Fase 5
 
-- [ ] T089 `uv run lint-imports` a partir de `ai-core/` com todos `KEPT` e nenhum contrato novo (R47): `domain/gate.py`
+- [X] T089 `uv run lint-imports` a partir de `ai-core/` com todos `KEPT` e nenhum contrato novo (R47): `domain/gate.py`
   e `fit_chunks` só importam stdlib, contratos e `api.py`s; `nodes/rag.py` só seams
-- [ ] T090 Executar a seção "Fase 5" de [quickstart.md](quickstart.md) e corrigir divergências entre o resultado e o
+- [X] T090 Executar a seção "Fase 5" de [quickstart.md](quickstart.md) e corrigir divergências entre o resultado e o
   "Esperado"
-- [ ] T091 [P] Documentação: [contracts/execution-engine.md](contracts/execution-engine.md) (`FLOW_RAG_FIRST`,
+- [X] T091 [P] Documentação: [contracts/execution-engine.md](contracts/execution-engine.md) (`FLOW_RAG_FIRST`,
   `RagSettings`, `flow_roles()["rag_first"]`); linha da 005 em `specs/README.md` ("Fase 5 implementada (US3, US4: flow
   `rag_first`)"), com as mudanças de seam da passada nas linhas de Pack Hooks (002), Capabilities (004) e Trace Sink
   (009); seção "Código" de `CLAUDE.md` (o `rag_first`, o portão sem limiar por default, `AI_CORE_RAG_*`, o `· id:` do
   ADR-026 e o `CoverageGate`)
-- [ ] T092 Verificação completa a partir de `ai-core/`: `uv run pytest`, `uv run mypy`, `uv run ruff check packages`,
+- [X] T092 Verificação completa a partir de `ai-core/`: `uv run pytest`, `uv run mypy`, `uv run ruff check packages`,
   `uv run lint-imports`, e a suíte com `AI_CORE_TEST_POSTGRES_DSN` apontando para o Postgres de teste
-- [ ] T093 Conferir que o `ai-generic` e o pack `scouting` (submódulo `ai-scouting/`) continuam verdes contra o core
+- [X] T093 Conferir que o `ai-generic` e o pack `scouting` (submódulo `ai-scouting/`) continuam verdes contra o core
   local: a suíte do workspace (o `ai-generic` roda nela) e, dentro de `ai-scouting/`, `uv run --python 3.14 --group
   platform --with-editable ../ai-core/packages/core pytest tests/integration` — a troca vale só para essa execução, sem
   mexer no `pyproject.toml` nem no lock; se o `--with-editable` não sobrepuser a fonte da tag, a tarefa fica reduzida à

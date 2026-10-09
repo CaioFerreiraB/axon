@@ -228,8 +228,25 @@ ausentes ou com chave desconhecida → `InvalidFilters`), devolve `score` = simi
 `IndexedChunk.similarity` (ADR-025) — e ordena pela fusão com empates desfeitos por metadados (vigente, ramo, tipo),
 sem pesos, gravando as marcas nos metadados; o `MetadataReranker` reconstrói essa ordem sem depender da entrada; a
 tool `search_docs` devolve 5 trechos por padrão (teto 30). No corpus real a similaridade do e5 é comprimida (coberto
-0,85–0,92; fora do corpus até 0,84): o limiar do portão precisa da 105. Seguem na Fase 5: 104 (publicação dos
-validators), 005 US3–US4 (`rag_first`) e 101 US4–US5 (o `pack.py` publica retriever, reranker e `rag_first`).
+0,85–0,92; fora do corpus até 0,84): o limiar do portão precisa da 105.
+O motor tem o flow `rag_first` (spec 005, US3–US4): depois da preparação, abre a sessão de tools e executa cada tool de
+recuperação do catálogo com a pergunta e `top_k = candidates` (os filtros do pack vão opacos pelo gateway); recuperação
+com status diferente de `ok` é `RetrievalFailed` (`error`) e encerra **sem gerar**. Cada pack reordena os próprios
+chunks com o reranker dele (`PackHooks.reranker(composition, pack)`, toque na 002; trecho estranho, repetido, além de
+`top_k` ou exceção → `RerankFailed` `notice` e a ordem do retriever), e a junção vai pelas cabeças dos grupos, sem
+desfazer a ordem de cada reranker. O portão (`graph/domain/gate.py`, puro) cobre quando há trechos e, havendo limiar,
+o melhor score o alcança — **sem limiar por default**; sem cobertura, escala para o loop do `agentic` só se o Assistant
+declara `controller` (e há tool), senão gera sem trechos com `CoverageInsufficient` (`notice`). A decisão é o evento
+`coverage_gate` da 009 (ADR-017). No caminho coberto, uma chamada de modelo (SC-003): os trechos entram como passo de
+tool sintético (`ToolStep.synthetic`, resultado de `ToolSession.fence_chunks`, toque na 004), cortados por posição no
+teto (`fit_chunks`), e o `generation_context` é exatamente o que entrou. Todo trecho que o core mostra ao modelo traz
+`[documento — seção, p. N · id: <chunk_id>]` (ADR-026), e a recuperação acima do limite do gateway é cortada por trecho
+inteiro (`render_within`). `flow_roles()["rag_first"] == ("generation",)`; `RagSettings` vem de `AI_CORE_RAG_CANDIDATES`
+(20), `AI_CORE_RAG_PASSAGES` (5) e `AI_CORE_RAG_MIN_SCORE` (sem valor = sem limiar), pela 011, que também passou a
+atender o `CollectionCatalog` da 003 pelo Pack Registry (`PackCollectionCatalog`: existem as coleções dos retrievers de
+packs habilitados). Prova ponta a ponta sem rede em `tests/bootstrap/integration/test_platform_rag_first.py`. Seguem na
+Fase 5: a tag `v0.2.0`, 104 (publicação dos validators) e 101 US4–US5 (o `pack.py` publica retriever, reranker e
+`rag_first`).
 
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =

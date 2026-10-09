@@ -14,7 +14,7 @@ START → prepare_context → retrieve → rerank → gate ─┬─ coberto ─
 | Passo | Regra |
 |---|---|
 | `retrieve` | abre a sessão de tools com os filtros das fatias; executa cada tool `retrieval` com `{"query", "top_k": candidates}`; status ≠ `ok` → `RetrievalFailed` (`error`), fim sem gerar |
-| `rerank` | por pack, `PackHooks.reranker(composition, pack)` com `top_k=passages`; sem reranker, os primeiros `passages`; vários packs → junção estável por score; reranker que levanta, devolve trecho que não veio da recuperação ou mais que `top_k` → `RerankFailed` (`notice`) e a ordem do retriever |
+| `rerank` | por pack, `PackHooks.reranker(composition, pack)` com `top_k=passages`; sem reranker, os primeiros `passages`; vários packs → junção pelas cabeças dos grupos, maior score primeiro, sem desfazer a ordem do reranker dentro de cada pack; reranker que levanta, devolve trecho que não veio da recuperação ou mais que `top_k` → `RerankFailed` (`notice`) e a ordem do retriever |
 | `gate` | coberto = há trechos e (sem limiar ou melhor score ≥ limiar); emite `CoverageGate`; coberto → um passo de tool sintético por tool de recuperação com trecho entregue (um por pack no caso comum), com `fence_chunks` dos trechos que cabem no teto |
 | escalada | com `controller` → loop do `agentic` (limite do grant ou 3), transcrição vazia; sem → geração sem trechos + `CoverageInsufficient` (`notice`) |
 | `generate` | prompts dos packs + `FENCE_INSTRUCTION` + conversa + passos; uma chamada ao papel `generation` |

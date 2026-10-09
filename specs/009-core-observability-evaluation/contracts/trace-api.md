@@ -10,10 +10,12 @@ pasta). Só importa stdlib e `ai_core_contracts`.
 
 ```python
 # Eventos (o que se emite)
-ExecutionStarted, ModelCall, ValidationRun, ToolCall, ControllerDecision, ExecutionError, ExecutionFinished
+ExecutionStarted, ModelCall, ValidationRun, ToolCall, ControllerDecision, CoverageGate, ExecutionError,
+ExecutionFinished
 DecisionAction                 # Literal["tool", "answer", "invalid", "limit"]
-type TraceEvent = (ExecutionStarted | ModelCall | ValidationRun | ToolCall | ControllerDecision | ExecutionError
-                   | ExecutionFinished)
+GateRoute                      # Literal["generate", "controller", "fallback"]
+type TraceEvent = (ExecutionStarted | ModelCall | ValidationRun | ToolCall | ControllerDecision | CoverageGate
+                   | ExecutionError | ExecutionFinished)
 
 # Leitura
 TraceRecord, Trace
@@ -35,6 +37,12 @@ nome da classe). Campos: `request_id`, `tool`, `kind` (ausente quando a tool nã
 flow `agentic` por iteração. Campos: `request_id`, `iteration` (inteiro ≥ 0; 0 só em `limit`), `action` (`tool`,
 `answer`, `invalid`, `limit`), `tool` (só em `tool`), `reason` (só em `invalid` e `limit`; em `limit`, `iterations` ou
 `context`) — sem argumentos nem saída do modelo.
+
+`CoverageGate` foi acrescentado pela 005 na Fase 5 (FR-007 dela, research R39), sob o ADR-017: a decisão do portão de
+cobertura do `rag_first`. Campos: `request_id`, `candidates` e `passages` (inteiros ≥ 0, `passages ≤ candidates`),
+`best_score` (ausente exatamente quando `passages == 0`), `threshold` (ausente sem limiar; senão em `[0, 1]`),
+`covered` e `route` (`generate`, `controller`, `fallback`; `covered` exatamente quando `generate`) — sem texto nem
+identificador de trecho. É o que a 105 lê para calibrar o limiar.
 
 Campos de cada evento: [data-model.md](../data-model.md). Todos são dataclasses congeladas, `kw_only`, com validação
 de campo não vazio na construção.

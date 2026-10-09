@@ -22,8 +22,9 @@ from ai_core.graph.adapters.langgraph.nodes.agentic import (
 from ai_core.graph.adapters.langgraph.nodes.common import STAGE_GENERATE, STAGE_PREPARE, STAGE_VALIDATE, generate
 from ai_core.graph.adapters.langgraph.nodes.common import prepare_context as prepare_context_node
 from ai_core.graph.adapters.langgraph.nodes.common import validate_answer as validate_answer_node
+from ai_core.graph.adapters.langgraph.nodes.rag import STAGE_GATE, STAGE_RERANK, STAGE_RETRIEVE, gate, rerank, retrieve
 from ai_core.graph.adapters.langgraph.state import AgentContext, AgentState
-from ai_core.graph.api import FLOW_AGENTIC, FLOW_CHAT
+from ai_core.graph.api import FLOW_AGENTIC, FLOW_CHAT, FLOW_RAG_FIRST
 
 type FlowGraph = CompiledStateGraph[AgentState, AgentContext, AgentState, AgentState]
 """Grafo compilado deste módulo. O alias existe para não espalhar os parâmetros do framework pelo código."""
@@ -69,6 +70,39 @@ def agentic_graph() -> FlowGraph:
     return builder.compile()
 
 
+def _end_or(state: AgentState) -> str:
+    """Recuperação que falhou encerra sem gerar (R37); senão, a rota calculada."""
+    return END if state["route"] == "end" else state["route"]
+
+
+def rag_first_graph() -> FlowGraph:
+    """`rag_first`: recuperação e rerank determinísticos, portão de cobertura e geração (US3; design.md "`rag_first` —
+    retrieval determinístico"; research R36).
+
+    Coberto, uma chamada de modelo (SC-003); sem cobertura, o loop do `agentic` com os mesmos nós — só se o Assistant
+    tem `controller` — ou a geração sem trechos.
+    """
+    builder = StateGraph(AgentState, context_schema=AgentContext)
+    builder.add_node(STAGE_PREPARE, prepare_context_node)
+    builder.add_node(STAGE_RETRIEVE, retrieve)
+    builder.add_node(STAGE_RERANK, rerank)
+    builder.add_node(STAGE_GATE, gate)
+    builder.add_node(STAGE_CONTROLLER, controller)
+    builder.add_node(STAGE_EXECUTE, execute_tool)
+    builder.add_node(STAGE_GENERATE, generate)
+    builder.add_node(STAGE_VALIDATE, validate_answer_node)
+    builder.add_edge(START, STAGE_PREPARE)
+    builder.add_edge(STAGE_PREPARE, STAGE_RETRIEVE)
+    builder.add_conditional_edges(STAGE_RETRIEVE, _end_or, [STAGE_RERANK, END])
+    builder.add_edge(STAGE_RERANK, STAGE_GATE)
+    builder.add_conditional_edges(STAGE_GATE, _route, [STAGE_GENERATE, STAGE_CONTROLLER])
+    builder.add_conditional_edges(STAGE_CONTROLLER, _route, [STAGE_EXECUTE, STAGE_CONTROLLER, STAGE_GENERATE])
+    builder.add_conditional_edges(STAGE_EXECUTE, _route, [STAGE_CONTROLLER, STAGE_GENERATE])
+    builder.add_edge(STAGE_GENERATE, STAGE_VALIDATE)
+    builder.add_edge(STAGE_VALIDATE, END)
+    return builder.compile()
+
+
 def compiled_flows() -> Mapping[str, FlowGraph]:
     """Registro nome → grafo compilado. Compilar acontece uma vez, no boot; a execução só passa o contexto."""
-    return {FLOW_CHAT: chat_graph(), FLOW_AGENTIC: agentic_graph()}
+    return {FLOW_CHAT: chat_graph(), FLOW_AGENTIC: agentic_graph(), FLOW_RAG_FIRST: rag_first_graph()}

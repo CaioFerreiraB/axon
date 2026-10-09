@@ -94,3 +94,15 @@ def test_geracao_nao_recebe_os_avisos_de_acao_invalida() -> None:
 def test_geracao_so_com_acoes_invalidas_nao_recebe_a_cerca() -> None:
     messages = generation_messages(PROMPTS, MESSAGES, (InvalidStep(iteration=1, reason="JSON malformado"),))
     assert {"role": "system", "content": FENCE_INSTRUCTION} not in messages
+
+
+# --- Fase 5: o passo que o portão grava (T068; research R41, R43) ----------------------------------------------------
+
+
+@pytest.mark.us3
+def test_passo_sintetico_entra_na_geracao_como_um_passo_executado() -> None:
+    executado = tool_step(1, name="docs.search")
+    sintetico = ToolStep(iteration=1, call=executado.call, result=executado.result, synthetic=True)
+    assert not executado.synthetic and sintetico.synthetic
+    assert generation_messages(PROMPTS, MESSAGES, (sintetico,)) == generation_messages(PROMPTS, MESSAGES, (executado,))
+    assert generation_messages(PROMPTS, MESSAGES, (sintetico,))[len(PROMPTS)]["content"] == FENCE_INSTRUCTION

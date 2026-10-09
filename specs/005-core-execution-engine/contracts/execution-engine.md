@@ -12,6 +12,7 @@ from ai_core.graph.api import (
     FinalEvent, ProgressEvent, TokenEvent,
     ExecutionError, ExecutionRequestInvalid, UnknownFlow,
     FLOW_CHAT, FLOW_AGENTIC,          # FLOW_AGENTIC: Fase 3
+    FLOW_RAG_FIRST, RagSettings,      # Fase 5 (research R44)
 )
 ```
 
@@ -39,7 +40,9 @@ async for event in events:
 | O primeiro `TokenEvent` sai antes de o nó de geração terminar | princípio XI, SC-004 | conformidade do seam |
 | `FinalEvent.answer` é a resposta do validator quando ele a altera | US1 cen. 3 | conformidade do seam |
 | O motor fala com packs só por Pack Hooks e com modelos só pelo Model Router | FR-002 | conformidade + import-linter |
-| `flows()` lista os nomes disponíveis; na Fase 1, `{"chat"}` | US5 cen. 1 | conformidade do registro |
+| `flows()` lista os nomes disponíveis; na Fase 1, `{"chat"}`; com o gateway da 004, também `agentic` (Fase 3) e `rag_first` (Fase 5) | US5 cen. 1 | conformidade do registro |
+| `flow_roles()["rag_first"] == ("generation",)`: o `controller` é opcional e, declarado, é resolvido antes do primeiro evento | FR-007a, ADR-019 | conformidade do registro |
+| `RagSettings(candidates=20, passages=5, min_score=None)`, do operador pela 011 (`AI_CORE_RAG_*`); sem limiar, só a ausência de resultado escala | FR-007, R44 | `test_graph_api.py`, `test_rag_first_flow.py` |
 | Fechar o iterador no meio cancela a execução sem erro | edge case "cliente desconecta" | conformidade do seam |
 | Nenhum tipo de framework de grafo aparece na superfície | ADR-011, SC-001 | import-linter + revisão da superfície |
 

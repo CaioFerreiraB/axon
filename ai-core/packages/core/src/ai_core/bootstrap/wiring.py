@@ -28,7 +28,7 @@ from psycopg.conninfo import conninfo_to_dict
 
 from ai_core.assistants.adapters import postgres_schema as assistants_schema
 from ai_core.assistants.adapters.assistants_yaml import YamlAssistantConfigSource
-from ai_core.assistants.adapters.catalogs import EmptyCollectionCatalog
+from ai_core.assistants.adapters.catalogs import PackCollectionCatalog
 from ai_core.assistants.adapters.memory import InMemoryAssistantConfigSource
 from ai_core.assistants.adapters.rate_memory import InMemoryRateCounterStore
 from ai_core.assistants.adapters.tokens import SecretsTokenGenerator
@@ -45,6 +45,7 @@ from ai_core.capabilities.adapters import postgres_schema as capabilities_schema
 from ai_core.capabilities.api import GatewayLimits
 from ai_core.capabilities.service import CapabilityService
 from ai_core.graph.adapters.langgraph import langgraph_runtime
+from ai_core.graph.api import RagSettings
 from ai_core.graph.service import ExecutionService
 from ai_core.http.adapters import postgres_schema as http_schema
 from ai_core.http.adapters.app import create_app
@@ -313,7 +314,7 @@ def _engine(ctx: BootContext) -> None:
     ctx.parts["routing"] = routing
     capabilities = capabilities_service(ctx.parts, audit=ctx.parts["audit"], mcp=ctx.parts["mcp"])
     ctx.parts["capabilities"] = capabilities
-    # Com o gateway, o motor oferece `agentic` (ADR-018, R24).
+    # Com o gateway, o motor oferece `agentic` (ADR-018, R24) e `rag_first` (005 Fase 5).
     ctx.parts["engine"] = ExecutionService(
         flows=langgraph_runtime(),
         hooks=ctx.parts["packs"],
@@ -321,6 +322,14 @@ def _engine(ctx: BootContext) -> None:
         trace=trace,
         clock=clock,
         capabilities=capabilities,
+        rag=_rag(ctx.parts["settings"]),
+    )
+
+
+def _rag(settings: Settings) -> RagSettings:
+    """Os números do `rag_first` do operador (`AI_CORE_RAG_*`, já validados em `Settings`; 005 research R44)."""
+    return RagSettings(
+        candidates=settings.rag_candidates, passages=settings.rag_passages, min_score=settings.rag_min_score
     )
 
 
@@ -367,7 +376,7 @@ def assistants_service(parts: Mapping[str, Any], *, users: Any, mcp: Any) -> Ass
         flow_roles=parts["engine"].flow_roles(),
         users=users,
         mcp=mcp,
-        collections=EmptyCollectionCatalog(),
+        collections=PackCollectionCatalog(parts["packs"]),
         rate=InMemoryRateCounterStore(),
         clock=parts["clock"],
     )

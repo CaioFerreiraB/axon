@@ -27,7 +27,15 @@ SEAM_API = {
     "ValidationOutcome",
     "ValidatorRun",
 }
-IMPORTED_FROM_CONTRACTS = {"Citation", "JSONValue", "NamedRetriever", "ToolSpec", "TurnView", "ValidationResult"}
+IMPORTED_FROM_CONTRACTS = {
+    "Citation",
+    "JSONValue",
+    "NamedRetriever",
+    "Reranker",
+    "ToolSpec",
+    "TurnView",
+    "ValidationResult",
+}
 
 
 def test_public_names_are_exactly_the_documented_ones() -> None:
@@ -52,5 +60,14 @@ def test_no_install_operation_is_exposed() -> None:
     members = {
         name for protocol in (api.PackRegistry, api.PackHooks) for name in vars(protocol) if not name.startswith("_")
     }
-    assert members == {"entries", "entry", "compose", "system_prompts", "prepare", "open_answer_stream", "validate"}
+    assert members == {
+        "entries",
+        "entry",
+        "compose",
+        "system_prompts",
+        "prepare",
+        "open_answer_stream",
+        "validate",
+        "reranker",
+    }
     assert not any("install" in name for name in members)

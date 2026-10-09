@@ -81,7 +81,7 @@ def test_papeis_exigidos_por_flow() -> None:
 
 @pytest.mark.us2
 def test_flows_que_exigem_tools() -> None:
-    assert frozenset({FLOW_AGENTIC}) == TOOL_FLOWS
+    assert FLOW_AGENTIC in TOOL_FLOWS and FLOW_CHAT not in TOOL_FLOWS
 
 
 @pytest.mark.us2
@@ -89,3 +89,25 @@ def test_sem_gateway_os_flows_de_tool_nao_sao_oferecidos() -> None:
     names = frozenset({FLOW_CHAT, FLOW_AGENTIC})
     assert offered(names, tools=False) == frozenset({FLOW_CHAT})
     assert offered(names, tools=True) == names
+
+
+# --- Fase 5 (T065; research R40; FR-007a) ----------------------------------------------------------------------------
+
+
+@pytest.mark.us3
+def test_rag_first_exige_so_generation_e_o_controller_e_opcional() -> None:
+    from ai_core.graph.api import FLOW_RAG_FIRST
+    from ai_core.graph.domain.request import optional_roles
+
+    assert REQUIRED_ROLES[FLOW_RAG_FIRST] == ("generation",)
+    assert optional_roles(FLOW_RAG_FIRST) == ("controller",)
+    assert optional_roles(FLOW_AGENTIC) == () and optional_roles(FLOW_CHAT) == () and optional_roles("x") == ()
+
+
+@pytest.mark.us3
+def test_rag_first_so_existe_com_o_gateway() -> None:
+    from ai_core.graph.api import FLOW_RAG_FIRST
+
+    assert FLOW_RAG_FIRST in TOOL_FLOWS
+    names = frozenset({FLOW_CHAT, FLOW_AGENTIC, FLOW_RAG_FIRST})
+    assert offered(names, tools=False) == frozenset({FLOW_CHAT})

@@ -37,7 +37,7 @@ def test_a_plataforma_sobe_inteira_no_perfil_de_teste(tmp_path: Path) -> None:
     assert plataforma.packs is not None
     assert plataforma.engine is not None
     assert plataforma.app is not None
-    assert plataforma.engine.flows() == frozenset({"chat", "agentic"})
+    assert plataforma.engine.flows() == frozenset({"chat", "agentic", "rag_first"})
 
 
 def test_o_pack_de_referencia_e_carregado(tmp_path: Path) -> None:

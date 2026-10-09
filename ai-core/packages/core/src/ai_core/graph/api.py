@@ -21,6 +21,7 @@ from ai_core_contracts import Citation, Message
 __all__ = [
     "FLOW_AGENTIC",
     "FLOW_CHAT",
+    "FLOW_RAG_FIRST",
     "ExecutionEngine",
     "ExecutionError",
     "ExecutionEvent",
@@ -31,6 +32,7 @@ __all__ = [
     "FinalEvent",
     "IssueSeverity",
     "ProgressEvent",
+    "RagSettings",
     "TokenEvent",
     "UnknownFlow",
 ]
@@ -41,10 +43,39 @@ FLOW_CHAT: Final = "chat"
 FLOW_AGENTIC: Final = "agentic"
 """Loop do controller sobre o catálogo de tools da execução (US2, Fase 3). Só existe com o gateway da 004 ligado."""
 
+FLOW_RAG_FIRST: Final = "rag_first"
+"""Recuperação e rerank determinísticos, portão de cobertura e uma chamada de modelo no caminho coberto (US3, Fase 5).
+Como o `agentic`, só existe com o gateway da 004: a recuperação passa por ele (ADR-005)."""
+
 
 def _require_text(field_name: str, value: str) -> None:
     if not value.strip():
         raise ValueError(f"{field_name} não pode ser vazio")
+
+
+def _require_count(field_name: str, value: int) -> None:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise ValueError(f"{field_name} precisa ser um inteiro ≥ 1: {value!r}")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class RagSettings:
+    """Os números do `rag_first`, do operador (`AI_CORE_RAG_*`, pela 011; FR-007, clarificação 1 de 2026-10-09).
+
+    `candidates` vai como `top_k` a cada tool de recuperação; `passages` é quantos trechos o rerank leva à geração; e
+    `min_score` é o limiar do portão sobre o melhor score dos trechos. **Sem limiar por default**: até a 105 calibrar,
+    só a ausência de resultado escala (princípio X) — nenhum número é fixado no código.
+    """
+
+    candidates: int = 20
+    passages: int = 5
+    min_score: float | None = None
+
+    def __post_init__(self) -> None:
+        _require_count("candidates", self.candidates)
+        _require_count("passages", self.passages)
+        if self.min_score is not None and not 0.0 <= self.min_score <= 1.0:  # NaN também cai aqui
+            raise ValueError(f"min_score precisa estar em [0, 1]: {self.min_score!r}")
 
 
 class ExecutionError(RuntimeError):

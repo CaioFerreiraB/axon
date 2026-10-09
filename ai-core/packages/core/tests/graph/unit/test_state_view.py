@@ -122,3 +122,64 @@ def test_omitidos_pelo_teto_nao_entram_na_turn_view() -> None:
 def test_sem_passos_nao_ha_resultados() -> None:
     view = turn_view(state(flow="agentic", steps=[]))
     assert (tuple(view.tool_results), tuple(view.retrieved), tuple(view.generation_context)) == ((), (), ())
+
+
+# --- Fase 5: `rag_first` (T074; research R43; tabela "Turn View no `rag_first`" do data-model) ------------------------
+
+
+def _passages(*ids: str, pack: str = "docs") -> tuple[Any, ...]:
+    from ai_core.graph.domain.gate import Passage
+
+    return tuple(
+        Passage(pack=pack, tool=f"{pack}.search", chunk=Chunk(chunk_id=i, text=i, score=0.5, document="D")) for i in ids
+    )
+
+
+def _step(iteration: int, *ids: str, synthetic: bool) -> ToolStep:
+    chunks = tuple(Chunk(chunk_id=i, text=i, score=0.5, document="D") for i in ids)
+    return ToolStep(
+        iteration=iteration,
+        call=ToolCall(name="docs.search", arguments={"query": "q"}),
+        result=FencedToolResult(
+            name="docs.search", kind="retrieval", status="ok", text=fenced("docs.search", "x"), chunks=chunks
+        ),
+        synthetic=synthetic,
+    )
+
+
+@pytest.mark.us3
+def test_rag_first_coberto() -> None:
+    candidatos = _passages("c1", "c2", "c3", "c4")
+    view = turn_view(
+        state(
+            flow="rag_first",
+            retrieved=candidatos,
+            reranked=candidatos[:3],
+            steps=[_step(1, "c1", "c2", synthetic=True)],
+        )
+    )
+    assert [c.chunk_id for c in view.retrieved] == ["c1", "c2", "c3", "c4"], "sem duplicar os do passo sintético"
+    assert [c.chunk_id for c in view.reranked] == ["c1", "c2", "c3"]
+    assert [c.chunk_id for c in view.generation_context] == ["c1", "c2"], "os que couberam"
+    assert len(view.tool_results) == 1
+
+
+@pytest.mark.us3
+def test_rag_first_sem_trechos() -> None:
+    candidatos = _passages("c1")
+    view = turn_view(state(flow="rag_first", retrieved=candidatos, reranked=candidatos, steps=[]))
+    assert [c.chunk_id for c in view.retrieved] == ["c1"] and [c.chunk_id for c in view.reranked] == ["c1"]
+    assert tuple(view.generation_context) == () and tuple(view.tool_results) == ()
+
+
+@pytest.mark.us3
+def test_rag_first_escalado_soma_os_do_loop() -> None:
+    candidatos = _passages("c1")
+    view = turn_view(
+        state(
+            flow="rag_first", retrieved=candidatos, reranked=candidatos, steps=[_step(1, "l1", "l2", synthetic=False)]
+        )
+    )
+    assert [c.chunk_id for c in view.retrieved] == ["c1", "l1", "l2"]
+    assert [c.chunk_id for c in view.generation_context] == ["l1", "l2"]
+    assert [c.chunk_id for c in view.reranked] == ["c1"]

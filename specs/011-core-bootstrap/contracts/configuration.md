@@ -113,6 +113,16 @@ mensagens de erro de segredo nunca contêm o valor.
 O arquivo é lido na etapa `configuration`: ilegível ou malformado para o boot nomeando o arquivo; entrada com problema
 fica indisponível e degrada a etapa `mcp_registry`.
 
+## Fase 5 (2026-10-09): `rag_first` (005 research R44)
+
+| Variável | Default | Significado |
+|---|---|---|
+| `AI_CORE_RAG_CANDIDATES` | `20` | `top_k` pedido a cada tool de recuperação no `rag_first` (inteiro ≥ 1) |
+| `AI_CORE_RAG_PASSAGES` | `5` | trechos que o rerank leva à geração (inteiro ≥ 1) |
+| `AI_CORE_RAG_MIN_SCORE` | — | limiar do portão de cobertura sobre o melhor score, em `[0, 1]`; ausente ou vazia = sem limiar (só a ausência de resultado escala) até a 105 calibrar |
+
+Valor inválido impede o boot nomeando a variável. Os três chegam ao motor como `RagSettings` (005), na etapa `engine`.
+
 ### Suíte de conformidade — acréscimos
 
 10. defaults das quatro variáveis; recusa nomeando a variável para TTL `≤ 0`, prazo e tamanho fora da faixa;

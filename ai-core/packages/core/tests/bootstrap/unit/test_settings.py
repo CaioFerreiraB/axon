@@ -215,3 +215,44 @@ def test_credencial_de_mcp_nao_passa_pela_configuracao() -> None:
     settings = EnvConfigSource({"AI_CORE_MCP_SECRET_X": "segredo-x"}).load()
     assert "segredo-x" not in repr(settings)
     assert "segredo-x" not in str(settings)
+
+
+# --- Fase 5 (005 T086; research R44 da 005): os números do `rag_first` ------------------------------------------------
+
+
+@pytest.mark.us3
+def test_variaveis_da_fase_5_tem_defaults() -> None:
+    settings = EnvConfigSource({}).load()
+    assert (settings.rag_candidates, settings.rag_passages, settings.rag_min_score) == (20, 5, None)
+
+
+@pytest.mark.us3
+def test_variaveis_da_fase_5_sao_lidas() -> None:
+    settings = EnvConfigSource(
+        {"AI_CORE_RAG_CANDIDATES": "30", "AI_CORE_RAG_PASSAGES": "8", "AI_CORE_RAG_MIN_SCORE": "0.86"}
+    ).load()
+    assert (settings.rag_candidates, settings.rag_passages, settings.rag_min_score) == (30, 8, 0.86)
+
+
+@pytest.mark.us3
+def test_limiar_vazio_e_sem_limiar() -> None:
+    assert EnvConfigSource({"AI_CORE_RAG_MIN_SCORE": ""}).load().rag_min_score is None
+
+
+@pytest.mark.us3
+@pytest.mark.parametrize(
+    ("environ", "variable"),
+    [
+        ({"AI_CORE_RAG_CANDIDATES": "0"}, "AI_CORE_RAG_CANDIDATES"),
+        ({"AI_CORE_RAG_CANDIDATES": "-3"}, "AI_CORE_RAG_CANDIDATES"),
+        ({"AI_CORE_RAG_CANDIDATES": "vinte"}, "AI_CORE_RAG_CANDIDATES"),
+        ({"AI_CORE_RAG_PASSAGES": "0"}, "AI_CORE_RAG_PASSAGES"),
+        ({"AI_CORE_RAG_MIN_SCORE": "1.5"}, "AI_CORE_RAG_MIN_SCORE"),
+        ({"AI_CORE_RAG_MIN_SCORE": "-0.1"}, "AI_CORE_RAG_MIN_SCORE"),
+        ({"AI_CORE_RAG_MIN_SCORE": "nan"}, "AI_CORE_RAG_MIN_SCORE"),
+        ({"AI_CORE_RAG_MIN_SCORE": "alto"}, "AI_CORE_RAG_MIN_SCORE"),
+    ],
+)
+def test_recusas_da_fase_5_nomeiam_a_variavel(environ: dict[str, str], variable: str) -> None:
+    with pytest.raises(ConfigurationError, match=variable):
+        EnvConfigSource(environ).load()

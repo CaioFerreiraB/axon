@@ -56,10 +56,13 @@ arquivo truncado por queda de processo não impede consultar o resto ([research.
  "tool": "financeiro.saldo"}
 {"at": "…", "type": "controller_decision", "request_id": "req-7f3a", "iteration": 3, "action": "limit",
  "reason": "iterations"}
+{"at": "…", "type": "coverage_gate", "request_id": "req-9b21", "candidates": 20, "passages": 5,
+ "best_score": 0.88, "covered": true, "route": "generate"}
 ```
 
 No exemplo de `execution_finished`, `reason` é `None` e por isso não aparece; o mesmo vale para `tool` e `reason` do
-`controller_decision` quando a ação não os tem. `tool_call` (004) e `controller_decision` (005) entraram na Fase 3 sob o
+`controller_decision` quando a ação não os tem, e para `threshold` do `coverage_gate` sem limiar. `tool_call` (004) e
+`controller_decision` (005) entraram na Fase 3, e `coverage_gate` (005) na Fase 5, sob o
 [ADR-017](../../../docs/adr/ADR-017-trace-sink-cresce-por-eventos-aditivos.md).
 
 ## Redação no registro

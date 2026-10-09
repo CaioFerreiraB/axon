@@ -86,6 +86,20 @@ Sem argumentos nem conteúdo.
 
 Sem argumentos de tool nem saída do modelo — o motivo é texto do motor.
 
+### `CoverageGate` — Fase 5, emitido pela 005 (ADR-017)
+
+| Campo | Tipo | Regra |
+|---|---|---|
+| `request_id` | `str` | não vazio |
+| `candidates` | `int` | `>= 0` — trechos recuperados, somando as tools de recuperação |
+| `passages` | `int` | `>= 0` e `<= candidates` — trechos depois do rerank, os que o portão compara |
+| `best_score` | `float \| None` | ausente exatamente quando `passages == 0`; nunca NaN |
+| `threshold` | `float \| None` | limiar do operador em `[0, 1]`; ausente sem limiar |
+| `covered` | `bool` | verdadeiro exatamente quando `route == "generate"` |
+| `route` | `Literal["generate", "controller", "fallback"]` | gerar com os trechos, escalar para o loop, gerar sem trechos |
+
+Sem texto nem identificador de trecho.
+
 Regra comum: campo `str` marcado como "não vazio" rejeita vazio e só-espaços na construção (`ValueError`), como os
 value objects da 001; campos de texto livre são redigidos na serialização, não na construção.
 
@@ -96,7 +110,7 @@ value objects da 001; campos de texto livre são redigidos na serialização, n�
 | Campo | Tipo | Conteúdo |
 |---|---|---|
 | `at` | `datetime` | instante estampado pelo serviço, com timezone |
-| `type` | `str` | nome do evento em `snake_case`: `execution_started`, `model_call`, `validation_run`, `execution_error`, `execution_finished` |
+| `type` | `str` | nome do evento em `snake_case`: `execution_started`, `model_call`, `validation_run`, `tool_call`, `controller_decision`, `coverage_gate`, `execution_error`, `execution_finished` |
 | `request_id` | `str` | identificador da requisição |
 | `attributes` | `Mapping[str, JSONValue]` | demais campos do evento, já redigidos; `None` omitido |
 

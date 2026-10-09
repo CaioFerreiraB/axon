@@ -27,6 +27,9 @@ class ToolStep:
     iteration: int
     call: ToolCall
     result: FencedToolResult
+    synthetic: bool = False
+    """O passo que o portão do `rag_first` grava com os trechos já recuperados (R41): entra na geração como um passo
+    executado, mas a projeção não soma os chunks dele em `retrieved` — já estão entre os candidatos (R43)."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

@@ -170,8 +170,25 @@ def test_15_arquivo_malformado_para_o_boot_na_configuracao(tmp_path: Path) -> No
 def test_16_agentic_e_oferecido_nos_perfis(tmp_path: Path, profile: str) -> None:
     plataforma = _boot(tmp_path, profile=profile)
     assert plataforma.engine is not None
-    assert plataforma.engine.flows() == frozenset({"chat", "agentic"})
+    assert plataforma.engine.flows() == frozenset({"chat", "agentic", "rag_first"})
+    assert plataforma.engine.flow_roles()["rag_first"] == ("generation",)
     plataforma.aclose()
+
+
+@pytest.mark.us3
+def test_16b_os_numeros_do_rag_first_chegam_ao_motor(tmp_path: Path) -> None:
+    """005 T087: `AI_CORE_RAG_*` → `RagSettings` do motor; valor inválido para o boot nomeando a variável."""
+    from ai_core.bootstrap.settings import ConfigurationError, EnvConfigSource
+
+    settings = EnvConfigSource(
+        {"AI_CORE_RAG_CANDIDATES": "12", "AI_CORE_RAG_PASSAGES": "4", "AI_CORE_RAG_MIN_SCORE": "0.86"}
+    ).load()
+    from ai_core.bootstrap.wiring import _rag
+
+    rag = _rag(settings)
+    assert (rag.candidates, rag.passages, rag.min_score) == (12, 4, 0.86)
+    with pytest.raises(ConfigurationError, match="AI_CORE_RAG_PASSAGES"):
+        EnvConfigSource({"AI_CORE_RAG_PASSAGES": "0"}).load()
 
 
 @pytest.mark.us1
