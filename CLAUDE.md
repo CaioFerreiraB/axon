@@ -290,8 +290,21 @@ do portão (informativas). Métricas de domínio vêm do pack pelo contrato 001 
 `EvalItem`, `EvalObservation`, `EvalMetric`, hook opcional `eval_metrics` — ADR-027), coletadas pela 002 (seam
 `PackEvalMetrics`) e reportadas como `<pack>:<nome>`. Linha de base = um relatório JSON; tolerância absoluta por métrica
 (default 0,02); saída 0, 1 (regressão determinística) ou 2 (entrada inválida). `ai-core eval compare` põe relatórios
-lado a lado (benchmark: Assistants que diferem no modelo; RAM e CPU por `--annotate`). Segue a 105 (o conjunto dourado do
-scouting e a calibração).
+lado a lado (benchmark: Assistants que diferem no modelo; RAM e CPU por `--annotate`). O core está na tag `v0.3.0`
+(contratos `0.1.2`).
+Da 105 (US1, US2), a infraestrutura de avaliação do scouting, sobre um conjunto **semente provisório** — a curadoria das
+perguntas reais e a calibração (US3–US5) ficam para depois do desenvolvimento, por decisão do mantenedor: o pack
+`scouting` 0.3.0 (contratos `>=0.1.2`, contratos e core da tag `v0.3.0`) publica em `eval_metrics` as métricas puras de
+`ai_scouting/eval/` — `context_accuracy` (refaz a derivação da 101 para a pergunta e o dia do item e compara com
+`extra.context`), `current_document_rate` (trechos entregues `vigente`, fora de item histórico) e
+`validity_notice_rate` (flag `non_current_source` quando a resposta cita fonte não vigente; não determinística). Em
+`ai-scouting/eval/`: `golden.yaml` (10 perguntas tiradas do corpus, `extra.provisional`, datas entre aspas),
+validado sem o core contra `corpus/corpus.yaml` e o léxico (`tests/eval/test_golden.py`); `packs.yaml` (`embedding_dir:
+.cache/e5`, relativo à raiz) e `assistants.yaml` (ACL `svc:eval`); e `baseline.json`, gerado com o corpus real, o e5 e
+o gerador simulado do perfil `test`. O workflow `eval.yml` (filtro de caminhos: corpus, `rag/`, `prompts/`,
+`context/`, `eval/`, `pack.py`, dependências) ingere o corpus num Qdrant de serviço com o e5 em cache e roda `ai-core
+eval run` contra a base; a integração (`tests/integration/test_eval.py`) chama o comando `ai-core` em subprocesso. O
+`agentic-deploy` continua no core `v0.2.0` e no pack 0.2.0 até uma passada de encaixe da 002.
 
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =

@@ -43,6 +43,25 @@ geração e citação aparecem, mas não barram.
 **Prova de regressão (US2)**: numa cópia de `eval/golden.yaml`, trocar o `chunk_id` esperado de um item pelo de outra
 regra — `recall@5` cai e, contra a linha de base, a saída é 1, nomeando a métrica e o delta.
 
+**Linha de base da semente** (2026-10-13, `eval/baseline.json`; corpus real com 413 trechos, e5, Qdrant `v1.19.2`,
+perfil `test`; ingestão em ~40 s, rodada em ~4 s; refeita do zero num Qdrant novo, deltas zero):
+
+| Métrica | Valor | n | Barra? |
+|---|---|---|---|
+| `recall@5` / `recall@20` | 0,8889 / 0,8889 | 9 | sim |
+| `mrr` | 0,7222 | 9 | sim |
+| `delivered_recall` | 0,8889 | 9 | sim |
+| `rerank_gain` | 0,0000 | 9 | sim |
+| `scouting:context_accuracy` | 0,9000 | 10 | sim |
+| `scouting:current_document_rate` | 1,0000 | 9 | sim |
+| `scouting:validity_notice_rate` | ausente | 0 | não |
+| `expected_citation_recall` | 0,0000 | 9 | não (gerador simulado não cita) |
+
+O único item sem a evidência entre os candidatos é o s09 ("Quais nós o lobinho aprende…"): o manual aparece, mas não
+o trecho `#7@p63` — "nós" normalizado é "nos", palavra vazia do BM25. O `context_accuracy` abaixo de 1 vem do s02 e do
+s03, cujos temas esperados (`gestao_do_grupo` para UEL, `promessa_e_lei` para a Lei do Lobinho) o léxico não reconhece.
+Os dois são achados reais, registrados para a calibração e a curadoria — nenhum número foi ajustado sobre eles.
+
 ## 4. Gerar ou regravar a linha de base (deliberado)
 
 Mesmo comando do passo 3 com `--update-baseline`; com regressão, só com `--force`. O commit diz por quê.

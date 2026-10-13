@@ -41,6 +41,13 @@ pergunta sem chamar modelo; os validators de citação e vigência (104) existem
 instalação (002 US5) monta core e packs numa imagem a partir de tags, roda `packs check` no build — pack incompatível
 falha o build — e entrega um runtime sem instalador (ADR-022), verificado a cada push no `agentic-deploy`.
 
+**Fase 6 em andamento (2026-10-13).** O harness de avaliação (009, core `v0.3.0`, contratos `0.1.2`) roda um conjunto
+dourado pelo motor com a data de cada item, lê o trace e compara com uma linha de base — só métricas determinísticas
+barram. Da 105, a infraestrutura está pronta sobre um conjunto **semente provisório**: métricas de domínio no pack
+(`ai-scouting` 0.3.0), validação do conjunto contra o corpus, linha de base e o job `eval` no CI do pack. As US3–US5 da
+105 (calibração do RAG, escolha de embedding e de modelo local) esperam a curadoria das perguntas reais, que o
+mantenedor fará depois do desenvolvimento; até lá, nenhum número do RAG muda.
+
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 
 **Pendências entre specs resolvidas em 2026-10-07.** OpenAI como controller (ADR-023: o adapter converte o esquema
