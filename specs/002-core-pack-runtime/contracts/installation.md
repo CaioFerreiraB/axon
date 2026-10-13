@@ -48,3 +48,22 @@ Sai com 0 só se todos valem. `SSH_CORE` e `SSH_PACKS` escolhem a origem de cada
 Push e PR: deploy keys só de leitura nos segredos `AGENTIC_APP_DEPLOY_KEY` (cadastrada no `agentic-app`) e
 `AI_SCOUTING_DEPLOY_KEY` (no `ai-scouting`), gravadas em arquivo e passadas por `SSH_CORE`/`SSH_PACKS`;
 `scripts/check-build.sh` em `linux/amd64`.
+
+## Fase 5 (2026-10-13): RAG na instalação (research R31–R35)
+
+| Item | Valor |
+|---|---|
+| `CORE_REF` | `v0.2.0` |
+| `PACKS` | `ai-scouting @ git+ssh://git@github.com/CaioFerreiraB/ai-scouting.git@c60ffb460e082751e39705b539fbb82aa46eeccb` |
+| Estágio `packs` | depois dos packs, `ai-scouting-corpus model fetch /opt/ai-scouting/e5-small`; depois, `packs check` |
+| Estágio `runtime` | copia também `/opt/ai-scouting` (o modelo, somente leitura) |
+| `config/packs.yaml` | `scouting.config`: `qdrant_url: http://qdrant:6333`, `embedding_dir: /opt/ai-scouting/e5-small` |
+| `config/assistants.yaml` | `scouting` sem `flow` (logo `rag_first`) e com `collections: [scouting]` |
+| `docker-compose.yml` | serviço `qdrant` (`qdrant/qdrant:v1.19.2`, volume nomeado, sem porta publicada); `ai-core` depende dele e recebe `AI_SCOUTING_QDRANT_URL` e `AI_SCOUTING_EMBEDDING_DIR` para a CLI |
+| Ingestão | `docker compose run --rm -v <ai-scouting>/corpus:/corpus:ro ai-core ai-scouting-corpus ingest /corpus/corpus.yaml` |
+| Chave do Qdrant (opcional) | o mesmo valor em `QDRANT__SERVICE__API_KEY` e `AI_SCOUTING_QDRANT_API_KEY`, no `.env` |
+| Imagem | `ORT_DISABLE_TELEMETRY=1` (sem telemetria do onnxruntime) |
+| Porta do host | `AI_CORE_HOST_PORT` no `.env` (default 8000) |
+
+`scripts/check-build.sh`, passo novo: `/opt/ai-scouting/e5-small` tem `model.onnx` e `tokenizer.json`, e
+`ai-scouting-corpus --help` roda na imagem. A conversa com o índice ingerido é verificação manual.

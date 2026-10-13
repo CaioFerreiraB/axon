@@ -416,8 +416,8 @@ Task: "tests/integration/test_platform.py (T037)"
 ### Depois desta fase
 
 - `agentic-deploy`: `CORE_REF` em `v0.2.0`, o modelo e5 no estágio `packs` (`ai-scouting-corpus model fetch`), o Qdrant
-  e o `config` do scouting no `packs.yaml` da instalação; o build precisa pular os submódulos do `agentic-app` ao
-  resolver a tag (`submodule.<nome>.update none`, como no `ci.yml` do `ai-scouting`)
+  e o `config` do scouting no `packs.yaml` da instalação — feito na passada de encaixe da Fase 5 da 002 (T056–T062); o
+  estágio `core` já clona o `agentic-app` sem submódulos, então o deploy não precisou do ajuste da CI do pack
 - curador: confirmar os valores "A CONFIRMAR" do `corpus/corpus.yaml`
 - 105: conjunto dourado, medida da US4 e calibração do limiar (`AI_CORE_RAG_MIN_SCORE`) e dos limites
 

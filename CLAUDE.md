@@ -196,7 +196,7 @@ nenhuma, aviso de "não fundamentada") e `validity_notice` (aviso para citação
 confirmada, sem duplicar o que o modelo já disse) — testados com Turn Views sintéticas e **não publicados** pelo pack
 até a Fase 5. A instalação (002 US5) mora no submódulo `agentic-deploy/` (repositório privado
 `CaioFerreiraB/agentic-deploy`, ADR-009 e ADR-022): Dockerfile em três estágios — `core` (contratos, core e
-`ai-generic` da tag `CORE_REF`, default `v0.1.0`), `packs` (o build-arg `PACKS` + `ai-core packs check`, que falha o
+`ai-generic` da tag `CORE_REF`, hoje `v0.2.0`), `packs` (o build-arg `PACKS` + `ai-core packs check`, que falha o
 build com pack incompatível) e `runtime` (sem `uv`, `pip` nem `ensurepip`; usuário sem escrita no ambiente) —, código
 privado por montagem SSH do BuildKit (identidades `core` e `packs`, `--no-sources`), `config/packs.yaml` na imagem e
 `config/assistants.yaml` montado. `scripts/check-build.sh` é o teste da US5 (local, com o agente SSH; na CI, com deploy
@@ -260,9 +260,18 @@ vigência. Contratos e core vêm da **mesma** tag `v0.2.0` (o `uv` não aceita d
 provada ponta a ponta no grupo `platform` (`tests/integration/test_rag.py`: Qdrant embutido, embedder de teste, uma
 chamada de modelo, citação `[1]`), e uma conversa real com o índice e o e5 cita POR e manual com página e vigência.
 A CI do `ai-scouting` marca os submódulos do `agentic-app` com `update = none` antes do `uv sync` (o `uv` os
-inicializaria ao clonar a tag, e a deploy key não os lê). Seguem: o `agentic-deploy` (`CORE_REF` `v0.2.0`, o mesmo
-cuidado com os submódulos, o e5 e o Qdrant na instalação), os valores "A CONFIRMAR" do catálogo
-com o curador e a 105 (limiar do portão — sem ele, pergunta fora do corpus ainda chega à geração com trechos).
+inicializaria ao clonar a tag, e a deploy key não os lê). A instalação (`agentic-deploy`, passada de encaixe da Fase 5
+na 002, research R31–R35) traz o RAG: `CORE_REF` `v0.2.0` e o `ai-scouting` fixado no commit da Fase 5; o estágio
+`packs` baixa o e5 (`ai-scouting-corpus model fetch /opt/ai-scouting/e5-small`, verificado por sha256) antes do `packs
+check`, e o `runtime` o copia; `ORT_DISABLE_TELEMETRY=1`. O `config/packs.yaml` dá ao `scouting` `qdrant_url:
+http://qdrant:6333` e o `embedding_dir`; o Assistant `scouting` não declara `flow` (logo `rag_first`) e concede a
+coleção. O `docker-compose.yml` sobe o Qdrant (`v1.19.2`, volume `qdrant-data`, sem porta publicada; chave opcional, o
+mesmo valor em `QDRANT_API_KEY` e `AI_SCOUTING_QDRANT_API_KEY`) e a porta do host vem de `AI_CORE_HOST_PORT`. A
+ingestão usa a CLI da própria imagem com o `corpus/` de um clone do `ai-scouting` montado (`docker compose run --rm -v
+../ai-scouting/corpus:/corpus:ro ai-core ai-scouting-corpus ingest /corpus/corpus.yaml`). O estágio `core` já clona o
+`agentic-app` sem submódulos, então o deploy não precisa do ajuste da CI do pack. Segue a 105 (limiar do portão — sem
+ele, pergunta fora do corpus ainda chega à geração com trechos); a curadoria do catálogo fica para depois do
+desenvolvimento.
 
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =

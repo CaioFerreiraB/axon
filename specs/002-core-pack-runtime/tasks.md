@@ -290,6 +290,38 @@ T051 depois de T048 e T050; T052 em paralelo com T051.
 
 ---
 
+## Passada de encaixe da Fase 5 na instalação — 2026-10-13 (research R31–R35; contracts/installation.md "Fase 5")
+
+Caminhos em `agentic-deploy/` (o submódulo → `CaioFerreiraB/agentic-deploy`); o código é commitado lá, e aqui o SDD e o
+ponteiro.
+
+- [X] T056 `Dockerfile` (R31, R32): `CORE_REF=v0.2.0`; `PACKS` com o `ai-scouting` em
+  `c60ffb460e082751e39705b539fbb82aa46eeccb`; no estágio `packs`, depois do `uv pip install` e antes do `packs check`,
+  `/opt/ai-core/bin/ai-scouting-corpus model fetch /opt/ai-scouting/e5-small`; o `runtime` copia `/opt/ai-scouting`
+  do estágio `packs` (dono root, somente leitura para o usuário `ai-core`)
+- [X] T057 [P] `config/packs.yaml` (R32, R33): `scouting.config` com `qdrant_url: http://qdrant:6333` e
+  `embedding_dir: /opt/ai-scouting/e5-small`; `config/assistants.yaml` (R35): `scouting` sem `flow` e com
+  `collections: [scouting]`
+- [X] T058 [P] `docker-compose.yml` (R33, R34): serviço `qdrant` (`qdrant/qdrant:v1.19.2`, volume nomeado
+  `qdrant-data:/qdrant/storage`, sem `ports`); `ai-core` com `depends_on: [qdrant]` e `environment`
+  `AI_SCOUTING_QDRANT_URL=http://qdrant:6333` e `AI_SCOUTING_EMBEDDING_DIR=/opt/ai-scouting/e5-small`; `qdrant` lê
+  `QDRANT__SERVICE__API_KEY` do `.env` quando definida; `.env.example` com a chave opcional (o mesmo valor nas duas
+  variáveis) e as `AI_CORE_RAG_*` comentadas
+- [X] T059 [P] `scripts/check-build.sh` (R35): passo novo depois do 2 — `docker run … test -f
+  /opt/ai-scouting/e5-small/model.onnx -a -f /opt/ai-scouting/e5-small/tokenizer.json` e `ai-scouting-corpus --help`
+- [X] T060 `README.md` do `agentic-deploy`: o Qdrant, a ingestão (R34) com o clone do `ai-scouting`, a chave opcional
+  e o `CORE_REF`
+- [X] T061 Rodar `scripts/check-build.sh` localmente (agente SSH) até passar; depois, com o `.env` local, `docker compose
+  up -d`, a ingestão do corpus real (R34) e uma pergunta ao Assistant `scouting` pela superfície privada — resposta com
+  citação, página e vigência; derrubar com `docker compose down` (o volume do Qdrant fica). *Acrescido na implementação*:
+  `ORT_DISABLE_TELEMETRY=1` na imagem (o onnxruntime tentava gravar um id de telemetria no sistema somente leitura e
+  avisava a cada processo) e a porta do host configurável (`AI_CORE_HOST_PORT`, default 8000)
+- [X] T062 Com o aval do mantenedor: commit e push do `agentic-deploy` e a CI (`build.yml`) verde; no `agentic-app`, este
+  SDD, o `CLAUDE.md` (a instalação com RAG; corrigir a nota que pedia "cuidado com os submódulos" no deploy — o estágio
+  `core` já clona sem submódulos) e o ponteiro do submódulo, e push
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

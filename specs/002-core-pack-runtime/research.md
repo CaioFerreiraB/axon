@@ -408,3 +408,58 @@ Insumos: ADR-009, [ADR-021](../../docs/adr/ADR-021-workspace-ai-core-permanece-n
 - **Rationale** (ADR-024): o motor só conhece o seam; a ordem dos validators continua a da composição.
 - **Alternatives**: filtrar com qualquer validator de streaming, mesmo depois de um em lote (quebraria a ordem: o de
   lote precisa da resposta inteira antes).
+
+## Passada de encaixe da Fase 5 na instalação — 2026-10-13
+
+> Insumos: a nota R20 da 102 (o modelo no estágio `packs`, copiado para o `runtime`, e um Qdrant ao lado do core), o
+> pack `scouting` 0.2.0 (101 US5: `config_schema`, `rag_first`, coleção `scouting`) e o core `v0.2.0` (005 US3–US4).
+> Nenhum seam muda: só a instalação.
+
+### R31 — Versões
+
+- **Decision**: `CORE_REF` default `v0.2.0`; `PACKS` com o `ai-scouting` fixado no commit da Fase 5
+  (`c60ffb460e082751e39705b539fbb82aa46eeccb`). O estágio `core` já clona o `agentic-app` raso e sem submódulos, e o
+  `packs` instala com `--no-sources`, então os submódulos que o `agentic-app` ganhou não afetam o build.
+- **Rationale**: o `scouting` 0.2.0 declara `rag_first`, que só existe no core `v0.2.0` (R29: versões fixadas).
+- **Alternatives**: `main` em vez de tag (build não reprodutível).
+
+### R32 — O modelo de embedding na imagem
+
+- **Decision**: no estágio `packs`, depois de instalar os packs e **antes** do `packs check`,
+  `ai-scouting-corpus model fetch /opt/ai-scouting/e5-small` (revisão e sha256 fixados pela 102; o download é verificado
+  e nunca acontece em runtime); o `runtime` copia `/opt/ai-scouting`. O `config/packs.yaml` aponta `embedding_dir` para
+  esse diretório, e o `packs check` confere que o pack carrega com ele.
+- **Rationale**: a 102 proíbe baixar o modelo em runtime; o `read_config` do pack exige os arquivos na carga, então o
+  `packs check` do build só passa com o modelo presente — a imagem fica autossuficiente e o build valida o que roda.
+- **Alternatives**: montar o modelo por volume em runtime (o `packs check` do build falharia, e a instalação passaria a
+  depender de um passo manual por máquina).
+
+### R33 — O Qdrant ao lado do core
+
+- **Decision**: serviço `qdrant` (`qdrant/qdrant:v1.19.2`, a versão da CI da 102) no `docker-compose.yml`, com volume
+  nomeado para o armazenamento e sem porta publicada (só a rede do compose); o `ai-core` depende dele. O
+  `config/packs.yaml` dá ao `scouting` `qdrant_url: http://qdrant:6333`. Chave do Qdrant opcional, documentada no
+  `.env.example`: o mesmo valor em `QDRANT__SERVICE__API_KEY` (servidor) e `AI_SCOUTING_QDRANT_API_KEY` (pack, FR-012
+  da 101).
+- **Rationale**: o índice é da 102 e o core não o conhece; a instalação só o põe na mesma rede.
+- **Alternatives**: Qdrant embutido (`qdrant_path`) no volume do core (trava o diretório por processo e mistura índice
+  com runtime somente leitura).
+
+### R34 — A ingestão do corpus
+
+- **Decision**: o operador ingere com a CLI da própria imagem, montando o `corpus/` de um clone do `ai-scouting`:
+  `docker compose run --rm -v <ai-scouting>/corpus:/corpus:ro ai-core ai-scouting-corpus ingest /corpus/corpus.yaml`.
+  O serviço `ai-core` recebe `AI_SCOUTING_QDRANT_URL` e `AI_SCOUTING_EMBEDDING_DIR` (os da CLI da 102), apontando para o
+  mesmo Qdrant e o mesmo modelo da configuração do pack.
+- **Rationale**: o corpus mora no git do `ai-scouting` (102), não no pacote; a CLI já está instalada com o pack, e usar
+  a mesma imagem garante a mesma codificação no índice e na busca (a 102 recusa índice de outro modelo).
+- **Alternatives**: copiar o corpus para a imagem (rebuild a cada documento novo).
+
+### R35 — Assistants e o teste da instalação
+
+- **Decision**: o Assistant `scouting` do `config/assistants.yaml` deixa de declarar `flow` (roda no preferido,
+  `rag_first`) e concede `collections: [scouting]`. O `check-build.sh` ganha um passo: o modelo está em
+  `/opt/ai-scouting/e5-small` e `ai-scouting-corpus --help` roda na imagem. A conversa com o índice ingerido é
+  verificação manual (quickstart), não do `check-build.sh` — exige Qdrant e a ingestão.
+- **Rationale**: o `assistants validate` do passo 3 já confere a coleção (PackCollectionCatalog, 011 R35) e o flow.
+- **Alternatives**: subir o Qdrant e ingerir no teste (minutos e 1,3 GB de memória a cada push).
