@@ -141,3 +141,27 @@ uv run pytest
 ```
 
 **Esperado**: contratos (001), Pack Runtime (002), pack genérico (010) e trace (009) verdes na mesma execução.
+
+# Fase 6 — harness de avaliação (US2, US3, US4)
+
+Dentro de `ai-core/`:
+
+```bash
+uv run pytest packages/core/tests/eval packages/core/tests/observability packages/core/tests/packs packages/core/tests/graph packages/contracts/tests
+uv run mypy && uv run ruff check packages && uv run lint-imports
+```
+
+Esperado: as métricas por tabela (recall@k, MRR, ganho do rerank, citação resolvível e inventada, agregação e p50/p95);
+o conjunto dourado com item inválido; a comparação com tolerância e direção; o harness com o motor real no perfil
+`test` e um pack de teste — todas as métricas do relatório, a métrica de domínio do pack, a regressão proposital
+barrada (saída 1), o juiz simulado com média e variância (contracts/eval-harness.md, verificações 1–7).
+
+Com uma instalação real (o `agentic-deploy` com o índice ingerido e um modelo de geração):
+
+```bash
+ai-core eval run --golden golden.yaml --assistant scouting --judge openrouter/<modelo> --report base.json
+ai-core eval run --golden golden.yaml --assistant scouting --baseline base.json   # 0: sem regressão
+ai-core eval compare a.json b.json                                                # benchmark lado a lado
+```
+
+O conjunto dourado do domínio e a calibração são da 105.

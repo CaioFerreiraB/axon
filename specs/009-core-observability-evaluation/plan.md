@@ -189,3 +189,100 @@ Reavaliado com [data-model.md](data-model.md), [contracts/](contracts/) e [quick
 | Duas portas de backend (`TraceExporter` e `TraceReader`, R5) | um exporter para ferramenta externa escreve mas não lê | porta única obrigaria adapters de escrita a implementar uma leitura falsa, e o seam de consulta mentiria |
 | Redação por padrões em texto livre (R7) | mensagem de exceção de provider HTTP carrega `Authorization` | confiar em quem emite transfere um requisito duro (FR-002) para cada módulo futuro |
 | Contador de descartes (R8) | "dados perdidos são sinalizados" não pode depender do backend que falhou | registrar a perda no trace é impossível quando o destino é justamente o que quebrou |
+
+## Fase 6 (US2, US3, US4: harness de avaliação) — 2026-10-13
+
+Insumos lidos: [design.md](design.md) ("Harness de avaliação", "Julgamento por LLM", "Benchmark de modelos", "Portas e
+adapters"), ADR-007, ADR-012, ADR-013, ADR-017 e o [ADR-027](../../docs/adr/ADR-027-metricas-de-dominio-pelo-contrato-de-pack.md)
+(criado por esta passada, da clarificação 3); as cinco clarificações de 2026-10-13; o código do motor (005), da consulta
+de trace, do `GrantResolver` (003), do Pack Runtime (002), do Model Router (006) e da CLI da 011. Pesquisa em
+[research.md](research.md) R13–R27. **Mudanças de seam**: o contrato 001 ganha `ai_core_contracts.eval` e o hook
+opcional `eval_metrics` (ADR-027, contratos `0.1.2`); a 002 ganha o seam `PackEvalMetrics` (ADR-027); a 009 ganha o
+evento `Retrieval` (aditivo, ADR-017), emitido pela 005; o harness nasce com os seams **Eval Harness**, **formato de
+conjunto dourado** e **formato de relatório**.
+
+### Summary — Fase 6
+
+O módulo `ai_core/eval/` executa um conjunto dourado YAML contra um Assistant, item a item, pelo seam Execution Engine
+com a data de referência do item, e lê o trace da requisição para medir recuperação (recall@k, MRR, recall do que foi
+entregue), rerank (ganho), citação (resolvível, inventada, esperada), geração (fidelidade e cobertura por juiz, três
+julgamentos com média e variância) e operação (latência e tempo até o primeiro token p50/p95, tokens, chamadas,
+tokens/s, ações inválidas do controller, rotas do portão, erros, flags). Métricas de domínio vêm dos packs pelo contrato
+001. Linha de base em JSON com tolerância por métrica; só as determinísticas barram o CI. O benchmark de modelos é o
+mesmo harness sobre Assistants que diferem no modelo, com `eval compare`.
+
+### Technical Context — o que muda
+
+- **Dependências**: nenhuma nova (`pyyaml` e `jsonschema` já estão no core; o juiz usa o Model Router).
+- **Storage**: conjunto dourado YAML e relatório/linha de base JSON, em arquivos do operador (versionados no pack).
+- **Testing**: domínio por tabela (casamento, métricas, comparação, validação do conjunto); serviço com o motor real no
+  perfil `test`, um pack de teste com retriever, reranker e métrica de domínio, e juiz simulado; conformidade das portas
+  (memória × arquivo); CLI ponta a ponta.
+- **Performance**: SC-002 — 50 perguntas em até 30 min, em sequência (R22).
+
+### Constitution Check — Fase 6
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| I | ✅ | O core mede sem domínio: evidência por documento, flags contadas sem interpretação, métricas de domínio do pack (ADR-027) |
+| II | ✅ | O harness só usa seams (005, 009, 003, 002, 006); mudanças de seam com ADR-027 e ADR-017 |
+| IV | ✅ | O grant vem da 003 com um `Principal` da rodada, sujeito à ACL e ao orçamento (R21) |
+| V | ✅ | Juiz só offline (FR-006, ADR-007); nada muda no caminho da requisição além de um evento de trace |
+| VI | ✅ | O evento `Retrieval` não carrega texto; o juiz recebe os trechos como dado, com instrução própria |
+| VII | ✅ | Item inválido, juiz ausente, métrica de domínio que levanta e trace sem leitura: explícitos, sem derrubar a rodada |
+| IX | ✅ | Citação medida por `chunk_id` contra o que foi entregue (ADR-007) |
+| X | ✅ | É o instrumento do princípio: linha de base e relatório antes/depois (SC-004) |
+| XII | ✅ | Sequencial, arquivos simples, benchmark = mesmo harness |
+| XIII | ✅ | `api.py`/`domain/`/`ports.py`/`service.py`/`adapters/`; quatro portas, cada uma por I/O ou não-determinismo |
+
+**Module boundary gate (Fase 6)**: `ai_core/eval/**` e `tests/eval/**`; toques declarados em `ai_core_contracts`
+(`eval.py`, `PackBase`, conformidade), `ai_core/packs/` (hook e seam), `ai_core/observability/api.py` (`Retrieval`),
+`ai_core/graph/adapters/langgraph/nodes/common.py` (emissão), `ai_core/bootstrap/` (CLI e composição), com testes de
+cada um; import-linter com os contratos do `eval` (R26).
+
+**Ports & adapters gate (Fase 6)**: `GoldenSetSource` (arquivo), `BaselineStore` (arquivo), `Judge` (modelo) e `Clock`
+(tempo), cada uma com adapter em memória e suíte de conformidade.
+
+**Resultado do gate (antes da Phase 0)**: PASS.
+
+### Project Structure — Fase 6
+
+```text
+ai-core/packages/contracts/src/ai_core_contracts/
+├── eval.py                         # EvalEvidence, EvalItem, EvalChunk, EvalObservation, EvalMetric, ProvidesEvalMetrics
+└── pack.py                         # PackBase.eval_metrics -> ()
+ai-core/packages/core/src/ai_core/
+├── observability/api.py            # Retrieval, RetrievedChunk (ADR-017)
+├── graph/adapters/langgraph/nodes/common.py   # emite Retrieval na validação
+├── packs/{api.py,service.py}       # hook eval_metrics na carga; seam PackEvalMetrics
+├── eval/
+│   ├── api.py                      # EvalHarness, GoldenSet, GoldenItem, Evidence, EvalReport, MetricValue, Comparison
+│   ├── domain/{golden,matching,metrics,judging,compare}.py
+│   ├── ports.py                    # GoldenSetSource, BaselineStore, Judge, Clock
+│   ├── service.py                  # EvalService
+│   └── adapters/{golden_yaml,report_json,judge,memory,cli}.py
+└── bootstrap/{cli.py,wiring.py}    # eval run, eval compare
+```
+
+### Seam Notes for Consumers — Fase 6
+
+| Consumidor | O que precisa saber |
+|---|---|
+| 105 | Conjunto dourado no formato de [contracts/eval-harness.md](contracts/eval-harness.md); métricas de domínio pelo hook `eval_metrics` (contratos `>=0.1.2`); roda com `ai-core eval run` na imagem de instalação; o Assistant precisa admitir o `Principal` da rodada |
+| 005 | Emite `Retrieval` na validação a partir da Turn View; nenhum seam do motor muda |
+| 011 | Registra `eval run` e `eval compare`; compõe o `EvalService` com o motor, a consulta de trace, a 003, a 002 e o juiz pelo Model Router |
+| CI de packs | `ai-core eval run … --baseline` sai 1 em regressão determinística |
+
+### Constitution Check — pós-design (Fase 6)
+
+Reavaliado com a seção "Fase 6" de [data-model.md](data-model.md), [contracts/eval-harness.md](contracts/eval-harness.md)
+e [quickstart.md](quickstart.md): **PASS** — cada edge case da spec tem comportamento definido (item inválido, juiz
+ausente); só métricas determinísticas barram (SC-003); as mudanças de seam têm ADR.
+
+### Complexity Tracking — Fase 6
+
+| Complexidade | Why Needed | Simpler Alternative Rejected Because |
+|---|---|---|
+| Protocolo de métrica no contrato 001 (ADR-027) | métrica de domínio no mesmo relatório e na mesma barreira, sem o pack importar o core | cálculo fora do harness duplicaria linha de base e CI |
+| Evento `Retrieval` com proveniência | recall por documento precisa de documento e seção dos trechos | ids sozinhos não casam com evidência por documento (clarificação 2) |
+| Três julgamentos por item | variância visível; juiz não barra sozinho | um julgamento esconderia a instabilidade do juiz |

@@ -94,3 +94,10 @@ class TraceQuery(Protocol):
 - Não expõem o formato do backend: quem lê recebe `TraceRecord`, não linhas de arquivo ([research.md](../research.md) R9).
 - Não conhecem quem emite: nenhum tipo de 002, 005 ou 006 aparece aqui — assistant, flow, packs, papel e provider
   entram como texto.
+
+## Fase 6 (2026-10-13): `Retrieval`
+
+`Retrieval` e `RetrievedChunk` foram acrescentados pela 005 na Fase 6, sob o ADR-017: por execução com recuperação, os
+trechos candidatos, reordenados e entregues à geração — identificador, score e proveniência (documento, versão, status,
+seção, página), **nunca o texto**. O harness da 009 os lê pela consulta de trace (research R15).
+

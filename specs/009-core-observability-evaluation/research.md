@@ -165,3 +165,228 @@ contrato geral de que `ai_core.observability` não importa outros módulos do co
 `opentelemetry` torna executável a decisão R1: se alguém puser a biblioteca no seam, o CI barra.
 
 **Alternatives**: confiar na revisão (a 002 já estabeleceu que fronteira se verifica em CI).
+
+## Fase 6 (US2, US3, US4: harness de avaliação) — 2026-10-13
+
+> Insumos: [design.md](design.md) ("Harness de avaliação", "Julgamento por LLM", "Benchmark de modelos", "Portas e
+> adapters"), ADR-007, ADR-012, ADR-013, ADR-017 e o [ADR-027](../../docs/adr/ADR-027-metricas-de-dominio-pelo-contrato-de-pack.md);
+> as cinco clarificações de 2026-10-13. Conferido no código: o seam Execution Engine (005, `reference_time` no
+> `ExecutionRequest`), a consulta de trace (`TraceQuery`), o `GrantResolver` da 003, o Pack Runtime (002), o Model Router
+> (006) e o registro de subcomandos da 011.
+
+### R13 — Escopo e toques fora da 009
+
+**Decision**: o módulo `ai_core/eval/` (US2–US4). Toques declarados: **001** — `ai_core_contracts.eval` (`EvalItem`,
+`EvalObservation`, `EvalChunk`, `EvalMetric`, `ProvidesEvalMetrics`) e o default em `PackBase`, contratos `0.1.2`
+(ADR-027); **002** — coleta do hook `eval_metrics` na carga e o seam `PackEvalMetrics`; **005** — o evento `Retrieval`
+emitido na validação (R15); **009/observabilidade** — o tipo `Retrieval` e `RetrievedChunk` (aditivos, ADR-017);
+**011** — os subcomandos `ai-core eval run` e `ai-core eval compare` e a composição do harness. Ao fim, as tags
+`contracts-v0.1.2` e `v0.3.0` (ADR-021).
+
+**Rationale**: o harness é adapter primário sobre seams que já existem; o resto são as duas lacunas que a clarificação
+nomeou (o que foi recuperado e as métricas de domínio).
+
+**Alternatives**: um repositório ou distribuição à parte para o harness (o design o põe em `ai_core/eval/`; a imagem de
+instalação já tem os packs, R25).
+
+### R14 — O harness como adapter primário
+
+**Decision**: `eval/service.py` (`EvalService`) executa cada item pelo seam **Execution Engine** (`run(grant,
+ExecutionRequest(..., reference_time=item))`), consumindo os eventos, e depois lê o trace da requisição pela consulta
+deste módulo. O grant vem do `GrantResolver` da 003, pelo nome do Assistant e um `Principal` da rodada (R21). Nada de
+internals do motor, do Pack Runtime ou do índice.
+
+**Rationale** (design.md; 008 FR-012; ADR-013): é o único caminho que fixa a data de referência, e ler o trace é o que
+torna as métricas independentes do flow.
+
+**Alternatives**: chamar a API HTTP (não fixa a data; 008 FR-012).
+
+### R15 — O evento `Retrieval` (clarificação 1)
+
+**Decision**: tipo novo e aditivo da 009 (ADR-017): `Retrieval(request_id, retrieved, reranked, delivered)`, cada lista
+de `RetrievedChunk(chunk_id, score, document, version, status, section, page)` — a proveniência do contrato 001, **nunca
+o texto**. A 005 o emite uma vez por execução, no passo de validação, a partir da Turn View que já monta
+(`retrieved`, `reranked`, `generation_context`), e só quando alguma das três listas tem trecho. Vale para qualquer
+flow: no `agentic`, os trechos das tools de recuperação do loop; no `rag_first`, os candidatos, a junção do rerank e os
+entregues.
+
+**Rationale**: o motor já projeta exatamente essas listas para os validators (US4 da 005); emitir a projeção é o menor
+toque, e o harness lê o mesmo que os validators leram. Sem texto, o trace segue sem conteúdo do corpus.
+
+**Alternatives**: no evento final do seam (muda o seam, ADR); no `ToolCall` da 004 (não veria o rerank nem o corte por
+teto).
+
+### R16 — Formato do conjunto dourado (FR-003; clarificação 2)
+
+**Decision**: arquivo YAML (`version: 1`), versionado pelo pack:
+
+| Campo | Regra |
+|---|---|
+| `name` | texto não vazio |
+| `assistant` | default da rodada (o `--assistant` da CLI tem prioridade) |
+| `k` | lista de inteiros ≥ 1 para recall@k; default `[5, 20]` |
+| `tolerances` | métrica → tolerância absoluta ≥ 0; default 0,02 para as determinísticas |
+| `items[].id` | único no arquivo, `^[a-z0-9][a-z0-9._-]*$` |
+| `items[].question` | texto não vazio |
+| `items[].reference_time` | ISO 8601 com fuso (obrigatório, ADR-013) |
+| `items[].expected_documents` | lista de evidências: `document` (obrigatório), `section` e `chunk_id` opcionais |
+| `items[].reference_answer` | texto (pode faltar: cobertura fica ausente para o item) |
+| `items[].expected_citations` | lista de evidências, como acima |
+| `items[].extra` | mapeamento JSON opaco, entregue às métricas de domínio |
+
+Item com problema de formato vira **item inválido**, nomeado no relatório, e não roda; o arquivo inteiro só é recusado
+quando não é YAML ou não tem `items`. Documento fora do corpus (Edge Case da spec): o core não conhece o corpus — a
+conferência contra o catálogo é do pack (105, nos testes dele) —; o harness aponta, como **aviso** no item, cada
+evidência esperada que não aparece entre os candidatos (`retrieved`) de nenhum item da rodada ("evidência não vista").
+É sinal de evidência mal escrita ou fora do índice, sem invalidar o item. Casamento de evidência: `document` (e `section`, se dada) por igualdade
+normalizada — caixa, espaços em sequência e acentos —; `chunk_id`, se dado, por igualdade exata e com prioridade.
+
+**Rationale**: YAML como os outros arquivos do operador (`packs.yaml`, `assistants.yaml`, `mcp.yaml`); evidência por
+documento sobrevive a mudanças de chunking (clarificação 2).
+
+**Alternatives**: JSONL (pior para revisão humana de 30–50 perguntas).
+
+### R17 — Métricas do core (FR-004)
+
+**Decision**: por item, sobre o `Retrieval` e os demais eventos do trace e da execução; agregadas pela média entre os
+itens em que se aplicam (salvo as de operação):
+
+| Camada | Métrica | Definição | Determinística |
+|---|---|---|---|
+| Recuperação | `recall@k` (cada k) | fração das evidências esperadas casadas nos k primeiros de `retrieved` | sim |
+| Recuperação | `mrr` | 1/posição da primeira evidência casada em `retrieved` (0 se nenhuma) | sim |
+| Recuperação | `delivered_recall` | fração das evidências casadas em `delivered` (o que o modelo viu) | sim |
+| Rerank | `rerank_gain` | `recall@n(reranked) − recall@n(retrieved)`, com n = tamanho de `reranked` | sim |
+| Citação | `citation_resolvable_rate` | fração das citações finais cujo `chunk_id` está em `delivered` | não |
+| Citação | `citation_invented_rate` | fração das citações finais fora de `delivered` | não |
+| Citação | `expected_citation_recall` | fração das citações esperadas casadas nas finais | não |
+| Geração | `faithfulness`, `coverage` | juiz (R19), 0 a 1 | não |
+| Operação | `latency_ms` p50/p95, `ttft_ms` p50/p95, `tokens_per_answer`, `model_calls_per_answer`, `generation_tokens_per_s`, `controller_invalid_rate`, `error_rate`, `gate_routes` (distribuição) | dos eventos da execução e do trace | não |
+| Flags | `flag_rate:<flag>` | fração das respostas com cada flag do evento final, sem interpretar o nome | não |
+
+"Determinística" depende só do índice, da data e da composição — não do texto gerado. Recuperação "sem trecho nenhum"
+num item com evidência esperada conta 0; item sem evidência esperada fica fora das métricas de recuperação.
+
+**Rationale**: tabela do design; a citação é mecânica (ADR-007) e se mede por `chunk_id`; as flags (por exemplo a de
+"não fundamentada") são contadas sem o core conhecer o domínio (princípio I).
+
+**Alternatives**: recall por trecho (quebra com chunking, clarificação 2).
+
+### R18 — Métricas de domínio (FR-005; ADR-027)
+
+**Decision**: o harness pede ao seam `PackEvalMetrics` da 002 as métricas da composição do Assistant, monta o
+`EvalItem` e o `EvalObservation` (contrato 001) de cada item e chama `measure`. Nome no relatório: `<pack>:<métrica>`.
+Exceção numa métrica de domínio vira registro no relatório (métrica ausente para o item), nunca falha da rodada. Só as
+declaradas `deterministic` podem barrar.
+
+**Rationale**: ADR-027.
+
+**Alternatives**: as do ADR-027.
+
+### R19 — Juiz (FR-006; clarificação 4)
+
+**Decision**: porta `Judge` (`async judge(question, answer, passages, reference) -> Judgement(faithfulness, coverage)`);
+adapter sobre o Model Router (006) com uma `ModelPolicy` da rodada (`generation` = o modelo juiz; allowlist = só ele),
+`request_id` próprio por julgamento (`<id do item>:judge:<n>`), saída por `response_format` com esquema
+(`{"faithfulness": number, "coverage": number | null}`, 0 a 1). Três julgamentos por item; o relatório traz média e
+variância. Juiz que falha num julgamento: ele fica fora da média, e a métrica do item fica ausente se os três falham.
+Sem juiz configurado (`--judge`), `faithfulness` e `coverage` aparecem como ausentes. O prompt do juiz é do core,
+neutro quanto ao domínio.
+
+**Rationale**: o design restringe o juiz ao offline; o Model Router já aplica allowlist, trace e saída estruturada.
+
+**Alternatives**: o modelo de geração do Assistant (clarificação 4, opção C — juiz e réu iguais).
+
+### R20 — Linha de base, tolerância e CI (FR-007, FR-008; US3)
+
+**Decision**: porta `BaselineStore` (`load(path)`, `save(path, report)`), adapter em arquivo JSON — o próprio relatório
+de uma rodada aceita. Comparação pura (`domain/compare.py`): por métrica agregada, `delta = atual − base`, regressão
+quando `delta` piora além da tolerância no sentido da métrica (`better`); só métricas determinísticas barram. A CLI sai
+com **0** sem regressão, **1** com regressão determinística, **2** com entrada inválida (arquivo ilegível, Assistant
+inexistente). `--update-baseline` grava o relatório como nova base depois de uma rodada sem regressão (ou com
+`--force`). Métrica nova (sem valor na base) não regride; métrica que sumiu é apontada.
+
+**Rationale**: SC-003 (toda regressão determinística barrada) sem que a variância do texto gerado derrube o CI.
+
+**Alternatives**: tolerância relativa (instável perto de 0).
+
+### R21 — O `Principal` da rodada
+
+**Decision**: a CLI aceita `--principal <subject>` (default `eval:harness`) e `--group` (repetível); o `Principal` usa
+o esquema `api_key`. O Assistant avaliado precisa admiti-lo na ACL (`allow`), como qualquer chamador; orçamento e
+limites valem como para os outros.
+
+**Rationale**: a resolução de grant é a da 003, sem atalho — avaliar o que roda em produção.
+
+**Alternatives**: um principal privilegiado que ignora a ACL (avaliaria outra coisa).
+
+### R22 — Execução e tempo
+
+**Decision**: itens em sequência, na ordem do arquivo; `request_id` = `eval-<rodada>-<item>`, com a rodada estampada pela
+porta `Clock`; latência e tempo até o primeiro token medidos pelo `monotonic` da mesma porta (do `run` ao `FinalEvent`
+e ao primeiro `TokenEvent`); `stream=True`. Falha antes do primeiro evento (`ExecutionRequestInvalid`, Assistant
+indisponível) marca o item como falho e segue.
+
+**Rationale**: o hardware alvo é um nó só, e a ordem fixa torna as rodadas comparáveis; SC-002 (50 perguntas em até
+30 min) cabe com modelo local de 1–2 s por resposta.
+
+**Alternatives**: concorrência (mediria disputa pelo modelo, não o sistema).
+
+### R23 — Relatório (formato de seam)
+
+**Decision**: JSON (`version: 1`): metadados da rodada (nome do conjunto, Assistant, juiz, horário, versão do core,
+`k`), `metrics` (agregadas: `value`, `variance` quando houver, `n` de itens, `deterministic`, `better`), `items` (por
+item: métricas, citações, flags, registros, rotas do portão, invalidez ou falha) e `annotations` (texto livre do
+operador). Saída humana no terminal: uma tabela das métricas e, na comparação, o delta e a regressão.
+
+**Rationale**: o relatório é seam (Module Boundary): a linha de base é um relatório, e o `compare` lê dois.
+
+**Alternatives**: CSV (perde a estrutura por item).
+
+### R24 — Benchmark de modelos (US4; clarificação 5)
+
+**Decision**: comparar modelos = comparar Assistants que diferem só no modelo — o operador os declara no
+`assistants.yaml` — rodando `eval run` uma vez por Assistant, e `ai-core eval compare <relatório>…` mostra as métricas
+lado a lado. RAM e CPU entram por `--annotate "<texto>"` no `eval run` (gravado em `annotations`). A confiabilidade de
+tool calling é a `controller_invalid_rate`; a "qualidade em português" da US4 é a `coverage` julgada num conjunto dourado
+em português, ao lado da `faithfulness` — nenhuma métrica nova.
+
+**Rationale**: o grant continua o da 003 (sem trocar modelo por fora da allowlist); o benchmark é o mesmo harness.
+
+**Alternatives**: um `--model` que sobrescreve a política do grant (contornaria a allowlist do Assistant).
+
+### R25 — Onde roda
+
+**Decision**: subcomandos da 011 — `ai-core eval run --golden <arquivo> [--assistant] [--judge provider/modelo]
+[--baseline <arquivo>] [--update-baseline] [--report <arquivo>] [--principal] [--group] [--annotate]` e `ai-core eval
+compare <relatório> <relatório>…` —, que sobem a plataforma do perfil configurado sem abrir a API e compõem o
+`EvalService` com o motor, a consulta de trace, a 003, a 002, o juiz e a linha de base. O backend de trace precisa ler
+(memória ou JSONL); sem leitura, a rodada sai com 2 e explica.
+
+**Rationale**: design.md ("subcomando `ai-core eval run`, registrado pela 011"); roda na imagem de instalação, que já
+tem os packs (105).
+
+**Alternatives**: um executável à parte (duplicaria a composição da 011).
+
+### R26 — Portas, testes e fronteiras
+
+**Decision**: `eval/api.py` (seam: `EvalHarness`, `GoldenSet`, `GoldenItem`, `Evidence`, `EvalReport`, `MetricValue`,
+`Comparison`, `GoldenSetError`); `eval/domain/` (`golden.py` validação e conversão, `matching.py`, `metrics.py`,
+`judging.py` agregação, `compare.py`) puro; `eval/ports.py` (`Judge`, `BaselineStore`, `GoldenSetSource`, `Clock`);
+`eval/service.py`; `eval/adapters/` (YAML, JSON, juiz pelo Model Router, CLI). import-linter: `ai_core.eval` só importa
+os `api.py` de 002, 003, 005, 006 e 009; camadas como nos outros módulos. Testes: domínio por tabela; o serviço com o
+motor real no perfil `test` e um pack de teste com retriever, reranker e uma métrica de domínio; conformidade das portas
+(memória × arquivo).
+
+**Rationale**: princípio XIII, como os outros módulos.
+
+**Alternatives**: nenhum.
+
+### R27 — Release
+
+**Decision**: ao fim, `contracts-v0.1.2` (contratos `0.1.2`) e `v0.3.0` (core; o `ai-generic` não muda), no
+`agentic-app` (ADR-021). A 105 aponta para elas.
+
+**Rationale**: a 105 precisa do harness e do protocolo de métrica numa referência estável.
+
+**Alternatives**: commit (ADR-021 prevê tag).

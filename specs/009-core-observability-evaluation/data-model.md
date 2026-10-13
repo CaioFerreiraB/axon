@@ -150,3 +150,75 @@ A redação é idempotente: aplicá-la duas vezes dá o mesmo resultado.
 | `Clock` | `now() -> datetime` (com timezone) | fixo (teste), sistema |
 
 Detalhes e suítes de conformidade em [contracts/ports.md](contracts/ports.md).
+
+# Fase 6 (US2, US3, US4: harness) — 2026-10-13
+
+Decisões em [research.md](research.md) R13–R27.
+
+## Trace (aditivo, ADR-017)
+
+### `RetrievedChunk`
+
+| Campo | Tipo | Regra |
+|---|---|---|
+| `chunk_id` | `str` | não vazio |
+| `score` | `float` | o `Chunk.score` |
+| `document` | `str` | não vazio |
+| `version`, `status`, `section` | `str \| None` | do `Chunk` (001) |
+| `page` | `int \| None` | ≥ 1 quando presente |
+
+Nunca o texto do trecho.
+
+### `Retrieval` — emitido pela 005 na validação
+
+| Campo | Tipo | Regra |
+|---|---|---|
+| `request_id` | `str` | não vazio |
+| `retrieved` | `tuple[RetrievedChunk, ...]` | os candidatos (Turn View `retrieved`), na ordem |
+| `reranked` | `tuple[RetrievedChunk, ...]` | a junção do rerank (vazia fora do `rag_first`) |
+| `delivered` | `tuple[RetrievedChunk, ...]` | o `generation_context` |
+
+Emitido só quando alguma lista tem trecho. Registro `type == "retrieval"`.
+
+## Contrato 001 — `ai_core_contracts.eval` (ADR-027)
+
+| Tipo | Campos |
+|---|---|
+| `EvalEvidence` | `document: str`, `section: str \| None`, `chunk_id: str \| None` |
+| `EvalItem` | `id`, `question`, `reference_time` (com fuso), `expected_documents: tuple[EvalEvidence, ...]`, `reference_answer: str \| None`, `expected_citations: tuple[EvalEvidence, ...]`, `extra: Mapping[str, JSONValue]` |
+| `EvalChunk` | `chunk_id`, `score`, `document`, `version`, `status`, `section`, `page` |
+| `EvalObservation` | `answer: str`, `citations: tuple[Citation, ...]`, `flags: frozenset[str]`, `retrieved`, `reranked`, `delivered: tuple[EvalChunk, ...]`, `issue_kinds: tuple[str, ...]` |
+| `EvalMetric` (Protocol) | `name: str`, `better: Literal["higher", "lower"]`, `deterministic: bool`, `measure(item, observation) -> float \| None` |
+| `ProvidesEvalMetrics` (Protocol) | `eval_metrics(ctx: PackContext) -> Sequence[EvalMetric]` |
+
+`PackBase.eval_metrics` devolve `()`. `__version__ = "0.1.2"`.
+
+## 002 — seam `PackEvalMetrics`
+
+`eval_metrics(composition) -> Sequence[PackEvalMetric]`, com `PackEvalMetric(pack: str, metric: EvalMetric)`, na ordem
+da composição; coletado uma vez na carga (hook que levanta ou devolve tipo errado → pack em erro, como os outros).
+
+## Harness (`ai_core/eval/api.py`)
+
+| Tipo | Campos | Regra |
+|---|---|---|
+| `Evidence` | `document`, `section`, `chunk_id` | `document` não vazio |
+| `GoldenItem` | `id`, `question`, `reference_time`, `expected_documents`, `reference_answer`, `expected_citations`, `extra` | id `^[a-z0-9][a-z0-9._-]*$`; `reference_time` com fuso |
+| `GoldenSet` | `name`, `assistant: str \| None`, `k: tuple[int, ...]`, `tolerances: Mapping[str, float]`, `items`, `invalid: tuple[InvalidItem, ...]` | ids únicos; `k` ≥ 1; tolerâncias ≥ 0 |
+| `InvalidItem` | `id: str \| None`, `reason: str` | o item não roda |
+| `MetricValue` | `name`, `value: float \| None`, `variance: float \| None`, `n: int`, `deterministic: bool`, `better` | `None` = ausente |
+| `ItemResult` | `id`, `metrics: Mapping[str, float \| None]`, `citations`, `flags`, `issue_kinds`, `gate_route: str \| None`, `failure: str \| None` | |
+| `EvalReport` | `golden_set`, `assistant`, `judge: str \| None`, `started_at`, `core_version`, `k`, `metrics: tuple[MetricValue, ...]`, `items: tuple[ItemResult, ...]`, `invalid`, `annotations: tuple[str, ...]` | |
+| `MetricDelta` | `name`, `baseline`, `current`, `delta`, `tolerance`, `regressed: bool` | só determinísticas regridem |
+| `Comparison` | `deltas: tuple[MetricDelta, ...]`, `missing: tuple[str, ...]` | `regressed` = alguma delta regrediu |
+
+### Portas (`ai_core/eval/ports.py`)
+
+| Porta | Métodos |
+|---|---|
+| `GoldenSetSource` | `load(path) -> GoldenSet` (levanta `GoldenSetError` só para arquivo ilegível ou sem `items`) |
+| `BaselineStore` | `load(path) -> EvalReport \| None`, `save(path, report)` |
+| `Judge` | `async judge(*, question, answer, passages: Sequence[str], reference: str \| None, request_id) -> Judgement` |
+| `Clock` | `now() -> datetime`, `monotonic() -> float` |
+
+`Judgement(faithfulness: float | None, coverage: float | None)`, em `[0, 1]`.

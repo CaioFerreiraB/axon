@@ -1,6 +1,6 @@
 ---
 
-description: "Task list for 009 — trace por requisição (Trace Sink e consulta), Fase 1"
+description: "Task list for 009 — trace por requisição (Fase 1) e harness de avaliação (Fase 6)"
 ---
 
 # Tasks: Trace por requisição (Trace Sink e consulta)
@@ -13,8 +13,8 @@ description: "Task list for 009 — trace por requisição (Trace Sink e consult
 **Tests**: incluídos. A constituição exige suíte de conformidade para cada seam exposto e para cada porta secundária
 (princípio XIII), e FR-002 (nenhuma credencial) e FR-011 (falha do backend não interrompe) só se demonstram por teste.
 
-**Organization**: só a **User Story 1** (Fase 1 do roadmap). US2–US4 (harness, regressão em CI, benchmark) são Fase 6:
-nada é criado em `ai_core/eval/` nesta fase.
+**Organization**: **User Story 1** (Fase 1 do roadmap, Phases 1–4, T001–T018); **US2–US4** (harness, regressão em CI,
+benchmark) na seção "Fase 6" (Phases 5–11, T019–T046).
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -174,6 +174,239 @@ quebrar o backend de propósito e ver o arquivo JSONL com rotação por dia.
 
 ---
 
+# Fase 6 (US2, US3, US4: harness de avaliação) — 2026-10-13
+
+**Escopo**: o módulo `ai_core/eval/` e os toques declarados no [research.md](research.md) R13 — 001 (ADR-027,
+contratos `0.1.2`), 002 (seam `PackEvalMetrics`), 009/observabilidade (evento `Retrieval`, ADR-017), 005 (emissão) e
+011 (`ai-core eval run|compare`). Tipos na seção "Fase 6" do [data-model.md](data-model.md); contrato em
+[contracts/eval-harness.md](contracts/eval-harness.md). Caminhos relativos a `ai-core/`, salvo indicação; testes novos
+com `pytestmark = pytest.mark.us2`, `us3` ou `us4`. Testes primeiro em cada tarefa.
+
+## Phase 5: Setup da Fase 6
+
+- [ ] T019 Esqueleto `packages/core/src/ai_core/eval/` (`__init__.py` com docstring: consumidores importam
+  `ai_core.eval.api`; `domain/__init__.py`; `adapters/__init__.py`); em `pyproject.toml`, `packages/core/tests/eval` no
+  `pythonpath` do pytest e as descrições das marcas `us2` ("009 US2 — harness"), `us3` ("009 US3 — regressão em CI") e
+  `us4` ("009 US4 — benchmark de modelos")
+
+---
+
+## Phase 6: Fundação da Fase 6 (Blocking Prerequisites)
+
+**⚠️ CRITICAL**: nenhuma tarefa de US2–US4 antes desta fase
+
+- [ ] T020 [P] Toque declarado no 001 (ADR-027). **Teste primeiro** em `packages/contracts/tests/test_eval_contracts.py`:
+  `EvalEvidence(document, section=None, chunk_id=None)` recusa `document` vazio; `EvalItem` exige `id`, `question` não
+  vazia e `reference_time` com fuso, congela as tuplas e o `extra`; `EvalChunk(chunk_id, score, document, version,
+  status, section, page)` recusa `page < 1`; `EvalObservation` congela listas e `flags`; um objeto com `name`, `better ∈
+  {"higher", "lower"}`, `deterministic` e `measure` satisfaz `EvalMetric` (runtime_checkable); `PackBase().eval_metrics(ctx)
+  == ()`; `AgentPack` não muda (um pack sem o hook continua conforme); a conformidade (`check_pack`) confere o hook
+  quando presente — devolve sequência de `EvalMetric`, nome não vazio e único, `better` válido, `measure` síncrono — e
+  aponta cada violação; `__version__ == "0.1.2"`. Depois: `src/ai_core_contracts/eval.py`, o default em `pack.py`, as
+  exportações em `__init__.py` (e o teste de nomes públicos), a checagem em `testing/conformance.py`, `_version.py` e
+  o `pyproject.toml` dos contratos em `0.1.2`; a documentação em `specs/001-core-contracts/contracts/python-api.md` e
+  `testing-kit.md` (citando o ADR-027); a suíte também no piso 3.12
+- [ ] T021 [P] Toque declarado na 002 (ADR-027; R13) (depende de T020). **Teste primeiro** em
+  `packages/core/tests/packs/contract/test_packs_eval_metrics_seam.py`: pack com `eval_metrics` → `PackEvalMetric(pack,
+  metric)` na ordem da composição e o hook chamado uma vez, na carga; pack sem o método (não herda de `PackBase`) → nenhum;
+  hook que levanta ou devolve tipo errado → pack em erro com a mensagem; composição revalidada. Depois: `PackEvalMetric`
+  e o `Protocol` `PackEvalMetrics` em `packs/api.py` (teste de nomes públicos), a coleta em `_collect_catalog` e o
+  método em `PackRuntime`; `specs/002-core-pack-runtime/contracts/pack-runtime-api.md`
+- [ ] T022 [P] Toque na observabilidade (ADR-017; R15). **Teste primeiro** em
+  `packages/core/tests/observability/unit/test_observability_retrieval.py`: `RetrievedChunk` recusa `chunk_id` e
+  `document` vazios, `page < 1` e score NaN; `Retrieval(request_id, retrieved, reranked, delivered)` congela as listas;
+  o registro tem `type == "retrieval"` e as listas como objetos JSON sem campos `None` e **sem texto** (nenhum campo
+  `text`); os backends de memória e JSONL o guardam. Depois: as dataclasses e o membro em `TraceEvent` em
+  `observability/api.py`, `EXPECTED_NAMES`, e `contracts/record-format.md` (um exemplo) e `data-model.md` da 009
+- [ ] T023 Toque na 005 (R15) (depende de T022). **Teste primeiro** em `packages/core/tests/graph/contract/test_retrieval_trace.py`:
+  no `rag_first` coberto, um `Retrieval` com `retrieved` = candidatos, `reranked` = junção e `delivered` = os entregues,
+  na ordem, com a proveniência de cada `Chunk`; no `chat`, nenhum; no `agentic` com uma tool de recuperação, `retrieved`
+  e `delivered` = os chunks do passo; o evento sai depois da geração e antes dos `ValidationRun`. Depois: a emissão em
+  `validate_answer` (`graph/adapters/langgraph/nodes/common.py`), a partir da Turn View que o passo já monta, só quando
+  alguma lista tem trecho
+- [ ] T024 [P] `packages/core/src/ai_core/eval/api.py` (R26; data-model "Harness"). **Teste primeiro** em
+  `packages/core/tests/eval/unit/test_eval_api.py`: `Evidence` recusa `document` vazio; `GoldenItem` exige id
+  `^[a-z0-9][a-z0-9._-]*$`, pergunta não vazia e `reference_time` com fuso; `GoldenSet` recusa ids repetidos, `k` vazio
+  ou < 1 e tolerância negativa; `MetricValue`, `ItemResult`, `EvalReport`, `MetricDelta` e `Comparison` (`regressed` =
+  alguma delta regrediu) congelados; o `Protocol` `EvalHarness`; `GoldenSetError`; nomes públicos exatos. Depois: o
+  módulo (só stdlib, contratos e `api.py`s)
+- [ ] T025 [P] `eval/domain/golden.py` (R16) (depende de T024). **Teste primeiro** em
+  `packages/core/tests/eval/unit/test_eval_golden.py`, por tabela, a partir do mapeamento lido do YAML: válido →
+  `GoldenSet` com defaults (`k = (5, 20)`, tolerância 0,02 para as determinísticas); item sem pergunta, com
+  `reference_time` sem fuso, com id inválido ou repetido, evidência sem `document`, `extra` que não é mapeamento →
+  `InvalidItem` nomeando o campo, e o resto segue; arquivo sem `items` ou `version` diferente de 1 → `GoldenSetError`.
+  Depois: a conversão pura
+- [ ] T026 [P] `eval/domain/matching.py` (R16). **Teste primeiro** em `packages/core/tests/eval/unit/test_eval_matching.py`:
+  normalização (casefold, espaços em sequência, acentos removidos por NFKD); evidência com `chunk_id` casa só pelo id;
+  sem id, casa por `document` e, se dada, `section`; `first_match(evidences, chunks)` devolve a posição 1-based; evidência
+  sem casamento conta como não recuperada
+- [ ] T027 [P] `eval/domain/metrics.py` (R17) (depende de T026). **Teste primeiro** em
+  `packages/core/tests/eval/unit/test_eval_metrics.py`, por tabela: `recall@k` para cada k, `mrr`, `delivered_recall`,
+  `rerank_gain` (n = tamanho de `reranked`), as três de citação (contra `delivered` e contra as esperadas), as de
+  operação (p50/p95 por posição mais próxima, médias), `controller_invalid_rate`, `error_rate` (algum registro `error`),
+  `gate_routes` e `flag_rate:<flag>`; item sem evidência esperada fica fora das de recuperação; agregação pela média dos
+  itens em que se aplicam, com `n`; a marca `deterministic` e `better` de cada métrica; os avisos de "evidência não
+  vista" (evidência esperada que não casa com nenhum candidato de nenhum item da rodada, R16). Depois: as funções puras
+- [ ] T028 [P] `eval/domain/judging.py` (R19). **Teste primeiro** em `packages/core/tests/eval/unit/test_eval_judging.py`:
+  três julgamentos → média e variância; julgamento ausente fica fora; os três ausentes → métrica ausente no item;
+  valores fora de `[0, 1]` recortados; a mensagem do juiz montada só com pergunta, resposta, trechos e referência, com a
+  instrução neutra. Depois: o módulo
+- [ ] T029 [P] `eval/domain/compare.py` (R20). **Teste primeiro** em `packages/core/tests/eval/unit/test_eval_compare.py`:
+  `delta = atual − base`; regressão só quando piora além da tolerância no sentido de `better` e só nas determinísticas;
+  tolerância do conjunto ou default; métrica nova não regride; métrica que sumiu vai em `missing`; métrica ausente (None)
+  num dos lados não regride. Depois: a função pura
+- [ ] T030 `eval/ports.py` e `eval/adapters/memory.py` (R26) (depende de T024): `GoldenSetSource`, `BaselineStore`,
+  `Judge` (`Judgement(faithfulness, coverage)`), `Clock`; em memória: `InMemoryGoldenSetSource` (conjuntos por caminho),
+  `InMemoryBaselineStore`, `ScriptedJudge` (roteiro de julgamentos, inclusive falha), `FixedEvalClock` (`now` fixo e
+  `monotonic` por roteiro)
+- [ ] T031 [P] `eval/adapters/golden_yaml.py` e `eval/adapters/report_json.py` (R16, R20, R23) (depende de T025, T030).
+  **Teste primeiro** em `packages/core/tests/eval/contract/test_eval_ports.py`, contra memória e arquivo (`tmp_path`):
+  YAML lido vira o `GoldenSet` da T025, arquivo ilegível → `GoldenSetError`; relatório gravado e lido de volta é igual
+  (ida e volta), base inexistente → `None`, `version` desconhecida → erro claro
+
+**Checkpoint**: contratos `0.1.2`, seam da 002, evento `Retrieval` emitido, domínio do harness e portas prontos
+
+---
+
+## Phase 7: User Story 2 — Medir a qualidade com um conjunto dourado (Priority: P1) 🎯 MVP da Fase 6
+
+**Goal**: o harness roda um conjunto dourado contra um Assistant e produz o relatório com as métricas de recuperação,
+rerank, geração, citação e operação, mais as de domínio do pack.
+
+**Independent Test**: `uv run pytest packages/core/tests/eval -m us2` — conjunto mínimo contra um pack de teste com
+retriever no perfil `test`: todas as métricas do R17 e a de domínio no relatório.
+
+- [ ] T032 [P] [US2] `packages/core/tests/eval/integration/test_eval_run.py` (contracts/eval-harness.md, verificações 1, 2,
+  6 e 7; Edge Case "documento fora do corpus"): plataforma no perfil `test` com `overrides` (`pack_source` com um pack de teste — retriever da coleção `docs`,
+  reranker, uma métrica de domínio `deterministic` e o registro do `reference_time` que a preparação viu — e `providers`
+  com um gerador que cita o primeiro `id:` do contexto); conjunto com 3 itens válidos e 1 inválido; espera-se: o
+  inválido nomeado no relatório e não executado; para os válidos, `recall@5`, `recall@20`, `mrr`, `delivered_recall`,
+  `rerank_gain`, as de citação, as de operação e `docs:<métrica>` com valores; o `reference_time` de cada item visto
+  pela preparação; sem juiz, `faithfulness` e `coverage` ausentes; com o `ScriptedJudge`, média e variância; um item
+  cuja evidência nomeia um documento que o pack não tem sai com o aviso "evidência não vista", sem invalidar o item
+- [ ] T033 [P] [US2] `packages/core/tests/eval/contract/test_eval_judge.py` (R19): o juiz pelo Model Router com um
+  provider simulado — `response_format` com esquema enviado, `request_id` próprio por julgamento, política só com o
+  modelo juiz (modelo fora dela → erro claro antes da chamada), resposta malformada → julgamento ausente, nunca exceção
+- [ ] T034 [US2] `eval/service.py` (R14, R17, R18, R21, R22) (depende de T021, T023, T027–T031): `EvalService(engine,
+  trace, grants, pack_metrics, clock, judge=None)` com `run(golden, *, assistant, principal) -> EvalReport` — resolve o
+  grant pela 003 (`AssistantNotFound`/`AssistantUnavailable` → entrada inválida), pede as métricas de domínio da
+  composição, executa cada item em sequência (`request_id` `eval-<rodada>-<item>`, `stream=True`, `reference_time` do
+  item), mede latência e tempo até o primeiro token pelo `Clock`, lê o trace (`Retrieval`, `ModelCall`,
+  `ControllerDecision`, `CoverageGate`; sem `Retrieval`, as três listas vazias), monta `EvalObservation`, calcula as métricas do core e as de domínio (exceção →
+  ausente no item e registro no relatório), julga 3 vezes quando há juiz e agrega; trace sem leitura → erro explícito
+- [ ] T035 [US2] `eval/adapters/judge.py` (R19) (depende de T028, T030): `RoutedJudge(routing, judge_ref)` sobre o
+  `ModelRouting` da 006 — política da rodada com `generation` = o juiz e allowlist só dele; faz T033 passar
+- [ ] T036 [US2] `eval/adapters/cli.py` (R23, R25): `run_command(service, source, store, *, golden, assistant, principal,
+  report, annotate, out, err)` — imprime a tabela das métricas (nome, valor, variância, n, determinística), grava o
+  relatório com `--report` e as anotações; saída 0, ou 2 para entrada inválida (arquivo, Assistant)
+
+**Checkpoint**: a US2 completa e testável sozinha
+
+---
+
+## Phase 8: User Story 3 — Barrar regressões no CI (Priority: P2)
+
+**Goal**: com uma linha de base, o harness compara e sai com 1 quando uma métrica determinística regride além da
+tolerância; as julgadas por modelo são reportadas com variância e não barram.
+
+**Independent Test**: `uv run pytest packages/core/tests/eval -m us3` — regressão proposital no retriever de teste:
+saída 1 nomeando `recall@k` e o delta.
+
+- [ ] T037 [P] [US3] `packages/core/tests/eval/integration/test_eval_regression.py` (verificações 3 e 4): rodada base
+  gravada; o mesmo conjunto com o retriever de teste degradado (configuração do pack que inverte a ordem e corta
+  candidatos) → `Comparison.regressed`, a saída da CLI 1 e o delta de `recall@k` e `mrr` impressos; juiz com variância
+  alta não barra; `--update-baseline` só grava sem regressão (ou com `--force`); métrica sumida listada
+- [ ] T038 [US3] `eval/adapters/cli.py` (R20) (depende de T029, T036): `--baseline` (carrega, compara, imprime delta,
+  tolerância e regressão), `--update-baseline`, `--force` e a saída 1; faz T037 passar
+
+**Checkpoint**: a US3 completa
+
+---
+
+## Phase 9: User Story 4 — Comparar modelos (Priority: P3)
+
+**Goal**: o mesmo harness compara Assistants que diferem no modelo, lado a lado, com as anotações de recursos do
+operador.
+
+**Independent Test**: `uv run pytest packages/core/tests/eval -m us4` — dois relatórios, `eval compare`, métricas e
+anotações lado a lado.
+
+- [ ] T039 [P] [US4] `packages/core/tests/eval/integration/test_eval_benchmark.py` (verificação 5): dois Assistants
+  (`agentic` com controller programado, um com ação inválida) rodam o mesmo conjunto; `compare` mostra cada métrica nas
+  duas colunas, inclusive `controller_invalid_rate`, `ttft_ms` e `generation_tokens_per_s`, e as anotações
+  (`--annotate "RAM 6 GB"`) de cada relatório
+- [ ] T040 [US4] `eval/adapters/cli.py` (R24) (depende de T036): `compare_command(store, paths, out, err)` — tabela lado a
+  lado (métricas na linha, relatórios na coluna, com o Assistant e o juiz no cabeçalho) e as anotações; 2 para relatório
+  ilegível; faz T039 passar
+
+---
+
+## Phase 10: Encaixe na 011 (`ai-core eval run|compare`)
+
+- [ ] T041 `packages/core/src/ai_core/bootstrap/cli.py` (R25) (depende de T034–T040): grupo `eval` com `run` e `compare`;
+  `run` sobe a plataforma até a etapa `assistants` (sem a API), abre a sessão de armazenamento como o `audit`
+  (`wiring.storage`) para a 003, e compõe o `EvalService` com o motor, a consulta de trace (`Platform.trace`), o
+  `GrantResolver`, o `PackEvalMetrics` (o Pack Runtime), o `RoutedJudge` (com `--judge`) e o relógio do perfil; backend
+  de trace sem leitura → 2 com a explicação. **Teste** em `packages/core/tests/bootstrap/contract/test_cli_eval.py`:
+  `ai-core eval run` no perfil `test` com um conjunto do Assistant genérico (sem recuperação: as métricas de recuperação
+  ausentes), relatório gravado, saída 0; conjunto ilegível → 2; `eval compare` de dois relatórios → 0. Documentar em
+  `specs/011-core-bootstrap/contracts/cli.md`
+
+---
+
+## Phase 11: Polish da Fase 6
+
+- [ ] T042 Contratos de import-linter do `eval` em `pyproject.toml` (R26): camadas `api`/`domain`/`ports`/`service`/
+  `adapters`; `ai_core.eval` só importa os `api.py` de `packs`, `assistants`, `graph`, `llm` e `observability`;
+  `domain` sem `yaml`/`json`/I/O; `uv run lint-imports` com todos `KEPT`
+- [ ] T043 Executar a seção "Fase 6" de [quickstart.md](quickstart.md); com o mantenedor, uma rodada real curta na
+  instalação (`agentic-deploy`) contra o Assistant `scouting` com 3 perguntas e o juiz do OpenRouter, para ver o
+  relatório e o tempo, projetando o de 50 perguntas pela latência média (SC-002) e registrando no quickstart — e
+  corrigir divergências
+- [ ] T044 [P] Documentação: linha da 009 em `specs/README.md` ("Fase 6 implementada (US2–US4): harness"), os seams
+  **Eval Harness**, **formato de conjunto dourado** e **formato de relatório**, a linha do 001 (contratos `0.1.2`,
+  ADR-027) e a da 002 (`PackEvalMetrics`); a 105 apontada para eles; seção "Código" de `CLAUDE.md`
+- [ ] T045 Verificação completa a partir de `ai-core/`: `uv run pytest` (com o Postgres de teste), `uv run mypy`, `uv run
+  ruff check packages`, `uv run lint-imports`, os contratos no piso 3.12 e `packages/contracts/tools/check_clean_env.py`
+- [ ] T046 Release (R27; ADR-021), **só com aprovação do mantenedor**: contratos `0.1.2` → tag `contracts-v0.1.2`; core
+  `0.3.0` (`packages/core/pyproject.toml`) → tag `v0.3.0`; `uv lock`, commits, tags anotadas e push
+
+---
+
+## Fase 6 — Dependencies & Execution Order
+
+- **Setup (Phase 5)**: T019 primeiro
+- **Fundação (Phase 6)**: T020, T022, T024, T026, T028 e T029 em paralelo; T021 depois de T020; T023 depois de T022;
+  T025 depois de T024; T027 depois de T026; T030 depois de T024; T031 depois de T025 e T030
+- **US2 (Phase 7)**: depende da Phase 6; T032 e T033 em paralelo (testes primeiro); T034 → T035 → T036
+- **US3 (Phase 8)**: depende da US2 (usa o serviço e a CLI); T037 → T038
+- **US4 (Phase 9)**: depende da US2; T039 → T040; pode correr junto com a US3
+- **Encaixe (Phase 10)**: T041 depois das três histórias
+- **Polish (Phase 11)**: T042 e T044 depois de T041; T043 e T045 depois de T042; T046 por último, com aprovação
+
+## Parallel Example: Fase 6
+
+```bash
+# Fundação, juntos:
+Task: "001 — ai_core_contracts.eval (T020)"
+Task: "observabilidade — Retrieval (T022)"
+Task: "eval/api.py (T024)"
+Task: "domain/matching.py (T026)"
+Task: "domain/judging.py (T028)"
+Task: "domain/compare.py (T029)"
+```
+
+## Fase 6 — Implementation Strategy
+
+1. Fundação: os toques fora da 009 (001, 002, observabilidade, 005), cada um com o próprio teste; o domínio do harness
+   por tabela
+2. US2 (MVP): o serviço, o juiz e a CLI — **PARE e VALIDE**: relatório completo no perfil `test`
+3. US3 e US4: linha de base e comparação
+4. Encaixe na 011, fronteiras, rodada real curta, documentação e a release (`contracts-v0.1.2`, `v0.3.0`) que destrava
+   a 105
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -226,7 +459,7 @@ Task: "integration/test_observability_jsonl.py (T010)"
   mesmo `Clock` em todos os módulos com porta de tempo
 - Fase 2: a 008 US5 expõe a consulta na superfície privada; a saúde agregada (011 US5) lê `dropped_events()`
 - Fase 3: a 004 acrescenta o evento de tool — tipo novo, sem mudar o seam
-- Fase 6: `ai_core/eval/` com o harness (US2–US4)
+- Fase 6 (Phases 5–11 acima): `ai_core/eval/` com o harness (US2–US4)
 
 ---
 

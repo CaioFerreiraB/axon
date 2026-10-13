@@ -29,6 +29,14 @@
 - Q: Como o módulo garante que credencial nunca aparece no trace? → A: Em duas camadas — os tipos de evento não têm campo onde um segredo caiba, e o que é texto livre (hoje, a mensagem de erro) passa por redação antes de sair do processo: nomes de chave conhecidos em qualquer mapeamento e padrões de credencial no texto, substituídos por marcador. A regra é pura e testável sem backend.
 - Q: Os eventos vão para o backend um a um, na hora, ou acumulados por requisição e gravados no fim? → A: Um a um, na hora, um evento por registro — o trace sobrevive a queda, travamento ou encerramento forçado no meio da execução, que é quando ele mais importa, e uma execução longa é observável enquanto corre. A consulta por identificador de requisição agrega os registros na leitura.
 
+### Session 2026-10-13
+
+- Q: Como o harness, que executa cada item pelo Execution Engine e só recebe tokens, progresso e a resposta final, sabe quais trechos foram recuperados, reordenados e entregues à geração, para calcular recall@k, MRR e o ganho do rerank? → A: Pelo trace da própria requisição: a 005 emite um evento novo e aditivo (ADR-017) com os identificadores e scores dos trechos candidatos, reordenados e entregues à geração — sem texto —, e o harness o lê pela consulta de trace deste módulo. Nenhum seam muda.
+- Q: Em que nível o conjunto dourado declara a evidência esperada (documentos a recuperar e citações esperadas)? → A: Por documento — o `document` do trecho (001) —, com seção opcional (a `section` do trecho), casados por igualdade normalizada (caixa, espaços e acentos); o identificador de trecho é aceito como alternativa opcional, para evidência estável. Assim o conjunto sobrevive a mudanças de chunking, que é o que ele precisa medir.
+- Q: Como um pack entrega ao harness as métricas de domínio dele (ex.: taxa de documento vigente, da 105) sem importar o core? → A: Por um protocolo novo e aditivo no contrato 001 — uma métrica com nome que calcula, por item, um valor sobre uma observação (o item esperado, a resposta, as citações e os trechos com proveniência) — e um hook opcional do pack que as declara; o harness as calcula e as põe no mesmo relatório, sob a mesma linha de base e tolerância das métricas do core. Contratos `0.1.2`, com ADR; nenhum pack existente precisa implementar.
+- Q: As métricas de geração julgadas por modelo (fidelidade ao trecho e cobertura da resposta de referência) entram já nesta fase? → A: Sim. O operador escolhe o modelo juiz na configuração da rodada — fora de qualquer Assistant, roteado pelo Model Router —; cada julgamento é repetido 3 vezes e reportado com média e variância; nunca barra o CI sozinho; sem juiz configurado, essas métricas aparecem como ausentes.
+- Q: No benchmark de modelos, como entram RAM e CPU, que são do servidor do modelo e não do processo do harness? → A: O harness mede o que observa — tempo até o primeiro token, tokens/s, latência, confiabilidade de tool calling (ações válidas do controller) e fidelidade —; RAM e CPU entram como anotação do operador no relatório (campo livre por modelo), sem medição automática.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Entender por que uma execução se comportou assim (Priority: P1)
@@ -73,13 +81,13 @@ O harness roda em CI a cada mudança de chunking, prompt, retriever ou modelo, c
 **Acceptance Scenarios**:
 
 1. **Given** uma linha de base, **When** uma mudança derruba o recall@k além da tolerância, **Then** o CI falha e mostra o delta.
-2. **Given** métricas avaliadas por LLM (fidelidade), **When** variam, **Then** são reportadas com variância e não bloqueiam sozinhas.
+2. **Given** métricas avaliadas por LLM (fidelidade, cobertura), **When** variam, **Then** são reportadas com média e variância de 3 julgamentos e não bloqueiam sozinhas.
 
 ---
 
 ### User Story 4 - Comparar modelos com as métricas que importam (Priority: P3)
 
-O mesmo harness compara modelos candidatos em tokens/s, tempo até o primeiro token, RAM, CPU, qualidade em português, confiabilidade de tool calling e fidelidade em RAG.
+O mesmo harness compara modelos candidatos em tokens/s, tempo até o primeiro token, latência, qualidade em português (a cobertura da resposta de referência, julgada, num conjunto dourado em português), confiabilidade de tool calling e fidelidade em RAG — o que ele observa da própria execução. RAM e CPU, que são do servidor do modelo, entram como anotação do operador no relatório.
 
 **Why this priority**: As duas últimas métricas são as decisivas e não aparecem em benchmarks padrão.
 
@@ -87,13 +95,13 @@ O mesmo harness compara modelos candidatos em tokens/s, tempo até o primeiro to
 
 **Acceptance Scenarios**:
 
-1. **Given** dois modelos, **When** o benchmark roda, **Then** o relatório compara todas as métricas lado a lado.
+1. **Given** dois modelos, **When** o benchmark roda, **Then** o relatório compara lado a lado as métricas medidas e as anotações de recursos que o operador forneceu.
 
 ---
 
 ### Edge Cases
 
-- Item do conjunto dourado que referencia documento fora do corpus: sinalizado como item inválido, não como falha do sistema.
+- Item do conjunto dourado que referencia documento fora do corpus: não é falha do sistema. O core não conhece o corpus — conferir o conjunto contra o catálogo é do pack (105) —, e o harness aponta, como aviso no item, a evidência esperada que não aparece entre os candidatos de nenhum item da rodada ("evidência não vista"); item com formato inválido é sinalizado como inválido e não roda.
 - Juiz LLM indisponível: métricas determinísticas continuam; as de juiz ficam marcadas como ausentes.
 - Trace de execução com conteúdo sensível do usuário: retenção limitada e configurável; credenciais nunca registradas.
 
@@ -103,13 +111,13 @@ O mesmo harness compara modelos candidatos em tokens/s, tempo até o primeiro to
 
 - **FR-001**: Cada requisição DEVE gerar um trace acessível pelo identificador da requisição, com os campos da US1 que os módulos existentes na fase produzem — na Fase 1: execução iniciada e concluída (assistant, packs ativos, flow, desfecho), chamada de modelo (provider, modelo, papel, tokens, latência), execução de validator e erro.
 - **FR-002**: O trace NÃO DEVE conter credenciais: nenhum tipo de evento DEVE ter campo destinado a segredo, e todo texto livre e todo mapeamento de atributos DEVEM passar por redação de nomes de chave conhecidos e de padrões de credencial antes de sair do processo.
-- **FR-003**: O harness DEVE definir um formato de conjunto dourado com: pergunta, documentos esperados, resposta de referência, citações esperadas e data de referência do item (ADR-013), para que itens datados sejam reproduzíveis.
-- **FR-004**: O harness DEVE calcular as métricas das camadas recuperação, rerank, geração, citação e operação (tabela no design).
-- **FR-005**: O harness DEVE aceitar métricas de domínio fornecidas por packs.
-- **FR-006**: Julgamento por LLM PODE ser usado aqui (offline) e NÃO DEVE ser usado no caminho da requisição.
+- **FR-003**: O harness DEVE definir um formato de conjunto dourado com: pergunta, documentos esperados, resposta de referência, citações esperadas e data de referência do item (ADR-013), para que itens datados sejam reproduzíveis. Documentos e citações esperados são evidências declaradas **por documento** (o `document` do trecho, contrato 001), com **seção** opcional (a `section` do trecho) e, como alternativa opcional, o identificador do trecho; o casamento é por igualdade normalizada (caixa, espaços e acentos), para o conjunto sobreviver a mudanças de chunking.
+- **FR-004**: O harness DEVE calcular as métricas das camadas recuperação, rerank, geração, citação e operação (tabela no design). As de recuperação e rerank saem do trace da própria requisição — o evento de recuperação que a 005 emite (por trecho candidato, reordenado e entregue: identificador, score e a proveniência do contrato 001 — documento, versão, status, seção e página —, nunca o texto; aditivo pelo ADR-017) —, e as de operação, dos eventos de chamada de modelo e de execução; o harness não depende de nenhum internal do motor.
+- **FR-005**: O harness DEVE aceitar métricas de domínio fornecidas por packs pelo contrato 001: um protocolo aditivo de métrica (nome e valor por item, calculado sobre uma observação — item esperado, resposta, citações e trechos com proveniência) e um hook opcional do pack que as declara (contratos `0.1.2`, ADR). Elas entram no mesmo relatório e sob a mesma linha de base e tolerância das métricas do core (FR-007); um pack sem o hook não muda.
+- **FR-006**: Julgamento por LLM PODE ser usado aqui (offline) e NÃO DEVE ser usado no caminho da requisição. Fidelidade ao trecho e cobertura da resposta de referência são julgadas por um modelo juiz escolhido pelo operador na configuração da rodada (fora de qualquer Assistant, roteado pelo Model Router da 006); cada julgamento é repetido 3 vezes e reportado com média e variância; sem juiz configurado, essas métricas aparecem como ausentes, e as determinísticas seguem.
 - **FR-007**: O harness DEVE registrar linhas de base e comparar execuções, com tolerância configurável por métrica.
 - **FR-008**: O harness DEVE poder rodar em CI com saída que falha o pipeline em regressão de métrica determinística.
-- **FR-009**: O harness DEVE suportar benchmark comparativo de modelos.
+- **FR-009**: O harness DEVE suportar benchmark comparativo de modelos, medindo o que observa da execução — tempo até o primeiro token, tokens/s, latência, confiabilidade de tool calling (ações válidas do controller) e fidelidade —; RAM e CPU do servidor do modelo NÃO são medidas, e entram como anotação do operador por modelo no relatório.
 - **FR-010**: O módulo DEVE oferecer o Trace Sink: uma porta de emissão pela qual 004, 005 e 006 registram dados de trace com o identificador da requisição, sem conhecer o backend (ADR-013).
 - **FR-011**: A falha do backend de trace NÃO DEVE interromper nem atrasar perceptivelmente a execução; dados perdidos são sinalizados.
 - **FR-012**: Cada dado de trace DEVE ser entregue ao backend no momento da emissão, um registro por evento, de modo que o trace de uma execução interrompida permaneça consultável e uma execução em andamento seja observável.
@@ -118,10 +126,11 @@ O mesmo harness compara modelos candidatos em tokens/s, tempo até o primeiro to
 ### Key Entities
 
 - **Trace Sink**: porta de emissão de dados de trace, consumida pelos módulos que produzem esses dados.
-- **Trace Event**: um dado de trace tipado, publicado por este módulo; um tipo por espécie de acontecimento (execução, chamada de modelo, validação, erro, e adiante tool e recuperação).
+- **Trace Event**: um dado de trace tipado, publicado por este módulo; um tipo por espécie de acontecimento (execução, chamada de modelo, validação, erro, tool, decisão do controller, portão de cobertura e, na Fase 6, recuperação — identificador, score e proveniência dos trechos, nunca o texto).
 - **Trace**: registro estruturado de uma execução — os eventos de um identificador de requisição, agregados na consulta.
-- **Golden Set / Golden Item**: conjunto dourado e seus itens.
+- **Golden Set / Golden Item**: conjunto dourado e seus itens; cada evidência esperada é um documento, com seção ou identificador de trecho opcionais.
 - **Eval Run / Baseline**: execução do harness e linha de base de comparação.
+- **Domain Metric** (contrato 001): métrica fornecida por um pack — nome e valor por item sobre uma **Eval Observation** (item esperado, resposta, citações e trechos com proveniência), sem acesso ao core.
 
 ## Success Criteria *(mandatory)*
 
