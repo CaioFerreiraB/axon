@@ -165,3 +165,22 @@ ai-core eval compare a.json b.json                                              
 ```
 
 O conjunto dourado do domínio e a calibração são da 105.
+
+### Rodada real (T043, 2026-10-13)
+
+Pack `scouting` 0.2.0 com o índice real (413 trechos) num Qdrant local, e5 em ONNX, geração e juiz
+`openrouter/~z-ai/glm-flash-latest`, 3 perguntas (`patrono`, `faixa-lobinho`, `fora-do-corpus`):
+
+| Métrica | Valor | Nota |
+|---|---|---|
+| recall@5, recall@20, delivered_recall | 1,00 | as duas perguntas cobertas acharam e entregaram a evidência |
+| mrr | 0,67 | em `patrono`, a Regra 31 veio em 3º na recuperação — sinal para a 105 |
+| rerank_gain | 0,00 | o rerank do scouting manteve a ordem |
+| citação resolvível / inventada | 1,00 / 0,00 | |
+| faithfulness / coverage | 0,67 / 1,00 | `fora-do-corpus` julgada 0: a resposta (conhecimento geral) não está nos trechos |
+| flag_rate:ungrounded | 0,33 | `fora-do-corpus`, sem limiar, passou o portão e saiu marcada como não fundamentada |
+| ttft p50 / latência p50 | 2,9 s / 7,9 s | o primeiro item inclui a carga do e5 (31 s até o primeiro token) |
+
+Duração: 1 min 43 s com o juiz (9 julgamentos). **Projeção (SC-002)**: depois do aquecimento, cerca de 24 s por item
+com juiz → 50 perguntas em ~20 min, dentro dos 30 min; sem juiz, menos.
+

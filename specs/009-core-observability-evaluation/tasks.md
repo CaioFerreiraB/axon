@@ -359,7 +359,7 @@ anotações lado a lado.
 - [X] T042 Contratos de import-linter do `eval` em `pyproject.toml` (R26): camadas `api`/`domain`/`ports`/`service`/
   `adapters`; `ai_core.eval` só importa os `api.py` de `packs`, `assistants`, `graph`, `llm` e `observability`;
   `domain` sem `yaml`/`json`/I/O; `uv run lint-imports` com todos `KEPT`
-- [ ] T043 Executar a seção "Fase 6" de [quickstart.md](quickstart.md); com o mantenedor, uma rodada real curta na
+- [X] T043 Executar a seção "Fase 6" de [quickstart.md](quickstart.md); com o mantenedor, uma rodada real curta na
   instalação (`agentic-deploy`) contra o Assistant `scouting` com 3 perguntas e o juiz do OpenRouter, para ver o
   relatório e o tempo, projetando o de 50 perguntas pela latência média (SC-002) e registrando no quickstart — e
   corrigir divergências
@@ -368,7 +368,7 @@ anotações lado a lado.
   ADR-027) e a da 002 (`PackEvalMetrics`); a 105 apontada para eles; seção "Código" de `CLAUDE.md`
 - [X] T045 Verificação completa a partir de `ai-core/`: `uv run pytest` (com o Postgres de teste), `uv run mypy`, `uv run
   ruff check packages`, `uv run lint-imports`, os contratos no piso 3.12 e `packages/contracts/tools/check_clean_env.py`
-- [ ] T046 Release (R27; ADR-021), **só com aprovação do mantenedor**: contratos `0.1.2` → tag `contracts-v0.1.2`; core
+- [X] T046 Release (R27; ADR-021), **só com aprovação do mantenedor**: contratos `0.1.2` → tag `contracts-v0.1.2`; core
   `0.3.0` (`packages/core/pyproject.toml`) → tag `v0.3.0`; `uv lock`, commits, tags anotadas e push
 
 ---
