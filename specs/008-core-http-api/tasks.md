@@ -546,7 +546,7 @@ progresso do motor e a espera na fila aparecem como raciocínio antes do texto.
 `docs/roadmap.md` (Fase 7 em andamento: a API pronta; fecha com a passada de encaixe da 002 — Open WebUI e Keycloak)
 - [X] T077 Verificação completa a partir de `ai-core/`: `uv run pytest` (com e sem `AI_CORE_TEST_POSTGRES_DSN`), `uv run
   mypy`, `uv run ruff check packages`, `uv run ruff format --check packages`, `uv run lint-imports`
-- [ ] T078 Com aprovação do mantenedor: commit e push no `agentic-app`; core `0.4.0` (contratos inalterados em `0.1.2`,
+- [X] T078 Com aprovação do mantenedor: commit e push no `agentic-app`; core `0.4.0` (contratos inalterados em `0.1.2`,
   `ai-generic` 0.1.0) e a tag `v0.4.0`, que a passada de encaixe da 002 usa como `CORE_REF`; conferir a CI do core
 
 ---

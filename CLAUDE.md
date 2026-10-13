@@ -319,7 +319,8 @@ texto. O cabeçalho `x-ai-core-store: false` torna efêmero o pedido sem id de c
 `store_conflict`. A autenticação não mudou: o Open WebUI repassa o access token de cada usuário (`system_oauth`) e a 003
 o verifica. A compatibilidade com o Open WebUI v0.12 é provada com o pedido dele como fixture
 (`tests/http/open_webui_v0_12.py`). Falta a passada de encaixe da 002 no `agentic-deploy` (Open WebUI com SSO num
-Keycloak de desenvolvimento, conexão `system_oauth` com o cabeçalho, tarefas auxiliares desligadas).
+Keycloak de desenvolvimento, conexão `system_oauth` com o cabeçalho, tarefas auxiliares desligadas). O core está na tag
+`v0.4.0` (contratos `0.1.2`, `ai-generic` 0.1.0).
 
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
