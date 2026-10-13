@@ -182,7 +182,7 @@ contra `eval/baseline.json`.
   depois da curadoria); `docs/roadmap.md` (Fase 6: 009 e a infraestrutura da 105 feitas, US3–US5 da 105 adiadas até a
   curadoria); `CLAUDE.md` (parágrafo da Fase 6: o pack 0.3.0 com as métricas de domínio, `eval/` com a semente e a
   linha de base, o job `eval`; o `agentic-deploy` pendente da passada de encaixe da 002); marcar as tarefas com `[X]`
-- [ ] T018 Com aprovação do mantenedor: commit e push no `ai-scouting` (pack 0.3.0) e, no `agentic-app`, o SDD da 105
+- [X] T018 Com aprovação do mantenedor: commit e push no `ai-scouting` (pack 0.3.0) e, no `agentic-app`, o SDD da 105
   com o ponteiro do submódulo; conferir na CI do `ai-scouting` os jobs `lint`, `test`, `clean-env`, `platform`,
   `qdrant` e `eval` — se o `eval` divergir da base local só por diferença numérica de CPU, regravar `eval/baseline.json`
   a partir do relatório do próprio job (artefato) num commit que diz por quê (R8)
