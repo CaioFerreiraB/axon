@@ -28,6 +28,7 @@ from ai_core.http.adapters.mcp_routes import global_mcp_router, user_mcp_router
 from ai_core.http.adapters.models import models_router
 from ai_core.http.adapters.private import private_router
 from ai_core.http.adapters.user_assistants import user_assistants_router
+from ai_core.http.domain.admission import AdmissionLimits as AdmissionLimits  # a 011 monta os limites (R36)
 from ai_core.http.ports import AdminGate, Clock, ConversationStore, HealthProvider, RequestIds
 from ai_core.http.service import DEFAULT_RETENTION, ChatService, ConversationService
 from ai_core.mcp.api import McpRegistry
@@ -57,6 +58,7 @@ def create_app(
     conversation_retention: timedelta = DEFAULT_RETENTION,
     lifespan: Lifespan | None = None,
     mcp: McpRegistry | None = None,
+    admission: AdmissionLimits | None = None,
 ) -> FastAPI:
     """Monta a app com os seams já injetados. A API não instancia nada de outro módulo (princípio XIII)."""
     app = FastAPI(title="ai-core", version="0.1.0", lifespan=lifespan)
@@ -67,6 +69,7 @@ def create_app(
         clock=clock,
         conversations=conversations,
         conversation_ids=conversation_ids,
+        admission=admission,
     )
     app.state.conversation_service = ConversationService(
         store=conversations, clock=clock, retention=conversation_retention

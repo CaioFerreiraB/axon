@@ -17,7 +17,7 @@ from ai_core.assistants.api import (
     RequestRejected,
 )
 from ai_core.graph.api import ExecutionRequestInvalid
-from ai_core.http.domain.errors import ErrorResponse, InvalidRequest, error_for
+from ai_core.http.domain.errors import ErrorResponse, InvalidRequest, Overloaded, error_for
 from ai_core.mcp.api import UnknownServer
 
 
@@ -58,5 +58,6 @@ def install(app: FastAPI) -> None:
         AssistantUnavailable,
         RateLimited,
         UnknownServer,
+        Overloaded,
     ):
         app.add_exception_handler(kind, _known)

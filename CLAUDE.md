@@ -306,6 +306,21 @@ o gerador simulado do perfil `test`. O workflow `eval.yml` (filtro de caminhos: 
 eval run` contra a base; a integração (`tests/integration/test_eval.py`) chama o comando `ai-core` em subprocesso. O
 `agentic-deploy` continua no core `v0.2.0` e no pack 0.2.0 até uma passada de encaixe da 002.
 
+**A Fase 7 do roadmap está em andamento.** Da 008 (US6, US8), a API pronta para o Open WebUI: admissão
+(`domain/admission.py`, puro; `ExecutionSlots` no `service.py`, vagas e fila FIFO em memória, por processo) entre a
+resolução do grant e o motor — vaga livre executa, vagas cheias com fila livre esperam (em streaming, o aviso de fila sai
+na hora como raciocínio), fila cheia é 503 `overloaded` com `Retry-After` antes de qualquer chamada de modelo, espera
+esgotada é 503 sem streaming e chunk final de erro (`QueueTimeout`) em streaming; a conversa nova só nasce depois da
+admissão. Configuração na 011: `AI_CORE_MAX_EXECUTIONS` (2), `AI_CORE_QUEUE_SIZE` (8; 0 = sem fila) e
+`AI_CORE_QUEUE_WAIT_MS` (60 000), provisórios até a medição no hardware alvo. O progresso sai também em
+`delta.reasoning_content` — uma linha em português por etapa (`domain/progress_text.py`, indexada pelos estágios que a
+005 publica, inclusive `retrieve`/`rerank`/`gate` do `rag_first`; estágio novo cai em "Etapa …") — só até o primeiro
+texto. O cabeçalho `x-ai-core-store: false` torna efêmero o pedido sem id de conversa (nada gravado, sem id); com id, 400
+`store_conflict`. A autenticação não mudou: o Open WebUI repassa o access token de cada usuário (`system_oauth`) e a 003
+o verifica. A compatibilidade com o Open WebUI v0.12 é provada com o pedido dele como fixture
+(`tests/http/open_webui_v0_12.py`). Falta a passada de encaixe da 002 no `agentic-deploy` (Open WebUI com SSO num
+Keycloak de desenvolvimento, conexão `system_oauth` com o cabeçalho, tarefas auxiliares desligadas).
+
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
 true }`, suíte de conformidade nos próprios testes e zero import do core (import-linter, nas duas direções). Ele é

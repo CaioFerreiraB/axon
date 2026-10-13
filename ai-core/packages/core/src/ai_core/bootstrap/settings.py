@@ -34,6 +34,14 @@ TOOL_MAX_RESPONSE_RANGE: Final = (1_024, 1_048_576)
 DEFAULT_RAG_CANDIDATES: Final = 20
 DEFAULT_RAG_PASSAGES: Final = 5
 """Os defaults de `RagSettings` (005, research R44). Sem limiar por default: a 105 calibra (princípio X)."""
+DEFAULT_MAX_EXECUTIONS: Final = 2
+DEFAULT_QUEUE_SIZE: Final = 8
+DEFAULT_QUEUE_WAIT_MS: Final = 60_000
+"""Admissão da API (008 FR-016, research R36): valores provisórios, medidos no hardware alvo (008 quickstart)."""
+MAX_EXECUTIONS_RANGE: Final = (1, 64)
+QUEUE_SIZE_RANGE: Final = (0, 1_000)
+QUEUE_WAIT_RANGE: Final = (1, 600_000)
+"""As faixas de `AdmissionLimits` (008), repetidas aqui para que o erro nomeie a variável."""
 
 PREFIX: Final = "AI_CORE_"
 
@@ -75,6 +83,10 @@ class Settings:
     rag_passages: int = DEFAULT_RAG_PASSAGES
     rag_min_score: float | None = None
     """O limiar do portão do `rag_first` (005 FR-007): sem valor, só a ausência de resultado escala."""
+    max_executions: int = DEFAULT_MAX_EXECUTIONS
+    queue_size: int = DEFAULT_QUEUE_SIZE
+    """0 = sem fila: com as vagas cheias, o pedido é recusado na hora (008 FR-017)."""
+    queue_wait_ms: int = DEFAULT_QUEUE_WAIT_MS
 
     def __post_init__(self) -> None:
         if self.profile not in PROFILES:
@@ -115,6 +127,9 @@ class Settings:
             raise ConfigurationError(f"{PREFIX}RAG_PASSAGES: precisa ser ao menos 1: {self.rag_passages}")
         if self.rag_min_score is not None and not 0.0 <= self.rag_min_score <= 1.0:  # NaN também cai aqui
             raise ConfigurationError(f"{PREFIX}RAG_MIN_SCORE: precisa estar entre 0 e 1: {self.rag_min_score}")
+        _within(f"{PREFIX}MAX_EXECUTIONS", self.max_executions, MAX_EXECUTIONS_RANGE)
+        _within(f"{PREFIX}QUEUE_SIZE", self.queue_size, QUEUE_SIZE_RANGE)
+        _within(f"{PREFIX}QUEUE_WAIT_MS", self.queue_wait_ms, QUEUE_WAIT_RANGE)
 
 
 def _within(variable: str, value: int, bounds: tuple[int, int]) -> None:
@@ -165,6 +180,9 @@ class EnvConfigSource:
             rag_candidates=self._int("RAG_CANDIDATES", DEFAULT_RAG_CANDIDATES),
             rag_passages=self._int("RAG_PASSAGES", DEFAULT_RAG_PASSAGES),
             rag_min_score=self._optional_float("RAG_MIN_SCORE"),
+            max_executions=self._int("MAX_EXECUTIONS", DEFAULT_MAX_EXECUTIONS),
+            queue_size=self._int("QUEUE_SIZE", DEFAULT_QUEUE_SIZE),
+            queue_wait_ms=self._int("QUEUE_WAIT_MS", DEFAULT_QUEUE_WAIT_MS),
         )
 
     def _optional(self, name: str) -> str | None:

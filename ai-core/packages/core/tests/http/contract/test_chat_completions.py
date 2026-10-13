@@ -198,11 +198,23 @@ def test_erro_anterior_a_execucao_nao_leva_o_cabecalho_de_nao_repetir() -> None:
 # --- progresso (research R5) ----------------------------------------------------------------------------------
 
 
-def test_progresso_chega_no_stream_como_campo_extra(client: TestClient) -> None:
+def test_progresso_chega_no_stream_como_campo_extra_e_raciocinio_antes_do_texto(client: TestClient) -> None:
+    """Fase 7 (FR-005, R34): antes do primeiro token, também como raciocínio; depois, só no campo extra."""
     chunks = chunks_of(post(client, stream=True).text)
-    etapas = [c["x_ai_core"]["progress"]["stage"] for c in chunks if "x_ai_core" in c and "progress" in c["x_ai_core"]]
-    assert etapas == ["prepare_context", "generate", "validate_answer"]
-    assert all(c["choices"][0]["delta"] == {} for c in chunks if "progress" in c.get("x_ai_core", {}))
+    progresso = [c for c in chunks if "progress" in c.get("x_ai_core", {})]
+    assert [c["x_ai_core"]["progress"]["stage"] for c in progresso] == [
+        "prepare_context",
+        "generate",
+        "validate_answer",
+    ]
+    deltas = [c["choices"][0]["delta"] for c in progresso]
+    assert deltas == [
+        {"reasoning_content": "Preparando o contexto da pergunta…\n"},
+        {"reasoning_content": "Escrevendo a resposta…\n"},
+        {},
+    ]
+    primeiro_texto = next(i for i, c in enumerate(chunks) if c["choices"][0]["delta"].get("content"))
+    assert all("reasoning_content" not in c["choices"][0]["delta"] for c in chunks[primeiro_texto:])
 
 
 def test_o_modelo_pedido_volta_como_veio(client: TestClient) -> None:
@@ -237,4 +249,7 @@ def test_progresso_de_tool_chega_antes_dos_tokens() -> None:
         i for i, c in enumerate(chunks) if c.get("x_ai_core", {}).get("progress", {}).get("stage") == "execute_tool"
     )
     assert indice_tool < primeiro_token
+    assert chunks[indice_tool]["choices"][0]["delta"] == {
+        "reasoning_content": "Usando a ferramenta generic.calculate…\n"
+    }, "Fase 7 (T066): a tool nomeada também como raciocínio"
     assert answer_of(chunks) == "Brasília"

@@ -70,3 +70,16 @@ def test_campo_obrigatorio_ou_mal_formado(overrides: dict[str, Any], field: str)
     with pytest.raises(InvalidRequest) as caught:
         parse_native(_body(**overrides))
     assert caught.value.field == field
+
+
+# --- Fase 7 (T067): pedido efêmero na requisição nativa (FR-023) -----------------------------------------------------
+
+
+@pytest.mark.us8
+def test_cabecalho_store_na_requisicao_nativa() -> None:
+    assert parse_native(_body(), store_header="false").store is False
+    assert parse_native(_body()).store is True
+    with pytest.raises(InvalidRequest, match="x-ai-core-store"):
+        parse_native(_body(conversation_id="conv_1"), store_header="false")
+    with pytest.raises(InvalidRequest, match="x-ai-core-store"):
+        parse_native(_body(), store_header="talvez")

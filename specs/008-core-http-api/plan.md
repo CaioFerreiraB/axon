@@ -440,7 +440,7 @@ ai-core/packages/core/src/ai_core/bootstrap/
 └── wiring.py                   # _api passa admission
 
 ai-core/packages/core/tests/http/
-├── unit/test_progress_text.py, unit/test_admission.py
+├── unit/test_progress_text.py, unit/test_admission_decision.py
 ├── contract/test_admission.py, contract/test_ephemeral.py, contract/test_open_webui.py
 └── open_webui_v0_12.py         # o pedido do Open WebUI v0.12 (corpo e cabeçalhos), como fixture
 ```

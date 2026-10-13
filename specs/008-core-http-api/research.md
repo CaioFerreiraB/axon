@@ -550,6 +550,11 @@ execuções, fila de **8**, espera de **60 000 ms**; a implementação os mede n
 `qwen3:1.7b`: 1, 2 e 4 conversas simultâneas, latência até o primeiro token e total) e fixa os defaults com os números
 no quickstart. Sem `admission` em `create_app`, não há limite (suítes e o harness, que não passa pela API).
 
+*Medição de 2026-10-13*: por decisão do mantenedor, com OpenRouter (o suporte ao Ollama local fica para depois). Com o
+modelo remoto, 1, 2 e 4 conversas simultâneas têm o mesmo primeiro texto (~2 s) e o mesmo total (~3 s) — a plataforma
+não é o gargalo. Os defaults continuam 2 / 8 / 60 s, provisórios até a medição com o Ollama no hardware alvo (números no
+quickstart).
+
 **Rationale**: a spec manda medir os valores no hardware alvo; o nome em milissegundos segue `AI_CORE_TOOL_TIMEOUT_MS`.
 
 **Alternatives considered**: fixar sem medir (princípio X).
@@ -619,7 +624,7 @@ seriam execuções extras.
 ## R41 — Testes
 
 **Decision**: unitários puros — `tests/http/unit/test_progress_text.py` (a tabela, a linha genérica, o `{detail}`),
-`test_admission.py` (decisão e `Retry-After`), `test_chat_request.py` (o cabeçalho), `test_openai_chunks.py` (chunk de
+`test_admission_decision.py` (decisão e `Retry-After`), `test_chat_request.py` (o cabeçalho), `test_openai_chunks.py` (chunk de
 progresso com `reasoning_content` e sem ele depois do primeiro token); contrato — `tests/http/contract/test_admission.py`
 (motor programado que segura a execução: limite respeitado, fila FIFO, linha de fila no primeiro segundo, 503 com
 `Retry-After` antes de qualquer chamada de modelo, espera esgotada nos dois modos, desconexão na fila libera o lugar —

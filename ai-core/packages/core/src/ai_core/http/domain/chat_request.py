@@ -26,6 +26,9 @@ IGNORED_SAMPLING_FIELDS: Final = ("temperature", "top_p", "max_tokens", "max_com
 
 USER_ROLE: Final = "user"
 
+STORE_HEADER: Final = "x-ai-core-store"
+"""Cabeçalho do pedido efêmero (FR-023): `false`, sem id de conversa, executa sem criar nem gravar conversa."""
+
 
 class ChatRequestInvalid(InvalidRequest):
     """Corpo recusado. A mensagem sempre nomeia o campo, para que o cliente saiba o que corrigir."""
@@ -39,22 +42,49 @@ class ChatRequest:
     messages: tuple[Message, ...]
     stream: bool
     conversation_id: str | None = None
+    store: bool = True
+    """`False` no pedido efêmero (FR-023): nenhuma conversa é criada nem gravada."""
 
 
-def parse(body: Mapping[str, Any]) -> ChatRequest:
-    """Valida o corpo no formato OpenAI e devolve só o que a execução usa."""
+def parse(body: Mapping[str, Any], *, store_header: str | None = None) -> ChatRequest:
+    """Valida o corpo no formato OpenAI (e o cabeçalho `x-ai-core-store`) e devolve só o que a execução usa."""
     reject_forbidden(body)
 
     model = body.get("model")
     if not isinstance(model, str) or not model.strip():
         raise ChatRequestInvalid("campo 'model' é obrigatório e não pode ser vazio", field="model")
 
+    conversation_id = parse_conversation_id(body)
     return ChatRequest(
         model=model,
         messages=parse_messages(body.get("messages")),
         stream=parse_stream(body),
-        conversation_id=parse_conversation_id(body),
+        conversation_id=conversation_id,
+        store=parse_store(store_header, conversation_id),
     )
+
+
+def parse_store(value: str | None, conversation_id: str | None) -> bool:
+    """O cabeçalho `x-ai-core-store` (FR-023, research R37): ausente ou `true` grava; `false` sem id de conversa torna o
+    pedido efêmero; `false` com id é contraditório — continuar uma conversa sem gravá-la — e é recusado."""
+    if value is None:
+        return True
+    normalized = value.strip().lower()
+    if normalized == "true":
+        return True
+    if normalized != "false":
+        raise ChatRequestInvalid(
+            f"cabeçalho '{STORE_HEADER}' aceita só 'true' ou 'false': {value!r}",
+            field=STORE_HEADER,
+            code="invalid_header",
+        )
+    if conversation_id is not None:
+        raise ChatRequestInvalid(
+            f"cabeçalho '{STORE_HEADER}: false' não combina com 'conversation_id': continuar uma conversa a grava",
+            field=STORE_HEADER,
+            code="store_conflict",
+        )
+    return False
 
 
 def parse_stream(body: Mapping[str, Any]) -> bool:

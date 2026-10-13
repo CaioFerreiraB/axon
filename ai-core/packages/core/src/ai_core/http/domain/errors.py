@@ -40,6 +40,19 @@ class InvalidRequest(ValueError):
         self.code = code
 
 
+class Overloaded(Exception):
+    """Vagas e fila cheias, ou espera esgotada sem streaming (FR-016, FR-017): 503, antes de qualquer modelo."""
+
+    def __init__(self, retry_after: int) -> None:
+        super().__init__(f"a plataforma está no limite de execuções simultâneas; tente de novo em {retry_after} s")
+        self.retry_after = retry_after
+
+
+QUEUE_TIMEOUT_KIND: Final = "QueueTimeout"
+QUEUE_TIMEOUT_STAGE: Final = "admission"
+"""O registro do chunk final quando a espera na fila esgota com o stream já aberto (FR-017, R35)."""
+
+
 class ConversationMismatch(InvalidRequest):
     """`conversation_id` de uma conversa de outro Assistant: recusado antes de executar."""
 
@@ -117,6 +130,11 @@ def error_for(error: BaseException) -> ErrorResponse | None:
                 code="assistant_unavailable",
                 message=message,
                 extra={"reasons": list(error.reasons)},
+            )
+        case Overloaded():
+            # Sem `x-should-retry`: nada rodou, e repetir depois do `Retry-After` é seguro (contracts/errors.md).
+            return ErrorResponse(
+                status=503, type="server_error", code="overloaded", message=message, retry_after=error.retry_after
             )
         case RateLimited():
             return ErrorResponse(

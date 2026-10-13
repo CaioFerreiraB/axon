@@ -128,3 +128,15 @@ Valor inválido impede o boot nomeando a variável. Os três chegam ao motor com
 10. defaults das quatro variáveis; recusa nomeando a variável para TTL `≤ 0`, prazo e tamanho fora da faixa;
 11. `AI_CORE_MCP_FILE` apontando para arquivo malformado para o boot em `configuration`;
 12. nenhum valor de `AI_CORE_MCP_SECRET_*` aparece em `repr(Settings)`, no relatório de boot ou em mensagem de erro.
+
+## Fase 7 (2026-10-13): admissão da API (008 FR-016, FR-017; 008 research R36)
+
+| Variável | Default | Significado |
+|---|---|---|
+| `AI_CORE_MAX_EXECUTIONS` | `2` | execuções simultâneas da API, por processo (inteiro de 1 a 64) |
+| `AI_CORE_QUEUE_SIZE` | `8` | pedidos que esperam vaga (inteiro de 0 a 1000; `0` = sem fila — vagas cheias recusam na hora) |
+| `AI_CORE_QUEUE_WAIT_MS` | `60000` | espera máxima na fila, em milissegundos (1 a 600 000); esgotada, 503 sem streaming ou fim com erro em streaming |
+
+Os defaults são provisórios, medidos no hardware alvo (008 quickstart, "Fase 7"). A etapa `api` monta
+`AdmissionLimits` e a passa a `create_app(admission=…)`; valor fora da faixa falha a etapa `configuration` nomeando a
+variável. O harness de avaliação (009) não passa pela API e não entra na fila.

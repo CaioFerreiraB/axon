@@ -164,3 +164,63 @@ def test_saude_agregada_pela_superficie_privada(tmp_path: Path) -> None:
     nomes = {item["name"] for item in payload["items"]}
     assert {"boot:configuration", "boot:api", "pack:generic", "assistant:geral", "model:ollama/qwen3:1.7b"} <= nomes
     assert "database" not in nomes, "sem banco no perfil de teste"
+
+
+# --- 008 Fase 7 (T073): o limite de execuções vem da configuração -----------------------------------------------
+
+
+def test_limite_de_execucoes_simultaneas_pela_configuracao(tmp_path: Path) -> None:
+    """Com `AI_CORE_MAX_EXECUTIONS=1` e `AI_CORE_QUEUE_SIZE=0`, o segundo pedido simultâneo recebe 503 (008 FR-016)."""
+    import asyncio
+    from collections.abc import AsyncIterator, Sequence
+    from types import SimpleNamespace
+    from typing import Any
+
+    import httpx
+
+    class Segurando:
+        """`LLMProvider` (001) que só responde depois que o teste libera."""
+
+        name = "ollama"
+
+        def __init__(self) -> None:
+            self.solta = asyncio.Event()
+            self.entrou = asyncio.Event()
+
+        async def chat(self, messages: Sequence[Any], model: str, **options: Any) -> Any:
+            self.entrou.set()
+            await self.solta.wait()
+            if not options.get("stream"):
+                return {"message": {"role": "assistant", "content": "Brasília"}, "finish_reason": "stop"}
+
+            async def chunks() -> AsyncIterator[Any]:
+                yield {"delta": "Brasília"}
+                yield {"delta": "", "finish_reason": "stop"}
+
+            return chunks()
+
+        async def probe(self, model: str) -> Any:
+            return SimpleNamespace(available=True, detail=None)
+
+    async def cenario() -> None:
+        provider = Segurando()
+        plataforma = platform(
+            config=MemoryConfig(write_config(tmp_path, max_executions=1, queue_size=0, queue_wait_ms=60_000)),
+            overrides={"providers": {"ollama": provider}},
+        )
+        assert plataforma.ok, plataforma.report.render()
+        transport = httpx.ASGITransport(app=plataforma.app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://plataforma") as http:
+            primeiro = asyncio.create_task(http.post("/v1/chat/completions", headers=OIDC, json=body()))
+            await asyncio.wait_for(provider.entrou.wait(), 2)
+            segundo = await http.post("/v1/chat/completions", headers=OIDC, json=body())
+            provider.solta.set()
+            resposta = await primeiro
+        plataforma.aclose()
+
+        assert segundo.status_code == 503
+        assert segundo.json()["error"]["code"] == "overloaded"
+        assert segundo.headers["Retry-After"] == "60"
+        assert resposta.status_code == 200
+
+    asyncio.run(cenario())

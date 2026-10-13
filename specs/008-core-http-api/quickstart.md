@@ -167,14 +167,24 @@ o terceiro recebe 503 `overloaded` com `Retry-After: 30`.
 **Pedido efêmero.** O mesmo pedido com `-H 'x-ai-core-store: false'` responde sem `conversation_id`, e
 `GET /v1/conversations` não muda.
 
-**Valores da fila no hardware alvo (R36).** Com o Ollama local (`qwen3:1.7b`), 1, 2 e 4 conversas simultâneas no
-Assistant `scouting`: registrar aqui a latência até o primeiro token e a total de cada caso, e os defaults escolhidos.
+**Medição (R36), 2026-10-13 — com OpenRouter, por decisão do mantenedor** (o suporte ao Ollama local fica para
+depois). `ai-core serve` no perfil `memory` (Ryzen 7 7700, 16 threads, 14 GB), Assistant `conversa` (flow `chat`,
+`ai-generic`), geração `openrouter/~z-ai/glm-flash-latest`, pergunta curta, streaming, `x-ai-core-store: false`, 3
+rodadas por caso, `AI_CORE_MAX_EXECUTIONS=4`:
 
-| Simultâneas | Primeiro token (p50) | Total (p50) |
+| Simultâneas | Primeiro texto (p50 / máx) | Total (p50 / máx) |
 |---|---|---|
-| 1 | — | — |
-| 2 | — | — |
-| 4 | — | — |
+| 1 | 2,31 s / 2,43 s | 3,54 s / 3,59 s |
+| 2 | 1,83 s / 2,54 s | 3,12 s / 3,49 s |
+| 4 | 1,66 s / 2,09 s | 2,68 s / 3,14 s |
+
+Com o modelo remoto, a concorrência não degrada nada: a plataforma não é o gargalo, o provider é. A primeira linha de
+raciocínio sai em 0,01–0,02 s (SC-003). Os defaults ficam nos provisórios **2 / 8 / 60 s** — o que limita execuções é
+o modelo local, e a medição com o Ollama no hardware alvo os confirma ou troca quando o suporte vier.
+
+**Fila de verdade**, mesmo servidor com `AI_CORE_MAX_EXECUTIONS=1 AI_CORE_QUEUE_SIZE=1 AI_CORE_QUEUE_WAIT_MS=30000`,
+três pedidos simultâneos: o 1º executou (primeiro texto em 2,1 s); o 2º recebeu "Aguardando uma vaga (posição 1 na
+fila)…" em 0,01 s, ganhou a vaga em 3,35 s e terminou em 7,1 s; o 3º recebeu 503 `overloaded` com `Retry-After: 30`.
 
 **Open WebUI.** A prova com a interface é da passada de encaixe da 002 ([open-webui.md](contracts/open-webui.md),
 verificação 3): Keycloak de desenvolvimento com dois usuários de grupos diferentes, cada um vê só os próprios

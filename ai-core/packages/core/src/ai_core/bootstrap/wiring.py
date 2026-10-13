@@ -48,7 +48,7 @@ from ai_core.graph.adapters.langgraph import langgraph_runtime
 from ai_core.graph.api import RagSettings
 from ai_core.graph.service import ExecutionService
 from ai_core.http.adapters import postgres_schema as http_schema
-from ai_core.http.adapters.app import create_app
+from ai_core.http.adapters.app import AdmissionLimits, create_app
 from ai_core.http.service import ConversationService
 from ai_core.llm.service import ModelRoutingService
 from ai_core.mcp.adapters import postgres_schema as mcp_schema
@@ -421,6 +421,11 @@ def _api(ctx: BootContext) -> None:
         clock=parts["clock"],
         conversation_retention=retention,
         lifespan=app_lifespan(database=parts["database"], tasks=(expiry,)),
+        admission=AdmissionLimits(
+            max_executions=settings.max_executions,
+            queue_size=settings.queue_size,
+            max_wait=timedelta(milliseconds=settings.queue_wait_ms),
+        ),
         mcp=parts["mcp"],
     )
 

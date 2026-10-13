@@ -256,3 +256,35 @@ def test_limiar_vazio_e_sem_limiar() -> None:
 def test_recusas_da_fase_5_nomeiam_a_variavel(environ: dict[str, str], variable: str) -> None:
     with pytest.raises(ConfigurationError, match=variable):
         EnvConfigSource(environ).load()
+
+
+# --- Fase 7 (008 T073): admissão da API — limite, fila e espera (008 FR-016, research R36) ----------------------------
+
+
+def test_variaveis_da_fase_7_tem_defaults() -> None:
+    settings = EnvConfigSource({}).load()
+    assert (settings.max_executions, settings.queue_size, settings.queue_wait_ms) == (2, 8, 60_000)
+
+
+def test_variaveis_da_fase_7_sao_lidas() -> None:
+    settings = EnvConfigSource(
+        {"AI_CORE_MAX_EXECUTIONS": "4", "AI_CORE_QUEUE_SIZE": "0", "AI_CORE_QUEUE_WAIT_MS": "1500"}
+    ).load()
+    assert (settings.max_executions, settings.queue_size, settings.queue_wait_ms) == (4, 0, 1500)
+
+
+@pytest.mark.parametrize(
+    ("environ", "variable"),
+    [
+        ({"AI_CORE_MAX_EXECUTIONS": "0"}, "AI_CORE_MAX_EXECUTIONS"),
+        ({"AI_CORE_MAX_EXECUTIONS": "65"}, "AI_CORE_MAX_EXECUTIONS"),
+        ({"AI_CORE_QUEUE_SIZE": "-1"}, "AI_CORE_QUEUE_SIZE"),
+        ({"AI_CORE_QUEUE_SIZE": "1001"}, "AI_CORE_QUEUE_SIZE"),
+        ({"AI_CORE_QUEUE_WAIT_MS": "0"}, "AI_CORE_QUEUE_WAIT_MS"),
+        ({"AI_CORE_QUEUE_WAIT_MS": "600001"}, "AI_CORE_QUEUE_WAIT_MS"),
+        ({"AI_CORE_QUEUE_WAIT_MS": "um minuto"}, "AI_CORE_QUEUE_WAIT_MS"),
+    ],
+)
+def test_recusas_da_fase_7_nomeiam_a_variavel(environ: dict[str, str], variable: str) -> None:
+    with pytest.raises(ConfigurationError, match=variable):
+        EnvConfigSource(environ).load()

@@ -84,3 +84,49 @@ def test_parametros_de_amostragem_sao_aceitos_e_ignorados() -> None:
 def test_stream_nao_booleano() -> None:
     with pytest.raises(ChatRequestInvalid, match="stream"):
         parse(body(stream="yes"))
+
+
+# --- Fase 7 (T067): pedido efêmero, cabeçalho `x-ai-core-store` (FR-023, R37) ---------------------------------------
+
+
+@pytest.mark.us8
+@pytest.mark.parametrize(("value", "conversation"), [(None, None), ("true", None), ("TRUE", "conv_1"), (None, "c")])
+def test_store_grava_por_padrao(value: str | None, conversation: str | None) -> None:
+    from ai_core.http.domain.chat_request import parse_store
+
+    assert parse_store(value, conversation) is True
+
+
+@pytest.mark.us8
+@pytest.mark.parametrize("value", ["false", "False", " FALSE "])
+def test_store_false_sem_conversa_e_efemero(value: str) -> None:
+    from ai_core.http.domain.chat_request import parse_store
+
+    assert parse_store(value, None) is False
+
+
+@pytest.mark.us8
+def test_store_false_com_conversa_e_conflito() -> None:
+    from ai_core.http.domain.chat_request import STORE_HEADER, parse_store
+
+    with pytest.raises(ChatRequestInvalid) as caught:
+        parse_store("false", "conv_1")
+    assert (caught.value.code, caught.value.field) == ("store_conflict", STORE_HEADER)
+
+
+@pytest.mark.us8
+@pytest.mark.parametrize("value", ["talvez", "", "0"])
+def test_store_com_valor_desconhecido_e_recusado(value: str) -> None:
+    from ai_core.http.domain.chat_request import STORE_HEADER, parse_store
+
+    with pytest.raises(ChatRequestInvalid) as caught:
+        parse_store(value, None)
+    assert (caught.value.code, caught.value.field) == ("invalid_header", STORE_HEADER)
+
+
+@pytest.mark.us8
+def test_parse_le_o_cabecalho() -> None:
+    assert parse(body(), store_header="false").store is False
+    assert parse(body()).store is True
+    with pytest.raises(ChatRequestInvalid, match="x-ai-core-store"):
+        parse(body(conversation_id="conv_1"), store_header="false")

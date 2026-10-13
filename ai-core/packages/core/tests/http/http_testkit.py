@@ -5,8 +5,9 @@ Só o modelo é simulado — API, motor, hooks de pack e roteador de modelos sã
 
 from __future__ import annotations
 
+import asyncio
 import json
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any, Final
 
@@ -16,6 +17,7 @@ from graph_testkit import ASSISTANT, MODEL, Grant, RecordingTraceSink, ScriptedH
 from ai_core.assistants.api import SCHEME_OF_SURFACE, AssistantNotFound, Principal
 from ai_core.graph.adapters.clock import FixedClock as GraphFixedClock
 from ai_core.graph.adapters.langgraph import langgraph_runtime
+from ai_core.graph.api import ExecutionEvent, FinalEvent, ProgressEvent, TokenEvent
 from ai_core.graph.service import ExecutionService
 from ai_core.http.adapters.app import create_app
 from ai_core.http.adapters.conversations_memory import InMemoryConversationStore
@@ -58,6 +60,38 @@ class SurfaceRecordingAuthenticator:
     async def authenticate(self, *, surface: str, credential: str | None) -> Principal:
         self.surfaces.append(surface)
         return Principal(subject=ANONYMOUS, scheme=SCHEME_OF_SURFACE[surface])
+
+
+class HoldingEngine:
+    """Motor programado da fila (Fase 7, T064): cada execução emite o progresso de `generate` e só emite o token e o
+    evento final depois de `gate` ser liberado; conta as execuções simultâneas (`running`, `peak`) e as chamadas."""
+
+    def __init__(self) -> None:
+        self.gate = asyncio.Event()
+        self.running = 0
+        self.peak = 0
+        self.calls = 0
+
+    def flows(self) -> tuple[str, ...]:
+        return ("chat",)
+
+    def flow_roles(self) -> Mapping[str, tuple[str, ...]]:
+        return {"chat": ("generation",)}
+
+    def run(self, grant: Any, request: Any) -> AsyncIterator[ExecutionEvent]:
+        return self._run()
+
+    async def _run(self) -> AsyncIterator[ExecutionEvent]:
+        self.calls += 1
+        self.running += 1
+        self.peak = max(self.peak, self.running)
+        try:
+            yield ProgressEvent(stage="generate")
+            await self.gate.wait()
+            yield TokenEvent(text="ok")
+            yield FinalEvent(answer="ok")
+        finally:
+            self.running -= 1
 
 
 def engine(

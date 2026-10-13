@@ -48,6 +48,13 @@ barram. Da 105, a infraestrutura está pronta sobre um conjunto **semente provis
 105 (calibração do RAG, escolha de embedding e de modelo local) esperam a curadoria das perguntas reais, que o
 mantenedor fará depois do desenvolvimento; até lá, nenhum número do RAG muda.
 
+**Fase 7 em andamento (2026-10-13).** A API está pronta para o Open WebUI (008, Fase 7): execuções simultâneas
+limitadas com fila curta — quem espera vê o aviso na hora, e sobrecarga é 503 com `Retry-After` antes de qualquer
+chamada de modelo —, progresso como raciocínio (`reasoning_content`) até o primeiro texto, pedido efêmero
+(`x-ai-core-store: false`) para não duplicar o histórico que a interface já guarda, e a lista de modelos por token. A
+fase fecha com a passada de encaixe da 002 no `agentic-deploy`: Open WebUI v0.12 com SSO num Keycloak de
+desenvolvimento, conexão `system_oauth` e tarefas auxiliares desligadas.
+
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 
 **Pendências entre specs resolvidas em 2026-10-07.** OpenAI como controller (ADR-023: o adapter converte o esquema

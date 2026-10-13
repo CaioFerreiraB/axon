@@ -1,7 +1,7 @@
 """Construção das respostas no formato OpenAI: pura, testável sem servidor (research R4).
 
 É aqui que moram os detalhes que quebram cliente — papel só no primeiro chunk, `finish_reason` só no último, progresso
-com `delta` vazio — e por isso eles ficam fora do adapter (contracts/sse-format.md).
+como raciocínio só antes do texto — e por isso eles ficam fora do adapter (contracts/sse-format.md).
 """
 
 from __future__ import annotations
@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Any, Final
 
 from ai_core.graph.api import ExecutionIssue, FinalEvent, ProgressEvent, TokenEvent
+from ai_core.http.domain.progress_text import QUEUE_STAGE, progress_line, queue_line
 
 CHUNK_OBJECT: Final = "chat.completion.chunk"
 COMPLETION_OBJECT: Final = "chat.completion"
@@ -51,17 +52,27 @@ def token_chunk(event: TokenEvent, *, request_id: str, model: str, created: date
     return _chunk(request_id=request_id, model=model, created=created, delta={"content": event.text})
 
 
-def progress_chunk(event: ProgressEvent, *, request_id: str, model: str, created: datetime) -> dict[str, Any]:
-    """Progresso vai com `delta` vazio e campo extra: cliente padrão ignora e não vê texto espúrio (research R5)."""
+def progress_chunk(
+    event: ProgressEvent, *, request_id: str, model: str, created: datetime, reasoning: bool = True
+) -> dict[str, Any]:
+    """Progresso no campo extra (research R5) e, antes do texto da resposta, também como uma linha de raciocínio
+    (`reasoning_content`), que o Open WebUI mostra à parte e o cliente padrão ignora (FR-005, R34). Depois do primeiro
+    token, `reasoning=False`: uma linha ali abriria um segundo bloco de "pensamento" abaixo da resposta."""
     progress: dict[str, Any] = {"stage": event.stage}
     if event.detail is not None:
         progress["detail"] = event.detail
+    delta = {"reasoning_content": progress_line(event.stage, event.detail) + "\n"} if reasoning else {}
+    return _chunk(request_id=request_id, model=model, created=created, delta=delta, **{EXTRA: {"progress": progress}})
+
+
+def queue_chunk(*, position: int, request_id: str, model: str, created: datetime) -> dict[str, Any]:
+    """O aviso de fila (FR-017): sai logo depois da abertura, antes de qualquer evento do motor."""
     return _chunk(
         request_id=request_id,
         model=model,
         created=created,
-        delta={},
-        **{EXTRA: {"progress": progress}},
+        delta={"reasoning_content": queue_line(position) + "\n"},
+        **{EXTRA: {"progress": {"stage": QUEUE_STAGE, "detail": str(position)}}},
     )
 
 

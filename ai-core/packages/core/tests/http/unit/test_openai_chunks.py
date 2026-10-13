@@ -12,6 +12,7 @@ from ai_core.http.domain.openai_chunks import (
     finish_reason,
     opening_chunk,
     progress_chunk,
+    queue_chunk,
     token_chunk,
 )
 
@@ -32,10 +33,38 @@ def test_token_vira_chunk_com_o_pedaco() -> None:
     assert "x_ai_core" not in chunk
 
 
-def test_progresso_vai_com_delta_vazio_e_campo_extra() -> None:
+def test_progresso_antes_do_texto_vai_como_raciocinio_e_campo_extra() -> None:
+    """Fase 7 (R34): até o primeiro token, a linha em português em `reasoning_content`, terminada em quebra."""
     chunk = progress_chunk(ProgressEvent(stage="generate"), **ENVELOPE)
-    assert chunk["choices"][0]["delta"] == {}
+    assert chunk["choices"][0]["delta"] == {"reasoning_content": "Escrevendo a resposta…\n"}
+    assert chunk["choices"][0]["finish_reason"] is None
     assert chunk["x_ai_core"]["progress"] == {"stage": "generate"}
+
+
+def test_progresso_depois_do_texto_vai_com_delta_vazio_e_campo_extra() -> None:
+    chunk = progress_chunk(ProgressEvent(stage="validate_answer"), reasoning=False, **ENVELOPE)
+    assert chunk["choices"][0]["delta"] == {}
+    assert chunk["x_ai_core"]["progress"] == {"stage": "validate_answer"}
+
+
+def test_tool_nomeada_no_raciocinio() -> None:
+    chunk = progress_chunk(ProgressEvent(stage="execute_tool", detail="generic.calculate"), **ENVELOPE)
+    assert chunk["choices"][0]["delta"] == {"reasoning_content": "Usando a ferramenta generic.calculate…\n"}
+    assert chunk["x_ai_core"]["progress"] == {"stage": "execute_tool", "detail": "generic.calculate"}
+
+
+def test_chunk_da_fila() -> None:
+    chunk = queue_chunk(position=2, **ENVELOPE)
+    assert chunk["choices"][0]["delta"] == {"reasoning_content": "Aguardando uma vaga (posição 2 na fila)…\n"}
+    assert chunk["choices"][0]["finish_reason"] is None
+    assert chunk["x_ai_core"]["progress"] == {"stage": "queue", "detail": "2"}
+
+
+def test_espera_esgotada_na_fila_e_desfecho_de_erro() -> None:
+    issue = ExecutionIssue(stage="admission", kind="QueueTimeout", message="espera esgotada na fila")
+    chunk = final_chunk(FinalEvent(answer="", errors=(issue,)), **ENVELOPE)
+    assert chunk["choices"][0]["finish_reason"] == "error"
+    assert chunk["x_ai_core"]["errors"] == [{"stage": "admission", "kind": "QueueTimeout", "message": issue.message}]
 
 
 def test_progresso_com_detalhe() -> None:
