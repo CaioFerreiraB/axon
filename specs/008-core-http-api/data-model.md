@@ -167,3 +167,51 @@ no escopo de usuário, ganha `~` se vier sem. `server_json(McpServer)`, `summary
 | algum `error` | `finish_reason: "error"` | 502 + `x-should-retry: false` |
 
 `VALIDATOR_ISSUE` sai de `domain/openai_chunks.py`: a API não conhece mais `kind` nenhum da 005.
+
+## Fase 7 (2026-10-13): fila, progresso como raciocínio e pedido efêmero (research R33–R41)
+
+### `AdmissionLimits` (`domain/admission.py`)
+
+| Campo | Tipo | Regra |
+|---|---|---|
+| `max_executions` | `int` | 1–64 (`AI_CORE_MAX_EXECUTIONS`; provisório 2) |
+| `queue_size` | `int` | 0–1000; 0 = sem fila (`AI_CORE_QUEUE_SIZE`; provisório 8) |
+| `max_wait` | `timedelta` | 1 ms–600 s (`AI_CORE_QUEUE_WAIT_MS`; provisório 60 s); para não esperar, `queue_size = 0` |
+
+`decide(running, queued, limits)` → `"run"` se `running < max_executions`; `"queue"` se `queued < queue_size`; senão
+`"reject"`. `retry_after(limits)` → `max(1, ceil(max_wait em segundos))`.
+
+### `ExecutionSlots` (`service.py`)
+
+Estado em memória, por processo: execuções em andamento e uma fila FIFO de quem espera. Transições de um pedido:
+
+```text
+admitido ──────────────────────────────→ executando ──(evento final | iterador fechado)──→ liberado
+   └─ na fila ──(vaga liberada, primeiro da fila)──↗
+        ├─ espera esgotada ──→ recusado (503 sem streaming; finish_reason "error" + QueueTimeout no stream)
+        └─ cliente desconectou ──→ fora da fila (não ocupa vaga)
+recusado (vagas e fila cheias) ──→ 503 + Retry-After, antes de abrir o stream
+```
+
+### `ChatRequest` — campo novo
+
+| Campo | Tipo | Regra |
+|---|---|---|
+| `store` | `bool` | default `True`; `False` com `x-ai-core-store: false` e sem `conversation_id` (FR-023) |
+
+### Linhas de progresso (`domain/progress_text.py`)
+
+`progress_line(stage, detail) -> str`: a tabela da R34 (estágios publicados pela 005), `Etapa {stage}…` para os demais;
+`queue_line(position) -> str`. O chunk de progresso leva `delta.reasoning_content = linha + "\n"` só antes do primeiro
+token; depois, `delta: {}` como antes.
+
+### Erros novos
+
+| Causa | Status | `type` | `code` | `param` |
+|---|---|---|---|---|
+| vagas e fila cheias, ou espera esgotada sem streaming | 503 + `Retry-After` | `server_error` | `overloaded` | — |
+| `x-ai-core-store: false` com `conversation_id` | 400 | `invalid_request_error` | `store_conflict` | `x-ai-core-store` |
+| `x-ai-core-store` com valor diferente de `true`/`false` | 400 | `invalid_request_error` | `invalid_header` | `x-ai-core-store` |
+
+No stream já aberto, a espera esgotada vira o registro `{"stage": "admission", "kind": "QueueTimeout", "message": …}` no
+`x_ai_core.errors` do chunk final, com `finish_reason: "error"`.

@@ -166,6 +166,13 @@ assinatura de `run` não muda.
 | `load_capabilities` | `None` |
 | `controller` | `"iteração <n>"` |
 | `execute_tool` | o nome que o controller pediu |
+| `retrieve` | `"<n> tool(s) de recuperação"` (Fase 5, `rag_first`) |
+| `rerank` | `"<n> candidato(s)"` (Fase 5, `rag_first`) |
+| `gate` | `"<n> trecho(s)"` (Fase 5, `rag_first`) |
+
+Os três do `rag_first` são emitidos desde a Fase 5 e conferidos na conformidade do flow
+(`tests/graph/contract/test_rag_first_flow.py`: `prepare_context → retrieve → rerank → gate → generate →
+validate_answer`); publicados aqui em 2026-10-13, quando a 008 passou a mostrá-los como texto (008 research R34).
 
 ### Ação do controller (`domain/actions.py`, interno)
 

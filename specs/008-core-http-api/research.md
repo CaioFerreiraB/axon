@@ -464,3 +464,170 @@ nome. Marcas `us4`, `us5`, `us6`.
 **Rationale**: o padrão da R24 (a 003 real, nada de dublê do que se integra).
 
 **Alternatives considered**: dublê do registry (não pegaria divergência de tipo nem de exceção da 007).
+
+---
+
+# Fase 7 (2026-10-13): progresso, fila e Open WebUI (US6, US8)
+
+Insumos: as quatro clarificações de 2026-10-13; o `design.md` ("Admissão e fila", pré-aprovado; "Compatibilidade OpenAI
+e Open WebUI"); os contratos da 005 que publicam os estágios de progresso (`execution-engine.md`, `agentic-flow.md`,
+`rag-first-flow.md`); e o código do Open WebUI v0.12.0 (`utils/headers.py`, `routers/openai.py`, `utils/middleware.py`,
+`utils/misc.py`, `utils/oauth.py`, `config.py`, `env.py`). Nenhum ADR novo.
+
+## R33 — Escopo da passada
+
+**Decision**: da 008, a US6 (cenários 2–4: fila, recusa por sobrecarga e progresso como raciocínio; o cenário 1 — tool
+nomeada no progresso — já vale desde a Fase 3, R32) e a US8 no lado da API (compatibilidade com o que o Open WebUI v0.12
+envia, lista de modelos por token, pedido efêmero). Toque declarado na 011: a configuração da fila e
+`create_app(admission=…)`. A instalação com Open WebUI e um provedor OIDC de desenvolvimento — onde a US8 é provada com a
+interface de verdade — é uma passada de encaixe da 002 no `agentic-deploy`, depois desta, como na Fase 5.
+
+**Rationale**: a API não depende da interface (FR-011, princípio XI); a 002 é dona da instalação.
+
+**Alternatives considered**: subir o Open WebUI nos testes do core (traria uma interface e um provedor de identidade
+para a suíte de uma API).
+
+## R34 — Progresso como raciocínio (clarificação 2)
+
+**Decision**: o chunk de progresso passa a levar `delta: {"reasoning_content": "<linha>\n"}` além do
+`x_ai_core.progress` de antes, **só até o primeiro token**: depois do primeiro `TokenEvent`, o progresso (o de
+`validate_answer`, por exemplo) vai só no campo extra. A linha é uma frase curta em português, de uma tabela pura em
+`domain/progress_text.py`, indexada pelos estágios que os contratos da 005 publicam:
+
+| Estágio (005) | Linha |
+|---|---|
+| `prepare_context` | `Preparando o contexto da pergunta…` |
+| `load_capabilities` | `Carregando as ferramentas…` |
+| `controller` | `Decidindo o próximo passo ({detail})…` |
+| `execute_tool` | `Usando a ferramenta {detail}…` |
+| `retrieve` | `Consultando os documentos…` |
+| `rerank` | `Ordenando os trechos encontrados…` |
+| `gate` | `Conferindo se os trechos cobrem a pergunta…` |
+| `generate` | `Escrevendo a resposta…` |
+| `validate_answer` | `Conferindo a resposta…` (na prática, só no extra: vem depois dos tokens) |
+| outro | `Etapa {stage}…` |
+| (fila, da própria 008) | `Aguardando uma vaga (posição {n} na fila)…` |
+
+**Rationale**: o Open WebUI v0.12 junta os `reasoning_content` num bloco recolhível de "pensamento" e, ao reenviar o
+histórico, descarta o raciocínio por padrão (`reasoning_format=None` em `convert_output_to_messages`) — a linha não volta
+ao modelo. Raciocínio depois da resposta abriria um segundo bloco abaixo do texto; por isso para no primeiro token. Os
+estágios são valores publicados nos contratos da 005 (não nomes internos lidos do grafo); estágio novo cai na linha
+genérica e nada quebra.
+
+**Alternatives considered**: campo `message` no `ProgressEvent` da 005 (mudança de seam e ADR, sem necessidade enquanto a
+tabela cobre os estágios publicados); progresso em `delta.content` (suja a resposta).
+
+## R35 — Admissão e fila (design.md, pré-aprovado; FR-016, FR-017)
+
+**Decision**: `domain/admission.py` puro — `AdmissionLimits(max_executions, queue_size, max_wait)`,
+`decide(running, queued, limits) -> "run" | "queue" | "reject"` e `retry_after(limits) -> int` (segundos, teto da espera
+máxima, mínimo 1). Em `service.py`, `ExecutionSlots`: vagas e fila FIFO em memória (`asyncio`), a vaga ocupada do
+início da execução até o evento final — ou até o iterador ser fechado (cliente que desconecta, cancelamento) —; quem
+desconecta na fila sai dela sem ocupar vaga. A admissão roda **depois** da resolução do grant (404, 400, 424 e 429
+primeiro) e **antes** de `engine.run`:
+
+| Situação | Sem streaming | Com streaming |
+|---|---|---|
+| vaga livre | executa | executa |
+| vagas cheias, fila livre | espera; esgotou a espera → 503 + `Retry-After` | abre o stream com o primeiro chunk e a linha de fila (no mesmo instante — bem antes dos 2 s); esgotou → chunk final com `finish_reason: "error"` e o registro `QueueTimeout` no extra, depois `[DONE]` |
+| vagas e fila cheias | 503 + `Retry-After` | 503 + `Retry-After` (antes de abrir o stream) |
+
+503 de sobrecarga: `type` `server_error`, `code` `overloaded`, sem `x-should-retry` (nada rodou; repetir respeitando o
+`Retry-After` é seguro).
+
+**Rationale**: é o desenho pré-aprovado (decisão pura em `domain/`, semáforo e fila no serviço, sem porta — não há I/O).
+O stream já aberto não pode virar 503: segue a clarificação de 2026-09-21 (falha depois de o SSE abrir encerra o stream
+normalmente); nenhuma chamada de modelo aconteceu, então a SC-006 continua valendo.
+
+**Alternatives considered**: abrir o stream só depois de ganhar a vaga (o cliente na fila ficaria sem sinal — contraria
+a FR-017); porta de admissão (seria uma porta para regra pura e estado em memória — princípio XII).
+
+## R36 — Configuração e valores iniciais
+
+**Decision**: a 011 lê `AI_CORE_MAX_EXECUTIONS` (1–64), `AI_CORE_QUEUE_SIZE` (0–1000; 0 = sem fila) e
+`AI_CORE_QUEUE_WAIT_MS` (1–600 000; sem fila é `AI_CORE_QUEUE_SIZE=0`) e passa `AdmissionLimits` a `create_app(admission=…)`. Valores provisórios: **2**
+execuções, fila de **8**, espera de **60 000 ms**; a implementação os mede no hardware alvo (Ollama local,
+`qwen3:1.7b`: 1, 2 e 4 conversas simultâneas, latência até o primeiro token e total) e fixa os defaults com os números
+no quickstart. Sem `admission` em `create_app`, não há limite (suítes e o harness, que não passa pela API).
+
+**Rationale**: a spec manda medir os valores no hardware alvo; o nome em milissegundos segue `AI_CORE_TOOL_TIMEOUT_MS`.
+
+**Alternatives considered**: fixar sem medir (princípio X).
+
+## R37 — Pedido efêmero (clarificação 4, FR-023)
+
+**Decision**: o adapter lê o cabeçalho `x-ai-core-store` e o domínio o valida (`domain/chat_request.py`,
+`parse_store(value, conversation_id) -> bool`): ausente ou `true` → grava (FR-013); `false` (sem diferenciar
+maiúsculas) e sem id de conversa → efêmero; `false` com id de conversa → 400 `store_conflict`; outro valor → 400
+`invalid_header`; os dois com `param: "x-ai-core-store"`. `ChatRequest.store`; o serviço não cria nem grava conversa no
+pedido efêmero, o primeiro chunk e a resposta sem streaming saem sem `conversation_id`, e não há `X-Conversation-Id`.
+Vale nas duas superfícies, na compat e na requisição nativa.
+
+**Rationale**: a clarificação; o Open WebUI envia cabeçalhos próprios por conexão (`headers` em `OPENAI_API_CONFIGS`,
+aplicados em `get_headers_and_cookies`).
+
+**Alternatives considered**: campo `store` no corpo (o Open WebUI só o mandaria configurado modelo a modelo).
+
+## R38 — O que o Open WebUI v0.12 envia (compatibilidade)
+
+**Decision**: nenhuma mudança na leitura do corpo, só a prova. O Open WebUI manda `model`, `messages` com conteúdo em
+texto, `stream: true` e os parâmetros do modelo (`temperature`, `top_p`, `max_tokens`, `seed`, `stop`…), às vezes
+`stream_options` — todos tolerados pela compat (ignorados ou dentro dos limites). `tools` só no modo de chamada de
+função "nativo", que a instalação de referência não usa; se vier, 400 `widening_field` (princípio IV). Conteúdo
+multimodal (lista de partes, ao anexar imagem) continua 400 em `messages`. Uma suíte de contrato reproduz o pedido do
+Open WebUI (corpo e cabeçalhos tirados do código da v0.12, como fixture) e confere a resposta: streaming com
+`reasoning_content` antes do texto, `[DONE]` e nada que o parser dele recuse.
+
+**Rationale**: SC-001 (zero código de interface) e SC-004.
+
+**Alternatives considered**: aceitar `tools` em silêncio (contraria o princípio IV e a borda de `chat_request.py`).
+
+## R39 — Identidade do Open WebUI (clarificação 1)
+
+**Decision**: nenhuma mudança na autenticação. A conexão `system_oauth` repassa o **access token** do provedor
+(`get_headers_and_cookies` → `oauth_manager.get_oauth_token`, que renova o token a menos de 5 minutos de expirar); a 003
+o verifica como hoje (`AI_CORE_OIDC_ISSUER`, `AI_CORE_OIDC_AUDIENCE`, `AI_CORE_OIDC_JWKS_URL` — a URL das chaves pode
+ser a interna da rede, diferente do emissor que o navegador vê —, `AI_CORE_OIDC_SUBJECT_CLAIM`,
+`AI_CORE_OIDC_GROUPS_CLAIM`). O provedor precisa emitir access token **JWT** com a audiência da plataforma e as claims
+de subject e grupos. A lista de modelos do Open WebUI fica em cache **por usuário** (`openai_all_models_{user.id}`), e
+com `BYPASS_MODEL_ACCESS_CONTROL=true` ele mostra o que o `/v1/models` devolve para aquele token, sem filtro próprio.
+
+**Nota para a 002** (passada de encaixe): provedor de desenvolvimento **Keycloak** (access token JWT por padrão, mapper
+de audiência e de grupos, realm importado com dois usuários de grupos diferentes); Authelia emite access token opaco por
+padrão e o Dex não dá grupos a usuários estáticos.
+
+**Rationale**: a clarificação; a autenticação real da 003 já é a de produção.
+
+**Alternatives considered**: os da clarificação 1.
+
+## R40 — Configuração do Open WebUI na instalação (nota para a 002)
+
+**Decision**: o que a passada de encaixe da 002 configura, só por ambiente: `OPENAI_API_BASE_URLS` com o `/v1` da
+plataforma e `OPENAI_API_CONFIGS` com `auth_type: system_oauth` e `headers: {"x-ai-core-store": "false"}`;
+`ENABLE_OLLAMA_API=false`; `BYPASS_MODEL_ACCESS_CONTROL=true`; `ENABLE_TITLE_GENERATION`, `ENABLE_TAGS_GENERATION`,
+`ENABLE_FOLLOW_UP_GENERATION`, `ENABLE_AUTOCOMPLETE_GENERATION`, `ENABLE_SEARCH_QUERY_GENERATION` e
+`ENABLE_RETRIEVAL_QUERY_GENERATION` em `false` (clarificação 3); OIDC (`OPENID_PROVIDER_URL`, `OAUTH_CLIENT_ID`,
+`OAUTH_CLIENT_SECRET`, `ENABLE_OAUTH_SIGNUP=true`, `ENABLE_LOGIN_FORM=false`); `ENABLE_PERSISTENT_CONFIG=false`, para que
+o ambiente prevaleça sobre o que ficou gravado; imagem fixada na `v0.12.0`. O teste da US8 com a interface conta as
+execuções no trace: uma por mensagem.
+
+**Rationale**: SC-001 (nenhum código de interface); as consultas de busca e de recuperação do próprio Open WebUI também
+seriam execuções extras.
+
+**Alternatives considered**: configurar pela tela de administração (não reproduzível).
+
+## R41 — Testes
+
+**Decision**: unitários puros — `tests/http/unit/test_progress_text.py` (a tabela, a linha genérica, o `{detail}`),
+`test_admission.py` (decisão e `Retry-After`), `test_chat_request.py` (o cabeçalho), `test_openai_chunks.py` (chunk de
+progresso com `reasoning_content` e sem ele depois do primeiro token); contrato — `tests/http/contract/test_admission.py`
+(motor programado que segura a execução: limite respeitado, fila FIFO, linha de fila no primeiro segundo, 503 com
+`Retry-After` antes de qualquer chamada de modelo, espera esgotada nos dois modos, desconexão na fila libera o lugar —
+SC-006 com 10 pedidos para 2 vagas e fila de 3), `test_ephemeral.py` (nada gravado, nenhum id, 400 nos conflitos,
+duas superfícies), `test_open_webui.py` (o pedido do Open WebUI v0.12 como fixture; dois tokens de grupos diferentes →
+duas listas em `/v1/models`); bootstrap — a 011 lê as três variáveis e, com `AI_CORE_MAX_EXECUTIONS=1` e
+`AI_CORE_QUEUE_SIZE=0`, o segundo pedido simultâneo recebe 503 `overloaded`. Marcas `us6`, `us8`.
+
+**Rationale**: o padrão da R24 (a 003 real, o motor real ou programado na porta de execução).
+
+**Alternatives considered**: teste de carga com modelo real na suíte (fica no quickstart, para medir os valores).

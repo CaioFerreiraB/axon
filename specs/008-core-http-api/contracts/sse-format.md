@@ -58,3 +58,24 @@ clientes compatíveis e é onde a plataforma diz o que a OpenAI não tem onde di
 6. evento final só com apontamento de validator mantém `finish_reason: "stop"`;
 7. a resposta sem streaming junta os pedaços e traz o mesmo campo extra;
 8. `id`, `object`, `created` e `model` são iguais em todos os chunks de uma resposta.
+
+## Fase 7 (2026-10-13): progresso como raciocínio e fila (research R34, R35)
+
+```text
+(abre)                      → delta {"role": "assistant"}
+(na fila)                   → delta {"reasoning_content": "Aguardando uma vaga (posição 2 na fila)…\n"}, x_ai_core.progress {"stage": "queue", "detail": "2"}
+ProgressEvent antes do texto → delta {"reasoning_content": "<linha>\n"}, x_ai_core.progress {"stage": …, "detail": …}
+TokenEvent                  → delta {"content": "<pedaço>"}
+ProgressEvent depois do texto → delta {}, x_ai_core.progress (como antes)
+FinalEvent                  → como antes
+```
+
+| Regra | Motivo |
+|---|---|
+| Linha de raciocínio só antes do primeiro `delta.content` | o Open WebUI abriria um segundo bloco de "pensamento" abaixo da resposta |
+| Cada linha termina em `\n` | o Open WebUI concatena os `reasoning_content` de um bloco |
+| Nunca texto de progresso em `delta.content` | a resposta é só a resposta (FR-005) |
+| Espera esgotada com o stream aberto → chunk final `finish_reason: "error"` + `QueueTimeout`, depois `[DONE]` | o status já foi enviado; nenhuma chamada de modelo aconteceu |
+
+Suíte: `test_openai_chunks.py` ganha os casos de raciocínio (antes e depois do primeiro token);
+`test_progress_text.py`, a tabela.

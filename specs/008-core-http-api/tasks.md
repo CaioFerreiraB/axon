@@ -399,7 +399,164 @@ Caminhos relativos a `ai-core/packages/core/`. Testes primeiro; marcas `us4` (MC
 
 ---
 
+## Fase 7 (2026-10-13): progresso, fila e Open WebUI (research R33–R41)
+
+Caminhos relativos a `ai-core/packages/core/`, salvo os que começam com `specs/`, `docs/` ou `CLAUDE.md`. Testes
+primeiro; marcas `us6` e `us8`. A interface de verdade (Open WebUI + Keycloak) é uma passada de encaixe da 002, depois
+desta lista (R33).
+
+## Phase 17: User Story 6 — fila e progresso como raciocínio (Priority: P2 — Fase 7, cen. 2–4)
+
+**Goal**: execuções simultâneas limitadas, com fila curta e 503 de sobrecarga antes de qualquer chamada de modelo; o
+progresso do motor e a espera na fila aparecem como raciocínio antes do texto.
+
+**Independent Test**: `uv run pytest packages/core/tests/http -m us6`.
+
+- [ ] T058 [P] [US6] Criar `tests/http/unit/test_progress_text.py` com a tabela da R34, linha a linha:
+  `progress_line("prepare_context", None) == "Preparando o contexto da pergunta…"`, `"load_capabilities"` → `"Carregando
+  as ferramentas…"`, `("controller", "iteração 2")` → `"Decidindo o próximo passo (iteração 2)…"`, `("execute_tool",
+  "scouting.search_docs")` → `"Usando a ferramenta scouting.search_docs…"`, `"retrieve"` → `"Consultando os
+  documentos…"`, `"rerank"` → `"Ordenando os trechos encontrados…"`, `"gate"` → `"Conferindo se os trechos cobrem a
+  pergunta…"`, `"generate"` → `"Escrevendo a resposta…"`, `"validate_answer"` → `"Conferindo a resposta…"`, estágio
+  desconhecido `("novo", None)` → `"Etapa novo…"`; `controller`/`execute_tool` sem detalhe não quebram; e
+  `queue_line(2) == "Aguardando uma vaga (posição 2 na fila)…"`
+- [ ] T059 [P] [US6] Criar `tests/http/unit/test_admission.py`: `AdmissionLimits` recusa `max_executions` fora de 1–64,
+  `queue_size` fora de 0–1000 e `max_wait` fora de 1 ms–600 s com `ValueError` que nomeia o campo; `decide(running,
+  queued, limits)` → `"run"` se `running < max_executions`, senão `"queue"` se `queued < queue_size`, senão `"reject"`
+  (com `queue_size=0`, cheio → `"reject"`); `retry_after` → `max(1, ceil(max_wait em segundos))` (60 s → 60; 0,2 s → 1;
+  1,5 s → 2; 1 ms → 1)
+- [ ] T060 [P] [US6] Estender `tests/http/unit/test_openai_chunks.py` (contracts/sse-format.md, seção "Fase 7"):
+  `progress_chunk(event, …, reasoning=True)` → `delta == {"reasoning_content": progress_line(...) + "\n"}` e o
+  `x_ai_core.progress` de antes; `reasoning=False` → `delta == {}` (o chunk de antes); `queue_chunk(position=2, …)` →
+  `delta.reasoning_content` com a linha da fila e `x_ai_core.progress == {"stage": "queue", "detail": "2"}`; nenhum
+  deles tem `content` nem `finish_reason`; `final_chunk` com o registro `{"stage": "admission", "kind": "QueueTimeout"}`
+  tem `finish_reason: "error"`
+- [ ] T061 [US6] Criar `src/ai_core/http/domain/progress_text.py`: `QUEUE_STAGE: Final = "queue"`, a tabela
+  `PROGRESS_LINES` (estágio publicado pela 005 → modelo da linha, com `{detail}` onde a R34 o usa), `progress_line(stage:
+  str, detail: str | None) -> str` (estágio desconhecido → `f"Etapa {stage}…"`; `{detail}` ausente → a linha sem os
+  parênteses/nome) e `queue_line(position: int) -> str` — faz T058 passar
+- [ ] T062 [US6] Criar `src/ai_core/http/domain/admission.py`: `AdmissionLimits` (frozen, `max_executions: int`,
+  `queue_size: int`, `max_wait: timedelta`, faixas validadas em `__post_init__`), `Decision = Literal["run", "queue",
+  "reject"]`, `decide(running: int, queued: int, limits: AdmissionLimits) -> Decision` e `retry_after(limits) -> int` —
+  faz T059 passar
+- [ ] T063 [US6] Em `src/ai_core/http/domain/openai_chunks.py`: `progress_chunk(..., reasoning: bool = True)` com a linha
+  de `progress_line` em `delta.reasoning_content` (terminada em `"\n"`) quando `reasoning`, e `queue_chunk(*, position,
+  request_id, model, created)`; a docstring do módulo troca "progresso com `delta` vazio" pela regra nova; em
+  `src/ai_core/http/domain/errors.py`, `Overloaded(retry_after: int)` → 503, `type` `server_error`, `code` `overloaded`,
+  com `Retry-After`, sem `x-should-retry`, e a constante do registro `QUEUE_TIMEOUT_KIND = "QueueTimeout"` (estágio
+  `"admission"`) — faz T060 passar
+- [ ] T064 [P] [US6] Criar `tests/http/contract/test_admission.py` (contracts/admission.md, verificações 1–5) com um
+  `HoldingEngine` novo em `tests/http/http_testkit.py` — implementa `ExecutionEngine.run` emitindo
+  `ProgressEvent("generate")`, um `TokenEvent` e o `FinalEvent` só depois de um `asyncio.Event` liberado pelo teste, e
+  conta execuções simultâneas (`running`, `peak`) e chamadas (`calls`): (1) 10 pedidos sem streaming simultâneos
+  (`httpx.AsyncClient` com `ASGITransport` e `asyncio.gather`) com `AdmissionLimits(2, 3, 5 s)` → `peak == 2`, 5
+  respostas 503 `overloaded` com `Retry-After: 5` e `calls == 5` ao final (nenhuma execução para os recusados — SC-006);
+  (2) com as duas vagas ocupadas, `app.state.chat_service.stream(...)` de um pedido em streaming devolve o chunk de
+  abertura e, logo em seguida, o `queue_chunk` com `posição 1` — antes de qualquer liberação do motor — e segue com o
+  progresso e o texto ao ganhar a vaga (US6 cen. 2, SC-003); (3) espera esgotada (`max_wait=0,05 s`): sem streaming →
+  503 com `Retry-After: 1`; em streaming → chunk final `finish_reason: "error"` com `QueueTimeout` no extra e `[DONE]`,
+  e `calls` não muda; (4) iterador de streaming fechado (`aclose`) enquanto na fila → o lugar sai da fila e o próximo
+  pedido entra quando a vaga libera; (5) com as vagas e a fila cheias, um pedido a um Assistant inexistente recebe 404,
+  e um que estoura a cota do par recebe 429 — nenhum ocupa lugar (ordem do contrato)
+- [ ] T065 [US6] Em `src/ai_core/http/service.py`, `ExecutionSlots(limits)` — vagas e fila FIFO com `asyncio`, sem
+  porta: `acquire()` decide por `domain/admission.decide`; `"run"` ocupa; `"queue"` devolve a posição e espera a vaga
+  até `max_wait` (`asyncio.timeout`); `"reject"` levanta `Overloaded(retry_after(limits))`; a vaga é liberada no
+  `finally` em volta da execução (evento final ou iterador fechado), e quem sai da fila por cancelamento ou espera
+  esgotada é removido dela. No `ChatService`, a admissão entra entre `self._grants.resolve` e `engine.run` (depois das
+  recusas de 404/400/424/429): em `complete`, espera esgotada → `Overloaded`; em `stream`, `"reject"` levanta antes do
+  primeiro chunk (o adapter já busca o primeiro chunk antes de responder), `"queue"` emite a abertura e o `queue_chunk`
+  e espera, espera esgotada → chunk final de erro com `QUEUE_TIMEOUT_KIND`; o progresso sai com `reasoning=True` até o
+  primeiro `TokenEvent` e `reasoning=False` depois. Sem `admission`, nenhum limite (faz T064 passar)
+- [ ] T066 [US6] Em `src/ai_core/http/adapters/app.py`, `create_app(..., admission: AdmissionLimits | None = None)`
+  repassado ao `ChatService`; confirmar que o 503 de `Overloaded` sai com `Retry-After` pela tabela de
+  `domain/errors.py` nas duas superfícies, na compat e na requisição nativa; e atualizar o teste de US6 cen. 1
+  (`test_chat_completions.py`, T053) para conferir também a linha `"Usando a ferramenta generic.calculate…"` em
+  `delta.reasoning_content` antes do primeiro token
+
+**Checkpoint**: nunca mais execuções que o limite; quem espera vê a fila; o progresso aparece como raciocínio
+
+---
+
+## Phase 18: User Story 8 — Open WebUI conectado, no lado da API (Priority: P3 — Fase 7)
+
+**Goal**: o pedido do Open WebUI v0.12 funciona sem adaptação, cada token vê só os próprios Assistants, e o cabeçalho
+`x-ai-core-store: false` torna efêmero o pedido sem id de conversa.
+
+**Independent Test**: `uv run pytest packages/core/tests/http -m us8`.
+
+- [ ] T067 [P] [US8] Estender `tests/http/unit/test_chat_request.py`: `parse_store(None, None)`, `("true", None)`,
+  `("TRUE", "conv_1")` → `True`; `("false", None)` e `("False", None)` → `False`; `("false", "conv_1")` →
+  `ChatRequestInvalid` com `code="store_conflict"` e `field="x-ai-core-store"`; `("talvez", None)` e `("", None)` →
+  `code="invalid_header"`, mesmo `field`; `parse(body, store_header="false")` devolve `ChatRequest.store is False`; e o
+  mesmo em `tests/http/unit/test_native_request.py` para `parse_native`
+- [ ] T068 [P] [US8] Criar `tests/http/contract/test_ephemeral.py` (FR-023; contracts/chat-completions.md, seção "Fase
+  7"), com o `Platform` do `http_testkit` e `ANA_TOKEN`: em `/v1` e `/private/v1` (com `ADMIN_KEY`), com e sem streaming,
+  e em `POST /chat` nativo, o cabeçalho `x-ai-core-store: false` → 200, nenhum `conversation_id` no primeiro chunk nem no
+  corpo, nenhum `X-Conversation-Id`, e `GET /v1/conversations` vazio para o subject; o mesmo pedido sem o cabeçalho cria
+  a conversa (regressão do FR-013); com `conversation_id` existente + `false` → 400 `store_conflict` com `param:
+  "x-ai-core-store"` e o motor não chamado; valor `talvez` → 400 `invalid_header`
+- [ ] T069 [P] [US8] Criar `tests/http/open_webui_v0_12.py` — o pedido como o Open WebUI v0.12.0 o monta
+  (`routers/openai.py`, `utils/headers.py`, `utils/payload.py`): corpo com `model`, `messages` (sistema opcional, uma
+  troca anterior de usuário e assistente, a pergunta), `stream: true`, `temperature`, `top_p`, `max_tokens`, `seed`,
+  `stream_options: {"include_usage": true}`; cabeçalhos `Content-Type: application/json`, `Authorization: Bearer
+  <token>` (o `system_oauth`) e `x-ai-core-store: false` (o `headers` da conexão) — com um comentário que aponta os
+  arquivos e a versão; e criar `tests/http/contract/test_open_webui.py` (contracts/open-webui.md, verificações 1–2):
+  o pedido da fixture com `ANA_TOKEN` → 200 SSE com `delta.reasoning_content` antes do primeiro `delta.content`, nenhuma
+  linha de raciocínio depois dele, `[DONE]`, nenhum id de conversa; `GET /v1/models` com `ANA_TOKEN` e com `BIA_TOKEN`
+  (grupo `chefia`) → listas diferentes, a de `BIA_TOKEN` com `chefia` e a de `ANA_TOKEN` sem (US8 cen. 1–2); a fixture
+  com `tools` (modo nativo) → 400 `widening_field`; com conteúdo multimodal (lista de partes) → 400 com `param:
+  "messages"`
+- [ ] T070 [US8] Em `src/ai_core/http/domain/chat_request.py`: `STORE_HEADER: Final = "x-ai-core-store"`,
+  `parse_store(value: str | None, conversation_id: str | None) -> bool` (sem diferenciar maiúsculas; `false` com id →
+  `store_conflict`; outro valor → `invalid_header`), `ChatRequest.store: bool = True` e `parse(body, *, store_header:
+  str | None = None)`; em `src/ai_core/http/domain/native_request.py`, `parse_native(body, *, store_header=None)` com a
+  mesma regra — faz T067 passar
+- [ ] T071 [US8] Em `src/ai_core/http/service.py`, pedido com `store=False`: `_open` não cria conversa (um `_Turn` sem
+  conversa) e `_record` não grava; `opening_chunk` e `completion` saem sem `conversation_id`; `CompletionResult.
+  conversation_id: str | None`. Em `src/ai_core/http/adapters/chat.py`, as duas rotas leem
+  `request.headers.get(STORE_HEADER)` e o passam ao parser; `X-Conversation-Id` só quando há conversa (depende de T070;
+  faz T068 passar)
+- [ ] T072 [US8] Fazer T069 passar: o que divergir do contrato (campo tolerado que hoje recusa, ordem do raciocínio) se
+  corrige em `domain/`; sem código novo se já passar
+
+**Checkpoint**: o pedido do Open WebUI v0.12 recebe streaming com o progresso visível; nenhuma conversa duplicada
+
+---
+
+## Phase 19: Polish da Fase 7
+
+- [ ] T073 Toque declarado na 011: em `src/ai_core/bootstrap/settings.py`, `max_executions` (`AI_CORE_MAX_EXECUTIONS`,
+  1–64), `queue_size` (`AI_CORE_QUEUE_SIZE`, 0–1000) e `queue_wait_ms` (`AI_CORE_QUEUE_WAIT_MS`, 1–600 000), com os
+  defaults provisórios 2, 8 e 60 000 e erro que nomeia a variável (`_within`); em `src/ai_core/bootstrap/wiring.py`
+  (`_api`), `create_app(..., admission=AdmissionLimits(...))`; em `tests/bootstrap/unit/test_settings.py`, as três
+  variáveis (default, valor lido, fora da faixa nomeando a variável); em
+  `tests/bootstrap/integration/test_platform_test_profile.py`, com `AI_CORE_MAX_EXECUTIONS=1` e `AI_CORE_QUEUE_SIZE=0`
+  e o provider `ollama` trocado por um que segura a geração num `asyncio.Event`, o segundo pedido simultâneo recebe
+  503 `overloaded` com `Retry-After`; e a tabela de variáveis em `specs/011-core-bootstrap/contracts/configuration.md`
+- [ ] T074 Medir no hardware alvo (R36): `ai-core serve` no perfil `memory` com o Ollama local (`qwen3:1.7b`) e o
+  Assistant `geral` (ou o `scouting`, se o índice estiver de pé), 1, 2 e 4 conversas simultâneas em streaming, latência
+  até o primeiro token e total (p50); preencher a tabela da seção "Fase 7" de
+  `specs/008-core-http-api/quickstart.md`, escolher os defaults (manter 2 / 8 / 60 s ou trocar, dizendo por quê na R36
+  de `specs/008-core-http-api/research.md`) e alinhar `settings.py` e `contracts/admission.md`
+- [ ] T075 Rodar a seção "Fase 7" de `specs/008-core-http-api/quickstart.md` (raciocínio no stream, fila com três
+  pedidos, pedido efêmero) e corrigir divergências
+- [ ] T076 [P] Documentação: seção "Código" de `CLAUDE.md` (Fase 7 da 008: fila, progresso como raciocínio, pedido
+  efêmero; a interface na passada da 002), a linha da 008 em `specs/README.md` e a da 011 (variáveis da fila), e
+`docs/roadmap.md` (Fase 7 em andamento: a API pronta; fecha com a passada de encaixe da 002 — Open WebUI e Keycloak)
+- [ ] T077 Verificação completa a partir de `ai-core/`: `uv run pytest` (com e sem `AI_CORE_TEST_POSTGRES_DSN`), `uv run
+  mypy`, `uv run ruff check packages`, `uv run ruff format --check packages`, `uv run lint-imports`
+- [ ] T078 Com aprovação do mantenedor: commit e push no `agentic-app`; core `0.4.0` (contratos inalterados em `0.1.2`,
+  `ai-generic` 0.1.0) e a tag `v0.4.0`, que a passada de encaixe da 002 usa como `CORE_REF`; conferir a CI do core
+
+---
+
 ## Dependencies & Execution Order
+
+**Fase 7**: US6 — T058 ∥ T059 ∥ T060 (testes puros), depois T061 → T062 → T063 (T063 usa as linhas de T061); T064 ∥
+com eles; T065 depois de T062 e T063 (faz T064 passar); T066 depois de T065. US8 — T067 ∥ T068 ∥ T069, depois T070 →
+T071 → T072; `http/service.py` é tocado por T065 e depois por T071, e `http/domain/chat_request.py` só por T070; T069
+depende de T063 (raciocínio no stream). Polish: T073 depois de T066; T074 depois de T073; T075 e T077 depois de tudo;
+T076 em paralelo; T078 por último.
 
 **Fase 3**: T045 → T046 (desfecho); US4: T047 ∥ T048, depois T049 → T050; US5: T051 → T052 (depois de T050, mesmo
 arquivo); US6: T053 a qualquer momento depois de T046; Polish: T054 depois de T052; T055 e T057 por último; T056 em

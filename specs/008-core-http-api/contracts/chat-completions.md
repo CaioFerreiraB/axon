@@ -80,3 +80,14 @@ provider simulado (research R10):
 - Não lista modelos (US2), não cria nem continua conversa (US7), não faz CRUD (US4) e não reporta saúde (US5).
 - Não enfileira nem limita concorrência (US6, Fase 7).
 - Não interpreta o conteúdo das mensagens, não escolhe modelo e não conhece pack nem flow.
+
+## Fase 7 (2026-10-13): pedido efêmero e admissão (FR-023, FR-016, FR-017; research R35, R37)
+
+| Pedido | O que acontece |
+|---|---|
+| sem `conversation_id` e com `x-ai-core-store: false` | executa e responde; nenhuma conversa criada ou gravada; sem `conversation_id` no extra e sem `X-Conversation-Id` |
+| com `conversation_id` e `x-ai-core-store: false` | 400 `store_conflict`, `param: "x-ai-core-store"`, antes de qualquer execução |
+| `x-ai-core-store` com valor diferente de `true`/`false` | 400 `invalid_header`, `param: "x-ai-core-store"` |
+| plataforma cheia | ver [admission.md](admission.md) |
+
+Vale nas duas superfícies e na requisição nativa (`POST /chat`).

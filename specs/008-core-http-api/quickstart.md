@@ -145,3 +145,37 @@ curl -s localhost:8000/private/v1/mcp -H "Authorization: Bearer $TEST_API_KEY" |
 
 Esperado: 201 e depois `"demo"` na listagem; sem servidor programado, `GET /private/v1/mcp/demo/health` responde `ok:
 false` com o motivo.
+
+## Fase 7 (2026-10-13): progresso, fila e Open WebUI (US6, US8)
+
+Contratos: [admission.md](contracts/admission.md), [open-webui.md](contracts/open-webui.md), as seções "Fase 7" de
+[sse-format.md](contracts/sse-format.md), [errors.md](contracts/errors.md) e
+[chat-completions.md](contracts/chat-completions.md). A partir de `ai-core/`:
+
+```bash
+uv run pytest packages/core/tests/http -m "us6 or us8"
+```
+
+**Raciocínio no stream.** Com `ai-core serve` no perfil `memory` e um Ollama local, um pedido em streaming a um
+Assistant `rag_first` mostra, antes do texto, chunks com `delta.reasoning_content` ("Preparando o contexto da
+pergunta…", "Consultando os documentos…", "Escrevendo a resposta…"); nenhum deles depois do primeiro `delta.content`.
+
+**Fila.** Com `AI_CORE_MAX_EXECUTIONS=1 AI_CORE_QUEUE_SIZE=1 AI_CORE_QUEUE_WAIT_MS=30000`, três pedidos simultâneos em
+streaming: o primeiro executa, o segundo recebe "Aguardando uma vaga (posição 1 na fila)…" no início e executa depois,
+o terceiro recebe 503 `overloaded` com `Retry-After: 30`.
+
+**Pedido efêmero.** O mesmo pedido com `-H 'x-ai-core-store: false'` responde sem `conversation_id`, e
+`GET /v1/conversations` não muda.
+
+**Valores da fila no hardware alvo (R36).** Com o Ollama local (`qwen3:1.7b`), 1, 2 e 4 conversas simultâneas no
+Assistant `scouting`: registrar aqui a latência até o primeiro token e a total de cada caso, e os defaults escolhidos.
+
+| Simultâneas | Primeiro token (p50) | Total (p50) |
+|---|---|---|
+| 1 | — | — |
+| 2 | — | — |
+| 4 | — | — |
+
+**Open WebUI.** A prova com a interface é da passada de encaixe da 002 ([open-webui.md](contracts/open-webui.md),
+verificação 3): Keycloak de desenvolvimento com dois usuários de grupos diferentes, cada um vê só os próprios
+Assistants e conversa em streaming; o trace mostra uma execução por mensagem.

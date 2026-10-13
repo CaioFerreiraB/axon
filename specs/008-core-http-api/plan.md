@@ -372,3 +372,84 @@ ai-core/packages/core/src/ai_core/http/
 | Operador | Servidores MCP globais pela API em `/private/v1/mcp` (chave do grupo de administração); os do `mcp.yaml` aparecem na listagem, somente leitura |
 | 011 | `create_app(..., mcp=parts["mcp"])` |
 
+
+---
+
+# Fase 7 (2026-10-13): progresso, fila e Open WebUI (US6, US8)
+
+Insumos: as quatro clarificações de 2026-10-13; o `design.md` ("Admissão e fila" e "Compatibilidade OpenAI e Open
+WebUI", pré-aprovados); os estágios de progresso publicados nos contratos da 005; o código do Open WebUI v0.12.0.
+Decisões em [research.md](research.md) R33–R41. **Sem divergência do `design.md`**: a decisão de admissão é pura em
+`domain/`, as vagas e a fila ficam em memória no `service.py`, sem porta.
+
+## Summary (Fase 7)
+
+A API passa a limitar as execuções simultâneas, com uma fila curta: quem espera em streaming recebe na hora uma linha
+"aguardando uma vaga"; fila cheia ou espera esgotada é 503 com `Retry-After`, antes de qualquer chamada de modelo. O
+progresso do motor sai também como raciocínio (`delta.reasoning_content`, uma linha em português por etapa, até o
+primeiro token), que o Open WebUI mostra num bloco recolhível. O cabeçalho `x-ai-core-store: false` torna efêmero um
+pedido sem id de conversa. Nenhuma mudança na autenticação: o Open WebUI repassa o access token de cada usuário
+(`system_oauth`) e a 003 o verifica. Toque declarado na 011: três variáveis e `create_app(admission=…)`. A interface de
+verdade (Open WebUI + Keycloak) é provada numa passada de encaixe da 002, depois desta.
+
+## Technical Context (Fase 7)
+
+**Dependências**: nenhuma nova. **Storage**: sem mudança (o pedido efêmero não grava). **Testing**: motor programado que
+segura a execução (porta de execução trocada na montagem) para a fila; a 003 real com dois tokens de teste de grupos
+diferentes para a lista por usuário; o pedido do Open WebUI v0.12 como fixture.
+**Performance Goals**: linha de fila e primeira linha de progresso no mesmo instante do pedido (bem antes dos 2 s da
+SC-003); 0 execuções além do limite (SC-006).
+**Constraints**: a vaga só é ocupada depois das recusas de 404/400/424/429; nenhum 503 de sobrecarga depois de uma
+chamada de modelo; raciocínio nunca em `delta.content` e nunca depois do primeiro token; o 008 não lê nomes de nó — só
+os estágios que a 005 publica, com linha genérica para o resto.
+**Scale/Scope**: processo único (limite e fila por processo); valores provisórios 2 / 8 / 60 s, medidos no hardware
+alvo na implementação (R36).
+
+## Constitution Check (Fase 7)
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| II. Seams | ✅ | Só os estágios de progresso publicados pela 005; a autenticação continua sendo a da 003 |
+| III. Streaming nativo | ✅ | Progresso e fila no stream, no instante do evento; raciocínio só antes do texto |
+| IV. Assistant é a fronteira | ✅ | Lista de modelos por token (cada usuário do Open WebUI vê o que a 003 resolve para ele); `tools` continua recusado |
+| VII. Falha fechada | ✅ | Sobrecarga é 503 explícito com `Retry-After`; espera esgotada com o stream aberto encerra com `finish_reason: "error"`; cabeçalho inválido é 400 que o nomeia |
+| XI. Interface substituível | ✅ | Nada específico do Open WebUI na API além de campos que qualquer cliente pode usar (`reasoning_content`, um cabeçalho) |
+| XII. Simplicidade | ✅ | Sem porta para a fila (regra pura + estado em memória); sem mudança de seam |
+| XIII. Portas e adapters | ✅ | `domain/admission.py` e `domain/progress_text.py` puros; o cabeçalho é lido no adapter e validado no domínio |
+
+**Module boundary gate (Fase 7)**: `ai_core/http/**` e `tests/http/**`; toques declarados na 011 (`settings.py`: três
+variáveis; `wiring._api`: `admission=…`; `tests/bootstrap/`); nenhum import novo de outro módulo. A instalação
+(`agentic-deploy`) é da 002. **Resultado**: PASS.
+
+## Project Structure (Fase 7)
+
+```text
+ai-core/packages/core/src/ai_core/http/
+├── domain/admission.py         # NOVO: AdmissionLimits, decide, retry_after — puro
+├── domain/progress_text.py     # NOVO: estágio publicado (005) → linha em português; linha da fila
+├── domain/openai_chunks.py     # progress_chunk com reasoning_content; opening/completion sem conversa no efêmero
+├── domain/chat_request.py      # parse_store (x-ai-core-store); ChatRequest.store
+├── domain/native_request.py    # idem, na requisição nativa
+├── domain/errors.py            # Overloaded → 503 overloaded + Retry-After; store_conflict / invalid_header → 400
+├── service.py                  # ExecutionSlots (vagas + fila FIFO); admissão entre o grant e o motor; efêmero
+├── adapters/chat.py            # lê o cabeçalho; 503 com Retry-After; sem X-Conversation-Id no efêmero
+└── adapters/app.py             # create_app(admission: AdmissionLimits | None = None)
+
+ai-core/packages/core/src/ai_core/bootstrap/
+├── settings.py                 # AI_CORE_MAX_EXECUTIONS, AI_CORE_QUEUE_SIZE, AI_CORE_QUEUE_WAIT_MS
+└── wiring.py                   # _api passa admission
+
+ai-core/packages/core/tests/http/
+├── unit/test_progress_text.py, unit/test_admission.py
+├── contract/test_admission.py, contract/test_ephemeral.py, contract/test_open_webui.py
+└── open_webui_v0_12.py         # o pedido do Open WebUI v0.12 (corpo e cabeçalhos), como fixture
+```
+
+## Seam Notes for Consumers (Fase 7)
+
+| Consumidor | O que precisa saber |
+|---|---|
+| Clientes OpenAI | Progresso também em `delta.reasoning_content` antes do texto (clientes padrão ignoram); 503 `overloaded` com `Retry-After` quando a plataforma está cheia |
+| Open WebUI (instalação, 002) | Conexão `system_oauth` para `/v1`, cabeçalho `x-ai-core-store: false`, tarefas auxiliares desligadas, `BYPASS_MODEL_ACCESS_CONTROL=true` (R40); provedor OIDC com access token JWT, audiência e grupos (R39) |
+| 011 | Lê as três variáveis e passa `create_app(..., admission=AdmissionLimits(...))` |
+| 005 | Os estágios de progresso publicados viram texto para pessoas; estágio novo aparece com a linha genérica até entrar na tabela |

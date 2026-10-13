@@ -20,6 +20,10 @@ START → prepare_context → retrieve → rerank → gate ─┬─ coberto ─
 | `generate` | prompts dos packs + `FENCE_INSTRUCTION` + conversa + passos; uma chamada ao papel `generation` |
 | `validate_answer` | os validators dos packs com a Turn View — `generation_context` = os trechos entregues |
 
+Cada passo emite `ProgressEvent` ao começar: `prepare_context`, `retrieve` (`"<n> tool(s) de recuperação"`), `rerank`
+(`"<n> candidato(s)"`), `gate` (`"<n> trecho(s)"`), `generate` e `validate_answer` — os valores publicados no
+[data-model.md](../data-model.md) (`ProgressEvent.stage`).
+
 | Verificação | Cenário |
 |---|---|
 | uma chamada de modelo no caminho coberto | SC-003, US3 cen. 1 |

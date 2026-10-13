@@ -33,3 +33,14 @@ Conformidade: `tests/http/unit/test_errors.py` (envelope e tabela) e as suítes 
   automaticamente, e cada repetição rodaria a execução de novo — inclusive tools de escrita.
 - Erros anteriores à execução (4xx, 503 de armazenamento) não levam o cabeçalho: nada rodou, repetir é seguro.
 
+
+## Fase 7 (2026-10-13): sobrecarga e pedido efêmero (FR-016, FR-017, FR-023; research R35, R37)
+
+| Causa | Status | `type` | `code` | `param` |
+|---|---|---|---|---|
+| vagas e fila cheias; espera esgotada sem streaming | 503 + `Retry-After` | `server_error` | `overloaded` | — |
+| `x-ai-core-store: false` com `conversation_id` | 400 | `invalid_request_error` | `store_conflict` | `x-ai-core-store` |
+| `x-ai-core-store` com valor diferente de `true`/`false` | 400 | `invalid_request_error` | `invalid_header` | `x-ai-core-store` |
+
+O 503 de sobrecarga não leva `x-should-retry`: nada rodou, e repetir depois do `Retry-After` é seguro. Ele vem depois
+das recusas de 404, 400, 424 e 429 e antes de qualquer chamada de modelo.

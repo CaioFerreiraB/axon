@@ -52,6 +52,13 @@
 
 - Q: Quando uma execução sem streaming termina com registro `error` (MCP fora do ar, falha do controller) e a resposta foi gerada, que status a API devolve? → A: Continua 502, com a resposta e os motivos no corpo — falha explícita (princípio VII) —, e **toda** resposta de falha de execução leva o cabeçalho `x-should-retry: false`: o SDK oficial da OpenAI repete 5xx automaticamente, e cada repetição rodaria o loop `agentic` de novo, inclusive tools de escrita. Execução só com registros `notice` (limite de iterações, ação inválida, corte de contexto, apontamento de validator) é sucesso: 200 com `finish_reason: "stop"`, pela gravidade do ADR-018 — em streaming e sem streaming.
 
+### Session 2026-10-13
+
+- Q: Como o Open WebUI deve se identificar na plataforma, para que cada usuário veja só os Assistants permitidos a ele? → A: Por SSO OIDC: Open WebUI e plataforma usam o mesmo provedor de identidade; a conexão do Open WebUI aponta para `/v1` com a autenticação `system_oauth`, que repassa o access token OAuth de cada usuário logado, e a 003 o verifica como qualquer token OIDC. O Open WebUI não filtra modelos por conta própria — a ACL da 003 é a fonte da verdade, e a lista de modelos é a do `/v1/models` com o token daquele usuário. Nenhum mecanismo de autenticação novo na API; a instalação de referência traz um provedor OIDC de desenvolvimento para a prova.
+- Q: O progresso da execução (fila, recuperação, tool chamada) deve aparecer para quem usa o Open WebUI, ou só para clientes que leem o campo extra da API? → A: Também como raciocínio: cada evento de progresso sai, além do campo extra, como uma linha curta em português em `delta.reasoning_content` — que o Open WebUI mostra num bloco recolhível de "pensamento" e clientes OpenAI padrão ignoram —; o texto da resposta (`delta.content`) não muda. Refina a clarificação de 2026-09-21 (o chunk de progresso deixa de ter `delta` vazio).
+- Q: O que fazer com as chamadas auxiliares que o Open WebUI dispara a cada conversa (gerar título, tags, sugestões de continuação, autocompletar)? → A: Desligá-las na instalação de referência, pela configuração do Open WebUI (sem código): a plataforma só recebe as mensagens da conversa, e o título passa a ser o começo da primeira mensagem. Cada tarefa auxiliar seria uma execução completa do Assistant, com recuperação, ocupando vaga da fila no hardware alvo.
+- Q: As conversas que a plataforma criaria a cada mensagem do Open WebUI (que nunca envia id de conversa) devem ser gravadas mesmo assim? → A: Não, quando o cliente pede: o cabeçalho opcional `x-ai-core-store: false`, num pedido sem id de conversa, torna o pedido efêmero — a API executa e responde, mas não cria nem grava conversa e não devolve id. A conexão do Open WebUI na instalação de referência envia o cabeçalho; sem ele, tudo segue como antes (FR-013, FR-014). Evita dado pessoal duplicado e fragmentado que o usuário não vê nem apaga.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Cliente compatível com OpenAI conversa em streaming (Priority: P1)
@@ -134,7 +141,7 @@ Na superfície privada, o operador consulta packs (introspecção), administra c
 
 ### User Story 6 - Progresso visível durante a execução (Priority: P2)
 
-Eventos intermediários do motor (tool chamada, recuperação em curso) são emitidos no stream como metadados, que clientes compatíveis podem ignorar.
+Eventos intermediários do motor (tool chamada, recuperação em curso) e a espera na fila são emitidos no stream como metadados, que clientes compatíveis podem ignorar, e como uma linha curta de raciocínio (`delta.reasoning_content`), que o Open WebUI mostra num bloco recolhível sem misturar com a resposta.
 
 **Why this priority**: No hardware alvo, gerar pode levar dezenas de segundos; sem feedback, parece travado.
 
@@ -145,6 +152,7 @@ Eventos intermediários do motor (tool chamada, recuperação em curso) são emi
 1. **Given** uma execução que chama uma tool, **When** em streaming, **Then** o stream contém um evento de progresso nomeando a tool.
 2. **Given** todas as vagas de execução ocupadas, **When** uma requisição em streaming entra na fila, **Then** recebe em até 2 segundos um evento de progresso "na fila" e, ao ganhar a vaga, segue normalmente.
 3. **Given** vagas e fila cheias, **When** chega uma requisição nova, **Then** ela é recusada com 503 e indicação de quando tentar de novo, antes de qualquer chamada de modelo.
+4. **Given** uma execução em streaming pelo Open WebUI, **When** o motor emite progresso, **Then** cada evento anterior ao texto da resposta aparece como uma linha de raciocínio em português (`delta.reasoning_content`), nenhuma linha de raciocínio vem depois do primeiro texto, o texto da resposta não contém nenhuma delas, e um cliente OpenAI padrão recebe a mesma resposta que receberia sem o progresso.
 
 ---
 
@@ -170,15 +178,19 @@ Cada conversa — estado e mensagens — fica armazenada pelo subject do Princip
 
 ### User Story 8 - Open WebUI conectado (Priority: P3)
 
-Open WebUI se conecta pela compat OpenAI; os Assistants permitidos ao usuário aparecem como modelos e conversam em streaming.
+Open WebUI se conecta pela compat OpenAI na superfície pública: o usuário entra no Open WebUI pelo mesmo provedor OIDC da plataforma, e a conexão repassa o token dele ao `/v1` (autenticação `system_oauth` do Open WebUI). Os Assistants permitidos àquele usuário aparecem como modelos e conversam em streaming.
 
 **Why this priority**: Fase 7. A API não depende da interface (princípio XI).
 
-**Independent Test**: Configurar Open WebUI apontando para `/v1`; conversar com um Assistant público.
+**Independent Test**: Instalação com um provedor OIDC de desenvolvimento e o Open WebUI com SSO nele e a conexão `system_oauth` apontando para `/v1`; dois usuários de grupos diferentes entram e conversam com um Assistant público.
 
 **Acceptance Scenarios**:
 
 1. **Given** Open WebUI configurado, **When** o usuário abre o seletor de modelos, **Then** vê apenas os Assistants permitidos.
+2. **Given** dois usuários com permissões diferentes logados no Open WebUI, **When** cada um abre o seletor de modelos, **Then** cada um vê exatamente os Assistants que o próprio token resolve no `/v1/models` — nenhum vê os do outro.
+3. **Given** um Assistant público, **When** o usuário conversa pelo Open WebUI, **Then** a resposta chega em streaming, sem nenhum código de interface customizado.
+4. **Given** a instalação de referência, **When** o usuário envia uma mensagem pelo Open WebUI, **Then** a plataforma recebe uma única execução — nenhuma chamada auxiliar de título, tags, sugestões ou autocompletar.
+5. **Given** a conexão do Open WebUI com o cabeçalho `x-ai-core-store: false`, **When** o usuário conversa, **Then** nenhuma conversa é criada nem gravada na plataforma, e a listagem de conversas daquele subject não muda.
 
 ---
 
@@ -200,6 +212,8 @@ Open WebUI se conecta pela compat OpenAI; os Assistants permitidos ao usuário a
 - Limite por minuto excedido (003), sobrecarga global e Assistant indisponível são respostas distintas: 429 para o par (Principal, Assistant), 503 para a plataforma, 424 para o Assistant autorizado que não pode executar — este último só para quem o resolveria; para os demais, 404.
 - Conversa apagada enquanto uma execução dela está em andamento: a exclusão prevalece; a resposta chega ao cliente, mas a troca não é gravada.
 - Pedido de exclusão de conversa de outro Principal ou inexistente: 404, sem revelar se ela existe.
+- Open WebUI repassa um token expirado ou de outro emissor: a API responde 401 no formato de erro da OpenAI, como para qualquer cliente; a interface mostra o erro, e o usuário entra de novo — a API não renova tokens.
+- Pedido com `x-ai-core-store: false` e id de conversa: recusado com 400 que nomeia o cabeçalho, antes de qualquer execução — continuar uma conversa armazenada sem gravá-la é contraditório. Valor do cabeçalho diferente de `true` ou `false`: 400 que nomeia o cabeçalho.
 - Chave de API emitida com o subject de um usuário alcança as conversas e os Assistants dele: emitir chaves é poder do grupo de administração (003 FR-015), e a conversa pertence ao subject, não à superfície.
 
 ## Requirements *(mandatory)*
@@ -210,7 +224,7 @@ Open WebUI se conecta pela compat OpenAI; os Assistants permitidos ao usuário a
 - **FR-002**: A API DEVE implementar chat completions compatível com OpenAI, com e sem streaming SSE.
 - **FR-003**: A API DEVE listar como modelos exatamente os Assistants que o Principal resolve (003 FR-008), um por Assistant, com id `<assistant>` e o modelo de geração declarado e a descrição em campos extras. Pedidos com `<assistant>/<modelo>` ou `<assistant>/<provider>/<modelo>` continuam aceitos dentro da allowlist.
 - **FR-004**: A API DEVE aceitar requisição nativa (Assistant, mensagens, streaming) e rejeitar campos de ampliação.
-- **FR-005**: A API DEVE traduzir os eventos do motor em chunks SSE, emitindo progresso como metadados ignoráveis. Falha depois de o stream ter aberto DEVE encerrar o stream normalmente — chunk final com desfecho de erro, motivos em campo extra e marcador de fim —, nunca com conexão pendurada nem interrompida sem aviso.
+- **FR-005**: A API DEVE traduzir os eventos do motor em chunks SSE, emitindo progresso como metadados ignoráveis e, enquanto o texto da resposta não começou, também no mesmo chunk como uma linha curta em português em `delta.reasoning_content` (o raciocínio que o Open WebUI exibe à parte); depois do primeiro texto, só nos metadados. Progresso nunca vai em `delta.content`. Falha depois de o stream ter aberto DEVE encerrar o stream normalmente — chunk final com desfecho de erro, motivos em campo extra e marcador de fim —, nunca com conexão pendurada nem interrompida sem aviso.
 - **FR-006**: A superfície pública DEVE oferecer CRUD de Assistants do próprio usuário (Fase 2) e de MCPs do próprio usuário (Fase 3, com a 007).
 - **FR-007**: A superfície privada DEVE oferecer introspecção de packs e administração de chaves de API, ambas restritas ao grupo de administração (003 FR-015) com 404 para os demais; health para qualquer chave válida (Fase 2); e CRUD de MCPs globais (Fase 3, com a 007).
 - **FR-008**: A API DEVE armazenar cada conversa — estado e mensagens — pelo subject do Principal e pelo Assistant, separada do estado de execução.
@@ -219,15 +233,16 @@ Open WebUI se conecta pela compat OpenAI; os Assistants permitidos ao usuário a
 - **FR-011**: A API NÃO DEVE depender de nenhuma interface gráfica.
 - **FR-012**: A API NÃO DEVE aceitar data de referência em nenhuma superfície: um campo de data de referência na requisição DEVE ser rejeitado, antes de qualquer execução, com erro que nomeia o campo. Execuções de avaliação fixam a data chamando o motor em processo, pelo harness (009) montado pela composition root (011) — ADR-013.
 - **FR-013**: Nas duas superfícies, uma requisição com id de conversa DEVE continuar a conversa a partir do histórico armazenado, que é a fonte de verdade: da requisição, só a última mensagem de usuário entra na execução. Na compat OpenAI, o id vai num campo extra opcional; sem ele, a requisição segue o comportamento padrão da OpenAI (histórico enviado pelo cliente) e abre uma conversa nova.
-- **FR-014**: Toda resposta de chat DEVE devolver o id da conversa, com e sem streaming.
+- **FR-014**: Toda resposta de chat DEVE devolver o id da conversa, com e sem streaming — exceto a de pedido efêmero (FR-023), que não tem conversa.
 - **FR-015**: Cada subject DEVE poder listar e ler as próprias conversas (estado e mensagens) por qualquer das duas superfícies; conversa de outro subject ou inexistente responde 404 (FR-009).
 - **FR-016**: A API DEVE limitar o número de execuções simultâneas e manter uma fila limitada para o excedente, com limite, tamanho da fila e tempo máximo de espera configuráveis pelo operador. A vaga é ocupada do início da execução até o evento final.
-- **FR-017**: Requisições em streaming que esperam na fila DEVEM receber um evento de progresso "na fila" em até 2 segundos; com a fila cheia ou o tempo de espera esgotado, a requisição DEVE ser recusada com 503 e indicação de quando tentar de novo, antes de qualquer chamada de modelo.
+- **FR-017**: Requisições em streaming que esperam na fila DEVEM receber um evento de progresso "na fila" em até 2 segundos. Com a fila cheia, a requisição DEVE ser recusada com 503 e indicação de quando tentar de novo, antes de qualquer chamada de modelo — com ou sem streaming. Com o tempo de espera esgotado, sem streaming DEVE ser 503 com a mesma indicação; em streaming, como o stream já abriu com o aviso de fila, DEVE terminar com o chunk final de erro (`finish_reason: "error"`, registro `QueueTimeout`) e o marcador de fim (clarificação de 2026-09-21) — em nenhum caso depois de uma chamada de modelo.
 - **FR-018**: Cada Principal DEVE poder apagar as próprias conversas; a exclusão é definitiva e remove estado e mensagens.
 - **FR-019**: Conversas sem atividade por mais tempo que o prazo de retenção DEVEM ser apagadas automaticamente; o prazo é configurável pelo operador, com padrão de 180 dias.
 - **FR-020**: Assistant que o Principal resolve, mas que está indisponível, DEVE responder 424 no formato de erro da OpenAI, com código `assistant_unavailable` e os motivos, antes de qualquer execução; o 424 nunca é devolvido a quem não resolveria o Assistant (FR-009).
 - **FR-021**: Falha do armazenamento de credenciais durante a autenticação DEVE responder 503 no formato de erro da OpenAI, com código `storage_unavailable`, antes de qualquer outra verificação; a mensagem nomeia o armazenamento e não expõe detalhe de infraestrutura (endereço, driver, mensagem do banco).
 - **FR-022**: O desfecho de uma execução DEVE ser decidido pela gravidade dos registros do evento final (005, ADR-018), nunca pelo tipo: só registros `notice` → sucesso (`finish_reason: "stop"`, 200 sem streaming); algum registro `error` → falha (`finish_reason: "error"` no stream; 502 sem streaming, com a resposta e os motivos no corpo). Toda resposta de falha de execução DEVE levar o cabeçalho `x-should-retry: false`, para que clientes que repetem 5xx automaticamente não reexecutem o loop nem tools de escrita.
+- **FR-023**: Nas duas superfícies, um pedido sem id de conversa e com o cabeçalho `x-ai-core-store: false` DEVE ser efêmero: executa e responde normalmente, mas não cria nem grava conversa e não devolve id de conversa. O cabeçalho com id de conversa, ou com valor diferente de `true`/`false`, DEVE ser recusado com 400 que o nomeia, antes de qualquer execução. Sem o cabeçalho (ou com `true`), vale o FR-013.
 
 ### Key Entities
 
@@ -250,10 +265,12 @@ Open WebUI se conecta pela compat OpenAI; os Assistants permitidos ao usuário a
 ## Assumptions
 
 - O histórico de conversa usa armazenamento persistente a partir da Fase 2 (adapter Postgres; em memória na Fase 1).
-- O Open WebUI não envia o id de conversa sem configuração; nesse caso cada requisição abre uma conversa nova, e o histórico da interface continua sendo o dela.
+- O Open WebUI não envia o id de conversa; o histórico da interface é o dela. Na instalação de referência a conexão envia `x-ai-core-store: false`, e esses pedidos são efêmeros (FR-023); sem o cabeçalho, cada requisição abriria uma conversa nova.
 - A fila atende por ordem de chegada; justiça entre Principals fica fora da v1, porque o limite por minuto da 003 já contém o abuso individual. Processo único na v1: limite e fila valem por processo.
-- Os valores iniciais de limite, fila e espera são medidos no hardware alvo durante o plano, não fixados aqui.
+- Os valores iniciais de limite, fila e espera são medidos no hardware alvo na implementação (o plano fixa valores provisórios e o método), não aqui.
 - O harness de avaliação (009) roda em processo próprio e não passa por esta fila; avaliação não roda no mesmo host da produção.
 - Os traces (009) seguem a própria retenção, limitada e configurável; apagar uma conversa não apaga, na v1, os traces das requisições dela.
 - A aplicação HTTP é montada pela composition root (011), que injeta os seams consumidos.
 - Não há interface própria além do Open WebUI; nenhuma lógica de agente vive na interface.
+- O Open WebUI faz login no mesmo provedor OIDC que a 003 verifica e repassa o access token de cada usuário (`system_oauth`); o token precisa ter o emissor, a audiência e as claims de subject e grupos que a configuração da 003 lê. A instalação de referência (002) traz um provedor de desenvolvimento; em produção, o operador usa o dele.
+- Na instalação de referência, as tarefas auxiliares do Open WebUI (título, tags, sugestões de continuação, autocompletar) ficam desligadas; o operador que as religar sabe que cada uma é uma execução completa do Assistant e ocupa vaga da fila (FR-016).
