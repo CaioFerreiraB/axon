@@ -13,7 +13,7 @@ limitando `/speckit-tasks` e `/speckit-implement` às user stories da fase (ex.:
 | **4 — ai-scouting sem RAG** ✅ | Prova a arquitetura de packs com pack real em repositório próprio | 101 · US1, US2, US3 · 104 · esqueleto · 002 · US5 (build da instalação) — **exige a tag `contracts-v0.1.0`** |
 | **5 — RAG** ✅ | Recuperação híbrida com vigência e citação verificada | 102 · US1–US5 · 103 · US1–US5 · 104 · US1–US4 · 005 · US3, US4 (`rag_first`) · 101 · US4, US5 |
 | **6 — Avaliação** | **Antes de calibrar qualquer número do RAG** | 009 · US2, US3, US4 · 105 · US1–US5 |
-| **7 — Open WebUI** | Assistants aparecem como modelos | 008 · US6, US8 |
+| **7 — Open WebUI** ✅ | Assistants aparecem como modelos | 008 · US6, US8 |
 | **8 — GraphRAG** | Retriever de grafo atrás do contrato existente | 106 (resolver a ontologia primeiro) |
 
 **Fase 1 concluída em 2026-09-21.** `ai-core serve` sobe a plataforma a partir de `packs.yaml` e `assistants.yaml`, e
@@ -48,12 +48,15 @@ barram. Da 105, a infraestrutura está pronta sobre um conjunto **semente provis
 105 (calibração do RAG, escolha de embedding e de modelo local) esperam a curadoria das perguntas reais, que o
 mantenedor fará depois do desenvolvimento; até lá, nenhum número do RAG muda.
 
-**Fase 7 em andamento (2026-10-13).** A API está pronta para o Open WebUI (008, Fase 7): execuções simultâneas
-limitadas com fila curta — quem espera vê o aviso na hora, e sobrecarga é 503 com `Retry-After` antes de qualquer
-chamada de modelo —, progresso como raciocínio (`reasoning_content`) até o primeiro texto, pedido efêmero
-(`x-ai-core-store: false`) para não duplicar o histórico que a interface já guarda, e a lista de modelos por token. A
-fase fecha com a passada de encaixe da 002 no `agentic-deploy`: Open WebUI v0.12 com SSO num Keycloak de
-desenvolvimento, conexão `system_oauth` e tarefas auxiliares desligadas.
+**Fase 7 concluída em 2026-10-13.** Os Assistants aparecem como modelos no Open WebUI v0.12, sem código de interface:
+o usuário entra por SSO no provedor OIDC e a conexão repassa o token dele à plataforma, que mostra só os Assistants que
+a ACL resolve para ele. A API (008) limita as execuções simultâneas com fila curta — quem espera vê o aviso na hora, e
+sobrecarga é 503 com `Retry-After` antes de qualquer chamada de modelo —, mostra o progresso como raciocínio
+(`reasoning_content`) até o primeiro texto e aceita pedidos efêmeros (`x-ai-core-store: false`), para não duplicar o
+histórico que a interface já guarda. A instalação (`agentic-deploy`, perfil `webui`) traz o Open WebUI e um Keycloak de
+desenvolvimento, com a prova automatizada (`scripts/check-webui.py`); ela achou e corrigiu um defeito do verificador
+OIDC da 003 com o JWKS do Keycloak (core `v0.4.1`). Os valores da fila seguem provisórios até a medição com um modelo
+local, que o mantenedor deixou para depois.
 
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 

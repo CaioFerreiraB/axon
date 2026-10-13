@@ -488,7 +488,9 @@ Insumos: ADR-009, [ADR-021](../../docs/adr/ADR-021-workspace-ai-core-permanece-n
   segredo do cliente e a senha dos usuários vêm do `.env` por placeholders do import (`${OPEN_WEBUI_OIDC_SECRET}`,
   `${KEYCLOAK_DEV_PASSWORD}`); o administrador do Keycloak, de `KC_BOOTSTRAP_ADMIN_*`. Endereços: o navegador usa
   `http://localhost:8180` (`KC_HOSTNAME`, o emissor dos tokens) e os contêineres `http://keycloak:8080`
-  (`KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true`).
+  (`KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true`). *Acrescido na implementação*: os dados do Keycloak ficam no volume
+  `keycloak-data` — sem ele, cada recriação reimporta o realm com IDs novos, e o Open WebUI recusa o mesmo e-mail
+  chegando com outro `sub`.
 - **Rationale**: 008 R39 — access token JWT por padrão, audiência e grupos por mapper, realm reproduzível. Só para
   desenvolvimento e para a prova; em produção, o operador usa o provedor dele.
 - **Alternatives**: Authelia (access token opaco por padrão), Dex (sem grupos para usuários estáticos).

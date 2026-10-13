@@ -342,13 +342,14 @@ Caminhos em `agentic-deploy/`; o código é commitado lá, e aqui o SDD e o pont
   contrato (listas, resposta, um `POST /v1/chat/completions` no log do `ai-core`, nenhuma conversa gravada)
 - [X] T068 `README.md` do `agentic-deploy`: o perfil `webui` (subir, entrar como `ana`/`bia`, o que cada um vê), o
   Keycloak só de desenvolvimento, as variáveis e o `check-webui.py`
-- [ ] T069 Rodar `scripts/check-build.sh` (agente SSH) e, com o `.env` local, `docker compose --profile webui up -d` e
+- [X] T069 Rodar `scripts/check-build.sh` (agente SSH) e, com o `.env` local, `docker compose --profile webui up -d` e
   `scripts/check-webui.py` até passar; anotar o resultado no quickstart da 008 (seção "Fase 7"); derrubar. *Achados na
   implementação*: o Keycloak marca os cookies de sessão como `Secure` (o script usa uma política de cookies que trata
   `http://localhost` como seguro, como os navegadores); quem entra depois do primeiro ficava `pending` no Open WebUI
-  (`DEFAULT_USER_ROLE=user`); e todo access token era recusado pela 003 — a chave de cifragem do JWKS do Keycloak
+  (`DEFAULT_USER_ROLE=user`); o Keycloak sem volume trocava o `sub` dos usuários a cada recriação, e o Open WebUI recusava
+  o mesmo e-mail (volume `keycloak-data`); e todo access token era recusado pela 003 — a chave de cifragem do JWKS do Keycloak
   descartava todas (corrigido na 003, T066–T067, core `v0.4.1`)
-- [ ] T070 Com o aval do mantenedor: commit e push do `agentic-deploy` e a CI (`build.yml`) verde; no `agentic-app`,
+- [X] T070 Com o aval do mantenedor: commit e push do `agentic-deploy` e a CI (`build.yml`) verde; no `agentic-app`,
   este SDD, o `CLAUDE.md` e o roadmap (Fase 7 completa) e o ponteiro do submódulo, e push
 
 ---

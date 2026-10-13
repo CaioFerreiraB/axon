@@ -303,10 +303,8 @@ validado sem o core contra `corpus/corpus.yaml` e o léxico (`tests/eval/test_go
 .cache/e5`, relativo à raiz) e `assistants.yaml` (ACL `svc:eval`); e `baseline.json`, gerado com o corpus real, o e5 e
 o gerador simulado do perfil `test`. O workflow `eval.yml` (filtro de caminhos: corpus, `rag/`, `prompts/`,
 `context/`, `eval/`, `pack.py`, dependências) ingere o corpus num Qdrant de serviço com o e5 em cache e roda `ai-core
-eval run` contra a base; a integração (`tests/integration/test_eval.py`) chama o comando `ai-core` em subprocesso. O
-`agentic-deploy` continua no core `v0.2.0` e no pack 0.2.0 até uma passada de encaixe da 002.
-
-**A Fase 7 do roadmap está em andamento.** Da 008 (US6, US8), a API pronta para o Open WebUI: admissão
+eval run` contra a base; a integração (`tests/integration/test_eval.py`) chama o comando `ai-core` em subprocesso. 
+**A Fase 7 do roadmap está completa.** Da 008 (US6, US8), a API pronta para o Open WebUI: admissão
 (`domain/admission.py`, puro; `ExecutionSlots` no `service.py`, vagas e fila FIFO em memória, por processo) entre a
 resolução do grant e o motor — vaga livre executa, vagas cheias com fila livre esperam (em streaming, o aviso de fila sai
 na hora como raciocínio), fila cheia é 503 `overloaded` com `Retry-After` antes de qualquer chamada de modelo, espera
@@ -318,9 +316,20 @@ admissão. Configuração na 011: `AI_CORE_MAX_EXECUTIONS` (2), `AI_CORE_QUEUE_S
 texto. O cabeçalho `x-ai-core-store: false` torna efêmero o pedido sem id de conversa (nada gravado, sem id); com id, 400
 `store_conflict`. A autenticação não mudou: o Open WebUI repassa o access token de cada usuário (`system_oauth`) e a 003
 o verifica. A compatibilidade com o Open WebUI v0.12 é provada com o pedido dele como fixture
-(`tests/http/open_webui_v0_12.py`). Falta a passada de encaixe da 002 no `agentic-deploy` (Open WebUI com SSO num
-Keycloak de desenvolvimento, conexão `system_oauth` com o cabeçalho, tarefas auxiliares desligadas). O core está na tag
-`v0.4.0` (contratos `0.1.2`, `ai-generic` 0.1.0).
+(`tests/http/open_webui_v0_12.py`). A passada de encaixe da 002 levou isso à instalação (`agentic-deploy`, research R36–R40 da 002):
+`CORE_REF=v0.4.1`, o pack `scouting` 0.3.0 (com ele, `ai-core eval run` na imagem) e o perfil `webui` do compose —
+Keycloak 26.7.5 de desenvolvimento (`start-dev --import-realm`, dados no volume `keycloak-data` para o `sub` dos
+usuários não mudar, realm `config/keycloak/agentic-realm.json`: cliente
+`open-webui`, audiência `ai-core` e `groups` no access token, usuários `ana` e `bia` do grupo `equipe`; o navegador usa
+`localhost:8180`, o emissor, e os contêineres `keycloak:8080`, por `KC_HOSTNAME_BACKCHANNEL_DYNAMIC`) e Open WebUI
+v0.12.0 configurado só por ambiente (`OPENAI_API_CONFIGS` com `system_oauth` e o cabeçalho, `BYPASS_MODEL_ACCESS_CONTROL`,
+tarefas auxiliares desligadas, `DEFAULT_USER_ROLE=user`); o core lê `AI_CORE_OIDC_*` do `.env` (subject por
+`preferred_username`), e o Assistant `interno` (só `group:equipe`) prova a lista por usuário. `scripts/check-webui.py`
+(só biblioteca padrão, manual) entra pelo formulário do Keycloak como `ana` e `bia`, compara as listas, manda uma
+mensagem pelo Open WebUI e confere um `POST /v1/chat/completions` no log do core e nenhuma conversa gravada. A prova
+achou um defeito na 003: o JWKS do Keycloak traz uma chave de cifragem (`use: enc`, `RSA-OAEP`) que derrubava a
+atualização inteira e recusava todo token; o `JwksOidcVerifier` agora guarda só chaves de assinatura e ignora, uma a
+uma, as que não carregam (003 research R24). O core está na tag `v0.4.1` (contratos `0.1.2`, `ai-generic` 0.1.0).
 
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
