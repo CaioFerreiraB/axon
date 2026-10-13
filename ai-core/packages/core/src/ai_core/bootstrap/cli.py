@@ -11,19 +11,22 @@ from __future__ import annotations
 import argparse
 import asyncio
 import dataclasses
+import importlib.metadata
 import sys
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Final, TextIO
 
 from ai_core.assistants.adapters import cli as assistants_cli
-from ai_core.assistants.api import AssistantsConfigError
+from ai_core.assistants.api import AssistantsConfigError, Principal
 from ai_core.assistants.service import AccessService
 from ai_core.bootstrap.health import boot_items, health_command
 from ai_core.bootstrap.profiles import NO_CREDENTIALS_WARNING, lacks_credentials
 from ai_core.bootstrap.settings import ConfigurationError, EnvConfigSource, Settings
 from ai_core.bootstrap.wiring import (
     STAGE_ADAPTERS,
+    STAGE_ASSISTANTS,
     STAGE_CONFIGURATION,
     STAGE_ENGINE,
     Platform,
@@ -38,6 +41,11 @@ from ai_core.bootstrap.wiring import (
     storage,
 )
 from ai_core.capabilities.adapters.cli import audit_command
+from ai_core.eval.adapters import cli as eval_cli
+from ai_core.eval.adapters.files import JsonReportStore, YamlGoldenSetSource
+from ai_core.eval.adapters.judge import RoutedJudge
+from ai_core.eval.api import EvalInputError
+from ai_core.eval.service import EvalService
 from ai_core.http.ports import HealthReport
 from ai_core.packs.adapters import cli as packs_cli
 from ai_core.packs.api import PackConfigError, PackRegistry
@@ -351,12 +359,96 @@ async def _audit_query(parts: Mapping[str, Any], args: argparse.Namespace, io: I
         )
 
 
+# --- eval (009) -------------------------------------------------------------------------------------------------------
+
+
+def _eval_run_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--golden", required=True, help="conjunto dourado (YAML, contracts/eval-harness.md)")
+    parser.add_argument("--assistant", default=None, help="Assistant avaliado (sobrepõe o do conjunto)")
+    parser.add_argument(
+        "--judge", default=None, help="modelo juiz offline, provider/modelo (sem ele: fidelidade ausente)"
+    )
+    parser.add_argument("--baseline", default=None, help="linha de base (relatório JSON) para comparar")
+    parser.add_argument("--update-baseline", action="store_true", help="grava esta rodada como linha de base")
+    parser.add_argument("--force", action="store_true", help="com --update-baseline, grava mesmo com regressão")
+    parser.add_argument("--report", default=None, help="grava o relatório desta rodada (JSON)")
+    parser.add_argument("--principal", default="svc:eval", help="quem roda: user:<id> ou svc:<id> (default svc:eval)")
+    parser.add_argument("--group", action="append", default=[], help="grupo do principal (repetível)")
+    parser.add_argument("--annotate", action="append", default=[], help="anotação livre no relatório (ex.: RAM)")
+
+
+def _eval_run(args: argparse.Namespace, io: Io) -> int:
+    """Sobe a plataforma até os Assistants — sem a API — e roda o conjunto dourado pelo motor (009 research R25)."""
+    try:
+        principal = Principal(subject=args.principal, scheme="api_key", groups=frozenset(args.group))
+    except ValueError as error:
+        print(f"--principal inválido: {error}", file=io.err, flush=True)
+        return eval_cli.EXIT_INVALID
+    built = _boot(args, io, until=STAGE_ASSISTANTS)
+    if built is None:
+        return EXIT_FAILURE
+    try:
+        return asyncio.run(_eval_session(built.parts, args, principal, io))
+    finally:
+        built.aclose()
+
+
+async def _eval_session(parts: Mapping[str, Any], args: argparse.Namespace, principal: Principal, io: Io) -> int:
+    try:
+        judge = RoutedJudge(parts["routing"], args.judge) if args.judge else None
+    except EvalInputError as error:
+        print(str(error), file=io.err, flush=True)
+        return eval_cli.EXIT_INVALID
+    async with storage(parts) as session:
+        harness = EvalService(
+            engine=parts["engine"],
+            trace=parts["trace"],
+            grants=session_assistants(parts, session),
+            pack_metrics=parts["packs"],
+            clock=parts["clock"],
+            core_version=_core_version(),
+            judge=judge,
+        )
+        return await eval_cli.run_command(
+            harness,
+            YamlGoldenSetSource(),
+            JsonReportStore(),
+            golden=Path(args.golden),
+            assistant=args.assistant,
+            principal=principal,
+            out=io.out,
+            err=io.err,
+            report=Path(args.report) if args.report else None,
+            baseline=Path(args.baseline) if args.baseline else None,
+            update_baseline=args.update_baseline,
+            force=args.force,
+            annotations=args.annotate,
+        )
+
+
+def _eval_compare_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("reports", nargs="+", help="relatórios JSON a pôr lado a lado")
+
+
+def _eval_compare(args: argparse.Namespace, io: Io) -> int:
+    """Sem plataforma: só lê relatórios (US4)."""
+    return eval_cli.compare_command(JsonReportStore(), [Path(p) for p in args.reports], out=io.out, err=io.err)
+
+
+def _core_version() -> str:
+    try:
+        return importlib.metadata.version("ai-core")
+    except importlib.metadata.PackageNotFoundError:
+        return "desconhecida"
+
+
 # --- registro ---------------------------------------------------------------------------------------------------------
 
 GROUPS: Final[Mapping[str, str]] = {
     "packs": "packs instalados e configurados (002)",
     "assistants": "Assistants de sistema e de usuário (003)",
     "keys": "chaves de API da superfície privada (003)",
+    "eval": "harness de avaliação: conjunto dourado, linha de base e comparação (009)",
 }
 
 COMMANDS: Final[tuple[Command, ...]] = (
@@ -380,6 +472,18 @@ COMMANDS: Final[tuple[Command, ...]] = (
         help="lista as chamadas de tool de escrita auditadas (004); 2 para filtro inválido",
         run=_audit,
         arguments=_audit_arguments,
+    ),
+    Command(
+        path=("eval", "run"),
+        help="roda um conjunto dourado contra um Assistant: 0 ok, 1 regressão, 2 entrada inválida",
+        run=_eval_run,
+        arguments=_eval_run_arguments,
+    ),
+    Command(
+        path=("eval", "compare"),
+        help="relatórios lado a lado (benchmark de modelos)",
+        run=_eval_compare,
+        arguments=_eval_compare_arguments,
     ),
 )
 

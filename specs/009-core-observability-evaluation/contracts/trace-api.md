@@ -99,5 +99,6 @@ class TraceQuery(Protocol):
 
 `Retrieval` e `RetrievedChunk` foram acrescentados pela 005 na Fase 6, sob o ADR-017: por execução com recuperação, os
 trechos candidatos, reordenados e entregues à geração — identificador, score e proveniência (documento, versão, status,
-seção, página), **nunca o texto**. O harness da 009 os lê pela consulta de trace (research R15).
+seção, página) e, **só nos entregues**, o texto que o modelo viu (cortado e redigido). O harness da 009 os lê pela
+consulta de trace (research R15, R19).
 

@@ -6,6 +6,7 @@ torna o grafo reescrevível: a lógica vive nos serviços, o grafo só ordena (A
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 from langgraph.config import get_stream_writer
@@ -16,7 +17,8 @@ from ai_core.graph.adapters.langgraph.view import turn_view
 from ai_core.graph.api import ExecutionIssue
 from ai_core.graph.domain.budget import Trimmed, estimate_tokens, trim_results
 from ai_core.graph.domain.transcript import generation_messages
-from ai_core.observability.api import ValidationRun
+from ai_core.observability.api import Retrieval, RetrievedChunk, ValidationRun
+from ai_core_contracts import Chunk
 
 STAGE_PREPARE = "prepare_context"
 STAGE_GENERATE = "generate"
@@ -109,8 +111,10 @@ async def validate_answer(state: AgentState) -> dict[str, Any]:
     """Validators dos packs, em sequência (002). Não chamam modelos e não decidem se a execução falhou."""
     ctx = _context()
     _writer()({"kind": PROGRESS, "stage": STAGE_VALIDATE})
+    view = turn_view(state)
+    _emit_retrieval(state["request_id"], view.retrieved, view.reranked, view.generation_context)
     streamed = state.get("streamed")
-    outcome = await ctx.hooks.validate(ctx.composition, turn_view(state), state.get("packs", {}), streamed=streamed)
+    outcome = await ctx.hooks.validate(ctx.composition, view, state.get("packs", {}), streamed=streamed)
     for run in outcome.runs:
         ctx.trace.emit(
             ValidationRun(
@@ -123,6 +127,38 @@ async def validate_answer(state: AgentState) -> dict[str, Any]:
             )
         )
     return {"validation": outcome, "errors": _deliver_rest(state.get("answer"), outcome.answer)}
+
+
+def _emit_retrieval(
+    request_id: str, retrieved: Sequence[Chunk], reranked: Sequence[Chunk], delivered: Sequence[Chunk]
+) -> None:
+    """Os trechos da execução, como a Turn View os projeta, no trace (009 Fase 6, research R15): é o que o harness de
+    avaliação lê para medir recuperação e rerank. Identificador, score e proveniência; o texto só dos entregues (o
+    que o modelo viu, para o juiz julgar a fidelidade — o trace o corta e redige). Sem trecho nenhum (o `chat`), nada a
+    emitir."""
+    if not (retrieved or reranked or delivered):
+        return
+    _context().trace.emit(
+        Retrieval(
+            request_id=request_id,
+            retrieved=tuple(_retrieved(chunk) for chunk in retrieved),
+            reranked=tuple(_retrieved(chunk) for chunk in reranked),
+            delivered=tuple(_retrieved(chunk, text=True) for chunk in delivered),
+        )
+    )
+
+
+def _retrieved(chunk: Chunk, *, text: bool = False) -> RetrievedChunk:
+    return RetrievedChunk(
+        chunk_id=chunk.chunk_id,
+        score=chunk.score,
+        document=chunk.document,
+        version=chunk.version,
+        status=chunk.status,
+        section=chunk.section,
+        page=chunk.page,
+        text=chunk.text if text else None,
+    )
 
 
 def _deliver_rest(delivered: str | None, final: str | None) -> list[ExecutionIssue]:

@@ -24,6 +24,14 @@ from ai_core_contracts.compat import (
 )
 from ai_core_contracts.declaration import ContractIssue, check_declaration
 from ai_core_contracts.deprecation import ContractDeprecationWarning, contract_deprecated
+from ai_core_contracts.eval import (
+    EvalChunk,
+    EvalEvidence,
+    EvalItem,
+    EvalMetric,
+    EvalObservation,
+    ProvidesEvalMetrics,
+)
 from ai_core_contracts.llm import ChatChunk, ChatMessage, ChatResponse, ChatTool, ChatToolCall, ChatUsage, LLMProvider
 from ai_core_contracts.mcp import MCPClient
 from ai_core_contracts.pack import RETRIEVAL_FILTERS_KEY, AgentPack, PackBase, PackContext, PackManifest
@@ -64,6 +72,11 @@ __all__ = [
     "Compatibility",
     "ContractDeprecationWarning",
     "ContractIssue",
+    "EvalChunk",
+    "EvalEvidence",
+    "EvalItem",
+    "EvalMetric",
+    "EvalObservation",
     "InvalidSpecifier",
     "InvalidVersion",
     "JSONValue",
@@ -75,6 +88,7 @@ __all__ = [
     "PackBase",
     "PackContext",
     "PackManifest",
+    "ProvidesEvalMetrics",
     "Reranker",
     "Retriever",
     "StreamingValidator",

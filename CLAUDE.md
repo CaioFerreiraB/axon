@@ -273,6 +273,26 @@ ingestão usa a CLI da própria imagem com o `corpus/` de um clone do `ai-scouti
 ele, pergunta fora do corpus ainda chega à geração com trechos); a curadoria do catálogo fica para depois do
 desenvolvimento.
 
+**A Fase 6 do roadmap está em andamento.** A 009 (US2–US4) tem o harness de avaliação em `ai_core/eval/`, adapter
+primário sobre seams: `ai-core eval run --golden <yaml> [--assistant] [--judge provider/modelo] [--baseline]
+[--update-baseline] [--force] [--report] [--principal svc:eval] [--annotate]` roda cada item do conjunto dourado pelo
+Execution Engine com a data do item (o único caminho que fixa `reference_time`), sob o grant que a 003 resolve para o
+`Principal` da rodada (a ACL do Assistant precisa admiti-lo), e lê o trace da requisição. O conjunto dourado é YAML
+(`version: 1`), com evidência por **documento** (seção ou `chunk_id` opcionais, casamento normalizado — sobrevive a
+mudança de chunking); item malformado vira `invalid` e o resto roda; evidência que nenhum candidato da rodada casa sai
+como aviso "evidência não vista". Para medir, a 005 passou a emitir o evento `retrieval` da 009 (ADR-017) na validação:
+os trechos candidatos, reordenados e entregues (id, score, proveniência; o **texto só dos entregues**, cortado em 2.000
+caracteres e redigido — é o que o juiz lê). Métricas: recall@k, MRR, recall dos entregues e ganho do rerank (as
+**determinísticas**, as únicas que barram o CI), citação resolvível/inventada/esperada, fidelidade e cobertura pelo
+juiz offline (Model Router da 006, três julgamentos, média e variância; sem `--judge`, ausentes), latência e tempo até
+o primeiro token p50/p95, tokens, chamadas, tokens/s, ações inválidas do controller, erros, e frações de flags e de rotas
+do portão (informativas). Métricas de domínio vêm do pack pelo contrato 001 `0.1.2` (`ai_core_contracts.eval`:
+`EvalItem`, `EvalObservation`, `EvalMetric`, hook opcional `eval_metrics` — ADR-027), coletadas pela 002 (seam
+`PackEvalMetrics`) e reportadas como `<pack>:<nome>`. Linha de base = um relatório JSON; tolerância absoluta por métrica
+(default 0,02); saída 0, 1 (regressão determinística) ou 2 (entrada inválida). `ai-core eval compare` põe relatórios
+lado a lado (benchmark: Assistants que diferem no modelo; RAM e CPU por `--annotate`). Segue a 105 (o conjunto dourado do
+scouting e a calibração).
+
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
 true }`, suíte de conformidade nos próprios testes e zero import do core (import-linter, nas duas direções). Ele é

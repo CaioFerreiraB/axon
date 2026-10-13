@@ -16,6 +16,7 @@ from ai_core.packs.api import (
     CompositionError,
     PackCapabilities,
     PackEntry,
+    PackEvalMetric,
     PackHookError,
     PackStatus,
     PackTool,
@@ -35,6 +36,7 @@ from ai_core.packs.ports import DiscoveredPack, PackConfigSource, PackSettings, 
 from ai_core_contracts import (
     AgentPack,
     AnswerValidator,
+    EvalMetric,
     InvalidVersion,
     JSONValue,
     NamedRetriever,
@@ -67,6 +69,7 @@ class LoadedPack:
     retrievers: tuple[NamedRetriever, ...]
     reranker: Reranker | None
     validators: tuple[AnswerValidator, ...]
+    eval_metrics: tuple[EvalMetric, ...] = ()
 
 
 class _PackLoadError(Exception):
@@ -260,6 +263,14 @@ class PackRuntime:
     def system_prompts(self, composition: Composition) -> tuple[str, ...]:
         return tuple(loaded.system_prompt for _, loaded in self._members(composition) if loaded.system_prompt)
 
+    def eval_metrics(self, composition: Composition) -> tuple[PackEvalMetric, ...]:
+        """Seam `PackEvalMetrics` (ADR-027): as métricas coletadas na carga, na ordem da composição."""
+        return tuple(
+            PackEvalMetric(pack=name, metric=metric)
+            for name, loaded in self._members(composition)
+            for metric in loaded.eval_metrics
+        )
+
     def reranker(self, composition: Composition, pack: str) -> Reranker | None:
         """O reranker coletado na carga (o hook de catálogo não roda de novo); pack fora da composição é erro."""
         for name, loaded in self._members(composition):
@@ -386,6 +397,10 @@ def _collect_catalog(pack: AgentPack, manifest: PackManifest, context: PackConte
     validators = _items(_call(pack, "validators", context))
     if validators is None or not all(isinstance(item, AnswerValidator) for item in validators):
         raise _PackLoadError("hook validators devolveu valor que não é sequência de AnswerValidator")
+    # Opcional (ADR-027): pack que não herda de PackBase e não define o hook não tem métricas de domínio.
+    metrics = _items(_call(pack, "eval_metrics", context)) if hasattr(pack, "eval_metrics") else ()
+    if metrics is None or not all(isinstance(item, EvalMetric) for item in metrics):
+        raise _PackLoadError("hook eval_metrics devolveu valor que não é sequência de EvalMetric")
     return LoadedPack(
         instance=pack,
         manifest=manifest,
@@ -396,6 +411,7 @@ def _collect_catalog(pack: AgentPack, manifest: PackManifest, context: PackConte
         retrievers=cast("tuple[NamedRetriever, ...]", retrievers),
         reranker=reranker,
         validators=cast("tuple[AnswerValidator, ...]", validators),
+        eval_metrics=cast("tuple[EvalMetric, ...]", metrics),
     )
 
 

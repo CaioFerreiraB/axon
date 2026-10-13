@@ -46,3 +46,20 @@ sai vazia.
 - perfil `test` → 0 e nenhuma linha;
 - `persistent` com Postgres: um registro gravado pela auditoria da 004 aparece, sem o resultado; com `--results`,
   com ele.
+
+## Fase 6 (2026-10-13): `ai-core eval run|compare` (009 research R25)
+
+```text
+ai-core eval run --golden <arquivo> [--assistant <nome>] [--judge <provider/modelo>] [--baseline <arquivo>]
+                 [--update-baseline] [--force] [--report <arquivo>] [--principal <subject>] [--group <g>]…
+                 [--annotate <texto>]…
+ai-core eval compare <relatório> <relatório>…
+```
+
+`eval run` sobe a plataforma até a etapa `assistants`, sem a API, abre a sessão de armazenamento como o `audit` e compõe
+o harness da 009 (motor, consulta de trace, resolução de grant da 003, métricas de domínio da 002 e, com `--judge`, o
+juiz pelo Model Router). `--principal` é `user:<id>` ou `svc:<id>` (default `svc:eval`) e precisa ser admitido pela ACL
+do Assistant. Saída: 0 sem regressão; 1 com regressão de métrica determinística além da tolerância; 2 para entrada
+inválida (conjunto ilegível, Assistant inexistente, principal ou juiz inválidos, trace sem leitura). `eval compare` só
+lê relatórios (0; 2 para relatório ilegível). Formatos em `specs/009-core-observability-evaluation/contracts/eval-harness.md`.
+

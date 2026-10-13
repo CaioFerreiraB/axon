@@ -206,7 +206,11 @@ torna as métricas independentes do flow.
 **Decision**: tipo novo e aditivo da 009 (ADR-017): `Retrieval(request_id, retrieved, reranked, delivered)`, cada lista
 de `RetrievedChunk(chunk_id, score, document, version, status, section, page)` — a proveniência do contrato 001, **nunca
 o texto**. A 005 o emite uma vez por execução, no passo de validação, a partir da Turn View que já monta
-(`retrieved`, `reranked`, `generation_context`), e só quando alguma das três listas tem trecho. Vale para qualquer
+(`retrieved`, `reranked`, `generation_context`), e só quando alguma das três listas tem trecho. *Revisto na
+implementação (clarificação de 2026-10-13, sexta pergunta)*: os trechos **entregues** levam também o `text` — o que o
+modelo viu —, cortado em 2.000 caracteres e redigido pela serialização do trace, porque o juiz precisa dele para julgar
+a fidelidade (R19); candidatos e reordenados seguem sem texto, e o `EvalChunk` do contrato 001 também (ADR-027): o
+harness passa o texto ao juiz à parte. Vale para qualquer
 flow: no `agentic`, os trechos das tools de recuperação do loop; no `rag_first`, os candidatos, a junção do rerank e os
 entregues.
 
@@ -288,7 +292,8 @@ declaradas `deterministic` podem barrar.
 **Decision**: porta `Judge` (`async judge(question, answer, passages, reference) -> Judgement(faithfulness, coverage)`);
 adapter sobre o Model Router (006) com uma `ModelPolicy` da rodada (`generation` = o modelo juiz; allowlist = só ele),
 `request_id` próprio por julgamento (`<id do item>:judge:<n>`), saída por `response_format` com esquema
-(`{"faithfulness": number, "coverage": number | null}`, 0 a 1). Três julgamentos por item; o relatório traz média e
+(`{"faithfulness": number, "coverage": number | null}`, 0 a 1). Os trechos que o juiz lê são o `text` dos entregues no
+evento `Retrieval` (R15). Três julgamentos por item; o relatório traz média e
 variância. Juiz que falha num julgamento: ele fica fora da média, e a métrica do item fica ausente se os três falham.
 Sem juiz configurado (`--judge`), `faithfulness` e `coverage` aparecem como ausentes. O prompt do juiz é do core,
 neutro quanto ao domínio.
@@ -312,8 +317,9 @@ inexistente). `--update-baseline` grava o relatório como nova base depois de um
 
 ### R21 — O `Principal` da rodada
 
-**Decision**: a CLI aceita `--principal <subject>` (default `eval:harness`) e `--group` (repetível); o `Principal` usa
-o esquema `api_key`. O Assistant avaliado precisa admiti-lo na ACL (`allow`), como qualquer chamador; orçamento e
+**Decision**: a CLI aceita `--principal <subject>` (default `svc:eval` — o `Principal` da 003 exige `user:<id>` ou
+`svc:<id>`) e `--group` (repetível); o `Principal` usa o esquema `api_key`. A grant é resolvida a cada item, para o
+orçamento valer como em produção. O Assistant avaliado precisa admiti-lo na ACL (`allow`), como qualquer chamador; orçamento e
 limites valem como para os outros.
 
 **Rationale**: a resolução de grant é a da 003, sem atalho — avaliar o que roda em produção.

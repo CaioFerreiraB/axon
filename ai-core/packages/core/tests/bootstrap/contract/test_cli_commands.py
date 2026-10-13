@@ -26,7 +26,7 @@ from ai_core.bootstrap.profiles import TEST_API_KEY
 PACKS_YAML_MALFORMADO: Final = "pacotes: {}\n"
 UNREACHABLE: Final = "postgresql://ai:segredo-do-banco@127.0.0.1:1/ai"
 
-SUBCOMANDOS: Final = ("serve", "packs", "assistants", "keys", "health", "audit")
+SUBCOMANDOS: Final = ("serve", "packs", "assistants", "keys", "health", "audit", "eval")
 
 Configurar = Callable[..., None]
 Cap = pytest.CaptureFixture[str]
@@ -67,7 +67,10 @@ def test_ajuda_lista_todos_os_subcomandos(capsys: Cap) -> None:
         assert subcomando in ajuda, subcomando
 
 
-@pytest.mark.parametrize(("grupo", "filhos"), [("packs", ("list", "check")), ("keys", ("create", "list", "revoke"))])
+@pytest.mark.parametrize(
+    ("grupo", "filhos"),
+    [("packs", ("list", "check")), ("keys", ("create", "list", "revoke")), ("eval", ("run", "compare"))],
+)
 def test_ajuda_de_cada_grupo_lista_os_comandos_do_modulo(grupo: str, filhos: tuple[str, ...], capsys: Cap) -> None:
     with pytest.raises(SystemExit):
         cli.main([grupo, "--help"])
@@ -89,6 +92,8 @@ def test_os_comandos_vem_de_uma_lista_de_registro() -> None:
         ("keys", "revoke"),
         ("health",),
         ("audit",),
+        ("eval", "run"),
+        ("eval", "compare"),
     }
 
 

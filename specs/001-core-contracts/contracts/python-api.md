@@ -50,6 +50,7 @@ class PackBase:
     def retrievers(self, ctx: PackContext) -> Sequence[NamedRetriever]: ...       # ()
     def reranker(self, ctx: PackContext) -> Reranker | None: ...                  # None
     def validators(self, ctx: PackContext) -> Sequence[AnswerValidator]: ...      # ()
+    def eval_metrics(self, ctx: PackContext) -> Sequence[EvalMetric]: ...         # () — 0.1.2, ADR-027
 
 # ai_core_contracts/tools.py
 type ToolKind = Literal["retrieval", "mcp", "native"]
@@ -309,3 +310,31 @@ class StreamingValidator(AnswerValidator, Protocol):
 Regras: a sessão vê a Turn View da abertura (antes da geração, sem `answer`) e não depende de citações de validators
 anteriores; `finish().answer` é `None` só quando nada muda e `feed` liberou a resposta inteira; determinístico e sem
 modelos, como `validate`.
+
+## Avaliação: `ai_core_contracts.eval` (contratos 0.1.2 — ADR-027)
+
+```python
+@dataclass(frozen=True, slots=True, kw_only=True)
+class EvalEvidence:          # document (não vazio), section=None, chunk_id=None
+class EvalItem:              # id, question, reference_time (com fuso), expected_documents=(), reference_answer=None,
+                             # expected_citations=(), extra={} (opaco, congelado)
+class EvalChunk:             # chunk_id, score (não NaN), document, version=None, status=None, section=None, page=None (>= 1)
+class EvalObservation:       # answer, citations=(), flags=frozenset(), retrieved=(), reranked=(), delivered=(), issue_kinds=()
+
+@runtime_checkable
+class EvalMetric(Protocol):
+    name: str
+    better: Literal["higher", "lower"]
+    deterministic: bool
+    def measure(self, item: EvalItem, observation: EvalObservation) -> float | None: ...   # síncrono e puro
+
+@runtime_checkable
+class ProvidesEvalMetrics(Protocol):
+    def eval_metrics(self, ctx: PackContext) -> Sequence[EvalMetric]: ...
+```
+
+Regras: o hook é **opcional** — `AgentPack` não muda, e um pack sem ele continua conforme; `PackBase` devolve `()`. É
+chamado uma vez, na carga, como os hooks de catálogo. `measure` devolve `None` quando a métrica não se aplica ao item;
+só métricas `deterministic` (que não dependem do texto gerado) podem barrar uma regressão no harness da 009.
+`EvalChunk` nunca carrega o texto do trecho.
+

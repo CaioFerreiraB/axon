@@ -166,8 +166,9 @@ Decisões em [research.md](research.md) R13–R27.
 | `document` | `str` | não vazio |
 | `version`, `status`, `section` | `str \| None` | do `Chunk` (001) |
 | `page` | `int \| None` | ≥ 1 quando presente |
+| `text` | `str \| None` | só nos `delivered` (o que o modelo viu); cortado em 2.000 caracteres e redigido na serialização |
 
-Nunca o texto do trecho.
+Candidatos e reordenados nunca levam texto.
 
 ### `Retrieval` — emitido pela 005 na validação
 
@@ -206,11 +207,12 @@ da composição; coletado uma vez na carga (hook que levanta ou devolve tipo err
 | `GoldenItem` | `id`, `question`, `reference_time`, `expected_documents`, `reference_answer`, `expected_citations`, `extra` | id `^[a-z0-9][a-z0-9._-]*$`; `reference_time` com fuso |
 | `GoldenSet` | `name`, `assistant: str \| None`, `k: tuple[int, ...]`, `tolerances: Mapping[str, float]`, `items`, `invalid: tuple[InvalidItem, ...]` | ids únicos; `k` ≥ 1; tolerâncias ≥ 0 |
 | `InvalidItem` | `id: str \| None`, `reason: str` | o item não roda |
-| `MetricValue` | `name`, `value: float \| None`, `variance: float \| None`, `n: int`, `deterministic: bool`, `better` | `None` = ausente |
-| `ItemResult` | `id`, `metrics: Mapping[str, float \| None]`, `citations`, `flags`, `issue_kinds`, `gate_route: str \| None`, `failure: str \| None` | |
+| `MetricValue` | `name`, `value: float \| None`, `variance: float \| None`, `n: int`, `deterministic: bool`, `better: Better \| None` | `value` `None` = ausente; `better` `None` = informativa (frações de flags e de rotas do portão), nunca regride |
+| `ItemResult` | `id`, `metrics: Mapping[str, float \| None]`, `citations`, `flags`, `issue_kinds`, `gate_route: str \| None`, `failure: str \| None`, `warnings` | avisos: "evidência não vista" (R16) e métrica de domínio que levantou (R18) |
 | `EvalReport` | `golden_set`, `assistant`, `judge: str \| None`, `started_at`, `core_version`, `k`, `metrics: tuple[MetricValue, ...]`, `items: tuple[ItemResult, ...]`, `invalid`, `annotations: tuple[str, ...]` | |
 | `MetricDelta` | `name`, `baseline`, `current`, `delta`, `tolerance`, `regressed: bool` | só determinísticas regridem |
 | `Comparison` | `deltas: tuple[MetricDelta, ...]`, `missing: tuple[str, ...]` | `regressed` = alguma delta regrediu |
+| `GoldenSetError`, `EvalInputError` | exceções | arquivo do conjunto inutilizável; rodada que não pode começar (Assistant, trace sem leitura, relatório ilegível) → saída 2 |
 
 ### Portas (`ai_core/eval/ports.py`)
 
@@ -221,4 +223,5 @@ da composição; coletado uma vez na carga (hook que levanta ou devolve tipo err
 | `Judge` | `async judge(*, question, answer, passages: Sequence[str], reference: str \| None, request_id) -> Judgement` |
 | `Clock` | `now() -> datetime`, `monotonic() -> float` |
 
-`Judgement(faithfulness: float | None, coverage: float | None)`, em `[0, 1]`.
+`Judgement(faithfulness: float | None, coverage: float | None)`, em `[0, 1]` (definido em `domain/judging.py`; a porta o
+reexporta). `EvalHarness.run(golden, *, assistant, principal, annotations=())`.

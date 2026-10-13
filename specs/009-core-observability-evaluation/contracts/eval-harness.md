@@ -38,7 +38,7 @@ As do [research.md](../research.md) R17 (core) e R18 (domínio, `<pack>:<nome>`)
 
 | Comando | Efeito | Saída |
 |---|---|---|
-| `ai-core eval run --golden <arq> [--assistant <nome>] [--judge <provider/modelo>] [--baseline <arq>] [--update-baseline] [--force] [--report <arq>] [--principal <subject>] [--group <g>]… [--annotate <texto>]…` | roda o conjunto, imprime as métricas e, com `--baseline`, a comparação | 0 sem regressão; 1 com regressão determinística; 2 entrada inválida |
+| `ai-core eval run --golden <arq> [--assistant <nome>] [--judge <provider/modelo>] [--baseline <arq>] [--update-baseline] [--force] [--report <arq>] [--principal <subject>] [--group <g>]… [--annotate <texto>]…` (principal default `svc:eval`) | roda o conjunto, imprime as métricas e, com `--baseline`, a comparação | 0 sem regressão; 1 com regressão determinística; 2 entrada inválida |
 | `ai-core eval compare <relatório> <relatório>…` | métricas lado a lado (benchmark, US4) e as anotações | 0; 2 relatório ilegível |
 
 ## Relatório (JSON, `version: 1`)

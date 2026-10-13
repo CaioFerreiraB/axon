@@ -21,6 +21,8 @@ EXPECTED_NAMES = {
     "DecisionAction",
     "CoverageGate",
     "GateRoute",
+    "Retrieval",
+    "RetrievedChunk",
     "ExecutionError",
     "ExecutionFinished",
     "TraceEvent",

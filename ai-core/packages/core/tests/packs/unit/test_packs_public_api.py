@@ -15,6 +15,8 @@ SEAM_API = {
     "PackCapabilities",
     "PackConfigError",
     "PackEntry",
+    "PackEvalMetric",
+    "PackEvalMetrics",
     "PackHookError",
     "PackHooks",
     "PackRegistry",
@@ -29,6 +31,7 @@ SEAM_API = {
 }
 IMPORTED_FROM_CONTRACTS = {
     "Citation",
+    "EvalMetric",
     "JSONValue",
     "NamedRetriever",
     "Reranker",

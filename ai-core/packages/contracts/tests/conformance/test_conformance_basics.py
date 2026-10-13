@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 from packs import GoodPack, NotAPack, SyncPreparePack, make_pack
 
+import ai_core_contracts
 from ai_core_contracts import PackManifest
 from ai_core_contracts.testing import acheck_pack, assert_pack_conforms, check_pack
 
@@ -42,7 +43,7 @@ def test_incompatible_contract_version_names_constraint_and_installed() -> None:
     report = check_pack(make_pack(contract_version="0.2"), check_distribution=False)
     [issue] = report.issues
     assert issue.code == "pack.contract_version.incompatible"
-    assert issue.message == "requer ai-core-contracts>=0.2, instalado 0.1.1"
+    assert issue.message == f"requer ai-core-contracts>=0.2, instalado {ai_core_contracts.__version__}"
 
 
 def test_manifest_issues_are_reported() -> None:

@@ -65,7 +65,7 @@ requires-dist = [
 
 [[package]]
 name = "ai-core-contracts"
-version = "0.1.1"
+version = "0.1.2"
 source = { editable = "packages/contracts" }
 dependencies = [
     { name = "typing-extensions" },

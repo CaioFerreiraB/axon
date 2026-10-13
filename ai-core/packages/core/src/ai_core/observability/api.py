@@ -232,6 +232,50 @@ class CoverageGate:
             raise ValueError("covered vale exatamente quando a rota é generate")
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class RetrievedChunk:
+    """Um trecho num evento `Retrieval`: identificador, score e a proveniência do `Chunk` (001). `text` só nos
+    entregues à geração — o que o modelo viu, para o juiz da avaliação —, cortado e redigido na serialização."""
+
+    chunk_id: str
+    score: float
+    document: str
+    version: str | None = None
+    status: str | None = None
+    section: str | None = None
+    page: int | None = None
+    text: str | None = None
+
+    def __post_init__(self) -> None:
+        _require_text("chunk_id", self.chunk_id)
+        _require_text("document", self.document)
+        if isinstance(self.score, bool) or not isinstance(self.score, int | float):
+            raise TypeError(f"score precisa ser número: {self.score!r}")
+        if self.score != self.score:  # NaN, sem importar `math`
+            raise ValueError("score não pode ser NaN")
+        if self.page is not None and self.page < 1:
+            raise ValueError("page precisa ser >= 1")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Retrieval:
+    """Os trechos de uma execução (009 Fase 6, research R15), acrescentado sob o ADR-017: candidatos (`retrieved`),
+    reordenados (`reranked`) e entregues à geração (`delivered`), como a Turn View os projeta. Emitido pela 005 na
+    validação; é o que o harness de avaliação lê para medir recuperação e rerank. Só os entregues levam texto."""
+
+    request_id: str
+    retrieved: tuple[RetrievedChunk, ...] = ()
+    reranked: tuple[RetrievedChunk, ...] = ()
+    delivered: tuple[RetrievedChunk, ...] = ()
+
+    def __post_init__(self) -> None:
+        _require_text("request_id", self.request_id)
+        for name in ("retrieved", "reranked", "delivered"):
+            object.__setattr__(self, name, tuple(getattr(self, name)))
+        if any(chunk.text is not None for chunk in (*self.retrieved, *self.reranked)):
+            raise ValueError("só os trechos entregues levam texto")
+
+
 type TraceEvent = (
     ExecutionStarted
     | ModelCall
@@ -239,6 +283,7 @@ type TraceEvent = (
     | ToolCall
     | ControllerDecision
     | CoverageGate
+    | Retrieval
     | ExecutionError
     | ExecutionFinished
 )

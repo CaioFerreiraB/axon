@@ -89,7 +89,20 @@ class PackTool:
 
 class PackToolset(Protocol):
     def toolset(self, composition: Composition) -> Sequence[PackTool]: ...
+
+# Fase 6 (ADR-027) — consumido pelo harness da 009
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PackEvalMetric:
+    pack: str
+    metric: EvalMetric                 # ai_core_contracts.eval (contratos 0.1.2)
+
+class PackEvalMetrics(Protocol):
+    def eval_metrics(self, composition: Composition) -> Sequence[PackEvalMetric]: ...
 ```
+
+`eval_metrics`: o hook opcional `eval_metrics(ctx)` do pack é chamado uma vez, na carga (pack sem o método não tem
+métricas); exceção ou tipo errado deixa o pack em erro, como os outros hooks de catálogo. O seam devolve as métricas na
+ordem da composição revalidada, sem chamar o pack.
 
 ## Comportamento
 

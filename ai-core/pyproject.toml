@@ -35,14 +35,15 @@ pythonpath = [
     "packages/core/tests/assistants",
     "packages/core/tests/mcp",
     "packages/core/tests/capabilities",
+    "packages/core/tests/eval",
 ]
 asyncio_mode = "auto"
 # Spec 007: uma marca por user story, para rodar `-k us1` … `-k us6` (tasks.md, "Independent Test").
 markers = [
     "us1: 007 US1 — MCP global sem código nem restart",
-    "us2: 007 US2 — credencial por referência; 005 US2 — flow agentic; 006 US2 — modelo por papel; 010 US2 — Assistant genérico com MCP",
-    "us3: 007 US3 — cliente restrito ao grant; 006 US3 — providers externos e roteamento automático; 005 US3 — flow rag_first",
-    "us4: 007 US4 — MCPs de usuário; 006 US4 — saída estruturada no controller; 005 US4 — validação no rag_first",
+    "us2: 007 US2 — credencial por referência; 005 US2 — flow agentic; 006 US2 — modelo por papel; 010 US2 — Assistant genérico com MCP; 009 US2 — harness",
+    "us3: 007 US3 — cliente restrito ao grant; 006 US3 — providers externos e roteamento automático; 005 US3 — flow rag_first; 009 US3 — regressão em CI",
+    "us4: 007 US4 — MCPs de usuário; 006 US4 — saída estruturada no controller; 005 US4 — validação no rag_first; 009 US4 — benchmark de modelos",
     "us5: 007 US5 — política por servidor; 006 US5 — allowlist de modelo",
     "us6: 007 US6 — proteções de rede; 003 US6 — Assistants de usuário",
     "us8: 003 US8 — validação de Assistants",
@@ -229,6 +230,7 @@ source_modules = [
     "ai_core.assistants",
     "ai_core.capabilities",
     "ai_core.mcp",
+    "ai_core.eval",
 ]
 forbidden_modules = ["langgraph", "langchain_core"]
 
@@ -323,6 +325,7 @@ source_modules = [
     "ai_core.assistants",
     "ai_core.mcp",
     "ai_core.capabilities",
+    "ai_core.eval",
 ]
 forbidden_modules = ["ai_core.http"]
 
@@ -340,6 +343,7 @@ source_modules = [
     "ai_core.assistants",
     "ai_core.mcp",
     "ai_core.capabilities",
+    "ai_core.eval",
 ]
 forbidden_modules = ["ai_core.bootstrap"]
 
@@ -549,6 +553,7 @@ source_modules = [
     "ai_core.http",
     "ai_core.assistants",
     "ai_core.capabilities",
+    "ai_core.eval",
     "ai_core.mcp.api",
     "ai_core.mcp.domain",
     "ai_core.mcp.ports",
@@ -649,3 +654,58 @@ forbidden_modules = [
     "ai_core.capabilities.service",
     "ai_core.capabilities.adapters",
 ]
+
+# 009 Fase 6 (research R26): o harness é adapter primário sobre seams — só os api.py dos outros módulos.
+[[tool.importlinter.contracts]]
+name = "o api.py do harness não importa o resto do harness"
+type = "forbidden"
+source_modules = ["ai_core.eval.api"]
+forbidden_modules = ["ai_core.eval.domain", "ai_core.eval.ports", "ai_core.eval.service", "ai_core.eval.adapters"]
+
+[[tool.importlinter.contracts]]
+name = "domain do harness não importa portas, service nem adapters"
+type = "forbidden"
+source_modules = ["ai_core.eval.domain"]
+forbidden_modules = ["ai_core.eval.ports", "ai_core.eval.service", "ai_core.eval.adapters"]
+
+[[tool.importlinter.contracts]]
+name = "service do harness não importa adapters"
+type = "forbidden"
+source_modules = ["ai_core.eval.service"]
+forbidden_modules = ["ai_core.eval.adapters"]
+
+[[tool.importlinter.contracts]]
+name = "o núcleo do harness não faz I/O de arquivo nem de formato"
+type = "forbidden"
+source_modules = ["ai_core.eval.api", "ai_core.eval.domain", "ai_core.eval.ports", "ai_core.eval.service"]
+forbidden_modules = ["yaml", "psycopg", "psycopg_pool", "openai", "httpx"]
+
+[[tool.importlinter.contracts]]
+name = "o harness só enxerga outros módulos pelo api.py"
+type = "forbidden"
+source_modules = ["ai_core.eval"]
+forbidden_modules = [
+    "ai_core.packs.domain",
+    "ai_core.packs.ports",
+    "ai_core.packs.service",
+    "ai_core.packs.adapters",
+    "ai_core.assistants.domain",
+    "ai_core.assistants.ports",
+    "ai_core.assistants.service",
+    "ai_core.assistants.adapters",
+    "ai_core.graph.domain",
+    "ai_core.graph.ports",
+    "ai_core.graph.service",
+    "ai_core.graph.adapters",
+    "ai_core.llm.domain",
+    "ai_core.llm.ports",
+    "ai_core.llm.service",
+    "ai_core.llm.adapters",
+    "ai_core.observability.domain",
+    "ai_core.observability.ports",
+    "ai_core.observability.service",
+    "ai_core.observability.adapters",
+    "ai_core.capabilities",
+    "ai_core.mcp",
+]
+

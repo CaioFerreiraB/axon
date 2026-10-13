@@ -10,7 +10,16 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Literal, Protocol
 
-from ai_core_contracts import Citation, JSONValue, NamedRetriever, Reranker, ToolSpec, TurnView, ValidationResult
+from ai_core_contracts import (
+    Citation,
+    EvalMetric,
+    JSONValue,
+    NamedRetriever,
+    Reranker,
+    ToolSpec,
+    TurnView,
+    ValidationResult,
+)
 
 type Slices = Mapping[str, Mapping[str, JSONValue]]
 """Fatia de cada pack da composição, mantida pelo motor entre os passos de uma execução."""
@@ -190,4 +199,22 @@ class PackToolset(Protocol):
     def toolset(self, composition: Composition) -> Sequence[PackTool]:
         """Por pack, na ordem da composição revalidada: tools nativas na ordem declarada, depois os retrievers como
         tools de recuperação. Sem I/O: o catálogo foi coletado na carga."""
+        ...
+
+
+# --- Métricas de domínio (Fase 6; ADR-027) — consumido pelo harness da 009 -------------------------------------------
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PackEvalMetric:
+    """Uma métrica de domínio de um pack da composição. O harness a reporta como `<pack>:<nome>`."""
+
+    pack: str
+    metric: EvalMetric
+
+
+class PackEvalMetrics(Protocol):
+    def eval_metrics(self, composition: Composition) -> Sequence[PackEvalMetric]:
+        """As métricas que os packs da composição declararam pelo hook opcional `eval_metrics` (001, ADR-027), na
+        ordem da composição. Coletadas na carga — nenhuma chamada a pack aqui. Composição revalidada."""
         ...

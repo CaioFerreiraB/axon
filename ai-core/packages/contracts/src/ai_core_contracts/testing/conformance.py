@@ -24,6 +24,7 @@ from ai_core_contracts.declaration import (
     _manifest_issues,
 )
 from ai_core_contracts.deprecation import ContractDeprecationWarning
+from ai_core_contracts.eval import EvalMetric
 from ai_core_contracts.pack import RETRIEVAL_FILTERS_KEY, AgentPack, PackManifest
 from ai_core_contracts.retrieval import Chunk, NamedRetriever, Reranker
 from ai_core_contracts.testing.distribution import (
@@ -244,6 +245,49 @@ async def _check_catalog(run: _Run) -> None:
             run.add(_return_type("validators", validators, "Sequence[AnswerValidator]"))
     for issue in _capability_issues(run.tools, run.retrievers, run.validators):
         run.add(issue)
+    if hasattr(run.agent, "eval_metrics"):
+        called, metrics = _call_catalog_hook(run, "eval_metrics")
+        if called:
+            _check_eval_metrics(run, metrics)
+
+
+_BETTER = frozenset({"higher", "lower"})
+
+
+def _check_eval_metrics(run: _Run, metrics: object) -> None:
+    """O hook opcional de métricas de domínio (ADR-027): sequência de `EvalMetric`, nomes únicos, `better` e
+    `deterministic` válidos e `measure` síncrono — o harness o chama item a item, sem loop de eventos."""
+    if not _sequence_of(metrics, EvalMetric):
+        run.add(_return_type("eval_metrics", metrics, "Sequence[EvalMetric]"))
+        return
+    seen: set[str] = set()
+    for metric in cast("Sequence[EvalMetric]", metrics):
+        name = metric.name
+        if not isinstance(name, str) or not name.strip():
+            run.add(
+                ContractIssue(code="eval_metric.name.invalid", message="métrica sem nome", subject="hook:eval_metrics")
+            )
+            continue
+        if name in seen:
+            run.add(
+                ContractIssue(
+                    code="eval_metric.duplicate_name",
+                    message=f"métrica {name!r} declarada mais de uma vez",
+                    subject=f"eval_metric:{name}",
+                )
+            )
+        seen.add(name)
+        problems = []
+        if metric.better not in _BETTER:
+            problems.append(f"better precisa ser 'higher' ou 'lower', não {metric.better!r}")
+        if not isinstance(metric.deterministic, bool):
+            problems.append("deterministic precisa ser bool")
+        if _is_async_callable(metric.measure):
+            problems.append("measure precisa ser síncrono")
+        if problems:
+            run.add(
+                ContractIssue(code="eval_metric.contract", message="; ".join(problems), subject=f"eval_metric:{name}")
+            )
 
 
 async def _check_prepare_context(run: _Run) -> None:

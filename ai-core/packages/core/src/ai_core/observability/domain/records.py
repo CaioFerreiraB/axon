@@ -25,6 +25,13 @@ def record_type(event: TraceEvent) -> str:
 
 
 def _as_json(value: object) -> JSONValue:
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        # Value object aninhado (ex.: os trechos de `Retrieval`): objeto JSON sem os campos ausentes.
+        return {
+            field.name: _as_json(getattr(value, field.name))
+            for field in dataclasses.fields(value)
+            if getattr(value, field.name) is not None
+        }
     if isinstance(value, datetime):
         return value.isoformat()
     if isinstance(value, frozenset | set):

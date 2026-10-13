@@ -8,13 +8,16 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Final, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Final, Protocol, runtime_checkable
 
 from ai_core_contracts._freeze import JSONValue, empty_mapping, freeze_mapping, freeze_sequence, require_non_empty
 from ai_core_contracts.retrieval import NamedRetriever, Reranker
 from ai_core_contracts.tools import ToolSpec
 from ai_core_contracts.validation import AnswerValidator
 from ai_core_contracts.view import TurnView
+
+if TYPE_CHECKING:  # o módulo de avaliação importa PackContext daqui
+    from ai_core_contracts.eval import EvalMetric
 
 RETRIEVAL_FILTERS_KEY: Final = "retrieval_filters"
 """Chave da fatia com os filtros que o core repassa, de forma opaca, aos retrievers do próprio pack (FR-012)."""
@@ -95,4 +98,8 @@ class PackBase:
         return None
 
     def validators(self, ctx: PackContext) -> Sequence[AnswerValidator]:
+        return ()
+
+    def eval_metrics(self, ctx: PackContext) -> Sequence[EvalMetric]:
+        """Métricas de domínio para o harness de avaliação (ADR-027); opcional — nenhuma por default."""
         return ()
