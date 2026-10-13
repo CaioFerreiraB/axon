@@ -19,6 +19,14 @@
 - **Substituição**: o conjunto dourado sobrevive a qualquer reescrita do pack — é justamente o que prova que a reescrita não piorou.
 - **Insumo técnico**: [design.md](design.md); [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md).
 
+## Clarifications
+
+### Session 2026-10-13
+
+- Q: Com a curadoria e a calibração adiadas pelo mantenedor, o que a 105 entrega agora, antes do conjunto dourado curado? → A: A infraestrutura — métricas de domínio no pack, validação do conjunto contra o catálogo do corpus, o comando de avaliação e o CI — com um **conjunto semente provisório** de 8 a 12 perguntas escritas a partir dos documentos do corpus, marcado como provisório e sem nenhuma decisão de calibração tomada sobre ele. A US2 registra a linha de base da semente; as US3–US5 (calibração, embedding, modelo local) esperam a curadoria, que substitui a semente pelas 30–50 perguntas reais.
+- Q: O que o CI do `ai-scouting` roda com o conjunto de avaliação, e quando? → A: Um job `eval` disparado quando mudam `corpus/`, `rag/`, `prompts/`, `pack.py`, `eval/` ou as dependências: Qdrant de serviço, e5 em cache por sha256, ingestão do corpus real e `ai-core eval run` com o gerador simulado do perfil `test` (sem modelo pago, sem juiz), comparando com a linha de base da semente — só as métricas determinísticas barram.
+- Q: Como o pack mede o "acerto da derivação de contexto" (ramo, temas, tipos de documento e vigência da 101), se o harness só vê o que a execução produziu? → A: O item declara o esperado em `extra.context` (ramo, temas, tipos, vigência — só os campos declarados contam); a métrica do pack refaz a derivação pura da 101 para a pergunta e a data do item e devolve a fração de campos que casam; item sem `extra.context` não conta. Métrica determinística; nenhuma mudança no core.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Conjunto dourado de perguntas reais (Priority: P1)
@@ -27,7 +35,7 @@ O mantenedor cura 30–50 perguntas reais do domínio, cada uma com os documento
 
 **Why this priority**: Fase 6, antes de calibrar qualquer número. 30–50 perguntas reais valem mais que 500 sintéticas.
 
-**Independent Test**: O harness valida o formato do conjunto e todos os documentos referenciados existem no corpus.
+**Independent Test**: O harness valida o formato do conjunto e todos os documentos referenciados existem no corpus. Nesta fase, sobre o conjunto semente provisório; a curadoria troca o conteúdo, não o formato nem a validação.
 
 **Acceptance Scenarios**:
 
@@ -42,7 +50,7 @@ A primeira rodada do harness com o conjunto dourado registra a linha de base de 
 
 **Why this priority**: Sem linha de base, não há como saber se uma mudança melhorou ou piorou.
 
-**Independent Test**: A linha de base existe e é comparável com uma segunda rodada.
+**Independent Test**: A linha de base existe e é comparável com uma segunda rodada. Nesta fase, é a linha de base da semente — refeita quando a curadoria chegar.
 
 **Acceptance Scenarios**:
 
@@ -51,6 +59,9 @@ A primeira rodada do harness com o conjunto dourado registra a linha de base de 
 ---
 
 ### User Story 3 - Calibração guiada por medição (Priority: P2)
+
+> Adiada até o conjunto curado (clarificação de 2026-10-13): calibrar sobre a semente provisória seria ajustar números a
+> perguntas que ninguém fez.
 
 Os números do RAG — candidatos, trechos após rerank, tamanho e sobreposição de chunk, limiar do portão de cobertura — são fixados a partir de rodadas comparativas, cada uma com relatório antes/depois.
 
@@ -66,6 +77,8 @@ Os números do RAG — candidatos, trechos após rerank, tamanho e sobreposiçã
 
 ### User Story 4 - Escolha do modelo de embedding (Priority: P2)
 
+> Adiada até o conjunto curado (clarificação de 2026-10-13).
+
 Os candidatos de embedding para português são comparados com o conjunto dourado, considerando qualidade e custo no hardware alvo; a escolha é registrada.
 
 **Why this priority**: Uma das decisões que mais afetam a qualidade final, e ainda em aberto.
@@ -79,6 +92,8 @@ Os candidatos de embedding para português são comparados com o conjunto dourad
 ---
 
 ### User Story 5 - Escolha do modelo de linguagem local (Priority: P3)
+
+> Adiada até o conjunto curado (clarificação de 2026-10-13).
 
 Os modelos locais candidatos são comparados em qualidade em português, confiabilidade de tool calling e fidelidade em RAG, além de desempenho.
 
@@ -101,16 +116,16 @@ Os modelos locais candidatos são comparados em qualidade em português, confiab
 
 ### Functional Requirements
 
-- **FR-001**: O conjunto dourado DEVE seguir o formato do harness (009) e ter entre 30 e 50 perguntas reais na primeira versão.
+- **FR-001**: O conjunto dourado DEVE seguir o formato do harness (009) e ter entre 30 e 50 perguntas reais na primeira versão curada. Até a curadoria, um **conjunto semente provisório** de 8 a 12 perguntas, escritas a partir dos documentos do corpus e marcadas como provisórias no próprio arquivo, prova o pipeline e alimenta o CI; nenhuma decisão de calibração DEVE ser tomada sobre a semente (clarificação de 2026-10-13).
 - **FR-002**: O conjunto DEVE incluir perguntas de consulta histórica e de fontes normativas.
-- **FR-003**: O pack DEVE fornecer as métricas de domínio: taxa de documento vigente e acerto da derivação de contexto.
+- **FR-003**: O pack DEVE fornecer as métricas de domínio, pelo hook `eval_metrics` do contrato 001 (ADR-027): taxa de documento vigente e acerto da derivação de contexto. O acerto da derivação compara o contexto esperado que o item declara em `extra.context` (ramo, temas, tipos de documento, vigência; só os campos declarados) com a derivação da 101 refeita para a pergunta e a data do item, e vale a fração de campos que casam; item sem `extra.context` não conta.
 - **FR-004**: Toda decisão de calibração DEVE ter relatório antes/depois registrado.
-- **FR-005**: O CI do `ai-scouting` DEVE rodar o conjunto em mudanças de chunking, prompt, retriever ou modelo.
+- **FR-005**: O CI do `ai-scouting` DEVE rodar o conjunto em mudanças de chunking, prompt, retriever ou modelo — um job disparado por mudanças em `corpus/`, `rag/`, `prompts/`, `pack.py`, `eval/` ou nas dependências, com Qdrant de serviço, o e5 em cache por sha256, a ingestão do corpus real e o gerador simulado do perfil `test` (sem modelo pago nem juiz), comparando com a linha de base; só as métricas determinísticas barram. Rodadas com modelo real e juiz são manuais.
 - **FR-006**: Todo item DEVE fixar a data de referência da execução (ADR-013), para que o resultado não mude quando documentos forem revogados ou substituídos depois da curadoria.
 
 ### Key Entities
 
-- **Scouting Golden Item**: pergunta, documentos esperados, resposta de referência, citações esperadas, data de referência (obrigatória em todo item).
+- **Scouting Golden Item**: pergunta, documentos esperados, resposta de referência, citações esperadas, data de referência (obrigatória em todo item) e, em `extra.context`, o contexto esperado da derivação (opcional).
 - **Calibration Decision**: parâmetro, valores comparados, relatório, escolha, data.
 
 ## Success Criteria *(mandatory)*
@@ -123,6 +138,6 @@ Os modelos locais candidatos são comparados em qualidade em português, confiab
 
 ## Assumptions
 
-- As perguntas vêm de dúvidas reais de escotistas e dirigentes, coletadas pelo mantenedor.
-- A avaliação roda dentro de uma imagem de instalação que contém o `ai-core` e o `ai-scouting` (ex.: `ai-core eval run`); o `ai-scouting` continua dependendo só de `ai-core-contracts`.
+- As perguntas da versão curada vêm de dúvidas reais de escotistas e dirigentes, coletadas pelo mantenedor, depois do desenvolvimento; até lá vale a semente provisória (FR-001).
+- A avaliação roda dentro de uma imagem de instalação que contém o `ai-core` e o `ai-scouting` (ex.: `ai-core eval run`); o `ai-scouting` continua dependendo só de `ai-core-contracts`. Na Fase 6 a CI e o mantenedor rodam pelo grupo `platform`; a imagem ganha o core com o harness numa passada de encaixe da 002 (research R9).
 - Faixas iniciais: 20–30 candidatos, 3–8 após rerank, 300–600 tokens para narrativo.
