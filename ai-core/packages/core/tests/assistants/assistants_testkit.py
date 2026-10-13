@@ -280,6 +280,8 @@ class JwksServer:
     keys: list[SigningKey]
     jwks_fetches: int = 0
     requests: list[str] = field(default_factory=list)
+    extra: list[dict[str, Any]] = field(default_factory=list)
+    """Entradas cruas a mais no JWKS (ex.: a chave de cifragem que o Keycloak sempre publica)."""
 
     @property
     def jwks_url(self) -> str:
@@ -292,7 +294,7 @@ class JwksServer:
             return httpx.Response(200, json={"issuer": ISSUER, "jwks_uri": self.jwks_url})
         if url == self.jwks_url:
             self.jwks_fetches += 1
-            return httpx.Response(200, json={"keys": [key.jwk() for key in self.keys]})
+            return httpx.Response(200, json={"keys": [*self.extra, *(key.jwk() for key in self.keys)]})
         return httpx.Response(404)
 
     def client(self) -> httpx.AsyncClient:

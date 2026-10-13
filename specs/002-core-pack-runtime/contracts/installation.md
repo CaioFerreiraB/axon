@@ -67,3 +67,20 @@ Push e PR: deploy keys só de leitura nos segredos `AGENTIC_APP_DEPLOY_KEY` (cad
 
 `scripts/check-build.sh`, passo novo: `/opt/ai-scouting/e5-small` tem `model.onnx` e `tokenizer.json`, e
 `ai-scouting-corpus --help` roda na imagem. A conversa com o índice ingerido é verificação manual.
+
+## Fase 7 (2026-10-13): Open WebUI e Keycloak de desenvolvimento (research R36–R40)
+
+| Item | Valor |
+|---|---|
+| `CORE_REF` | `v0.4.1` (a `v0.4.0` com a correção do verificador OIDC da 003) |
+| `PACKS` | `ai-scouting @ git+ssh://git@github.com/CaioFerreiraB/ai-scouting.git@24cb157590dbc81c9b6778de0b868fcc8064c36b` |
+| Perfil do compose | `webui`: `keycloak` e `open-webui` sobem com `docker compose --profile webui up`; sem o perfil, a instalação é a de antes |
+| `keycloak` | `quay.io/keycloak/keycloak:26.7.5`, `start-dev --import-realm`, realm `config/keycloak/agentic-realm.json`, porta `${KEYCLOAK_HOST_PORT:-8180}` → 8080, `KC_HOSTNAME=http://localhost:8180`, `KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true` |
+| Realm `agentic` | cliente `open-webui` (confidencial), audiência `ai-core` e `groups` no access token, grupo `equipe`, usuários `ana` e `bia` (`equipe`); segredo e senha por placeholder do `.env` |
+| `open-webui` | `ghcr.io/open-webui/open-webui:v0.12.0`, porta `${OPEN_WEBUI_HOST_PORT:-3000}` → 8080, volume `open-webui-data`, configuração da 008 R40 só por ambiente, mais `DEFAULT_USER_ROLE=user` |
+| Core (`.env`) | `AI_CORE_OIDC_ISSUER`, `AI_CORE_OIDC_AUDIENCE=ai-core`, `AI_CORE_OIDC_JWKS_URL` (rede interna), `AI_CORE_OIDC_SUBJECT_CLAIM=preferred_username`; fila (`AI_CORE_MAX_EXECUTIONS`, `AI_CORE_QUEUE_SIZE`, `AI_CORE_QUEUE_WAIT_MS`) opcionais |
+| `config/assistants.yaml` | + `interno`: privado, `allow: ["group:equipe"]`, só `oidc`, flow `chat`, pack `generic` |
+
+`scripts/check-webui.py` (manual, com o perfil `webui` de pé): login OIDC de `ana` e de `bia` pelo Open WebUI, listas
+de modelos diferentes (`interno` só para a `bia`), uma mensagem pelo Open WebUI respondida pela plataforma, exatamente
+um `POST /v1/chat/completions` no log do `ai-core` e nenhuma conversa gravada para o subject.

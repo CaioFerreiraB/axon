@@ -463,3 +463,69 @@ Insumos: ADR-009, [ADR-021](../../docs/adr/ADR-021-workspace-ai-core-permanece-n
   verificação manual (quickstart), não do `check-build.sh` — exige Qdrant e a ingestão.
 - **Rationale**: o `assistants validate` do passo 3 já confere a coleção (PackCollectionCatalog, 011 R35) e o flow.
 - **Alternatives**: subir o Qdrant e ingerir no teste (minutos e 1,3 GB de memória a cada push).
+
+## Passada de encaixe da Fase 7 na instalação — 2026-10-13
+
+> Insumos: a Fase 7 da 008 (core `v0.4.0`: fila, progresso como raciocínio, pedido efêmero; research R39 e R40 da 008,
+> com as notas para a 002), o pack `scouting` 0.3.0 (105: métricas de domínio) e o Open WebUI v0.12.0. Nenhum seam
+> muda: só a instalação.
+
+### R36 — Versões
+
+- **Decision**: `CORE_REF` default `v0.4.1`; `PACKS` com o `ai-scouting` em `24cb157590dbc81c9b6778de0b868fcc8064c36b`
+  (pack 0.3.0, contratos `>=0.1.2` da mesma tag). Com isso, `ai-core eval run` existe na imagem (premissa da 105).
+  *Acrescido na implementação*: a `v0.4.1` é a `v0.4.0` com a correção do verificador OIDC da 003 (research R24 da 003)
+  — sem ela, nenhum access token do Keycloak verificava, porque a chave de cifragem do JWKS descartava todas.
+- **Rationale**: R29 (versões fixadas); o pack 0.3.0 precisa dos contratos 0.1.2, que vêm com o core `v0.3.0`+.
+- **Alternatives**: manter `v0.2.0` (sem fila nem raciocínio no stream, e sem o harness).
+
+### R37 — Provedor OIDC de desenvolvimento
+
+- **Decision**: serviço `keycloak` (`quay.io/keycloak/keycloak:26.7.5`, `start-dev --import-realm`) no perfil `webui`
+  do compose, com o realm `agentic` importado de `config/keycloak/agentic-realm.json`: cliente confidencial
+  `open-webui` (redirect `http://localhost:3000/oauth/oidc/callback`), mapper de audiência `ai-core` e de grupos (claim
+  `groups`, sem caminho) no access token, grupo `equipe` e dois usuários — `ana` (sem grupo) e `bia` (`equipe`). O
+  segredo do cliente e a senha dos usuários vêm do `.env` por placeholders do import (`${OPEN_WEBUI_OIDC_SECRET}`,
+  `${KEYCLOAK_DEV_PASSWORD}`); o administrador do Keycloak, de `KC_BOOTSTRAP_ADMIN_*`. Endereços: o navegador usa
+  `http://localhost:8180` (`KC_HOSTNAME`, o emissor dos tokens) e os contêineres `http://keycloak:8080`
+  (`KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true`).
+- **Rationale**: 008 R39 — access token JWT por padrão, audiência e grupos por mapper, realm reproduzível. Só para
+  desenvolvimento e para a prova; em produção, o operador usa o provedor dele.
+- **Alternatives**: Authelia (access token opaco por padrão), Dex (sem grupos para usuários estáticos).
+
+### R38 — O Open WebUI na instalação
+
+- **Decision**: serviço `open-webui` (`ghcr.io/open-webui/open-webui:v0.12.0`) no perfil `webui`, porta
+  `${OPEN_WEBUI_HOST_PORT:-3000}`, volume `open-webui-data`, configurado só por ambiente (008 R40):
+  `ENABLE_PERSISTENT_CONFIG=false`, `ENABLE_OLLAMA_API=false`, `OPENAI_API_BASE_URLS=http://ai-core:8000/v1`,
+  `OPENAI_API_CONFIGS` com `auth_type: system_oauth` e `headers: {"x-ai-core-store": "false"}`,
+  `BYPASS_MODEL_ACCESS_CONTROL=true`, as seis tarefas auxiliares em `false`, OIDC (`OPENID_PROVIDER_URL` pela rede
+  interna, `OAUTH_CLIENT_ID`/`SECRET`, `ENABLE_OAUTH_SIGNUP=true`, `ENABLE_LOGIN_FORM=false`,
+  `OPENID_REDIRECT_URI`, `WEBUI_URL`), `DEFAULT_USER_ROLE=user` e `WEBUI_SECRET_KEY` do `.env`. *Acrescido na
+  implementação*: sem `DEFAULT_USER_ROLE=user`, quem entra depois do primeiro fica `pending` (a API do Open WebUI
+  responde 401) — e quem pode o quê é decisão da plataforma (ACL da 003), não de aprovação na interface.
+- **Rationale**: SC-001 da 008 (zero código de interface); o perfil `webui` deixa o `docker compose up` de sempre igual.
+- **Alternatives**: configurar pela tela de administração (não reproduzível).
+
+### R39 — O core com o Keycloak e um Assistant por grupo
+
+- **Decision**: o `.env.example` ganha a seção do perfil `webui` com os valores de desenvolvimento da 003 —
+  `AI_CORE_OIDC_ISSUER=http://localhost:8180/realms/agentic`, `AI_CORE_OIDC_AUDIENCE=ai-core`,
+  `AI_CORE_OIDC_JWKS_URL=http://keycloak:8080/realms/agentic/protocol/openid-connect/certs`,
+  `AI_CORE_OIDC_SUBJECT_CLAIM=preferred_username` — e as variáveis da fila comentadas. O `config/assistants.yaml`
+  ganha `interno` (privado, `group:equipe`, só OIDC, flow `chat` com o `generic`), o que só a `bia` vê.
+- **Rationale**: a prova da lista por usuário (008 US8 cen. 2) precisa de um Assistant que um usuário veja e o outro
+  não; o subject legível (`user:ana`) facilita ler o trace.
+- **Alternatives**: subject pelo `sub` (UUID do Keycloak; funciona, mas o trace fica ilegível).
+
+### R40 — A prova da interface
+
+- **Decision**: `scripts/check-webui.py` (só biblioteca padrão), local e manual (precisa do `.env` com a chave do
+  OpenRouter): com o perfil `webui` de pé, entra no Open WebUI como `ana` e como `bia` pelo fluxo OIDC de verdade (o
+  formulário do Keycloak), lê `/api/models` de cada um — a `bia` vê `interno`, a `ana` não — e manda uma mensagem pelo
+  `/api/chat/completions` do Open WebUI, que chega à plataforma pela conexão `system_oauth`; confere a resposta e,
+  pelo log de acesso do `ai-core`, que houve exatamente um `POST /v1/chat/completions` (nenhuma tarefa auxiliar) e que
+  o subject não ganhou conversa (`x-ai-core-store`). A conversa no navegador fica no quickstart, como verificação manual.
+- **Rationale**: a 008 US8 cen. 2–5 com a interface real, sem escrever interface; o CI do `agentic-deploy` continua só
+  com o build (subir Keycloak e Open WebUI a cada push custaria minutos e memória).
+- **Alternatives**: Playwright num navegador (código de teste de interface, pesado para o CI e para o mantenedor).

@@ -99,9 +99,16 @@ class JwksOidcVerifier:
             keys: dict[str, tuple[Any, str | None]] = {}
             for entry in entries:
                 kid = entry.get("kid")
-                if isinstance(kid, str):
+                # Só chaves de assinatura. Uma entrada que não serve para verificar — a de cifragem (`use: enc`,
+                # `RSA-OAEP`) que o Keycloak sempre publica, ou uma malformada — é ignorada sozinha: descartar o JWKS
+                # inteiro por ela recusaria todo token do provedor.
+                if not isinstance(kid, str) or entry.get("use", "sig") != "sig":
+                    continue
+                try:
                     keys[kid] = (jwt.PyJWK(entry).key, entry.get("alg"))
-        except (httpx.HTTPError, ValueError, KeyError, TypeError, AttributeError, jwt.PyJWTError):
+                except jwt.PyJWTError:
+                    continue
+        except (httpx.HTTPError, ValueError, KeyError, TypeError, AttributeError):
             return
         self._keys = keys
         self._fetched_at = now

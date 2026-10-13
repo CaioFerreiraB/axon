@@ -555,6 +555,21 @@ indisponível com o motivo (US8 cen. 2–4).
 
 ---
 
+## Ajuste de 2026-10-13 — JWKS com chave que não é de assinatura (achado da passada da Fase 7 na 002)
+
+Na prova com o Keycloak de verdade (002 research R40), todo access token era recusado: o JWKS do Keycloak traz, ao lado
+das chaves de assinatura, uma de cifragem (`use: enc`, `RSA-OAEP`) que o `jwt.PyJWK` não carrega; a exceção abortava a
+atualização inteira e nenhuma chave ficava em cache (research R24). Nenhum seam muda.
+
+- [X] T066 [P] Em `tests/assistants/contract/test_oidc_verifier.py` (com `JwksServer(extra=...)` no
+  `assistants_testkit`): um JWKS com a chave de cifragem do Keycloak e uma entrada malformada ainda verifica o token
+  assinado pela chave de assinatura; um token assinado com a chave publicada como `use: enc` é recusado
+- [X] T067 Em `src/ai_core/assistants/adapters/oidc.py` (`JwksOidcVerifier._refresh`): só entram entradas de assinatura
+  (`use` ausente ou `sig`), e uma entrada que o PyJWT não carrega é ignorada sozinha; erro de rede ou de formato do
+  documento continua descartando a atualização (faz T066 passar)
+
+---
+
 ## Dependencies & Execution Order
 
 **Fase 3**: T053 → T054 (toque na 005); T055 em paralelo. US8: T056 ∥ T057, depois T058 → T059. US6: T060, depois

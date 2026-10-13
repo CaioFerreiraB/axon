@@ -322,6 +322,37 @@ ponteiro.
 
 ---
 
+## Passada de encaixe da Fase 7 na instalação — 2026-10-13 (research R36–R40; contracts/installation.md "Fase 7")
+
+Caminhos em `agentic-deploy/`; o código é commitado lá, e aqui o SDD e o ponteiro.
+
+- [X] T063 `Dockerfile` (R36): `CORE_REF=v0.4.1` (a `v0.4.0` mais a correção do verificador OIDC da 003, achada na T069); `PACKS` com o `ai-scouting` em
+  `24cb157590dbc81c9b6778de0b868fcc8064c36b`; README com o `CORE_REF` novo
+- [X] T064 [P] `config/keycloak/agentic-realm.json` (R37): realm `agentic`, cliente confidencial `open-webui` (segredo
+  `${OPEN_WEBUI_OIDC_SECRET}`, redirect `http://localhost:3000/*`, `standardFlowEnabled`), escopo/mappers com
+  audiência `ai-core` e `groups` (sem caminho) no access token, grupo `equipe`, usuários `ana` e `bia` (`equipe`) com
+  e-mail verificado e senha `${KEYCLOAK_DEV_PASSWORD}` não temporária
+- [X] T065 [P] `docker-compose.yml` (R37, R38): serviços `keycloak` e `open-webui` no perfil `webui`, com a
+  configuração do contrato; volume `open-webui-data`; `.env.example` com a seção do perfil `webui` (OIDC do core, segredo
+  do cliente, senha de desenvolvimento, administrador do Keycloak, `WEBUI_SECRET_KEY`) e as variáveis da fila comentadas
+- [X] T066 [P] `config/assistants.yaml` (R39): Assistant `interno` (privado, `group:equipe`, só `oidc`, flow `chat`,
+  pack `generic`, geração no OpenRouter)
+- [X] T067 [P] `scripts/check-webui.py` (R40): só biblioteca padrão; login OIDC pelo formulário do Keycloak para
+  `ana` e `bia`; `/api/models` de cada um; uma mensagem pelo `/api/chat/completions` do Open WebUI; conferências do
+  contrato (listas, resposta, um `POST /v1/chat/completions` no log do `ai-core`, nenhuma conversa gravada)
+- [X] T068 `README.md` do `agentic-deploy`: o perfil `webui` (subir, entrar como `ana`/`bia`, o que cada um vê), o
+  Keycloak só de desenvolvimento, as variáveis e o `check-webui.py`
+- [ ] T069 Rodar `scripts/check-build.sh` (agente SSH) e, com o `.env` local, `docker compose --profile webui up -d` e
+  `scripts/check-webui.py` até passar; anotar o resultado no quickstart da 008 (seção "Fase 7"); derrubar. *Achados na
+  implementação*: o Keycloak marca os cookies de sessão como `Secure` (o script usa uma política de cookies que trata
+  `http://localhost` como seguro, como os navegadores); quem entra depois do primeiro ficava `pending` no Open WebUI
+  (`DEFAULT_USER_ROLE=user`); e todo access token era recusado pela 003 — a chave de cifragem do JWKS do Keycloak
+  descartava todas (corrigido na 003, T066–T067, core `v0.4.1`)
+- [ ] T070 Com o aval do mantenedor: commit e push do `agentic-deploy` e a CI (`build.yml`) verde; no `agentic-app`,
+  este SDD, o `CLAUDE.md` e o roadmap (Fase 7 completa) e o ponteiro do submódulo, e push
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

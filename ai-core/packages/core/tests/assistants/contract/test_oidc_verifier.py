@@ -153,3 +153,28 @@ async def test_jwks_provedor_fora_do_ar_recusa_sem_levantar(clock: MutableClock)
         issuer=ISSUER, audience=AUDIENCE, client=httpx.AsyncClient(transport=httpx.MockTransport(fora)), clock=clock
     )
     assert await verifier.verify(SigningKey.rsa().sign(claims("ana"))) is None
+
+
+# --- Ajuste de 2026-10-13 (002 passada da Fase 7): JWKS com chave que não é de assinatura ----------------------------
+
+
+async def test_jwks_com_chave_de_cifragem_ainda_verifica_as_de_assinatura(clock: MutableClock) -> None:
+    """O Keycloak publica, ao lado das chaves de assinatura, uma de cifragem (`use: enc`, `RSA-OAEP`) que o PyJWT não
+    carrega como chave de verificação. Uma entrada assim é ignorada — antes, ela descartava o JWKS inteiro e todo token
+    era recusado."""
+    key = SigningKey.rsa(kid="sig-1")
+    cifragem = {**SigningKey.rsa(kid="enc-1").jwk(), "alg": "RSA-OAEP", "use": "enc"}
+    quebrada = {"kid": "quebrada", "kty": "RSA", "alg": "RS256"}
+    server = JwksServer(keys=[key], extra=[cifragem, quebrada])
+
+    result = await _verifier(server, clock).verify(key.sign(claims("ana")))
+
+    assert result is not None and result["sub"] == "ana"
+
+
+async def test_jwks_token_assinado_com_chave_de_cifragem_recusa(clock: MutableClock) -> None:
+    """A chave marcada `use: enc` não vale para verificar assinatura, nem se o token a nomear."""
+    impostora = SigningKey.rsa(kid="enc-1")
+    publicada = {**impostora.jwk(), "use": "enc"}
+    server = JwksServer(keys=[SigningKey.rsa(kid="sig-1")], extra=[publicada])
+    assert await _verifier(server, clock).verify(impostora.sign(claims("ana"))) is None

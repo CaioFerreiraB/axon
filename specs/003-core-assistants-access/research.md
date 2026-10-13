@@ -402,3 +402,15 @@ flows da 005 (com e sem `capabilities`) e a validação de um Assistant `agentic
 **Rationale**: o padrão das suítes da Fase 2 (R16).
 
 **Alternatives considered**: só unidade (a injeção pela 011 ficaria sem prova).
+
+## R24 — JWKS com entradas que não são de assinatura (2026-10-13)
+
+**Decision**: o `JwksOidcVerifier` guarda só as chaves de assinatura (`use` ausente ou `sig`) e ignora, uma a uma, as
+entradas que o PyJWT não carrega; só erro de rede ou documento malformado descarta a atualização.
+
+**Rationale**: provedores reais publicam chaves de cifragem no mesmo JWKS — o Keycloak sempre tem uma `RSA-OAEP` com
+`use: enc`. Antes, essa entrada fazia o `PyJWK` levantar dentro do laço, a atualização inteira era abandonada e todo
+token era recusado (achado na prova do Open WebUI, 002 research R40). Ignorar a chave de cifragem não abre nada: ela não
+serve para verificar assinatura, e um token que a nomeie continua sem chave e é recusado.
+
+**Alternatives considered**: filtrar só por `alg` conhecido (deixaria passar uma chave RS256 marcada `use: enc`).

@@ -189,3 +189,12 @@ fila)…" em 0,01 s, ganhou a vaga em 3,35 s e terminou em 7,1 s; o 3º recebeu 
 **Open WebUI.** A prova com a interface é da passada de encaixe da 002 ([open-webui.md](contracts/open-webui.md),
 verificação 3): Keycloak de desenvolvimento com dois usuários de grupos diferentes, cada um vê só os próprios
 Assistants e conversa em streaming; o trace mostra uma execução por mensagem.
+
+*Resultado de 2026-10-13* (`agentic-deploy`, perfil `webui`, `scripts/check-webui.py`): login OIDC de verdade pelo
+formulário do Keycloak; a `ana` vê `geral` e `scouting`, a `bia` (grupo `equipe`) vê também `interno`; uma mensagem pelo
+Open WebUI virou exatamente um `POST /v1/chat/completions` na plataforma, sem tarefa auxiliar e sem conversa gravada. Em
+streaming pelo próprio Open WebUI, a pergunta "Quando foi fundada a União dos Escoteiros do Brasil?" ao `scouting`
+trouxe o raciocínio "Preparando o contexto da pergunta…", "Consultando os documentos…", "Ordenando os trechos
+encontrados…", "Conferindo se os trechos cobrem a pergunta…", "Escrevendo a resposta…" e a resposta com citações do
+Estatuto e do POR. A prova achou um defeito na 003 — a chave de cifragem do JWKS do Keycloak fazia o verificador
+descartar todas as chaves — corrigido no core `v0.4.1` (003 research R24).
