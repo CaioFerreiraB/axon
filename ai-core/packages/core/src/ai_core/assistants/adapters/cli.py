@@ -16,6 +16,7 @@ from ai_core.assistants.api import (
     AssistantStatus,
     IssuedApiKey,
     NotFound,
+    OverrideView,
     RequestRejected,
     ValidationReport,
 )
@@ -28,6 +29,8 @@ EXIT_CONFIG_ERROR = 2
 class _Validator(Protocol):
     async def validate(self) -> ValidationReport: ...
 
+    async def overrides_as_operator(self) -> Sequence[tuple[str, OverrideView]]: ...
+
 
 async def validate_command(service: _Validator, out: TextIO) -> int:
     """`ai-core assistants validate`: uma linha por Assistant e um resumo. 0 se todos disponíveis, 1 se algum não."""
@@ -35,6 +38,10 @@ async def validate_command(service: _Validator, out: TextIO) -> int:
     width = max((len(status.name) for status in report.statuses), default=0)
     for status in report.statuses:
         print(_line(status, width), file=out)
+    # Sobreposições que o deploy desligou: guardadas, sem efeito — o operador fica sabendo (ADR-032, T082).
+    for name, override in await service.overrides_as_operator():
+        if override.state == "inactive":
+            print(f"sobreposição inativa: {name}.{override.section} — {override.reason}", file=out)
 
     total = len(report.statuses)
     unavailable = sum(1 for status in report.statuses if not status.available)

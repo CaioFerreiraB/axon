@@ -14,6 +14,7 @@ from typing import Protocol
 from ai_core.assistants.api import UserAssistantDraft
 from ai_core.assistants.domain.definitions import AssistantsConfig
 from ai_core.assistants.domain.keys import ApiKeyRecord
+from ai_core.assistants.domain.overrides import OverrideHistoryRecord, StoredOverride
 from ai_core.assistants.domain.rate import RateDecision
 
 
@@ -121,3 +122,25 @@ class CollectionCatalog(Protocol):
     """Coleções existentes. O índice (Fase 5) o satisfaz estruturalmente (R11)."""
 
     async def names(self) -> frozenset[str]: ...
+
+
+class SystemOverrideStore(Protocol):
+    """Sobreposições de Assistants de sistema e o histórico delas (ADR-032, research R30). Gravar e descartar escrevem
+    o histórico na mesma operação; versão desatualizada levanta `Conflict` com a guardada."""
+
+    async def all(self) -> Sequence[StoredOverride]: ...
+
+    async def get(self, assistant: str) -> Sequence[StoredOverride]: ...
+
+    async def put(self, record: StoredOverride, *, expected_version: int | None) -> StoredOverride:
+        """`expected_version=None` cria (e falha se já existe); senão substitui a dessa versão. A versão gravada é a
+        seguinte; `record.version` é ignorada."""
+        ...
+
+    async def delete(self, assistant: str, section: str, *, expected_version: int, actor: str, at: datetime) -> bool:
+        """`False` se não há sobreposição; `Conflict` se a versão não é a guardada."""
+        ...
+
+    async def history(self, assistant: str) -> Sequence[OverrideHistoryRecord]:
+        """Mais recente primeiro."""
+        ...

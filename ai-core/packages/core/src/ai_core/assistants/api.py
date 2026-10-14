@@ -25,6 +25,9 @@ from ai_core.packs.api import Composition
 type Surface = Literal["public", "private", "admin"]
 type Scheme = Literal["oidc", "api_key"]
 type Origin = Literal["system", "user"]
+type OverrideSection = Literal["models", "mcp"]
+type OverrideState = Literal["active", "inactive"]
+type OverrideAction = Literal["saved", "discarded"]
 
 PUBLIC_SURFACE: Final = "public"
 PRIVATE_SURFACE: Final = "private"
@@ -43,6 +46,9 @@ Na de administração, a credencial com o prefixo de chave segue o caminho de ch
 SCHEME_OF_SURFACE: Final[Mapping[str, Scheme]] = MappingProxyType({PUBLIC_SURFACE: "oidc", PRIVATE_SURFACE: "api_key"})
 """**Depreciado** (ADR-031): o esquema único das duas superfícies antigas, derivado de `SCHEMES_OF_SURFACE`. Some na
 série seguinte; use `SCHEMES_OF_SURFACE`."""
+
+OVERRIDE_SECTIONS: Final[tuple[OverrideSection, ...]] = ("models", "mcp")
+"""Seções de um Assistant de sistema que o YAML pode liberar para a administração (`overrides`, ADR-032)."""
 
 USER_PREFIX: Final = "~"
 """Prefixo reservado dos Assistants de usuário (FR-017): nome de sistema nunca começa com ele."""
@@ -119,7 +125,12 @@ class NoApplicablePolicy(RequestRejected):
 
 
 class Conflict(RuntimeError):
-    """Criação com um nome que o próprio dono já usa."""
+    """Criação com um nome que o próprio dono já usa, ou sobreposição gravada sobre uma versão desatualizada
+    (`current_version` diz qual é a guardada; ADR-032)."""
+
+    def __init__(self, message: str = "", *, current_version: int | None = None) -> None:
+        super().__init__(message)
+        self.current_version = current_version
 
 
 class RateLimited(RuntimeError):
@@ -352,6 +363,88 @@ class IssuedApiKey:
 
 
 # ---------------------------------------------------------------------------------------------------------------------
+# Sobreposições de Assistants de sistema (Fase 9, ADR-032; data-model.md "Fase 9")
+# ---------------------------------------------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ModelsOverride:
+    """Os modelos por papel de um Assistant de sistema, cada um dentro da allowlist do YAML (que só muda por deploy)."""
+
+    roles: Mapping[ModelRole, ModelRef]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "roles", MappingProxyType(dict(self.roles)))
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class McpOverride:
+    """Os servidores MCP e as tools de MCP permitidas e de escrita: entradas `<alias>.<tool>` de um alias daqui. As
+    entradas de pack do YAML ficam como estão."""
+
+    aliases: tuple[str, ...] = ()
+    allowed: frozenset[str] = frozenset()
+    write: frozenset[str] = frozenset()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "aliases", tuple(dict.fromkeys(self.aliases)))
+        object.__setattr__(self, "allowed", frozenset(self.allowed))
+        object.__setattr__(self, "write", frozenset(self.write))
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class OverrideView:
+    """Uma sobreposição guardada e o estado dela agora: inativa quando o deploy não a permite mais ou mudou a seção."""
+
+    section: OverrideSection
+    payload: ModelsOverride | McpOverride
+    state: OverrideState
+    reason: str | None = None
+    version: int
+    updated_by: str
+    updated_at: datetime
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class SystemAssistantView:
+    """Um Assistant de sistema para a administração: o que o YAML define, o que foi sobreposto e o que vale."""
+
+    name: str
+    description: str | None = None
+    visibility: Literal["public", "private"]
+    flow: str | None = None
+    status: AssistantStatus
+    overridable: frozenset[OverrideSection] = frozenset()
+    yaml_models: Mapping[ModelRole, ModelRef] = field(default_factory=lambda: MappingProxyType({}))
+    allow: tuple[str, ...] = ()
+    yaml_mcp: McpOverride = field(default_factory=McpOverride)
+    overrides: tuple[OverrideView, ...] = ()
+    effective_models: Mapping[ModelRole, ModelRef] = field(default_factory=lambda: MappingProxyType({}))
+    effective_mcp: McpOverride = field(default_factory=McpOverride)
+    required_roles: tuple[ModelRole, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "overridable", frozenset(self.overridable))
+        object.__setattr__(self, "yaml_models", MappingProxyType(dict(self.yaml_models)))
+        object.__setattr__(self, "effective_models", MappingProxyType(dict(self.effective_models)))
+        object.__setattr__(self, "allow", tuple(self.allow))
+        object.__setattr__(self, "overrides", tuple(self.overrides))
+        object.__setattr__(self, "required_roles", tuple(self.required_roles))
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class OverrideHistoryEntry:
+    """Uma gravação ou um descarte de sobreposição (FR-021)."""
+
+    section: OverrideSection
+    action: OverrideAction
+    payload: ModelsOverride | McpOverride | None = None
+    version: int
+    actor: str
+    at: datetime
+
+
+# ---------------------------------------------------------------------------------------------------------------------
 # Seams
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -414,3 +507,34 @@ class ApiKeyAdmin(Protocol):
     async def keys(self, *, actor: Principal) -> Sequence[ApiKeyInfo]: ...
 
     async def revoke(self, *, actor: Principal, key_id: str) -> ApiKeyInfo: ...
+
+
+class SystemAssistantAdmin(Protocol):
+    """Sobreposições de Assistants de sistema — consumido pela 008 (superfície de administração, ADR-031/032).
+
+    Ator fora do grupo de administração, ou Assistant inexistente ou de usuário: `NotFound`. Seção fora de `overrides`
+    no YAML: `RequestRejected` com "só muda por novo deploy". Versão desatualizada: `Conflict` com a guardada. Vale na
+    resolução seguinte, sem restart.
+    """
+
+    async def system_assistants(self, *, actor: Principal) -> tuple[SystemAssistantView, ...]: ...
+
+    async def system_assistant(self, name: str, *, actor: Principal) -> SystemAssistantView: ...
+
+    async def override_models(
+        self, name: str, override: ModelsOverride, *, actor: Principal, version: int | None
+    ) -> SystemAssistantView: ...
+
+    async def override_mcp(
+        self, name: str, override: McpOverride, *, actor: Principal, version: int | None
+    ) -> SystemAssistantView: ...
+
+    async def discard_override(
+        self, name: str, section: OverrideSection, *, actor: Principal, version: int
+    ) -> SystemAssistantView: ...
+
+    async def history(self, name: str, *, actor: Principal) -> tuple[OverrideHistoryEntry, ...]: ...
+
+    async def declared_models(self) -> tuple[ModelRef, ...]:
+        """Os modelos efetivos de todos os Assistants de sistema, para a saúde (011)."""
+        ...

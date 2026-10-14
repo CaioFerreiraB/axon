@@ -317,6 +317,7 @@ def assistants_service(
     collections: Any = None,
     rate: Any = None,
     flow_roles: Any = None,
+    overrides: Any = None,
 ) -> Any:
     """`AssistantsService` com os adapters em memória, a partir do mapeamento de um `assistants.yaml`."""
     from ai_core.assistants.adapters.catalogs import EmptyCollectionCatalog, EmptyMcpDirectory
@@ -334,6 +335,7 @@ def assistants_service(
         rate=rate if rate is not None else InMemoryRateCounterStore(),
         clock=clock or MutableClock(),
         flow_roles=flow_roles,
+        overrides=overrides,
     )
 
 

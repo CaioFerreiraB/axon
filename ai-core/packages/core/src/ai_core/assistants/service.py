@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 
 from ai_core.assistants.api import (
     NAME_PATTERN,
@@ -21,18 +22,24 @@ from ai_core.assistants.api import (
     ExecutionGrant,
     IssuedApiKey,
     Limits,
+    McpOverride,
+    ModelsOverride,
     NoApplicablePolicy,
     NotFound,
+    OverrideHistoryEntry,
+    OverrideSection,
+    OverrideView,
     PolicyViolation,
     Principal,
     RateLimited,
     RequestRejected,
+    SystemAssistantView,
     UserAssistant,
     UserAssistantDraft,
     ValidationReport,
 )
 from ai_core.assistants.domain.access import OidcAudiences, OidcClaims, is_admin, principal_from_claims
-from ai_core.assistants.domain.definitions import AssistantDefinition, AssistantsConfig
+from ai_core.assistants.domain.definitions import AssistantDefinition, AssistantsConfig, allowed_model
 from ai_core.assistants.domain.keys import (
     KEY_ID_BYTES,
     KEY_PREFIX,
@@ -42,6 +49,19 @@ from ai_core.assistants.domain.keys import (
     hash_key,
     matches,
     parse_key,
+)
+from ai_core.assistants.domain.overrides import (
+    UNREADABLE,
+    OverrideStatus,
+    StoredOverride,
+    apply_mcp,
+    apply_models,
+    attribute,
+    effective,
+    payload_of,
+    read_payload,
+    section_fingerprint,
+    yaml_mcp,
 )
 from ai_core.assistants.domain.policies import applicable_policy, conform, user_definition
 from ai_core.assistants.domain.rate import RATE_WINDOW
@@ -61,10 +81,12 @@ from ai_core.assistants.ports import (
     OidcVerifier,
     RateCounterStore,
     StoredUserAssistant,
+    SystemOverrideStore,
     TokenGenerator,
     UserAssistantStore,
 )
 from ai_core.graph import api as engine
+from ai_core.llm.api import ModelRef
 from ai_core.packs.api import Composition, CompositionError, PackRegistry
 
 
@@ -119,6 +141,8 @@ class AssistantsService:
         rate: RateCounterStore,
         clock: Clock,
         flow_roles: FlowRoles | None = None,
+        overrides: SystemOverrideStore | None = None,
+        override_cache_ttl: timedelta = timedelta(seconds=5),
     ) -> None:
         self._config = config
         self._packs = packs
@@ -129,6 +153,9 @@ class AssistantsService:
         self._collections = collections
         self._rate = rate
         self._clock = clock
+        self._overrides = overrides
+        self._override_ttl = override_cache_ttl
+        self._effective: dict[str, tuple[datetime, AssistantDefinition, tuple[OverrideStatus, ...]]] = {}
 
     # --- GrantResolver --------------------------------------------------------------------------------------------
 
@@ -176,7 +203,7 @@ class AssistantsService:
         (FR-008). `visibility` não filtra."""
         found = []
         for name in sorted(self._config.assistants):
-            definition = self._config.assistants[name]
+            definition, _ = await self._system(name)
             if definition.access.permits(principal) and not (await self._availability(definition)).blocked:
                 found.append(_summary(definition))
         for stored in await self._users.list(principal.subject):
@@ -234,18 +261,239 @@ class AssistantsService:
         """
         statuses = []
         for name in sorted(self._config.assistants):
-            definition = self._config.assistants[name]
+            definition, _ = await self._system(name)
             statuses.append(status_of(definition, (await self._availability(definition)).reasons))
         for stored in await self._users.all():
             definition = user_definition(stored.draft, owner=stored.owner, allow=(), limits=Limits())
             statuses.append(status_of(definition, (await self._availability(definition)).reasons))
         return ValidationReport(statuses=tuple(statuses))
 
+    # --- SystemAssistantAdmin (ADR-032) ---------------------------------------------------------------------------
+
+    async def system_assistants(self, *, actor: Principal) -> tuple[SystemAssistantView, ...]:
+        self._require_admin(actor)
+        return tuple([await self._system_view(name) for name in sorted(self._config.assistants)])
+
+    async def system_assistant(self, name: str, *, actor: Principal) -> SystemAssistantView:
+        self._require_admin(actor)
+        self._system_yaml(name)
+        return await self._system_view(name)
+
+    async def override_models(
+        self, name: str, override: ModelsOverride, *, actor: Principal, version: int | None
+    ) -> SystemAssistantView:
+        self._require_admin(actor)
+        yaml = self._overridable(name, "models")
+        for role, ref in sorted(override.roles.items()):
+            if not allowed_model(ref, yaml.allow):
+                allow = ", ".join(yaml.allow)
+                raise RequestRejected(f"models.{role}: {ref} fora da allowlist ({allow})", field=f"models.{role}")
+        candidate = apply_models(await self._without(name, "models"), override)
+        self._reject_static(candidate)
+        return await self._save(name, "models", override, yaml=yaml, actor=actor, version=version)
+
+    async def override_mcp(
+        self, name: str, override: McpOverride, *, actor: Principal, version: int | None
+    ) -> SystemAssistantView:
+        self._require_admin(actor)
+        yaml = self._overridable(name, "mcp")
+        available = await self._mcp.aliases(owner=None)
+        for alias in override.aliases:
+            if alias not in available:
+                raise RequestRejected(f"mcp: MCP '{alias}' não existe ou não é visível", field="mcp.aliases")
+        for field, entries in (("mcp.allowed", override.allowed), ("mcp.write", override.write)):
+            for entry in sorted(entries):
+                namespace, dot, tool = entry.partition(".")
+                if not dot or not tool or namespace not in override.aliases:
+                    raise RequestRejected(
+                        f"{field}: '{entry}' precisa ser <alias>.<tool> de um servidor escolhido", field=field
+                    )
+        if override.write and yaml.visibility == "public":
+            raise RequestRejected(
+                "mcp.write: Assistant público nunca concede tools de escrita (FR-012)", field="mcp.write"
+            )
+        if override.allowed and not override.write <= override.allowed:
+            extra = ", ".join(sorted(override.write - override.allowed))
+            raise RequestRejected(f"mcp.write: '{extra}' precisa estar também entre as permitidas", field="mcp.write")
+        base = await self._without(name, "mcp")
+        candidate = apply_mcp(base, override, pack_tools=self._pack_tools(base.packs))
+        self._reject_static(candidate)
+        return await self._save(name, "mcp", override, yaml=yaml, actor=actor, version=version)
+
+    async def discard_override(
+        self, name: str, section: OverrideSection, *, actor: Principal, version: int
+    ) -> SystemAssistantView:
+        self._require_admin(actor)
+        self._system_yaml(name)
+        store = self._override_store()
+        if not await store.delete(name, section, expected_version=version, actor=actor.subject, at=self._clock.now()):
+            raise NotFound(f"'{name}' não tem sobreposição de {section}")
+        self._effective.pop(name, None)
+        return await self._system_view(name)
+
+    async def history(self, name: str, *, actor: Principal) -> tuple[OverrideHistoryEntry, ...]:
+        self._require_admin(actor)
+        self._system_yaml(name)
+        records = await self._override_store().history(name)
+        return tuple(
+            OverrideHistoryEntry(
+                section=record.section,
+                action=record.action,
+                payload=read_payload(record.section, record.payload) if record.payload is not None else None,
+                version=record.version,
+                actor=record.actor,
+                at=record.at,
+            )
+            for record in records
+        )
+
+    async def declared_models(self) -> tuple[ModelRef, ...]:
+        """Os modelos efetivos dos Assistants de sistema — o item de modelos da saúde consulta isto (011 R41)."""
+        refs: dict[str, ModelRef] = {}
+        for name in sorted(self._config.assistants):
+            definition, _ = await self._system(name)
+            for ref in definition.roles.values():
+                refs.setdefault(str(ref), ref)
+        return tuple(refs[key] for key in sorted(refs))
+
+    async def overrides_as_operator(self) -> tuple[tuple[str, OverrideView], ...]:
+        """Todas as sobreposições e o estado delas, com a autoridade do operador (`assistants validate`, T082)."""
+        if self._overrides is None:
+            return ()
+        found: list[tuple[str, OverrideView]] = []
+        for name in sorted(self._config.assistants):
+            found.extend((name, view) for view in (await self._system_view(name)).overrides)
+        return tuple(found)
+
+    def _require_admin(self, actor: Principal) -> None:
+        """Quem não administra recebe o mesmo que um recurso inexistente (ADR-031)."""
+        if not is_admin(actor, self._config.admin_group):
+            raise NotFound("recurso não encontrado")
+
+    def _system_yaml(self, name: str) -> AssistantDefinition:
+        definition = self._config.assistants.get(name)
+        if definition is None:
+            raise not_found(name)
+        return definition
+
+    def _overridable(self, name: str, section: OverrideSection) -> AssistantDefinition:
+        yaml = self._system_yaml(name)
+        if section not in yaml.overrides:
+            raise RequestRejected(
+                f"{section}: a seção '{section}' de '{name}' só muda por novo deploy (fora de `overrides` no YAML)",
+                field=section,
+            )
+        return yaml
+
+    def _override_store(self) -> SystemOverrideStore:
+        if self._overrides is None:
+            raise RequestRejected("esta plataforma não guarda sobreposições", field="overrides")
+        return self._overrides
+
+    async def _without(self, name: str, section: OverrideSection) -> AssistantDefinition:
+        """A definição efetiva sem a sobreposição de `section` — a base de uma gravação nova dessa seção."""
+        yaml = self._system_yaml(name)
+        stored = [record for record in await self._override_store().get(name) if record.section != section]
+        definition, _ = effective(yaml, stored, pack_tools=self._pack_tools(yaml.packs))
+        return definition
+
+    def _reject_static(self, candidate: AssistantDefinition) -> None:
+        """A régua da criação de Assistant de usuário (FR-020): o primeiro motivo vira o erro, nomeando o campo."""
+        reasons = static_reasons(
+            candidate,
+            flow=effective_flow(candidate, self._preferred_flow),
+            flow_roles=self._flow_roles,
+            pack_tools=self._pack_tools(candidate.packs),
+        )
+        problems = [problem for problem in candidate.problems if problem.startswith("override.")]
+        for reason in (*problems, *reasons):
+            field = reason.removeprefix("override.").partition(":")[0].strip()
+            raise RequestRejected(reason, field=field)
+
+    async def _save(
+        self,
+        name: str,
+        section: OverrideSection,
+        override: ModelsOverride | McpOverride,
+        *,
+        yaml: AssistantDefinition,
+        actor: Principal,
+        version: int | None,
+    ) -> SystemAssistantView:
+        record = StoredOverride(
+            assistant=name,
+            section=section,
+            payload=payload_of(override),
+            fingerprint=section_fingerprint(yaml, section),
+            version=1,
+            updated_by=actor.subject,
+            updated_at=self._clock.now(),
+        )
+        await self._override_store().put(record, expected_version=version)
+        self._effective.pop(name, None)
+        return await self._system_view(name)
+
+    async def _system(self, name: str) -> tuple[AssistantDefinition, tuple[OverrideStatus, ...]]:
+        """A definição efetiva de um Assistant de sistema (o YAML mais as sobreposições ativas), com cache curto
+        invalidado a cada gravação (research R31)."""
+        yaml = self._config.assistants[name]
+        if self._overrides is None:
+            return yaml, ()
+        now = self._clock.now()
+        cached = self._effective.get(name)
+        if cached is not None and now - cached[0] < self._override_ttl:
+            return cached[1], cached[2]
+        stored = await self._overrides.get(name)
+        definition, statuses = effective(yaml, stored, pack_tools=self._pack_tools(yaml.packs))
+        self._effective[name] = (now, definition, statuses)
+        return definition, statuses
+
+    async def _system_view(self, name: str) -> SystemAssistantView:
+        yaml = self._config.assistants[name]
+        self._effective.pop(name, None)
+        definition, statuses = await self._system(name)
+        availability = await self._availability(definition)
+        flow = availability.flow
+        required = tuple(self._flow_roles.get(flow, ())) if flow is not None and self._flow_roles else ()
+        views = []
+        for status in statuses:
+            payload = status.payload
+            state, reason = status.state, status.reason
+            if payload is None:
+                payload = ModelsOverride(roles={}) if status.stored.section == "models" else McpOverride()
+                state, reason = "inactive", UNREADABLE
+            views.append(
+                OverrideView(
+                    section=status.stored.section,
+                    payload=payload,
+                    state=state,
+                    reason=reason,
+                    version=status.stored.version,
+                    updated_by=status.stored.updated_by,
+                    updated_at=status.stored.updated_at,
+                )
+            )
+        return SystemAssistantView(
+            name=name,
+            description=yaml.description,
+            visibility=yaml.visibility,
+            flow=flow,
+            status=status_of(definition, availability.reasons),
+            overridable=yaml.overrides,
+            yaml_models=yaml.roles,
+            allow=yaml.allow,
+            yaml_mcp=yaml_mcp(yaml),
+            overrides=tuple(views),
+            effective_models=definition.roles,
+            effective_mcp=yaml_mcp(definition),
+            required_roles=required,
+        )
+
     # --- interno --------------------------------------------------------------------------------------------------
 
     async def _find(self, name: str, principal: Principal) -> AssistantDefinition | None:
         if not name.startswith(USER_PREFIX):
-            return self._config.assistants.get(name)
+            return (await self._system(name))[0] if name in self._config.assistants else None
         plain = _plain_name(name)
         stored = await self._users.get(principal.subject, plain) if plain is not None else None
         return await self._user_definition(stored, principal) if stored is not None else None
@@ -323,7 +571,7 @@ class AssistantsService:
             flow_roles=self._flow_roles,
             pack_tools=self._pack_tools(definition.packs),
         )
-        return _Availability(reasons=reasons, flow=flow, composition=composition)
+        return _Availability(reasons=attribute(reasons, definition.overridden), flow=flow, composition=composition)
 
     def _pack_tools(self, packs: Sequence[str]) -> dict[str, frozenset[str]]:
         """Por pack com capacidades, as tools nativas e os retrievers que oferece — coletados na carga (002)."""

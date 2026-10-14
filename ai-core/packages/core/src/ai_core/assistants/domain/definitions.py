@@ -17,12 +17,14 @@ from ai_core.assistants.api import (
     DEFAULT_RPM,
     DESCRIPTION_MAX,
     NAME_PATTERN,
+    OVERRIDE_SECTIONS,
     SCHEMES,
     SUBJECT_PATTERN,
     USER_PREFIX,
     AssistantsConfigError,
     Limits,
     Origin,
+    OverrideSection,
     Principal,
     Scheme,
 )
@@ -69,10 +71,17 @@ class AssistantDefinition:
     roles: Mapping[ModelRole, ModelRef] = field(default_factory=lambda: MappingProxyType({}))
     allow: tuple[str, ...] = ()
     limits: Limits = field(default_factory=Limits)
+    overrides: frozenset[OverrideSection] = frozenset()
+    """Seções que a administração pode sobrepor (só Assistant de sistema; ADR-032). Vazio = só por deploy."""
+    overridden: frozenset[OverrideSection] = frozenset()
+    """Seções que uma sobreposição ativa substituiu nesta definição (a efetiva): os motivos de indisponibilidade
+    nesses campos passam a nomear a sobreposição (research R31)."""
     problems: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "roles", MappingProxyType(dict(self.roles)))
+        object.__setattr__(self, "overrides", frozenset(self.overrides))
+        object.__setattr__(self, "overridden", frozenset(self.overridden))
         for name in ("packs", "mcp", "collections", "write_tools", "allow", "problems"):
             object.__setattr__(self, name, tuple(getattr(self, name)))
         if self.allowed_tools is not None:
@@ -135,6 +144,7 @@ _ASSISTANT_KEYS: Final = frozenset(
         "write_tools",
         "models",
         "limits",
+        "overrides",
     }
 )
 _POLICY_KEYS: Final = frozenset({"match", "packs", "flows", "collections", "models", "limits", "write_tools"})
@@ -250,8 +260,18 @@ def _system_assistant(name: str, body: object) -> AssistantDefinition:
         roles=roles,
         allow=allow,
         limits=_limits(body.get("limits"), problems),
+        overrides=_overrides(body, problems),
         problems=tuple(problems.items),
     )
+
+
+def _overrides(body: Mapping[str, object], problems: _Problems) -> frozenset[OverrideSection]:
+    """`overrides: [models, mcp]` (ADR-032). Valor desconhecido é problema do Assistant: a seção não é liberada."""
+    values = _texts(body, "overrides", problems)
+    unknown = [value for value in values if value not in OVERRIDE_SECTIONS]
+    if unknown:
+        problems.add("overrides", f"valor desconhecido: {', '.join(unknown)}; valores: {', '.join(OVERRIDE_SECTIONS)}")
+    return frozenset(value for value in values if value in OVERRIDE_SECTIONS)
 
 
 def _texts(body: Mapping[str, object], key: str, problems: _Problems, *, label: str | None = None) -> tuple[str, ...]:

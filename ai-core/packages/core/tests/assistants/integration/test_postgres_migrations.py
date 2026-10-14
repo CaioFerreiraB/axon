@@ -20,12 +20,18 @@ async def _scalar_rows(pool: Any, query: str) -> list[Any]:
 
 
 async def test_banco_vazio_recebe_o_schema_e_as_versoes(pg_pool: Any) -> None:
-    assert await migrate(pg_pool, now=T0) == (1, 2)
-    assert await _scalar_rows(pg_pool, "SELECT version FROM assistants.schema_version ORDER BY version") == [1, 2]
+    assert await migrate(pg_pool, now=T0) == (1, 2, 3)
+    assert await _scalar_rows(pg_pool, "SELECT version FROM assistants.schema_version ORDER BY version") == [1, 2, 3]
     tabelas = await _scalar_rows(
         pg_pool, "SELECT table_name FROM information_schema.tables WHERE table_schema = 'assistants' ORDER BY 1"
     )
-    assert tabelas == ["api_keys", "schema_version", "user_assistants"]
+    assert tabelas == [
+        "api_keys",
+        "schema_version",
+        "system_override_history",
+        "system_overrides",
+        "user_assistants",
+    ]
 
 
 async def test_rodar_de_novo_nao_reaplica(pg_pool: Any) -> None:
@@ -35,8 +41,8 @@ async def test_rodar_de_novo_nao_reaplica(pg_pool: Any) -> None:
 
 async def test_duas_chamadas_concorrentes_aplicam_uma_vez(pg_pool: Any) -> None:
     resultados = await asyncio.gather(migrate(pg_pool, now=T0), migrate(pg_pool, now=T0))
-    assert sorted(resultados) == [(), (1, 2)]
-    assert await _scalar_rows(pg_pool, "SELECT count(*) FROM assistants.schema_version") == [2]
+    assert sorted(resultados) == [(), (1, 2, 3)]
+    assert await _scalar_rows(pg_pool, "SELECT count(*) FROM assistants.schema_version") == [3]
 
 
 async def test_nenhuma_tabela_fora_do_schema_do_modulo(pg_pool: Any) -> None:

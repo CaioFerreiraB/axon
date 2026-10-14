@@ -233,7 +233,10 @@ ou `mcp`). Formatos das mensagens em [contracts/assistants-yaml.md](contracts/as
 
 ### `AssistantDefinition` — campo novo
 
-`overrides: frozenset[OverrideSection]` (do YAML; padrão vazio).
+`overrides: frozenset[OverrideSection]` (do YAML; padrão vazio) e `overridden: frozenset[OverrideSection]` (na definição
+efetiva, as seções que uma sobreposição ativa substituiu: os motivos de indisponibilidade nesses campos passam a nomear
+`override.<seção>`, R31). O serviço expõe ainda `overrides_as_operator()` (autoridade do operador) para o `ai-core
+assistants validate` listar as sobreposições inativas (T082).
 
 ### `ModelsOverride` e `McpOverride` (publicados)
 

@@ -150,7 +150,7 @@ class SystemAssistantAdmin(Protocol):
     async def discard_override(self, name: str, section: OverrideSection, *, actor: Principal,
                                version: int) -> SystemAssistantView: ...
     async def history(self, name: str, *, actor: Principal) -> tuple[OverrideHistoryEntry, ...]: ...
-    def declared_models(self) -> tuple[ModelRef, ...]: ...      # efetivos, para a saúde (011)
+    async def declared_models(self) -> tuple[ModelRef, ...]: ...  # efetivos, para a saúde (011); lê o armazenamento
 ```
 
 | Situação | Resultado |

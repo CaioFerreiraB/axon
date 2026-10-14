@@ -12,8 +12,10 @@ from collections.abc import Collection, Mapping, Sequence
 from datetime import datetime
 from types import MappingProxyType
 
+from ai_core.assistants.api import Conflict
 from ai_core.assistants.domain.definitions import AssistantsConfig, read_config
 from ai_core.assistants.domain.keys import ApiKeyRecord
+from ai_core.assistants.domain.overrides import OverrideHistoryRecord, StoredOverride
 from ai_core.assistants.ports import StoredUserAssistant
 
 
@@ -156,3 +158,60 @@ class InMemoryCollectionCatalog:
 
     async def names(self) -> frozenset[str]:
         return self._names
+
+
+class InMemorySystemOverrideStore:
+    """Sobreposições por (Assistant, seção) e o histórico, no processo (ADR-032)."""
+
+    def __init__(self) -> None:
+        self._records: dict[tuple[str, str], StoredOverride] = {}
+        self._history: list[OverrideHistoryRecord] = []
+
+    async def all(self) -> Sequence[StoredOverride]:
+        return sorted(self._records.values(), key=lambda r: (r.assistant, r.section))
+
+    async def get(self, assistant: str) -> Sequence[StoredOverride]:
+        return sorted((r for (a, _), r in self._records.items() if a == assistant), key=lambda r: r.section)
+
+    async def put(self, record: StoredOverride, *, expected_version: int | None) -> StoredOverride:
+        current = self._records.get((record.assistant, record.section))
+        stored_version = current.version if current else None
+        if stored_version != expected_version:
+            raise Conflict("a sobreposição mudou desde a leitura", current_version=stored_version)
+        saved = dataclasses.replace(record, version=(stored_version or 0) + 1)
+        self._records[(record.assistant, record.section)] = saved
+        self._history.append(
+            OverrideHistoryRecord(
+                assistant=saved.assistant,
+                section=saved.section,
+                action="saved",
+                payload=saved.payload,
+                version=saved.version,
+                actor=saved.updated_by,
+                at=saved.updated_at,
+            )
+        )
+        return saved
+
+    async def delete(self, assistant: str, section: str, *, expected_version: int, actor: str, at: datetime) -> bool:
+        current = self._records.get((assistant, section))
+        if current is None:
+            return False
+        if current.version != expected_version:
+            raise Conflict("a sobreposição mudou desde a leitura", current_version=current.version)
+        del self._records[(assistant, section)]
+        self._history.append(
+            OverrideHistoryRecord(
+                assistant=assistant,
+                section=current.section,
+                action="discarded",
+                payload=None,
+                version=current.version,
+                actor=actor,
+                at=at,
+            )
+        )
+        return True
+
+    async def history(self, assistant: str) -> Sequence[OverrideHistoryRecord]:
+        return [record for record in reversed(self._history) if record.assistant == assistant]

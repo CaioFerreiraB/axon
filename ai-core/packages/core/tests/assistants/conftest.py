@@ -69,3 +69,15 @@ def user_assistant_store(request: pytest.FixtureRequest) -> Any:
     from ai_core.assistants.adapters.assistants_postgres import PostgresUserAssistantStore
 
     return PostgresUserAssistantStore(request.getfixturevalue("migrated_pool"))
+
+
+@pytest.fixture(params=["memoria", "postgres"])
+def override_store(request: pytest.FixtureRequest) -> Any:
+    """`SystemOverrideStore` nas duas versões (Fase 9, ADR-032)."""
+    if request.param == "memoria":
+        from ai_core.assistants.adapters.memory import InMemorySystemOverrideStore
+
+        return InMemorySystemOverrideStore()
+    from ai_core.assistants.adapters.overrides_postgres import PostgresSystemOverrideStore
+
+    return PostgresSystemOverrideStore(request.getfixturevalue("migrated_pool"))

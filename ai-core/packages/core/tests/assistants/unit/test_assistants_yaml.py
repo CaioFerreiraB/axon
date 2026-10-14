@@ -190,3 +190,21 @@ def test_us1_arquivo_da_fase_1_diz_o_que_mudar() -> None:
 def test_us1_assistant_sem_corpo_e_indisponivel_nao_erro_de_arquivo() -> None:
     cfg = _load({"assistants": {"vazio": None}})
     assert cfg.assistants["vazio"].problems
+
+
+# --- Fase 9 (T075): `overrides` ---------------------------------------------------------------------------------------
+
+
+def test_overrides_lido_e_ausente_e_vazio() -> None:
+    data = config({"livre": assistant(overrides=["models", "mcp"]), "fixo": assistant()})
+    parsed = read_config(data, origin="assistants.yaml")
+    assert parsed.assistants["livre"].overrides == frozenset({"models", "mcp"})
+    assert parsed.assistants["fixo"].overrides == frozenset()
+    assert parsed.assistants["livre"].problems == ()
+
+
+def test_overrides_com_valor_desconhecido_e_problema_do_assistant() -> None:
+    parsed = read_config(config({"x": assistant(overrides=["models", "allow"])}), origin="assistants.yaml")
+    definition = parsed.assistants["x"]
+    assert definition.overrides == frozenset({"models"})
+    assert any(problem.startswith("overrides: valor desconhecido: allow") for problem in definition.problems)
