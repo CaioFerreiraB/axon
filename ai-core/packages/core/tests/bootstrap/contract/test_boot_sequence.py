@@ -138,6 +138,7 @@ def test_13_mcp_registry_entre_packs_e_engine(tmp_path: Path) -> None:
     assert [o.name for o in plataforma.report.stages] == [
         "configuration",
         "adapters",
+        "identity",
         "packs",
         "mcp_registry",
         "engine",

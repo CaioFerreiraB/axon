@@ -30,7 +30,7 @@ async def test_autenticador_anonimo_devolve_o_mesmo_subject_com_o_esquema_de_cad
 
 
 async def test_autenticador_anonimo_recusa_superficie_desconhecida() -> None:
-    assert await AnonymousAuthenticator().authenticate(surface="admin", credential=None) is None
+    assert await AnonymousAuthenticator().authenticate(surface="outra", credential=None) is None
 
 
 async def test_autenticador_anonimo_nunca_levanta_por_credencial_ausente() -> None:

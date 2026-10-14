@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 from ai_core.assistants.api import (
     NAME_PATTERN,
-    SCHEME_OF_SURFACE,
+    SCHEMES_OF_SURFACE,
     SUBJECT_PATTERN,
     USER_PREFIX,
     ApiKeyInfo,
@@ -31,10 +31,11 @@ from ai_core.assistants.api import (
     UserAssistantDraft,
     ValidationReport,
 )
-from ai_core.assistants.domain.access import OidcClaims, is_admin, principal_from_claims
+from ai_core.assistants.domain.access import OidcAudiences, OidcClaims, is_admin, principal_from_claims
 from ai_core.assistants.domain.definitions import AssistantDefinition, AssistantsConfig
 from ai_core.assistants.domain.keys import (
     KEY_ID_BYTES,
+    KEY_PREFIX,
     SECRET_BYTES,
     ApiKeyRecord,
     compose_key,
@@ -342,7 +343,8 @@ class AssistantsService:
 
 
 class AccessService:
-    """`Authenticator` e `ApiKeyAdmin`. A superfície decide o esquema: pública só OIDC, privada só chave (FR-001)."""
+    """`Authenticator` e `ApiKeyAdmin`. A superfície decide os esquemas: pública só OIDC, privada só chave (FR-001),
+    administração os dois (ADR-031); e, para OIDC, a audiência (research R26)."""
 
     def __init__(
         self,
@@ -353,6 +355,7 @@ class AccessService:
         clock: Clock,
         claims: OidcClaims,
         admin_group: str | None,
+        audiences: OidcAudiences | None = None,
     ) -> None:
         self._keys = keys
         self._oidc = oidc
@@ -360,17 +363,24 @@ class AccessService:
         self._clock = clock
         self._claims = claims
         self._admin_group = admin_group
+        self._audiences = audiences or OidcAudiences()
 
     # --- Authenticator --------------------------------------------------------------------------------------------
 
     async def authenticate(self, *, surface: str, credential: str | None) -> Principal | None:
         """Credencial ausente, malformada, expirada ou revogada devolve `None`. Falha de armazenamento **não** vira
         `None`: seria dizer "credencial inválida" quando o problema é da plataforma."""
-        scheme = SCHEME_OF_SURFACE.get(surface)
-        if scheme is None or credential is None or not credential.strip():
+        schemes = SCHEMES_OF_SURFACE.get(surface)
+        if schemes is None or credential is None or not credential.strip():
             return None
+        # Com dois esquemas, decide o formato: o prefixo de chave segue o caminho de chave; o resto, OIDC (R25).
+        if len(schemes) == 1:
+            (scheme,) = schemes
+        else:
+            scheme = "api_key" if credential.startswith(KEY_PREFIX) else "oidc"
         if scheme == "oidc":
-            claims = await self._oidc.verify(credential)
+            audience = self._audiences.of(surface)
+            claims = await self._oidc.verify(credential, audience=audience) if audience else None
             if claims is None:
                 return None
             return principal_from_claims(claims, now=self._clock.now(), config=self._claims)
@@ -431,7 +441,7 @@ class AccessService:
         return record.info
 
     def is_admin(self, principal: Principal) -> bool:
-        """Chave de API **e** grupo de administração (FR-015). Cumpre a porta `AdminGate` da 008 (research R20 dela)."""
+        """Membro do grupo de administração, em qualquer esquema (ADR-031, R27). Cumpre a porta `AdminGate` da 008."""
         return is_admin(principal, self._admin_group)
 
     def _require_admin(self, actor: Principal) -> None:

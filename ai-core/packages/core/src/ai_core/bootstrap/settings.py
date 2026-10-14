@@ -6,11 +6,15 @@ serviço de subir (FR-001, SC-002).
 
 from __future__ import annotations
 
+import base64
+import binascii
+import ipaddress
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
+from urllib.parse import urlsplit
 
 from ai_core.assistants.domain.keys import parse_key
 
@@ -42,6 +46,11 @@ MAX_EXECUTIONS_RANGE: Final = (1, 64)
 QUEUE_SIZE_RANGE: Final = (0, 1_000)
 QUEUE_WAIT_RANGE: Final = (1, 600_000)
 """As faixas de `AdmissionLimits` (008), repetidas aqui para que o erro nomeie a variável."""
+
+DEFAULT_DISPLAY_NAME: Final = "Agentic"
+"""Nome neutro da instalação nas páginas do provedor e na console (012 FR-023)."""
+MASTER_KEY_BYTES: Final = 32
+_LOCAL_HOSTS: Final = frozenset({"localhost", "127.0.0.1", "::1"})
 
 PREFIX: Final = "AI_CORE_"
 
@@ -87,6 +96,24 @@ class Settings:
     queue_size: int = DEFAULT_QUEUE_SIZE
     """0 = sem fila: com as vagas cheias, o pedido é recusado na hora (008 FR-017)."""
     queue_wait_ms: int = DEFAULT_QUEUE_WAIT_MS
+    identity_enabled: bool = False
+    """Liga o provedor de identidade da plataforma (012, ADR-030)."""
+    public_url: str | None = None
+    """Endereço público da instalação: o emissor dos tokens (012 FR-019)."""
+    identity_clients_file: Path | None = None
+    master_key: bytes | None = field(default=None, repr=False)
+    """Segredo: 32 bytes que selam a chave de assinatura (ADR-033). Nunca em log, relatório ou mensagem."""
+    display_name: str = DEFAULT_DISPLAY_NAME
+    logo_file: Path | None = None
+    trusted_proxies: tuple[str, ...] = ()
+    cookie_secure: bool | None = None
+    """Ausente: ligado quando `public_url` é `https` (012 R5)."""
+
+    @property
+    def secure_cookie(self) -> bool:
+        if self.cookie_secure is not None:
+            return self.cookie_secure
+        return (self.public_url or "").startswith("https://")
 
     def __post_init__(self) -> None:
         if self.profile not in PROFILES:
@@ -130,6 +157,44 @@ class Settings:
         _within(f"{PREFIX}MAX_EXECUTIONS", self.max_executions, MAX_EXECUTIONS_RANGE)
         _within(f"{PREFIX}QUEUE_SIZE", self.queue_size, QUEUE_SIZE_RANGE)
         _within(f"{PREFIX}QUEUE_WAIT_MS", self.queue_wait_ms, QUEUE_WAIT_RANGE)
+        self._check_identity()
+
+    def _check_identity(self) -> None:
+        """Fase 9 (research R36): param o boot e nomeiam a variável; a chave mestra nunca aparece."""
+        if self.master_key is not None and len(self.master_key) != MASTER_KEY_BYTES:
+            raise ConfigurationError(f"{PREFIX}MASTER_KEY: precisa ter {MASTER_KEY_BYTES} bytes em base64")
+        if self.public_url is not None:
+            _check_public_url(self.public_url)
+        for entry in self.trusted_proxies:
+            try:
+                ipaddress.ip_network(entry, strict=False)
+            except ValueError:
+                raise ConfigurationError(f"{PREFIX}TRUSTED_PROXIES: não é IP nem rede: {entry!r}") from None
+        if not self.display_name.strip():
+            raise ConfigurationError(f"{PREFIX}DISPLAY_NAME: não pode ser vazio")
+        if not self.identity_enabled:
+            return
+        if self.oidc_issuer:
+            raise ConfigurationError(
+                f"{PREFIX}IDENTITY_ENABLED: não combina com {PREFIX}OIDC_ISSUER — a plataforma confia num emissor só "
+                "(ADR-030)"
+            )
+        if self.public_url is None:
+            raise ConfigurationError(f"{PREFIX}PUBLIC_URL: obrigatório com {PREFIX}IDENTITY_ENABLED")
+        if self.identity_clients_file is None and self.profile != TEST_PROFILE:
+            raise ConfigurationError(f"{PREFIX}IDENTITY_CLIENTS_FILE: obrigatório com {PREFIX}IDENTITY_ENABLED")
+        if self.profile == PERSISTENT_PROFILE and self.master_key is None:
+            raise ConfigurationError(
+                f"{PREFIX}MASTER_KEY: obrigatória no perfil '{PERSISTENT_PROFILE}' com a identidade ligada (ADR-033)"
+            )
+
+
+def _check_public_url(url: str) -> None:
+    parts = urlsplit(url)
+    if parts.scheme not in ("http", "https") or not parts.hostname or parts.query or parts.fragment:
+        raise ConfigurationError(f"{PREFIX}PUBLIC_URL: precisa ser uma URL http(s) absoluta, sem query: {url!r}")
+    if parts.scheme == "http" and parts.hostname not in _LOCAL_HOSTS:
+        raise ConfigurationError(f"{PREFIX}PUBLIC_URL: precisa ser https (http só para localhost): {url!r}")
 
 
 def _within(variable: str, value: int, bounds: tuple[int, int]) -> None:
@@ -183,7 +248,41 @@ class EnvConfigSource:
             max_executions=self._int("MAX_EXECUTIONS", DEFAULT_MAX_EXECUTIONS),
             queue_size=self._int("QUEUE_SIZE", DEFAULT_QUEUE_SIZE),
             queue_wait_ms=self._int("QUEUE_WAIT_MS", DEFAULT_QUEUE_WAIT_MS),
+            identity_enabled=self._bool("IDENTITY_ENABLED", False),
+            public_url=self._optional("PUBLIC_URL"),
+            identity_clients_file=self._path("IDENTITY_CLIENTS_FILE"),
+            master_key=self._master_key(),
+            display_name=self._text("DISPLAY_NAME", DEFAULT_DISPLAY_NAME),
+            logo_file=self._path("LOGO_FILE"),
+            trusted_proxies=tuple(
+                entry.strip() for entry in self._text("TRUSTED_PROXIES", "").split(",") if entry.strip()
+            ),
+            cookie_secure=self._optional_bool("COOKIE_SECURE"),
         )
+
+    def _master_key(self) -> bytes | None:
+        raw = self._optional("MASTER_KEY")
+        if raw is None:
+            return None
+        try:
+            return base64.b64decode(raw.strip(), validate=True)
+        except (binascii.Error, ValueError):
+            # Nunca o valor: é a chave que sela os segredos da instalação (ADR-033).
+            raise ConfigurationError(f"{PREFIX}MASTER_KEY: não é base64 válido") from None
+
+    def _bool(self, name: str, default: bool) -> bool:
+        value = self._optional_bool(name)
+        return default if value is None else value
+
+    def _optional_bool(self, name: str) -> bool | None:
+        raw = self._environ.get(f"{PREFIX}{name}")
+        if not raw:
+            return None
+        if raw.strip().lower() in ("1", "true", "yes", "on"):
+            return True
+        if raw.strip().lower() in ("0", "false", "no", "off"):
+            return False
+        raise ConfigurationError(f"{PREFIX}{name}: precisa ser true ou false: {raw!r}")
 
     def _optional(self, name: str) -> str | None:
         raw = self._environ.get(f"{PREFIX}{name}")

@@ -12,7 +12,7 @@ import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
-from ai_core.assistants.api import SCHEME_OF_SURFACE, Principal
+from ai_core.assistants.api import SCHEMES_OF_SURFACE, Principal, Scheme
 from ai_core.http.ports import HealthItem, HealthReport
 
 ANONYMOUS_SUBJECT = "user:anonymous"
@@ -30,9 +30,10 @@ class AnonymousAuthenticator:
         self._groups = groups
 
     async def authenticate(self, *, surface: str, credential: str | None) -> Principal | None:
-        scheme = SCHEME_OF_SURFACE.get(surface)
-        if scheme is None:
+        schemes = SCHEMES_OF_SURFACE.get(surface)
+        if schemes is None:
             return None
+        scheme: Scheme = "api_key" if schemes == {"api_key"} else "oidc"
         return Principal(subject=self._subject, scheme=scheme, groups=self._groups)
 
 

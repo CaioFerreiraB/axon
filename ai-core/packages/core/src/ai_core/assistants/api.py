@@ -22,15 +22,27 @@ from ai_core.packs.api import Composition
 # Vocabulário
 # ---------------------------------------------------------------------------------------------------------------------
 
-type Surface = Literal["public", "private"]
+type Surface = Literal["public", "private", "admin"]
 type Scheme = Literal["oidc", "api_key"]
 type Origin = Literal["system", "user"]
 
 PUBLIC_SURFACE: Final = "public"
 PRIVATE_SURFACE: Final = "private"
+ADMIN_SURFACE: Final = "admin"
 SCHEMES: Final[tuple[Scheme, ...]] = ("oidc", "api_key")
+SCHEMES_OF_SURFACE: Final[Mapping[str, frozenset[Scheme]]] = MappingProxyType(
+    {
+        PUBLIC_SURFACE: frozenset({"oidc"}),
+        PRIVATE_SURFACE: frozenset({"api_key"}),
+        ADMIN_SURFACE: frozenset({"oidc", "api_key"}),
+    }
+)
+"""A pública aceita só OIDC; a privada, só chave de API (FR-001); a de administração, os dois (ADR-031, research R25).
+Na de administração, a credencial com o prefixo de chave segue o caminho de chave; qualquer outra, OIDC."""
+
 SCHEME_OF_SURFACE: Final[Mapping[str, Scheme]] = MappingProxyType({PUBLIC_SURFACE: "oidc", PRIVATE_SURFACE: "api_key"})
-"""A superfície pública aceita só OIDC; a privada, só chave de API (FR-001)."""
+"""**Depreciado** (ADR-031): o esquema único das duas superfícies antigas, derivado de `SCHEMES_OF_SURFACE`. Some na
+série seguinte; use `SCHEMES_OF_SURFACE`."""
 
 USER_PREFIX: Final = "~"
 """Prefixo reservado dos Assistants de usuário (FR-017): nome de sistema nunca começa com ele."""

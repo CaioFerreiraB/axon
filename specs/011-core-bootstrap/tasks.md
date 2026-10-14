@@ -440,6 +440,14 @@ e 008.
 
 ## Phase 19: User Story 6 — A plataforma sobe com identidade, administração e destinos do trace (Priority: P2)
 
+> **Andamento (2026-10-14, incremento 9.1)**: a parte da **identidade** está feita — variáveis e validações da R36 que
+> são da 012 (`settings.py`), as sete portas `identity_*` nos três perfis (`profiles.py`, `bootstrap/identity.py`), a
+> etapa crítica `identity` com o `JwksOidcVerifier` sobre o JWKS em processo e o router da 012 no app (`wiring.py`), o
+> item crítico `identity` na saúde, o expurgo periódico, a carga das chaves no ciclo de vida e os comandos `users …` e
+> `identity keys rotate` (`cli.py`, com grupos aninhados). Testes: `unit/test_settings_phase9.py`,
+> `integration/test_platform_identity.py`, `contract/test_cli_identity.py`. As tarefas abaixo seguem abertas até o
+> incremento 9.2 trazer sobreposições (003 US10), uso e Langfuse (009) e a superfície de administração (008).
+
 ### Tests for User Story 6
 
 - [ ] T053 [P] [US6] `tests/bootstrap/unit/test_settings_phase9.py`: as variáveis e os padrões de

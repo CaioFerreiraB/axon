@@ -55,7 +55,7 @@ async def banco_limpo() -> AsyncIterator[str]:
     import psycopg
 
     async with await psycopg.AsyncConnection.connect(PG_DSN, autocommit=True) as connection:
-        for schema in ("assistants", "http", "mcp", "capabilities"):
+        for schema in ("assistants", "http", "mcp", "capabilities", "identity"):
             await connection.execute(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
     yield PG_DSN
 

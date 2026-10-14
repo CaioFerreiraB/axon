@@ -80,8 +80,8 @@ class ApiKeyStore(Protocol):
 class OidcVerifier(Protocol):
     """Verificação do token OIDC: assinatura, algoritmo, emissor e audiência. O tempo fica no domínio (R6)."""
 
-    async def verify(self, token: str) -> Mapping[str, object] | None:
-        """Claims do token, ou `None`. Nunca levanta."""
+    async def verify(self, token: str, *, audience: str) -> Mapping[str, object] | None:
+        """Claims do token se a audiência é a pedida — a da superfície (research R26); senão `None`. Nunca levanta."""
         ...
 
 

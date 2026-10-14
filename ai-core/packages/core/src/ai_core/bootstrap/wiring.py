@@ -33,13 +33,14 @@ from ai_core.assistants.adapters.memory import InMemoryAssistantConfigSource
 from ai_core.assistants.adapters.rate_memory import InMemoryRateCounterStore
 from ai_core.assistants.adapters.tokens import SecretsTokenGenerator
 from ai_core.assistants.api import ValidationReport
-from ai_core.assistants.domain.access import OidcClaims
+from ai_core.assistants.domain.access import OidcAudiences, OidcClaims
 from ai_core.assistants.ports import AssistantConfigSource
 from ai_core.assistants.service import AccessService, AssistantsService
+from ai_core.bootstrap import identity as identity_parts
 from ai_core.bootstrap.health import DatabaseProbe, PlatformHealth, declared_models
 from ai_core.bootstrap.lifecycle import BootContext, BootReport, Stage, run_stages, shutdown
 from ai_core.bootstrap.ports import ConfigSource
-from ai_core.bootstrap.profiles import STORAGE_PORTS, Profile, profile_for
+from ai_core.bootstrap.profiles import DEFAULT_PUBLIC_AUDIENCE, STORAGE_PORTS, Profile, profile_for
 from ai_core.bootstrap.settings import EnvConfigSource, Settings
 from ai_core.capabilities.adapters import postgres_schema as capabilities_schema
 from ai_core.capabilities.api import GatewayLimits
@@ -50,6 +51,9 @@ from ai_core.graph.service import ExecutionService
 from ai_core.http.adapters import postgres_schema as http_schema
 from ai_core.http.adapters.app import AdmissionLimits, create_app
 from ai_core.http.service import ConversationService
+from ai_core.identity.adapters import postgres_schema as identity_schema
+from ai_core.identity.adapters.http import router as identity_router
+from ai_core.identity.service import IdentityService
 from ai_core.llm.service import ModelRoutingService
 from ai_core.mcp.adapters import postgres_schema as mcp_schema
 from ai_core.mcp.adapters.config_yaml import YamlMcpConfigSource
@@ -63,6 +67,7 @@ from ai_core.packs.service import PackRuntime
 
 STAGE_CONFIGURATION = "configuration"
 STAGE_ADAPTERS = "adapters"
+STAGE_IDENTITY = "identity"
 STAGE_PACKS = "packs"
 STAGE_MCP = "mcp_registry"
 STAGE_ENGINE = "engine"
@@ -92,6 +97,8 @@ class Platform:
     """O registry MCP da plataforma (007) — é por aqui que a 008 liga as rotas de MCP."""
     capabilities: CapabilityService | None = None
     conversations: ConversationService | None = None
+    identity: IdentityService | None = None
+    """O provedor de identidade (012), só com `AI_CORE_IDENTITY_ENABLED`."""
     app: FastAPI | None = None
     context: BootContext
 
@@ -147,6 +154,7 @@ def platform(
         mcp=parts.get("mcp"),
         capabilities=parts.get("capabilities"),
         conversations=parts.get("conversation_service"),
+        identity=parts.get("identity"),
         app=parts.get("app"),
         context=context,
     )
@@ -157,6 +165,7 @@ def _stages(source: ConfigSource, override: str | None) -> tuple[Stage, ...]:
     return (
         Stage(name=STAGE_CONFIGURATION, run=lambda ctx: _configuration(ctx, source, override), critical=True),
         Stage(name=STAGE_ADAPTERS, run=_adapters, critical=True),
+        Stage(name=STAGE_IDENTITY, run=_identity, critical=True),
         Stage(name=STAGE_PACKS, run=_packs, critical=False),
         Stage(name=STAGE_MCP, run=_mcp_registry, critical=True),
         Stage(name=STAGE_ENGINE, run=_engine, critical=True),
@@ -212,6 +221,35 @@ async def _migrate(parts: Mapping[str, Any]) -> None:
             await http_schema.migrate(session["database"], now=now)
             await mcp_schema.migrate(session["database"], now=now)
             await capabilities_schema.migrate(session["database"], now=now)
+            await identity_schema.migrate(session["database"], now=now)
+
+
+def _identity(ctx: BootContext) -> None:
+    """A 012, só com a identidade ligada (R37): chave de assinatura e admin inicial antes de a API existir, e o
+    verificador da 003 passa a ler as chaves em processo. Crítica: sem ela, ninguém entra."""
+    parts = ctx.parts
+    settings: Settings = parts["settings"]
+    if not settings.identity_enabled:
+        return
+    identity_parts.prepare(parts)
+    service = identity_parts.identity_service(parts, session=parts)
+    _run(_start_identity(parts, service))
+    parts["identity"] = service
+    if "oidc" not in parts.get("overrides", {}):
+        parts["oidc"] = identity_parts.verifier(service)
+
+
+async def _start_identity(parts: Mapping[str, Any], service: IdentityService) -> None:
+    """Sem banco, o próprio serviço da plataforma; com banco, um serviço sobre a sessão do boot — o de runtime carrega
+    as chaves quando o pool de serviço abre (`app_lifespan`)."""
+    if parts["database"] is None:
+        await service.start()
+        await service.bootstrap_admin()
+        return
+    async with storage(parts) as session, _database_errors(parts["settings"]):
+        boot = identity_parts.identity_service(parts, session=session)
+        await boot.start()
+        await boot.bootstrap_admin()
 
 
 def _packs(ctx: BootContext) -> None:
@@ -392,6 +430,7 @@ def access_service(parts: Mapping[str, Any], *, keys: Any) -> AccessService:
         clock=parts["clock"],
         claims=OidcClaims(subject_claim=settings.oidc_subject_claim, groups_claim=settings.oidc_groups_claim),
         admin_group=parts["assistants_config"].admin_group,
+        audiences=OidcAudiences(public=settings.oidc_audience or DEFAULT_PUBLIC_AUDIENCE),
     )
 
 
@@ -406,7 +445,16 @@ def _api(ctx: BootContext) -> None:
     expiry = PeriodicTask(
         name="conversations.expire", interval=settings.conversation_expiry_interval, run=conversations.expire
     )
-    ctx.parts["app"] = create_app(
+    tasks = [expiry]
+    startups: list[Callable[[], Awaitable[object]]] = []
+    identity: IdentityService | None = parts.get("identity")
+    if identity is not None:
+        tasks.append(
+            PeriodicTask(name="identity.purge", interval=identity_parts.IDENTITY_PURGE_INTERVAL, run=identity.purge)
+        )
+        if parts["database"] is not None:
+            startups.append(identity.start)
+    app = create_app(
         engine=parts["engine"],
         authenticator=parts["access"],
         grants=parts["assistants"],
@@ -420,7 +468,7 @@ def _api(ctx: BootContext) -> None:
         conversation_ids=parts["conversation_ids"],
         clock=parts["clock"],
         conversation_retention=retention,
-        lifespan=app_lifespan(database=parts["database"], tasks=(expiry,)),
+        lifespan=app_lifespan(database=parts["database"], tasks=tasks, startups=startups),
         admission=AdmissionLimits(
             max_executions=settings.max_executions,
             queue_size=settings.queue_size,
@@ -428,6 +476,10 @@ def _api(ctx: BootContext) -> None:
         ),
         mcp=parts["mcp"],
     )
+    if identity is not None:
+        # O protocolo e as páginas da 012 são o adapter primário dela, montado no mesmo app (ADR-030).
+        app.include_router(identity_router(identity, identity_parts.http_settings(settings)))
+    ctx.parts["app"] = app
 
 
 def platform_health(parts: Mapping[str, Any], *, session: Mapping[str, Any]) -> PlatformHealth:
@@ -441,7 +493,20 @@ def platform_health(parts: Mapping[str, Any], *, session: Mapping[str, Any]) -> 
         mcp=mcp_service(parts, store=session["mcp_store"]),
         routing=parts["routing"],
         models=declared_models(parts["assistants_config"]),
+        identity=_identity_probe(parts.get("identity")),
     )
+
+
+def _identity_probe(service: IdentityService | None) -> Callable[[], str | None] | None:
+    """Item crítico `identity` (R41): sem chave publicada, nenhum token verifica."""
+    if service is None:
+        return None
+
+    def probe() -> str | None:
+        keys = service.jwks().get("keys")
+        return None if isinstance(keys, list) and keys else "nenhuma chave de assinatura carregada"
+
+    return probe
 
 
 # --- ciclo de vida da app (R14) ---------------------------------------------------------------------------------------
@@ -457,9 +522,13 @@ class PeriodicTask:
 
 
 def app_lifespan(
-    *, database: Any | None, tasks: Sequence[PeriodicTask]
+    *,
+    database: Any | None,
+    tasks: Sequence[PeriodicTask],
+    startups: Sequence[Callable[[], Awaitable[object]]] = (),
 ) -> Callable[[FastAPI], AbstractAsyncContextManager[None]]:
-    """No início, abre o pool de serviço e agenda as tarefas; no fim, cancela as tarefas e fecha o pool.
+    """No início, abre o pool de serviço, roda o que precisa dele antes da primeira requisição (as chaves da 012) e
+    agenda as tarefas; no fim, cancela as tarefas e fecha o pool.
 
     É o único lugar com o laço do servidor em execução — e o pool pertence ao laço em que abre (R13). Um pool não
     reabre depois de fechado: a app de uma plataforma persistente serve uma vez.
@@ -469,6 +538,8 @@ def app_lifespan(
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         if database is not None:
             await database.open(wait=True, timeout=CONNECT_TIMEOUT)
+        for startup in startups:
+            await startup()
         running = [asyncio.create_task(_repeat(task), name=task.name) for task in tasks]
         try:
             yield
@@ -539,7 +610,12 @@ async def _database_errors(settings: Settings) -> AsyncIterator[None]:
     """Traduz falha de banco e de migração num erro que nomeia porta e adapter, com o texto sem a URL nem a senha."""
     try:
         yield
-    except (psycopg.Error, assistants_schema.MigrationError, http_schema.MigrationError) as error:
+    except (
+        psycopg.Error,
+        assistants_schema.MigrationError,
+        http_schema.MigrationError,
+        identity_schema.MigrationError,
+    ) as error:
         detail = _redact(str(error).strip().splitlines()[0] if str(error).strip() else type(error).__name__, settings)
         raise DatabaseUnavailable(f"porta 'database' (adapter Postgres): {detail}") from None
 

@@ -345,6 +345,33 @@ outro valor → 400), a 008 manda cada início, desfecho, aviso e a conclusão c
 (pelo `Clock`) saem de `http/domain/timeline.py`. A conexão da instalação manda o cabeçalho, e o `check-webui.py` lê o
 `statusHistory` gravado. Core `0.5.0` (tag `v0.5.0`, com o aval do mantenedor).
 
+**A Fase 9 do roadmap está em andamento** (console de administração e identidade própria, ADR-029 a ADR-034). O
+provedor de identidade (`ai_core/identity/`, spec 012, US1–US7) existe como módulo: a plataforma é o próprio emissor OIDC
+(ADR-030) — descoberta com backchannel dinâmico, autorização só por código (PKCE S256 obrigatório para cliente público),
+troca de código e renovação (rotação com detecção de reuso para cliente público; o confidencial não rotaciona),
+`userinfo`, JWKS, revogação e logout —, com as páginas próprias (login por usuário ou e-mail, troca obrigatória da senha
+temporária, "Minha conta"; HTML sem script, escape por padrão, CSS do desenho aprovado no Penpot), contas e grupos com o
+grupo de administração protegido, senha temporária gerada (só a operação que a define a devolve), argon2id
+(`argon2-cffi`, confinado a `adapters/`), bloqueio de 5 falhas em 15 min por usuário e por origem, Google só para contas
+cadastradas (vínculo pelo `sub` no primeiro sucesso), chaves RS256 com a privada selada por AES-GCM com subchave HKDF da
+chave mestra (ADR-033) e rotação normal ou forçada. Seams em `identity/api.py`: `AccountAdmin` e `LoginSettings` (para a
+008) e `PublicKeySet` (a 011 o injeta no verificador da 003); o protocolo é o adapter primário `router(service,
+settings)` de `adapters/http.py`. Postgres no schema `identity` (ADR-015); clientes no `identity.yaml` do operador; CLI
+`users …` e `identity keys rotate` em `adapters/cli.py` (a 011 registra). A suíte de protocolo usa o authlib como RP
+(grupo de desenvolvimento; o authlib 1.9 fala `httpx2`). O encaixe — verificador e superfície `/admin/v1` na 003, rotas
+na 008, etapa `identity` e configuração na 011, instalação sem Keycloak na 002 — vem nas passadas delas.
+Já encaixados (incremento 9.1): a 003 tem três superfícies (`SCHEMES_OF_SURFACE`; `admin` aceita chave ou OIDC com a
+audiência `ai-core-admin`; `SCHEME_OF_SURFACE` ficou depreciado), admin pelo grupo em qualquer esquema (ADR-031) e o
+`JwksOidcVerifier(issuer, source)` com `HttpJwksSource` (provedor externo, com cache) ou `CallableJwksSource` (o
+`jwks()` da 012, sem rede); a 011 liga a identidade com `AI_CORE_IDENTITY_ENABLED` (+ `AI_CORE_PUBLIC_URL`,
+`AI_CORE_IDENTITY_CLIENTS_FILE`, `AI_CORE_MASTER_KEY`, `AI_CORE_DISPLAY_NAME`, `AI_CORE_LOGO_FILE`,
+`AI_CORE_TRUSTED_PROXIES`, `AI_CORE_COOKIE_SECURE`) — etapa crítica `identity` depois de `adapters`, portas
+`identity_*` nos três perfis (`bootstrap/identity.py`), router da 012 no app, item crítico `identity` na saúde, chaves
+carregadas no início do ciclo de vida no `persistent` e `ai-core users create|list|disable|enable|password|groups` e
+`ai-core identity keys rotate`. No `test` com identidade, o admin `TEST_ADMIN_USERNAME`/`TEST_ADMIN_PASSWORD` e os
+clientes de exemplo vêm de `ai_core.bootstrap.identity`, e o `TEST_OIDC_TOKEN` deixa de valer (sem identidade, segue
+valendo).
+
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
 true }`, suíte de conformidade nos próprios testes e zero import do core (import-linter, nas duas direções). Ele é

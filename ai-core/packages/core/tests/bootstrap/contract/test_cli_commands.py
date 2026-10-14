@@ -94,6 +94,13 @@ def test_os_comandos_vem_de_uma_lista_de_registro() -> None:
         ("audit",),
         ("eval", "run"),
         ("eval", "compare"),
+        ("users", "create"),
+        ("users", "list"),
+        ("users", "disable"),
+        ("users", "enable"),
+        ("users", "password"),
+        ("users", "groups"),
+        ("identity", "keys", "rotate"),
     }
 
 

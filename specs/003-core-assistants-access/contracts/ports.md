@@ -97,6 +97,6 @@ ela, os casos do adapter real são pulados com motivo explícito, como o Ollama 
 
 | Porta | Mudança | Adapters | Conformidade |
 |---|---|---|---|
-| `OidcVerifier` | `verify(token, *, audience: str)` | `JwksOidcVerifier(issuer, source: JwksSource, clock, algorithms)`; `StaticOidcVerifier` passa a conferir a audiência | `test_oidc_verifier.py`: audiência errada → `None`; as duas fontes |
-| `JwksSource` (nova, interna ao adapter OIDC) | `async keys() -> Mapping` | `HttpJwksSource` (o caminho atual, com cache e R24), `CallableJwksSource(fn)` (o `jwks()` da 012) | mesma suíte |
+| `OidcVerifier` | `verify(token, *, audience: str)` | `JwksOidcVerifier(issuer, source: JwksSource, algorithms)` (o relógio e o cache ficam na fonte HTTP); `StaticOidcVerifier` passa a conferir a audiência | `test_oidc_verifier.py`: audiência errada → `None`; as duas fontes |
+| `JwksSource` (nova, interna ao adapter OIDC) | `async jwks(*, kid) -> Mapping \| None` | `HttpJwksSource` (o caminho atual, com cache e R24), `CallableJwksSource(fn)` (o `jwks()` da 012) | mesma suíte |
 | `SystemOverrideStore` (nova) | `get`, `all`, `put`, `delete`, `history` | memória → Postgres (`003_system_overrides.sql`) | `test_override_store.py` |

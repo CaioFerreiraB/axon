@@ -18,6 +18,17 @@ class OidcClaims:
     leeway: timedelta = timedelta(seconds=60)
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class OidcAudiences:
+    """A audiência que cada superfície aceita (ADR-031, research R26): o token do chat não alcança a administração."""
+
+    public: str = "ai-core"
+    admin: str = "ai-core-admin"
+
+    def of(self, surface: str) -> str | None:
+        return {"public": self.public, "admin": self.admin}.get(surface)
+
+
 def _instant(value: object) -> float | None:
     if isinstance(value, bool) or not isinstance(value, int | float):
         return None
@@ -60,8 +71,9 @@ def _groups(value: object) -> frozenset[str]:
 
 
 def is_admin(principal: Principal, admin_group: str | None) -> bool:
-    """Administra chaves quem vem pela superfície privada **e** pertence ao grupo declarado (FR-015)."""
-    return admin_group is not None and principal.scheme == "api_key" and admin_group in principal.groups
+    """Administra quem pertence ao grupo declarado, em qualquer esquema (ADR-031, research R27): cada superfície já
+    limita os esquemas que aceita."""
+    return admin_group is not None and admin_group in principal.groups
 
 
 def selector_matches(selector: str, principal: Principal) -> bool:

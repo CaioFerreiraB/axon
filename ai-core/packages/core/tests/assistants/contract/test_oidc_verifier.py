@@ -14,17 +14,24 @@ import pytest
 from assistants_testkit import AUDIENCE, ISSUER, JwksServer, MutableClock, SigningKey, claims, forge
 
 from ai_core.assistants.adapters.memory import DisabledOidcVerifier, StaticOidcVerifier
-from ai_core.assistants.adapters.oidc import JwksOidcVerifier
+from ai_core.assistants.adapters.oidc import CallableJwksSource, HttpJwksSource, JwksOidcVerifier
 
 
-def _verifier(server: JwksServer, clock: MutableClock, *, explicit_url: bool = False) -> JwksOidcVerifier:
-    return JwksOidcVerifier(
-        issuer=ISSUER,
-        audience=AUDIENCE,
-        client=server.client(),
-        clock=clock,
-        jwks_url=server.jwks_url if explicit_url else None,
-    )
+class _Verifier:
+    """O verificador real com a fonte HTTP, chamado com a audiência da suíte."""
+
+    def __init__(self, server: JwksServer, clock: MutableClock, *, explicit_url: bool) -> None:
+        source = HttpJwksSource(
+            issuer=ISSUER, client=server.client(), clock=clock, jwks_url=server.jwks_url if explicit_url else None
+        )
+        self.real = JwksOidcVerifier(issuer=ISSUER, source=source)
+
+    async def verify(self, token: str) -> Any:
+        return await self.real.verify(token, audience=AUDIENCE)
+
+
+def _verifier(server: JwksServer, clock: MutableClock, *, explicit_url: bool = False) -> _Verifier:
+    return _Verifier(server, clock, explicit_url=explicit_url)
 
 
 @pytest.fixture(params=["rsa", "ec"])
@@ -35,14 +42,15 @@ def key(request: pytest.FixtureRequest) -> SigningKey:
 # --- estático e desligado --------------------------------------------------------------------------------------------
 
 
-async def test_estatico_devolve_as_claims_do_token_conhecido() -> None:
+async def test_estatico_devolve_as_claims_do_token_conhecido_na_audiencia_certa() -> None:
     verifier = StaticOidcVerifier({"token-ana": claims("ana")})
-    assert (await verifier.verify("token-ana") or {}).get("sub") == "ana"
-    assert await verifier.verify("outro") is None
+    assert (await verifier.verify("token-ana", audience=AUDIENCE) or {}).get("sub") == "ana"
+    assert await verifier.verify("outro", audience=AUDIENCE) is None
+    assert await verifier.verify("token-ana", audience="ai-core-admin") is None
 
 
 async def test_desligado_recusa_tudo() -> None:
-    assert await DisabledOidcVerifier().verify("qualquer") is None
+    assert await DisabledOidcVerifier().verify("qualquer", audience=AUDIENCE) is None
 
 
 # --- JWKS ------------------------------------------------------------------------------------------------------------
@@ -149,10 +157,9 @@ async def test_jwks_provedor_fora_do_ar_recusa_sem_levantar(clock: MutableClock)
     def fora(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("sem rota", request=request)
 
-    verifier = JwksOidcVerifier(
-        issuer=ISSUER, audience=AUDIENCE, client=httpx.AsyncClient(transport=httpx.MockTransport(fora)), clock=clock
-    )
-    assert await verifier.verify(SigningKey.rsa().sign(claims("ana"))) is None
+    source = HttpJwksSource(issuer=ISSUER, client=httpx.AsyncClient(transport=httpx.MockTransport(fora)), clock=clock)
+    verifier = JwksOidcVerifier(issuer=ISSUER, source=source)
+    assert await verifier.verify(SigningKey.rsa().sign(claims("ana")), audience=AUDIENCE) is None
 
 
 # --- Ajuste de 2026-10-13 (002 passada da Fase 7): JWKS com chave que não é de assinatura ----------------------------
@@ -178,3 +185,26 @@ async def test_jwks_token_assinado_com_chave_de_cifragem_recusa(clock: MutableCl
     publicada = {**impostora.jwk(), "use": "enc"}
     server = JwksServer(keys=[SigningKey.rsa(kid="sig-1")], extra=[publicada])
     assert await _verifier(server, clock).verify(impostora.sign(claims("ana"))) is None
+
+
+# --- Fase 9 (T069): fonte em processo e audiência por chamada -------------------------------------------------------
+
+
+async def test_fonte_em_processo_acompanha_a_rotacao_sem_rede() -> None:
+    antiga, nova = SigningKey.rsa(kid="k1"), SigningKey.rsa(kid="k2")
+    published = {"keys": [antiga.jwk()]}
+    verifier = JwksOidcVerifier(issuer=ISSUER, source=CallableJwksSource(lambda: published))
+    assert await verifier.verify(antiga.sign(claims("ana")), audience=AUDIENCE) is not None
+    assert await verifier.verify(nova.sign(claims("ana")), audience=AUDIENCE) is None
+    published["keys"] = [antiga.jwk(), nova.jwk()]
+    assert await verifier.verify(nova.sign(claims("ana")), audience=AUDIENCE) is not None
+
+
+async def test_audiencia_e_conferida_a_cada_chamada(key: SigningKey) -> None:
+    verifier = JwksOidcVerifier(issuer=ISSUER, source=CallableJwksSource(lambda: {"keys": [key.jwk()]}))
+    chat = key.sign(claims("ana"))
+    console = key.sign(claims("ana", aud="ai-core-admin"))
+    assert await verifier.verify(chat, audience=AUDIENCE) is not None
+    assert await verifier.verify(chat, audience="ai-core-admin") is None
+    assert await verifier.verify(console, audience="ai-core-admin") is not None
+    assert await verifier.verify(console, audience=AUDIENCE) is None

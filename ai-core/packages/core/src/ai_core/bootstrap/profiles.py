@@ -26,9 +26,18 @@ from ai_core.assistants.adapters.memory import (
     InMemoryUserAssistantStore,
     StaticOidcVerifier,
 )
-from ai_core.assistants.adapters.oidc import JwksOidcVerifier
+from ai_core.assistants.adapters.oidc import HttpJwksSource, JwksOidcVerifier
 from ai_core.assistants.api import ApiKeyInfo
+from ai_core.assistants.domain.access import OidcAudiences
 from ai_core.assistants.domain.keys import ApiKeyRecord, hash_key, parse_key
+from ai_core.bootstrap.identity import (
+    env_identity_secrets,
+    google_upstream,
+    memory_identity_ports,
+    postgres_identity_ports,
+    seeded_identity_secrets,
+    simulated_upstream,
+)
 from ai_core.bootstrap.settings import (
     MEMORY_PROFILE,
     PERSISTENT_PROFILE,
@@ -64,6 +73,9 @@ from ai_core.mcp.ports import McpConfig
 from ai_core.observability.adapters.jsonl import JsonlTraceBackend
 from ai_core.observability.adapters.memory import InMemoryTraceBackend
 
+DEFAULT_PUBLIC_AUDIENCE: Final = OidcAudiences().public
+"""Audiência do chat quando `AI_CORE_OIDC_AUDIENCE` não a define (ADR-031)."""
+
 REQUIRED_PORTS: Final = (
     "clock",
     "trace",
@@ -83,12 +95,30 @@ REQUIRED_PORTS: Final = (
     "mcp_secrets",
     "mcp_cache",
     "audit",
+    "identity_accounts",
+    "identity_grants",
+    "identity_keys",
+    "identity_settings",
+    "identity_attempts",
+    "identity_secrets",
+    "identity_upstream",
 )
 """Portas secundárias que um perfil precisa atender, **na ordem de construção**. Acrescentar uma porta é acrescentar
-uma linha aqui. As seis últimas são as da 007 e da 004 (Fase 3, research R22); `llm_secrets` vem antes de `providers`,
-cuja fábrica a usa (006 research R23, ADR-020)."""
+uma linha aqui. As seis depois de `oidc` são as da 007 e da 004 (Fase 3, research R22); `llm_secrets` vem antes de
+`providers`, cuja fábrica a usa (006 research R23, ADR-020); as sete últimas são as da 012 (Fase 9, R38) — a
+`identity_upstream` usa a `identity_secrets`."""
 
-STORAGE_PORTS: Final = ("api_keys", "user_assistants", "conversations", "mcp_store", "audit")
+STORAGE_PORTS: Final = (
+    "api_keys",
+    "user_assistants",
+    "conversations",
+    "mcp_store",
+    "audit",
+    "identity_accounts",
+    "identity_grants",
+    "identity_keys",
+    "identity_settings",
+)
 """As portas construídas sobre `database`. Fora do laço do servidor, são refeitas sobre um pool temporário (R13)."""
 
 FIXED_TIME: Final = datetime(2026, 1, 1, 12, tzinfo=UTC)
@@ -195,13 +225,13 @@ def _oidc(settings: Settings, parts: Mapping[str, Any]) -> Any:
     """JWKS do emissor configurado; sem emissor, a superfície pública recusa toda credencial (falha fechada)."""
     if settings.oidc_issuer is None or settings.oidc_audience is None:
         return DisabledOidcVerifier()
-    return JwksOidcVerifier(
+    source = HttpJwksSource(
         issuer=settings.oidc_issuer,
-        audience=settings.oidc_audience,
         client=httpx.AsyncClient(timeout=10.0),
         clock=parts["clock"],
         jwks_url=settings.oidc_jwks_url,
     )
+    return JwksOidcVerifier(issuer=settings.oidc_issuer, source=source)
 
 
 def _seeded_keys(*keys: tuple[str, str, Collection[str], str]) -> Callable[[Settings, Mapping[str, Any]], Any]:
@@ -283,6 +313,9 @@ def _memory_profile() -> Profile:
             "mcp_secrets": lambda _s, _p: EnvSecretResolver(),
             "mcp_cache": lambda _s, p: InMemoryDiscoveryCache(p["clock"]),
             "audit": lambda _s, _p: InMemoryAuditLog(),
+            **memory_identity_ports(),
+            "identity_secrets": env_identity_secrets,
+            "identity_upstream": google_upstream,
         },
     )
 
@@ -316,6 +349,9 @@ def _persistent_profile() -> Profile:
             "mcp_secrets": lambda _s, _p: EnvSecretResolver(),
             "mcp_cache": lambda _s, p: InMemoryDiscoveryCache(p["clock"]),
             "audit": lambda _s, p: PostgresAuditLog(p["database"]),
+            **postgres_identity_ports(),
+            "identity_secrets": env_identity_secrets,
+            "identity_upstream": google_upstream,
         },
     )
 
@@ -325,6 +361,7 @@ def _test_claims(settings: Settings) -> dict[str, object]:
     return {
         settings.oidc_subject_claim: TEST_SUBJECT.removeprefix("user:"),
         settings.oidc_groups_claim: [TEST_ADMIN_GROUP],
+        "aud": settings.oidc_audience or DEFAULT_PUBLIC_AUDIENCE,
         "iat": int(FIXED_TIME.timestamp()),
         "exp": int((FIXED_TIME + timedelta(days=1)).timestamp()),
     }
@@ -354,6 +391,9 @@ def _test_profile() -> Profile:
             "mcp_secrets": lambda _s, _p: InMemorySecretResolver(),
             "mcp_cache": lambda _s, p: InMemoryDiscoveryCache(p["clock"]),
             "audit": lambda _s, _p: InMemoryAuditLog(),
+            **memory_identity_ports(),
+            "identity_secrets": seeded_identity_secrets,
+            "identity_upstream": simulated_upstream,
         },
     )
 

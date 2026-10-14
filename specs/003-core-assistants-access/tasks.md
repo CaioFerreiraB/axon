@@ -582,23 +582,23 @@ autenticado ali; não admin é 404 (pela 008, depois)
 
 ### Tests for User Story 9
 
-- [ ] T068 [P] [US9] `tests/assistants/contract/test_surfaces.py` (marca `us9`): `authenticate` nas três superfícies —
+- [X] T068 [P] [US9] `tests/assistants/contract/test_surfaces.py` (marca `us9`): `authenticate` nas três superfícies —
   `public` só OIDC com audiência `ai-core`; `private` só chave; `admin` chave (prefixo `aic_`) ou OIDC com audiência
   `ai-core-admin`; audiência trocada → `None`; `is_admin` por grupo com OIDC e com chave; `SCHEME_OF_SURFACE` antigo
   ainda devolve o esquema das duas superfícies antigas
-- [ ] T069 [P] [US9] `tests/assistants/contract/test_oidc_verifier.py`: `JwksOidcVerifier` com `HttpJwksSource` (os casos
+- [X] T069 [P] [US9] `tests/assistants/contract/test_oidc_verifier.py`: `JwksOidcVerifier` com `HttpJwksSource` (os casos
   atuais, inclusive R24) e com `CallableJwksSource` (chaves de um gerador de teste); audiência conferida por chamada
 
 ### Implementation for User Story 9
 
-- [ ] T070 [US9] `assistants/api.py`: `ADMIN_SURFACE`, `Surface` com `admin`, `SCHEMES_OF_SURFACE` e o
+- [X] T070 [US9] `assistants/api.py`: `ADMIN_SURFACE`, `Surface` com `admin`, `SCHEMES_OF_SURFACE` e o
   `SCHEME_OF_SURFACE` derivado e depreciado (docstring citando o ADR-031)
-- [ ] T071 [US9] `assistants/ports.py` (`OidcVerifier.verify(token, *, audience)`), `assistants/adapters/oidc.py`
+- [X] T071 [US9] `assistants/ports.py` (`OidcVerifier.verify(token, *, audience)`), `assistants/adapters/oidc.py`
   (`JwksSource`, `HttpJwksSource` com o cache atual, `CallableJwksSource`; `JwksOidcVerifier(issuer, source, clock,
   algorithms)`), `assistants/adapters/memory.py` (`StaticOidcVerifier` com audiência)
-- [ ] T072 [US9] `assistants/domain/access.py` (`is_admin` só pelo grupo) e `assistants/service.py` (`AccessService` com
+- [X] T072 [US9] `assistants/domain/access.py` (`is_admin` só pelo grupo) e `assistants/service.py` (`AccessService` com
   `OidcAudiences`, despacho por formato na superfície `admin`)
-- [ ] T073 [US9] Rodar T068–T069 e a suíte inteira da 003 até verde (os testes atuais de superfície continuam válidos)
+- [X] T073 [US9] Rodar T068–T069 e a suíte inteira da 003 até verde (os testes atuais de superfície continuam válidos)
 
 ## Phase 16: User Story 10 — Operador libera sobreposições de Assistants de sistema (Priority: P2)
 

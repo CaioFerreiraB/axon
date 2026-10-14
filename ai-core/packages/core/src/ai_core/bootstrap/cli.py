@@ -21,6 +21,7 @@ from typing import Any, Final, TextIO
 from ai_core.assistants.adapters import cli as assistants_cli
 from ai_core.assistants.api import AssistantsConfigError, Principal
 from ai_core.assistants.service import AccessService
+from ai_core.bootstrap import identity as identity_parts
 from ai_core.bootstrap.health import boot_items, health_command
 from ai_core.bootstrap.profiles import NO_CREDENTIALS_WARNING, lacks_credentials
 from ai_core.bootstrap.settings import ConfigurationError, EnvConfigSource, Settings
@@ -47,6 +48,8 @@ from ai_core.eval.adapters.judge import RoutedJudge
 from ai_core.eval.api import EvalInputError
 from ai_core.eval.service import EvalService
 from ai_core.http.ports import HealthReport
+from ai_core.identity.adapters import cli as identity_cli
+from ai_core.identity.service import IdentityService
 from ai_core.packs.adapters import cli as packs_cli
 from ai_core.packs.api import PackConfigError, PackRegistry
 
@@ -109,16 +112,15 @@ def _parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(prog="ai-core", description="Plataforma Agentic AI — núcleo")
     root = parser.add_subparsers(dest="command", required=True)
-    groups: dict[str, Any] = {}
+    groups: dict[tuple[str, ...], Any] = {(): root}
     for command in COMMANDS:
-        head, *rest = command.path
-        if not rest:
-            leaf = root.add_parser(head, help=command.help, parents=[common])
-        else:
-            if head not in groups:
-                group = root.add_parser(head, help=GROUPS.get(head))
-                groups[head] = group.add_subparsers(dest=f"{head}_command", required=True)
-            leaf = groups[head].add_parser(rest[0], help=command.help, parents=[common])
+        # Grupos aninhados pelo caminho: `identity keys rotate` cria `identity` e `identity keys` (Fase 9, R42).
+        for depth in range(1, len(command.path)):
+            prefix = command.path[:depth]
+            if prefix not in groups:
+                group = groups[prefix[:-1]].add_parser(prefix[-1], help=GROUPS.get(" ".join(prefix)))
+                groups[prefix] = group.add_subparsers(dest="_".join(prefix) + "_command", required=True)
+        leaf = groups[command.path[:-1]].add_parser(command.path[-1], help=command.help, parents=[common])
         command.arguments(leaf)
         leaf.set_defaults(command_entry=command)
     return parser
@@ -292,6 +294,113 @@ def _keys_revoke(service: AccessService, args: argparse.Namespace, persistent: b
     )
 
 
+# --- users e identity (012) -------------------------------------------------------------------------------------------
+
+IDENTITY_DISABLED: Final = "identidade desligada: defina AI_CORE_IDENTITY_ENABLED=true (e a configuração da 012)"
+
+
+def _username_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("username", help="nome de usuário")
+
+
+def _users_create_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("username", help="nome de usuário (minúsculas, sem @)")
+    parser.add_argument("--email", required=True, help="e-mail da pessoa")
+    parser.add_argument("--name", default=None, help="nome de exibição (padrão: o usuário)")
+    parser.add_argument("--group", action="append", default=[], help="grupo (repetível)")
+    parser.add_argument(
+        "--password-stdin", action="store_true", help="lê a senha da entrada padrão (senão, pergunta sem eco)"
+    )
+
+
+def _users_list_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--all", action="store_true", help="inclui as contas desativadas")
+    parser.add_argument("--query", default=None, help="busca em usuário, e-mail e nome")
+
+
+def _users_groups_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("username", help="nome de usuário")
+    parser.add_argument("--set", action="append", default=[], dest="groups", help="grupo (repetível; vazio = nenhum)")
+
+
+def _keys_rotate_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--force", action="store_true", help="retira todas as chaves e encerra todas as sessões")
+
+
+IdentityAction = Callable[[IdentityService, argparse.Namespace, bool, Io], Awaitable[int]]
+
+
+def _identity_command(action: IdentityAction) -> Handler:
+    """Configuração e adapters; o armazenamento da 012 abre e fecha no laço do próprio comando (R13, R42)."""
+
+    def run(args: argparse.Namespace, io: Io) -> int:
+        built = _boot(args, io, until=STAGE_ADAPTERS)
+        if built is None:
+            return EXIT_FAILURE
+        try:
+            if not built.settings.identity_enabled:
+                print(f"erro: {IDENTITY_DISABLED}", file=io.err, flush=True)
+                return EXIT_FAILURE
+            return asyncio.run(_with_identity(built.context.parts, args, io, action))
+        except Exception as error:
+            print(f"erro: {error}", file=io.err, flush=True)
+            return EXIT_FAILURE
+        finally:
+            built.aclose()
+
+    return run
+
+
+async def _with_identity(parts: dict[str, Any], args: argparse.Namespace, io: Io, action: IdentityAction) -> int:
+    identity_parts.prepare(parts)
+    persistent = parts["database"] is not None
+    async with storage(parts) as session:
+        service = identity_parts.identity_service(parts, session=session)
+        service.load_configuration()
+        await service.ensure_admin_group()
+        return await action(service, args, persistent, io)
+
+
+def _users_create(service: IdentityService, args: argparse.Namespace, persistent: bool, io: Io) -> Awaitable[int]:
+    return identity_cli.users_create_command(
+        service,
+        username=args.username,
+        email=args.email,
+        name=args.name,
+        groups=args.group,
+        password_stdin=args.password_stdin,
+        persistent=persistent,
+        stdin=sys.stdin,
+        out=io.out,
+        err=io.err,
+    )
+
+
+def _users_list(service: IdentityService, args: argparse.Namespace, persistent: bool, io: Io) -> Awaitable[int]:
+    return identity_cli.users_list_command(
+        service, query=args.query, include_disabled=args.all, persistent=persistent, out=io.out, err=io.err
+    )
+
+
+def _users_simple(command: Callable[..., Awaitable[int]]) -> IdentityAction:
+    def action(service: IdentityService, args: argparse.Namespace, persistent: bool, io: Io) -> Awaitable[int]:
+        return command(service, username=args.username, persistent=persistent, out=io.out, err=io.err)
+
+    return action
+
+
+def _users_groups(service: IdentityService, args: argparse.Namespace, persistent: bool, io: Io) -> Awaitable[int]:
+    return identity_cli.users_groups_command(
+        service, username=args.username, groups=args.groups, persistent=persistent, out=io.out, err=io.err
+    )
+
+
+def _keys_rotate(service: IdentityService, args: argparse.Namespace, persistent: bool, io: Io) -> Awaitable[int]:
+    return identity_cli.identity_keys_rotate_command(
+        service, force=args.force, persistent=persistent, out=io.out, err=io.err
+    )
+
+
 # --- health (011) -----------------------------------------------------------------------------------------------------
 
 
@@ -449,6 +558,9 @@ GROUPS: Final[Mapping[str, str]] = {
     "assistants": "Assistants de sistema e de usuário (003)",
     "keys": "chaves de API da superfície privada (003)",
     "eval": "harness de avaliação: conjunto dourado, linha de base e comparação (009)",
+    "users": "contas do provedor de identidade da plataforma (012)",
+    "identity": "provedor de identidade da plataforma (012)",
+    "identity keys": "chaves de assinatura dos tokens (012)",
 }
 
 COMMANDS: Final[tuple[Command, ...]] = (
@@ -484,6 +596,48 @@ COMMANDS: Final[tuple[Command, ...]] = (
         help="relatórios lado a lado (benchmark de modelos)",
         run=_eval_compare,
         arguments=_eval_compare_arguments,
+    ),
+    Command(
+        path=("users", "create"),
+        help="cria uma conta com a senha definitiva (lida sem eco)",
+        run=_identity_command(_users_create),
+        arguments=_users_create_arguments,
+    ),
+    Command(
+        path=("users", "list"),
+        help="lista as contas, sem segredo",
+        run=_identity_command(_users_list),
+        arguments=_users_list_arguments,
+    ),
+    Command(
+        path=("users", "disable"),
+        help="desativa uma conta e encerra as sessões dela",
+        run=_identity_command(_users_simple(identity_cli.users_disable_command)),
+        arguments=_username_argument,
+    ),
+    Command(
+        path=("users", "enable"),
+        help="reativa uma conta",
+        run=_identity_command(_users_simple(identity_cli.users_enable_command)),
+        arguments=_username_argument,
+    ),
+    Command(
+        path=("users", "password"),
+        help="gera uma senha temporária (aparece uma vez)",
+        run=_identity_command(_users_simple(identity_cli.users_password_command)),
+        arguments=_username_argument,
+    ),
+    Command(
+        path=("users", "groups"),
+        help="define os grupos de uma conta",
+        run=_identity_command(_users_groups),
+        arguments=_users_groups_arguments,
+    ),
+    Command(
+        path=("identity", "keys", "rotate"),
+        help="nova chave de assinatura; --force encerra todas as sessões",
+        run=_identity_command(_keys_rotate),
+        arguments=_keys_rotate_arguments,
     ),
 )
 

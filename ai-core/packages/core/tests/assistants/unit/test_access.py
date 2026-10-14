@@ -89,10 +89,11 @@ def test_iat_no_futuro_alem_da_tolerancia_recusa() -> None:
 # --- grupo de administração (FR-015) ---------------------------------------------------------------------------------
 
 
-def test_administracao_exige_chave_de_api_e_o_grupo() -> None:
+def test_administracao_pelo_grupo_em_qualquer_esquema() -> None:
+    """ADR-031 (research R27): até a Fase 8, só chave de API administrava; agora basta o grupo."""
     assert is_admin(CAIO_KEY, "operadores")
-    assert not is_admin(CAIO_OIDC, "operadores")
-    assert not is_admin(Principal(subject="user:x", scheme="oidc", groups=frozenset({"operadores"})), "operadores")
+    assert not is_admin(CAIO_OIDC, "operadores")  # sem o grupo
+    assert is_admin(Principal(subject="user:x", scheme="oidc", groups=frozenset({"operadores"})), "operadores")
     assert not is_admin(SVC, "operadores")
     assert not is_admin(CAIO_KEY, None)
     assert not is_admin(ANA, "operadores") and not is_admin(BIA, "operadores")

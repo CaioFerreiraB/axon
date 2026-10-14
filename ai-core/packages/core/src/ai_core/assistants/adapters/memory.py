@@ -91,19 +91,25 @@ class InMemoryApiKeyStore:
 
 
 class StaticOidcVerifier:
-    """Tokens conhecidos → claims. Não verifica assinatura: é o verificador do perfil de teste."""
+    """Tokens conhecidos → claims. Não verifica assinatura: é o verificador do perfil de teste. Confere a audiência,
+    como o real (research R26)."""
 
     def __init__(self, tokens: Mapping[str, Mapping[str, object]]) -> None:
         self._tokens = {token: MappingProxyType(dict(claims)) for token, claims in tokens.items()}
 
-    async def verify(self, token: str) -> Mapping[str, object] | None:
-        return self._tokens.get(token)
+    async def verify(self, token: str, *, audience: str) -> Mapping[str, object] | None:
+        claims = self._tokens.get(token)
+        if claims is None:
+            return None
+        declared = claims.get("aud")
+        audiences = declared if isinstance(declared, list | tuple) else [declared]
+        return claims if audience in audiences else None
 
 
 class DisabledOidcVerifier:
-    """Sem emissor configurado, a superfície pública recusa toda credencial — falha fechada."""
+    """Sem emissor configurado, as superfícies com OIDC recusam todo token — falha fechada."""
 
-    async def verify(self, token: str) -> Mapping[str, object] | None:
+    async def verify(self, token: str, *, audience: str) -> Mapping[str, object] | None:
         return None
 
 

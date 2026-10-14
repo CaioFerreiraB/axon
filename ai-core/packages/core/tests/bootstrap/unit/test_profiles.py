@@ -18,6 +18,7 @@ from ai_core.assistants.domain.access import OidcClaims
 from ai_core.assistants.domain.definitions import AssistantsConfig
 from ai_core.assistants.service import AccessService
 from ai_core.bootstrap.profiles import (
+    DEFAULT_PUBLIC_AUDIENCE,
     DEV_SUBJECT,
     FIXED_TIME,
     NOT_OVERRIDABLE,
@@ -189,7 +190,7 @@ async def test_as_credenciais_exportadas_autenticam_pelos_adapters_do_perfil_de_
 
 async def test_o_token_de_teste_vale_no_instante_do_relogio_fixo() -> None:
     built = profile_for("test").build_all(Settings(profile="test"))
-    claims = await built["oidc"].verify(TEST_OIDC_TOKEN)
+    claims = await built["oidc"].verify(TEST_OIDC_TOKEN, audience=DEFAULT_PUBLIC_AUDIENCE)
     assert claims is not None
     assert claims["exp"] > FIXED_TIME.timestamp() >= claims["iat"]
 
@@ -243,7 +244,9 @@ NEW_PORTS = ("mcp_store", "mcp_dns", "mcp_transports", "mcp_secrets", "mcp_cache
 
 @pytest.mark.us2
 def test_as_portas_da_fase_3_fecham_a_lista_e_as_de_armazenamento_sao_reconstruidas() -> None:
-    assert REQUIRED_PORTS[-len(NEW_PORTS) :] == NEW_PORTS
+    # as da Fase 3 vêm logo antes das da 012 (Fase 9, R38)
+    phase_3_end = REQUIRED_PORTS.index("identity_accounts")
+    assert REQUIRED_PORTS[phase_3_end - len(NEW_PORTS) : phase_3_end] == NEW_PORTS
     assert {"mcp_store", "audit"} <= set(STORAGE_PORTS)
     assert REQUIRED_PORTS.index("clock") < REQUIRED_PORTS.index("mcp_cache")
     assert REQUIRED_PORTS.index("mcp_dns") < REQUIRED_PORTS.index("mcp_transports")

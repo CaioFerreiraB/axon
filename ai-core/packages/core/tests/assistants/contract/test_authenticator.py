@@ -10,10 +10,10 @@ from dataclasses import dataclass
 from typing import Any
 
 import pytest
-from assistants_testkit import AUDIENCE, ISSUER, JwksServer, MutableClock, SigningKey, access_service, claims
+from assistants_testkit import ISSUER, JwksServer, MutableClock, SigningKey, access_service, claims
 
 from ai_core.assistants.adapters.memory import StaticOidcVerifier
-from ai_core.assistants.adapters.oidc import JwksOidcVerifier
+from ai_core.assistants.adapters.oidc import HttpJwksSource, JwksOidcVerifier
 from ai_core.assistants.api import Principal
 
 
@@ -36,7 +36,8 @@ async def case(request: pytest.FixtureRequest, api_key_store: Any) -> Case:
         signing = SigningKey.rsa()
         server = JwksServer(keys=[signing])
         token = signing.sign(data)
-        oidc = JwksOidcVerifier(issuer=ISSUER, audience=AUDIENCE, client=server.client(), clock=clock)
+        source = HttpJwksSource(issuer=ISSUER, client=server.client(), clock=clock)
+        oidc = JwksOidcVerifier(issuer=ISSUER, source=source)
     service = access_service(keys=api_key_store, oidc=oidc, clock=clock)
     issued = await service.issue_as_operator(subject="user:caio", groups=["operadores"], label="teste")
     return Case(service=service, token=token, key=issued.plaintext, clock=clock)
@@ -90,4 +91,4 @@ async def test_chave_revogada_e_recusada_na_chamada_seguinte(case: Case) -> None
 
 
 async def test_superficie_desconhecida_e_recusada(case: Case) -> None:
-    assert await case.service.authenticate(surface="admin", credential=case.key) is None
+    assert await case.service.authenticate(surface="outra", credential=case.key) is None

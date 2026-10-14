@@ -9,6 +9,8 @@ fica em cache: o monitor consulta com frequência, e cada consulta tocaria o pro
 
 Fase 3 (clarificação 1 de 2026-10-02, research R28): um item **não crítico** por servidor MCP global. É o único lugar
 em que a plataforma pergunta se um servidor MCP está no ar — o boot nunca sai para a rede.
+
+Fase 9 (R41): item **crítico** `identity` com o provedor de identidade ligado.
 """
 
 from __future__ import annotations
@@ -70,9 +72,11 @@ class PlatformHealth:
         ttl: float = CACHE_SECONDS,
         monotonic: Callable[[], float] = time.monotonic,
         mcp: McpServers | None = None,
+        identity: Callable[[], str | None] | None = None,
     ) -> None:
         self.report: BootReport | None = None
         self._mcp = mcp
+        self._identity = identity
         self._database = database
         self._packs = packs
         self._assistants = assistants
@@ -93,7 +97,15 @@ class PlatformHealth:
             self._database_items(), self._assistant_items(), self._model_items(), self._mcp_items()
         )
         report = HealthReport(
-            items=(*database, *boot_items(self.report), *self._pack_items(), *assistants, *models, *mcp)
+            items=(
+                *database,
+                *boot_items(self.report),
+                *self._identity_items(),
+                *self._pack_items(),
+                *assistants,
+                *models,
+                *mcp,
+            )
         )
         self._cached = (now, report)
         return report
@@ -105,6 +117,13 @@ class PlatformHealth:
             return ()
         _, failure = await self._attempt(self._database())
         return (HealthItem(name="database", ok=failure is None, critical=True, detail=failure),)
+
+    def _identity_items(self) -> tuple[HealthItem, ...]:
+        """Crítico com a identidade ligada (Fase 9, R41): sem chave de assinatura carregada, ninguém entra."""
+        if self._identity is None:
+            return ()
+        failure = self._identity()
+        return (HealthItem(name="identity", ok=failure is None, critical=True, detail=failure),)
 
     def _pack_items(self) -> tuple[HealthItem, ...]:
         return tuple(

@@ -28,6 +28,7 @@ def test_a_plataforma_sobe_inteira_no_perfil_de_teste(tmp_path: Path) -> None:
     assert [o.name for o in plataforma.report.stages] == [
         "configuration",
         "adapters",
+        "identity",
         "packs",
         "mcp_registry",
         "engine",
