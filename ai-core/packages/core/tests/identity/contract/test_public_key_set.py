@@ -39,6 +39,9 @@ async def test_rotacao_normal_mantem_a_anterior_publicada(seam: Harness) -> None
     first = seam.service.jwks()["keys"]
     assert len(first) == 1
     token_before = _access(seam)
+    # a rotação acontece depois da emissão — com o relógio parado, as duas chaves nasceriam no mesmo instante e a
+    # ordem do JWKS dependeria do desempate de cada armazenamento
+    seam.clock.advance(timedelta(minutes=1))
     new_kid = await seam.service.rotate_keys()
     published = [key["kid"] for key in seam.service.jwks()["keys"]]
     assert published == [first[0]["kid"], new_kid]
