@@ -164,6 +164,16 @@ def master_key(settings: Settings) -> bytes:
     return os.urandom(32)
 
 
+def shared_master_key(parts: dict[str, Any]) -> bytes:
+    """Uma chave mestra por processo para todos os módulos que selam segredos (012, 009): no `memory` sem a variável,
+    a aleatória é sorteada uma vez só (ADR-033; cada módulo deriva a própria subchave)."""
+    key = parts.get("master_key")
+    if key is None:
+        key = master_key(parts["settings"])
+        parts["master_key"] = key
+    return key
+
+
 def client_source(settings: Settings) -> Any:
     if settings.identity_clients_file is not None:
         return YamlClientSource(settings.identity_clients_file)
@@ -196,10 +206,9 @@ def identity_service(parts: Mapping[str, Any], *, session: Mapping[str, Any]) ->
 
 def prepare(parts: dict[str, Any]) -> None:
     """As partes sem estado da 012, uma vez por processo: o hash fictício do argon2 custa um cálculo inteiro."""
-    settings: Settings = parts["settings"]
     parts.setdefault("identity_hasher", Argon2PasswordHasher())
     parts.setdefault("identity_signer", RsaTokenSigner())
-    parts.setdefault("identity_cipher", AesGcmCipher(master_key(settings)))
+    parts.setdefault("identity_cipher", AesGcmCipher(shared_master_key(parts)))
 
 
 def verifier(service: IdentityService) -> JwksOidcVerifier:

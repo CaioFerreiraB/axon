@@ -23,6 +23,7 @@ from ai_core.assistants.api import AssistantsConfigError, Principal
 from ai_core.assistants.service import AccessService
 from ai_core.bootstrap import identity as identity_parts
 from ai_core.bootstrap.health import boot_items, health_command
+from ai_core.bootstrap.observability import EVALUATION, PRODUCTION
 from ai_core.bootstrap.profiles import NO_CREDENTIALS_WARNING, lacks_credentials
 from ai_core.bootstrap.settings import ConfigurationError, EnvConfigSource, Settings
 from ai_core.bootstrap.wiring import (
@@ -50,6 +51,7 @@ from ai_core.eval.service import EvalService
 from ai_core.http.ports import HealthReport
 from ai_core.identity.adapters import cli as identity_cli
 from ai_core.identity.service import IdentityService
+from ai_core.observability.ports import Origin
 from ai_core.packs.adapters import cli as packs_cli
 from ai_core.packs.api import PackConfigError, PackRegistry
 
@@ -129,9 +131,11 @@ def _parser() -> argparse.ArgumentParser:
 # --- montagem compartilhada -------------------------------------------------------------------------------------------
 
 
-def _boot(args: argparse.Namespace, io: Io, *, until: str | None = None) -> Platform | None:
+def _boot(
+    args: argparse.Namespace, io: Io, *, until: str | None = None, origin: Origin = PRODUCTION
+) -> Platform | None:
     """A plataforma, ou `None` com o motivo no erro — nomeando a variável, a etapa e, para o banco, porta e adapter."""
-    built = platform(profile=args.profile, until=until)
+    built = platform(profile=args.profile, until=until, origin=origin)
     if built.report.ok:
         return built
     failure = built.report.failure()
@@ -505,7 +509,8 @@ def _eval_run(args: argparse.Namespace, io: Io) -> int:
     except ValueError as error:
         print(f"--principal inválido: {error}", file=io.err, flush=True)
         return eval_cli.EXIT_INVALID
-    built = _boot(args, io, until=STAGE_ASSISTANTS)
+    # As chamadas da rodada contam como `evaluation` no relatório de uso, não como produção (009; R40).
+    built = _boot(args, io, until=STAGE_ASSISTANTS, origin=EVALUATION)
     if built is None:
         return EXIT_FAILURE
     try:
@@ -530,21 +535,25 @@ async def _eval_session(parts: Mapping[str, Any], args: argparse.Namespace, prin
             core_version=_core_version(),
             judge=judge,
         )
-        return await eval_cli.run_command(
-            harness,
-            YamlGoldenSetSource(),
-            JsonReportStore(),
-            golden=Path(args.golden),
-            assistant=args.assistant,
-            principal=principal,
-            out=io.out,
-            err=io.err,
-            report=Path(args.report) if args.report else None,
-            baseline=Path(args.baseline) if args.baseline else None,
-            update_baseline=args.update_baseline,
-            force=args.force,
-            annotations=args.annotate,
-        )
+        try:
+            return await eval_cli.run_command(
+                harness,
+                YamlGoldenSetSource(),
+                JsonReportStore(),
+                golden=Path(args.golden),
+                assistant=args.assistant,
+                principal=principal,
+                out=io.out,
+                err=io.err,
+                report=Path(args.report) if args.report else None,
+                baseline=Path(args.baseline) if args.baseline else None,
+                update_baseline=args.update_baseline,
+                force=args.force,
+                annotations=args.annotate,
+            )
+        finally:
+            # O uso da rodada vai para o armazenamento desta sessão: o pool de serviço não abre na linha de comando.
+            await parts["usage_destination"].flush(session["usage_store"])
 
 
 def _eval_compare_arguments(parser: argparse.ArgumentParser) -> None:

@@ -37,7 +37,8 @@ from ai_core.assistants.domain.access import OidcAudiences, OidcClaims
 from ai_core.assistants.ports import AssistantConfigSource
 from ai_core.assistants.service import AccessService, AssistantsService
 from ai_core.bootstrap import identity as identity_parts
-from ai_core.bootstrap.health import DatabaseProbe, PlatformHealth, declared_models
+from ai_core.bootstrap import observability as observability_parts
+from ai_core.bootstrap.health import DatabaseProbe, PlatformHealth
 from ai_core.bootstrap.lifecycle import BootContext, BootReport, Stage, run_stages, shutdown
 from ai_core.bootstrap.ports import ConfigSource
 from ai_core.bootstrap.profiles import DEFAULT_PUBLIC_AUDIENCE, STORAGE_PORTS, Profile, profile_for
@@ -50,6 +51,7 @@ from ai_core.graph.api import RagSettings
 from ai_core.graph.service import ExecutionService
 from ai_core.http.adapters import postgres_schema as http_schema
 from ai_core.http.adapters.app import AdmissionLimits, create_app
+from ai_core.http.ports import AdminSeams, InstanceBranding
 from ai_core.http.service import ConversationService
 from ai_core.identity.adapters import postgres_schema as identity_schema
 from ai_core.identity.adapters.http import router as identity_router
@@ -59,7 +61,9 @@ from ai_core.mcp.adapters import postgres_schema as mcp_schema
 from ai_core.mcp.adapters.config_yaml import YamlMcpConfigSource
 from ai_core.mcp.ports import McpConfig
 from ai_core.mcp.service import McpService
-from ai_core.observability.service import TraceService
+from ai_core.observability.adapters import postgres_schema as observability_schema
+from ai_core.observability.ports import Origin
+from ai_core.observability.service import DestinationService, TraceService, UsageService
 from ai_core.packs.adapters.config_yaml import YamlPackConfigSource
 from ai_core.packs.adapters.memory import InMemoryPackConfigSource
 from ai_core.packs.api import PackStatus
@@ -99,6 +103,10 @@ class Platform:
     conversations: ConversationService | None = None
     identity: IdentityService | None = None
     """O provedor de identidade (012), só com `AI_CORE_IDENTITY_ENABLED`."""
+    usage: UsageService | None = None
+    """Uso e preços (009 US5) — os seams `UsageReportSeam` e `PriceBook` da superfície de administração."""
+    destinations: DestinationService | None = None
+    """Ajustes e saúde dos destinos do trace (009 US6, US7)."""
     app: FastAPI | None = None
     context: BootContext
 
@@ -112,7 +120,7 @@ class Platform:
         return self.context.parts
 
     def aclose(self) -> None:
-        """Libera os recursos na ordem inversa do boot (FR-013)."""
+        """Libera os recursos na ordem inversa do boot (FR-013); os destinos do trace esvaziam a fila antes (R40)."""
         shutdown(self.context)
 
 
@@ -122,17 +130,20 @@ def platform(
     config: ConfigSource | None = None,
     until: str | None = None,
     overrides: Mapping[str, Any] | None = None,
+    origin: Origin = observability_parts.PRODUCTION,
 ) -> Platform:
     """Monta a plataforma inteira. `profile` sobrepõe o da configuração — é o atalho das suítes.
 
     `until` para depois da etapa nomeada: é o que a linha de comando usa quando não precisa da plataforma toda — `keys`
     só precisa de configuração e adapters. `overrides` troca o adapter de uma porta (FR-014, R31): é como uma suíte
     programa o controller (`providers`) e os servidores MCP (`mcp_transports`). Só existe nesta chamada — nenhuma
-    variável de ambiente nem arquivo a expõe.
+    variável de ambiente nem arquivo a expõe. `origin` marca as linhas de uso do processo: `evaluation` no `ai-core eval
+    run`, para o harness não virar produção no relatório (009, clarificação de 2026-10-13; R40).
     """
     source = config or EnvConfigSource()
     context = BootContext()
     context.parts["overrides"] = dict(overrides or {})
+    context.parts["origin"] = origin
     stages = _stages(source, profile)
     if until is not None:
         stages = stages[: [stage.name for stage in stages].index(until) + 1]
@@ -155,6 +166,8 @@ def platform(
         capabilities=parts.get("capabilities"),
         conversations=parts.get("conversation_service"),
         identity=parts.get("identity"),
+        usage=parts.get("usage"),
+        destinations=parts.get("destinations"),
         app=parts.get("app"),
         context=context,
     )
@@ -222,6 +235,7 @@ async def _migrate(parts: Mapping[str, Any]) -> None:
             await mcp_schema.migrate(session["database"], now=now)
             await capabilities_schema.migrate(session["database"], now=now)
             await identity_schema.migrate(session["database"], now=now)
+            await observability_schema.migrate(session["database"], now=now)
 
 
 def _identity(ctx: BootContext) -> None:
@@ -345,8 +359,24 @@ def capabilities_service(parts: Mapping[str, Any], *, audit: Any, mcp: McpServic
 def _engine(ctx: BootContext) -> None:
     clock = ctx.parts["clock"]
     backend = ctx.parts["trace_backend"]
-    trace = TraceService(exporter=backend, reader=_reader_of(backend), clock=clock)
+    # Os destinos da 009 (R40): o primário síncrono e, fora do caminho de quem emite, o uso e o Langfuse; a captura de
+    # conteúdo é lida dos ajustes efetivos a cada evento.
+    observability = observability_parts.trace_parts(ctx.parts)
+    trace = TraceService(
+        exporter=backend,
+        reader=_reader_of(backend),
+        clock=clock,
+        destinations=(observability.usage_destination, observability.langfuse_destination),
+        capture=observability.destinations.capture_enabled,
+    )
     ctx.parts["trace"] = trace
+    ctx.parts["usage_destination"] = observability.usage_destination
+    ctx.parts["destinations"] = observability.destinations
+    ctx.parts["usage"] = observability.usage
+    ctx.closers.append(lambda: _close_trace(trace, ctx.parts["langfuse_transport"]))
+    if ctx.parts["database"] is None:
+        # Com banco, os ajustes gravados são lidos quando o pool de serviço abre (`app_lifespan`, R13).
+        _run(observability.destinations.start())
 
     routing = ModelRoutingService(providers=ctx.parts["providers"], trace=trace, clock=clock)
     ctx.parts["routing"] = routing
@@ -362,6 +392,13 @@ def _engine(ctx: BootContext) -> None:
         capabilities=capabilities,
         rag=_rag(ctx.parts["settings"]),
     )
+
+
+def _close_trace(trace: TraceService, transport: Any) -> None:
+    """Esvazia os destinos e desliga o exportador do Langfuse: o que estava na fila sai antes de o processo terminar."""
+    with suppress(Exception):
+        _run(trace.flush())
+    transport.shutdown()
 
 
 def _rag(settings: Settings) -> RagSettings:
@@ -382,7 +419,9 @@ def _assistants(ctx: BootContext) -> None:
     Assistant indisponível degrada a etapa com o motivo e o resto serve — como pack em erro (011 FR-003).
     """
     parts = ctx.parts
-    ctx.parts["assistants"] = assistants_service(parts, users=parts["user_assistants"], mcp=parts["mcp"])
+    ctx.parts["assistants"] = assistants_service(
+        parts, users=parts["user_assistants"], mcp=parts["mcp"], overrides=parts["system_overrides"]
+    )
     ctx.parts["access"] = access_service(parts, keys=parts["api_keys"])
     report = _run(_validate(parts))
     unavailable = [status for status in report.statuses if not status.available]
@@ -398,15 +437,19 @@ async def _validate(parts: Mapping[str, Any]) -> ValidationReport:
 
 
 def session_assistants(parts: Mapping[str, Any], session: Mapping[str, Any]) -> AssistantsService:
-    """Os serviços da 003 sobre o armazenamento de uma sessão: Assistants de usuário e registry MCP dela (R13, R25)."""
+    """Os serviços da 003 sobre o armazenamento de uma sessão: Assistants de usuário, sobreposições e registry MCP dela
+    (R13, R25)."""
     return assistants_service(
-        parts, users=session["user_assistants"], mcp=mcp_service(parts, store=session["mcp_store"])
+        parts,
+        users=session["user_assistants"],
+        mcp=mcp_service(parts, store=session["mcp_store"]),
+        overrides=session["system_overrides"],
     )
 
 
-def assistants_service(parts: Mapping[str, Any], *, users: Any, mcp: Any) -> AssistantsService:
-    """Resolução de grant, diretório e validação (003), sobre o armazenamento de Assistants de usuário e o diretório
-    de MCP dados. O diretório é o registry da 007 (R25)."""
+def assistants_service(parts: Mapping[str, Any], *, users: Any, mcp: Any, overrides: Any) -> AssistantsService:
+    """Resolução de grant, diretório, validação e sobreposições (003), sobre os armazenamentos de Assistants de usuário
+    e de sobreposições e o diretório de MCP dados. O diretório é o registry da 007 (R25)."""
     return AssistantsService(
         config=parts["assistants_config"],
         packs=parts["packs"],
@@ -417,6 +460,7 @@ def assistants_service(parts: Mapping[str, Any], *, users: Any, mcp: Any) -> Ass
         collections=PackCollectionCatalog(parts["packs"]),
         rate=InMemoryRateCounterStore(),
         clock=parts["clock"],
+        overrides=overrides,
     )
 
 
@@ -453,8 +497,23 @@ def _api(ctx: BootContext) -> None:
     expiry = PeriodicTask(
         name="conversations.expire", interval=settings.conversation_expiry_interval, run=conversations.expire
     )
-    tasks = [expiry]
+    usage: UsageService = parts["usage"]
+    destinations: DestinationService = parts["destinations"]
+    trace: TraceService = parts["trace"]
+    tasks = [
+        expiry,
+        PeriodicTask(
+            name="usage.flush", interval=observability_parts.USAGE_FLUSH_INTERVAL, run=parts["usage_destination"].flush
+        ),
+        PeriodicTask(
+            name="usage.purge",
+            interval=observability_parts.USAGE_PURGE_INTERVAL,
+            run=lambda: usage.purge(retention_days=settings.usage_retention_days),
+        ),
+    ]
     startups: list[Callable[[], Awaitable[object]]] = []
+    if parts["database"] is not None:
+        startups.append(destinations.start)
     identity: IdentityService | None = parts.get("identity")
     if identity is not None:
         tasks.append(
@@ -476,13 +535,24 @@ def _api(ctx: BootContext) -> None:
         conversation_ids=parts["conversation_ids"],
         clock=parts["clock"],
         conversation_retention=retention,
-        lifespan=app_lifespan(database=parts["database"], tasks=tasks, startups=startups),
+        lifespan=app_lifespan(database=parts["database"], tasks=tasks, startups=startups, shutdowns=[trace.flush]),
         admission=AdmissionLimits(
             max_executions=settings.max_executions,
             queue_size=settings.queue_size,
             max_wait=timedelta(milliseconds=settings.queue_wait_ms),
         ),
         mcp=parts["mcp"],
+        admin_seams=AdminSeams(
+            assistants=parts["assistants"],
+            models=parts["routing"],
+            usage=usage,
+            prices=usage,
+            destinations=destinations,
+            default_timezone=settings.usage_timezone,
+            accounts=identity,
+            login=identity,
+        ),
+        instance=_instance(settings, identity),
     )
     if identity is not None:
         # O protocolo e as páginas da 012 são o adapter primário dela, montado no mesmo app (ADR-030).
@@ -490,18 +560,28 @@ def _api(ctx: BootContext) -> None:
     ctx.parts["app"] = app
 
 
+def _instance(settings: Settings, identity: IdentityService | None) -> InstanceBranding:
+    """Nome e logotipo da instalação para o `/admin/v1/me` (008 R48): o logotipo é servido pela 012."""
+    logo = "/oauth2/assets/logo" if identity is not None and settings.logo_file is not None else None
+    return InstanceBranding(name=settings.display_name, logo_url=logo)
+
+
 def platform_health(parts: Mapping[str, Any], *, session: Mapping[str, Any]) -> PlatformHealth:
     """A saúde agregada sobre o armazenamento de `session`: o da plataforma na API, o de uma sessão própria na linha de
     comando (R13). O relatório de boot é atribuído depois, por quem o tem."""
     database = session["database"]
+    assistants = session_assistants(parts, session)
+    destinations: DestinationService | None = parts.get("destinations")
     return PlatformHealth(
         database=_select_one(database, parts["settings"]) if database is not None else None,
         packs=parts["packs"],
-        assistants=session_assistants(parts, session),
+        assistants=assistants,
         mcp=mcp_service(parts, store=session["mcp_store"]),
         routing=parts["routing"],
-        models=declared_models(parts["assistants_config"]),
+        # Os efetivos, com as sobreposições da 003, a cada checagem (R41).
+        models=assistants.declared_models,
         identity=_identity_probe(parts.get("identity")),
+        destinations=destinations.health if destinations is not None else None,
     )
 
 
@@ -534,9 +614,11 @@ def app_lifespan(
     database: Any | None,
     tasks: Sequence[PeriodicTask],
     startups: Sequence[Callable[[], Awaitable[object]]] = (),
+    shutdowns: Sequence[Callable[[], Awaitable[object]]] = (),
 ) -> Callable[[FastAPI], AbstractAsyncContextManager[None]]:
-    """No início, abre o pool de serviço, roda o que precisa dele antes da primeira requisição (as chaves da 012) e
-    agenda as tarefas; no fim, cancela as tarefas e fecha o pool.
+    """No início, abre o pool de serviço, roda o que precisa dele antes da primeira requisição (as chaves da 012, os
+    ajustes dos destinos da 009) e agenda as tarefas; no fim, cancela as tarefas, roda o que ainda precisa do pool (o
+    último lote de uso) e fecha o pool.
 
     É o único lugar com o laço do servidor em execução — e o pool pertence ao laço em que abre (R13). Um pool não
     reabre depois de fechado: a app de uma plataforma persistente serve uma vez.
@@ -555,6 +637,11 @@ def app_lifespan(
             for task in running:
                 task.cancel()
             await asyncio.gather(*running, return_exceptions=True)
+            for step in shutdowns:
+                try:
+                    await step()
+                except Exception:
+                    logger.exception("encerramento: uma etapa falhou; as demais seguem")
             if database is not None:
                 await database.close()
 
@@ -623,6 +710,7 @@ async def _database_errors(settings: Settings) -> AsyncIterator[None]:
         assistants_schema.MigrationError,
         http_schema.MigrationError,
         identity_schema.MigrationError,
+        observability_schema.MigrationError,
     ) as error:
         detail = _redact(str(error).strip().splitlines()[0] if str(error).strip() else type(error).__name__, settings)
         raise DatabaseUnavailable(f"porta 'database' (adapter Postgres): {detail}") from None

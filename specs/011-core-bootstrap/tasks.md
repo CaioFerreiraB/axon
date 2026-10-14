@@ -440,43 +440,49 @@ e 008.
 
 ## Phase 19: User Story 6 — A plataforma sobe com identidade, administração e destinos do trace (Priority: P2)
 
-> **Andamento (2026-10-14, incremento 9.1)**: a parte da **identidade** está feita — variáveis e validações da R36 que
-> são da 012 (`settings.py`), as sete portas `identity_*` nos três perfis (`profiles.py`, `bootstrap/identity.py`), a
-> etapa crítica `identity` com o `JwksOidcVerifier` sobre o JWKS em processo e o router da 012 no app (`wiring.py`), o
-> item crítico `identity` na saúde, o expurgo periódico, a carga das chaves no ciclo de vida e os comandos `users …` e
-> `identity keys rotate` (`cli.py`, com grupos aninhados). Testes: `unit/test_settings_phase9.py`,
-> `integration/test_platform_identity.py`, `contract/test_cli_identity.py`. As tarefas abaixo seguem abertas até o
-> incremento 9.2 trazer sobreposições (003 US10), uso e Langfuse (009) e a superfície de administração (008).
+> **Andamento (2026-10-14)**: incremento 9.1 — a **identidade** (variáveis e validações da R36 que são da 012, as
+> sete portas `identity_*`, a etapa crítica `identity` com o `JwksOidcVerifier` sobre o JWKS em processo, o router da
+> 012 no app, o item `identity` na saúde, o expurgo, a carga das chaves no ciclo de vida e os comandos `users …` e
+> `identity keys rotate`). Incremento 9.2 — o **resto da US6**: o grupo `AI_CORE_LANGFUSE_*` (tudo ou nada, host
+> validado), `AI_CORE_USAGE_TIMEZONE` e `AI_CORE_USAGE_RETENTION_DAYS`; as portas `system_overrides`, `usage_store`,
+> `price_store`, `destination_settings` (armazenamento) e `langfuse_transport` (simulado no `test`) nos três perfis
+> (`bootstrap/observability.py`); a migração `observability`; o `TraceService` com o uso e o Langfuse e a captura lida
+> do `DestinationService`; a origem do processo (`platform(origin=…)`, `evaluation` no `ai-core eval run`, que grava o
+> lote na sessão própria); uma chave mestra por processo para a 012 e a 009 (`shared_master_key`); as tarefas
+> `usage.flush` (2 s) e `usage.purge` (diária), os ajustes dos destinos lidos quando o pool de serviço abre e o último
+> lote gravado antes de fechar; a saúde com os modelos efetivos e os itens `trace:usage` e `trace:langfuse`; e a
+> superfície `/admin/v1` (`admin_seams`, `instance`). A CLI da R42 é a do incremento 9.1
+> (`contract/test_cli_identity.py`).
 
 ### Tests for User Story 6
 
-- [ ] T053 [P] [US6] `tests/bootstrap/unit/test_settings_phase9.py`: as variáveis e os padrões de
+- [X] T053 [P] [US6] `tests/bootstrap/unit/test_settings_phase9.py`: as variáveis e os padrões de
   [contracts/configuration.md](contracts/configuration.md) (Fase 9); cada erro que para o boot nomeia a variável e
   nunca mostra o valor da chave mestra
-- [ ] T054 [P] [US6] `tests/bootstrap/contract/test_profiles_phase9.py`: as portas novas em `REQUIRED_PORTS` e
+- [X] T054 [P] [US6] `tests/bootstrap/unit/test_profiles_phase9.py`: as portas novas em `REQUIRED_PORTS` e
   `STORAGE_PORTS` nos três perfis; `test` sem identidade continua aceitando `TEST_OIDC_TOKEN`; com identidade, semeia
   `TEST_ADMIN_USERNAME`
-- [ ] T055 [P] [US6] `tests/bootstrap/integration/test_boot_phase9.py`: cenários 1–5 da US6 (chave mestra ausente no
+- [X] T055 [P] [US6] `tests/bootstrap/integration/test_boot_phase9.py`: cenários 1–5 da US6 (chave mestra ausente no
   `persistent`; emissor duplo; admin inicial uma vez; Langfuse fora do ar não impede o boot e aparece na saúde; suíte de
   pack com o perfil `test`)
-- [ ] T056 [P] [US6] `tests/bootstrap/integration/test_platform_identity_admin.py` (R43, SC-007)
-- [ ] T057 [P] [US6] `tests/bootstrap/contract/test_cli_phase9.py`: `ai-core users …` e `ai-core identity keys rotate`
+- [X] T056 [P] [US6] `tests/bootstrap/integration/test_platform_identity_admin.py` (R43, SC-007)
+- [X] T057 [P] [US6] `tests/bootstrap/contract/test_cli_identity.py` (incremento 9.1): `ai-core users …` e `ai-core identity keys rotate`
   com a identidade ligada e desligada
 
 ### Implementation for User Story 6
 
-- [ ] T058 [US6] `bootstrap/settings.py`: as variáveis e validações de R36
-- [ ] T059 [US6] `bootstrap/profiles.py`: as fábricas das portas novas nos três perfis (R38) e o `test` de R39
-- [ ] T060 [US6] `bootstrap/wiring.py`: migrações de `identity` e `observability`; etapa `identity` (R37);
+- [X] T058 [US6] `bootstrap/settings.py`: as variáveis e validações de R36
+- [X] T059 [US6] `bootstrap/profiles.py`: as fábricas das portas novas nos três perfis (R38) e o `test` de R39
+- [X] T060 [US6] `bootstrap/wiring.py`: migrações de `identity` e `observability`; etapa `identity` (R37);
   `AccessService` com `OidcAudiences` e o `CallableJwksSource`; `AssistantsService` com o `SystemOverrideStore`;
   `TraceService` com os destinos e a origem do processo (R40); `create_app` com `admin_seams`, `instance` e o router da
   012; tarefas periódicas e o `aclose()` que esvazia os destinos
-- [ ] T061 [US6] `bootstrap/health.py` (R41) e `bootstrap/cli.py` (R42)
-- [ ] T062 [US6] Rodar T053–T057 e a suíte inteira do core até verde, com o Postgres de teste
+- [X] T061 [US6] `bootstrap/health.py` (R41) e `bootstrap/cli.py` (R42)
+- [X] T062 [US6] Rodar T053–T057 e a suíte inteira do core até verde, com o Postgres de teste
 
 ## Phase 20: Polish da Fase 9
 
-- [ ] T063 [P] `CLAUDE.md` e `specs/README.md`: a Fase 9 no core (identidade, administração, sobreposições, uso e
+- [X] T063 [P] `CLAUDE.md` e `specs/README.md`: a Fase 9 no core (identidade, administração, sobreposições, uso e
   Langfuse) e o que falta (console 013, instalação 002)
 - [ ] T064 Verificação completa (`pytest`, `mypy`, `ruff`, `lint-imports`, Postgres) e, **com aprovação do
   mantenedor**, release `0.6.0` (tag `v0.6.0`) antes da passada da 002 (R44)

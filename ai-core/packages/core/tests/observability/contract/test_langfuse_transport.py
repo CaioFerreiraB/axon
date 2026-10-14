@@ -223,3 +223,28 @@ def test_destino_desligado_nao_envia_e_aceita_conteudo() -> None:
     assert destination.stats().last_sent_at == AT
     destination.configure(None)
     assert not transport.active
+
+
+def test_exportacao_que_falha_aparece_e_a_que_volta_limpa() -> None:
+    """Langfuse fora do ar chega à saúde pelo transporte (011 US6 cenário 4), e o erro some quando ele volta."""
+    from opentelemetry.sdk.trace.export import SpanExportResult
+
+    class Flaky(InMemorySpanExporter):
+        down = True
+
+        def export(self, spans: object) -> SpanExportResult:  # type: ignore[override]
+            return SpanExportResult.FAILURE if self.down else super().export(spans)  # type: ignore[arg-type]
+
+    exporter = Flaky()
+    transport = OtelLangfuseTransport(exporter_factory=lambda _c: exporter, delay_ms=10)
+    destination = LangfuseDestination(transport, clock=lambda: AT)
+    destination.configure(CREDENTIALS)
+    destination.export(to_record(started(), AT))
+    destination.export(to_record(finished(), AT))
+    _flush(transport)
+    assert destination.stats().last_error == "o Langfuse não aceitou o lote (OTLP)" and transport.export_failures == 1
+    exporter.down = False
+    destination.export(to_record(started(request_id="r2"), AT))
+    destination.export(to_record(finished(request_id="r2"), AT))
+    _flush(transport)
+    assert destination.stats().last_error is None

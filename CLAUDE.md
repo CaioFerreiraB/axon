@@ -375,8 +375,28 @@ também `ai-core groups create|list`. A instalação (`agentic-deploy`, 002 US7 
 `CORE_REF=v0.6.0-rc2`: o `ai-core` roda sempre no `persistent` com o Postgres do compose (`POSTGRES_PASSWORD`,
 `AI_CORE_MASTER_KEY`), o Keycloak saiu e o Open WebUI entra pelo login da plataforma (`config/identity.yaml`, cliente
 `open-webui` com PKCE S256, contas da Fase 7 religadas pelo e-mail); `scripts/dev-users.sh` cria `equipe`, `ana` e
-`bia`, e o `check-webui.py` entra pelo formulário da plataforma. A console (013), as sobreposições, o uso e o Langfuse
-são os incrementos 9.2 a 9.4.
+`bia`, e o `check-webui.py` entra pelo formulário da plataforma.
+Incremento 9.2 (a API de administração, sem tela): a 003 tem as **sobreposições** de Assistants de sistema (US10,
+ADR-032) — `overrides: [models, mcp]` no YAML libera a seção; a sobreposição guarda a impressão digital da seção do YAML
+e fica inativa, com o motivo, se a seção mudar no deploy ou sair de `overrides`; a efetiva vale na resolução seguinte
+(cache de 5 s), com histórico e versão por seção, pelo seam `SystemAssistantAdmin`; Postgres na migração
+`003_system_overrides.sql`. A 009 tem o **uso e custo** (US5: `UsageDestination` com buffer e lote, relatório por dia
+local, modelo ou Assistant, preços com vigência, custo calculado na consulta, origem `production`/`evaluation`), o
+**Langfuse** (US6: OpenTelemetry por OTLP/HTTP, confinado a `adapters/langfuse.py`; o exportador observado leva a
+falha à saúde) e a **captura opcional** de prompt e resposta (US7: o evento `model_exchange`, que a 006 emite e que só
+chega a destinos com `accepts_content`, nunca ao JSONL nem à memória), com ajustes em precedência instalação > console
+> padrão e o segredo selado pela chave mestra (ADR-033, ADR-034); schema `observability`. A 008 tem a superfície
+**`/admin/v1`** (US9, ADR-031; `http/adapters/admin.py`, formatos puros em `http/domain/admin_*.py`): `me` com a marca
+da instalação, Assistants de sistema e sobreposições, "testar modelo" pela 006, MCP globais, uso e preços, Langfuse e
+captura, contas, grupos e login da 012, chaves e saúde; token da console (audiência `ai-core-admin`) ou chave; quem não
+administra recebe em toda rota o 404 de rota inexistente; `no-store` e `X-Request-Id` em toda resposta (middleware do
+prefixo); versão no corpo e 409/422 com `param`. A 011 liga tudo (`bootstrap/observability.py`): portas
+`system_overrides`, `usage_store`, `price_store`, `destination_settings` e `langfuse_transport` (simulado no `test`),
+`AI_CORE_LANGFUSE_*` (tudo ou nada) e `AI_CORE_USAGE_TIMEZONE`/`AI_CORE_USAGE_RETENTION_DAYS`, tarefas `usage.flush`
+(2 s) e `usage.purge`, ajustes lidos quando o pool abre, itens `trace:usage`/`trace:langfuse` e os modelos efetivos na
+saúde; `TEST_ADMIN_USERNAME`/`TEST_ADMIN_PASSWORD` também em `ai_core.bootstrap.profiles`. A prova sem rede é
+`tests/bootstrap/integration/test_platform_identity_admin.py`. A console (013) e a instalação com ela (002 US7) são os
+incrementos 9.3 e 9.4.
 
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =

@@ -74,7 +74,9 @@ class UsageDestination:
         for rid in stale:
             del self._open[rid]
 
-    async def flush(self) -> None:
+    async def flush(self, store: UsageStore | None = None) -> None:
+        """Grava o lote. `store` troca o armazenamento só desta gravação: a 011 passa o da sessão da linha de comando,
+        em que o pool de serviço não abre (R13 da 011)."""
         if not self._buffer:
             return
         batch = list(self._buffer)
@@ -82,7 +84,7 @@ class UsageDestination:
         calls = [row for row in batch if isinstance(row, ModelCallRow)]
         executions = [row for row in batch if isinstance(row, ExecutionRow)]
         try:
-            await self._store.append(calls, executions)
+            await (store or self._store).append(calls, executions)
         except Exception as error:
             self._dropped += len(batch)
             self._dropped_at.extend([self._clock.now()] * min(len(batch), 1_000))

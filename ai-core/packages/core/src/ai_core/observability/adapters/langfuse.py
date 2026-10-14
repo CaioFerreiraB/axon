@@ -16,7 +16,7 @@ import base64
 import json
 import logging
 import threading
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Final
@@ -25,8 +25,8 @@ import httpx
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
+from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter, SpanExportResult
 from opentelemetry.trace import Span, Status, StatusCode
 
 from ai_core.observability.api import ConnectionCheck, TraceRecord
@@ -70,6 +70,30 @@ def _attribute(value: object) -> str | bool | int | float:
     return json.dumps(value, ensure_ascii=False, default=str)
 
 
+class _Watched(SpanExporter):
+    """O exportador de verdade, observado: a exportação roda na thread do `BatchSpanProcessor`, e sem isto um Langfuse
+    fora do ar nunca chegaria à saúde (011 US6 cenário 4). Sucesso limpa o erro; falha o registra."""
+
+    def __init__(self, inner: SpanExporter, on_result: Callable[[str | None], None]) -> None:
+        self._inner = inner
+        self._on_result = on_result
+
+    def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+        try:
+            result = self._inner.export(spans)
+        except Exception as error:
+            self._on_result(f"exportação falhou: {type(error).__name__}")
+            return SpanExportResult.FAILURE
+        self._on_result(None if result is SpanExportResult.SUCCESS else "o Langfuse não aceitou o lote (OTLP)")
+        return result
+
+    def shutdown(self) -> None:
+        self._inner.shutdown()
+
+    def force_flush(self, timeout_millis: int = 30_000) -> bool:
+        return self._inner.force_flush(timeout_millis)
+
+
 @dataclass
 class _Open:
     """O que está aberto de uma requisição: o raiz e a geração que espera o conteúdo."""
@@ -102,6 +126,7 @@ class OtelLangfuseTransport:
         self._lock = threading.Lock()
         self.errors = 0
         self.last_error: str | None = None
+        self.export_failures = 0
 
     # --- configuração ---------------------------------------------------------------------------------------------
 
@@ -116,7 +141,7 @@ class OtelLangfuseTransport:
                 provider = TracerProvider(resource=Resource.create({"service.name": "ai-core"}), shutdown_on_exit=False)
                 provider.add_span_processor(
                     BatchSpanProcessor(
-                        self._factory(credentials),
+                        _Watched(self._factory(credentials), self._exported),
                         max_queue_size=self._queue,
                         max_export_batch_size=self._batch,
                         schedule_delay_millis=self._delay,
@@ -129,6 +154,13 @@ class OtelLangfuseTransport:
     @property
     def active(self) -> bool:
         return self._tracer is not None
+
+    def _exported(self, failure: str | None) -> None:
+        """Chamado da thread de exportação. Vale o último resultado: o Langfuse que volta deixa de aparecer
+        degradado."""
+        if failure is not None:
+            self.export_failures += 1
+        self.last_error = failure
 
     # --- envio ----------------------------------------------------------------------------------------------------
 

@@ -1,6 +1,6 @@
-"""T053 — variáveis da identidade na configuração (research R36; contracts/configuration.md, Fase 9).
+"""T053 — variáveis da Fase 9 na configuração (research R36; contracts/configuration.md, Fase 9).
 
-Só a parte da identidade (incremento 9.1); as do Langfuse e do uso entram com a passada da 009.
+Identidade (incremento 9.1) e, no incremento 9.2, o grupo do Langfuse da instalação e o uso (009).
 """
 
 from __future__ import annotations
@@ -95,3 +95,51 @@ def test_chave_mestra_malformada_nunca_aparece_na_mensagem(raw: str) -> None:
 def test_perfil_de_teste_dispensa_o_arquivo_de_clientes() -> None:
     settings = _env(PROFILE="test", IDENTITY_ENABLED="1", PUBLIC_URL="http://localhost:8000")
     assert settings.identity_enabled and settings.identity_clients_file is None
+
+
+# --- incremento 9.2: Langfuse da instalação e uso (009) --------------------------------------------------------------
+
+LANGFUSE = {"LANGFUSE_HOST": "https://lf.exemplo.org/", "LANGFUSE_PUBLIC_KEY": "pk-1", "LANGFUSE_SECRET_KEY": "sk-x"}
+
+
+def test_padroes_do_uso_e_sem_langfuse() -> None:
+    settings = _env()
+    assert (settings.usage_timezone, settings.usage_retention_days) == ("UTC", 400)
+    assert settings.langfuse_host is None and settings.langfuse_capture_content is None
+
+
+def test_langfuse_e_uso_pelo_ambiente() -> None:
+    settings = _env(
+        **LANGFUSE,
+        LANGFUSE_CAPTURE_CONTENT="false",
+        USAGE_TIMEZONE="America/Sao_Paulo",
+        USAGE_RETENTION_DAYS="90",
+    )
+    assert (settings.langfuse_host, settings.langfuse_public_key) == ("https://lf.exemplo.org/", "pk-1")
+    assert settings.langfuse_capture_content is False
+    assert (settings.usage_timezone, settings.usage_retention_days) == ("America/Sao_Paulo", 90)
+    assert "sk-x" not in repr(settings)
+
+
+@pytest.mark.parametrize(
+    ("values", "variable"),
+    [
+        ({"LANGFUSE_HOST": "https://lf.exemplo.org"}, "LANGFUSE_PUBLIC_KEY"),
+        ({"LANGFUSE_PUBLIC_KEY": "pk", "LANGFUSE_SECRET_KEY": "sk-x"}, "LANGFUSE_HOST"),
+        (LANGFUSE | {"LANGFUSE_HOST": "http://lf.exemplo.org"}, "LANGFUSE_HOST"),
+        ({"LANGFUSE_CAPTURE_CONTENT": "sim"}, "LANGFUSE_CAPTURE_CONTENT"),
+        ({"USAGE_TIMEZONE": "Lua/Base"}, "USAGE_TIMEZONE"),
+        ({"USAGE_RETENTION_DAYS": "29"}, "USAGE_RETENTION_DAYS"),
+        ({"USAGE_RETENTION_DAYS": "um ano"}, "USAGE_RETENTION_DAYS"),
+    ],
+)
+def test_erros_do_langfuse_e_do_uso_nomeiam_a_variavel(values: dict[str, str], variable: str) -> None:
+    with pytest.raises(ConfigurationError, match=f"AI_CORE_{variable}") as caught:
+        _env(**values)
+    assert "sk-x" not in str(caught.value)
+
+
+def test_langfuse_interno_do_compose_aceita_http() -> None:
+    """Nome sem ponto é a rede interna do compose (009 `check_host`)."""
+    settings = _env(**LANGFUSE | {"LANGFUSE_HOST": "http://langfuse:3000"})
+    assert settings.langfuse_host == "http://langfuse:3000"

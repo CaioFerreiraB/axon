@@ -648,3 +648,28 @@ passada da 002 (instalação), que fixa `CORE_REF`.
 **Rationale**: o padrão das fases anteriores.
 
 **Alternatives considered**: —
+
+### R45 — Notas da implementação (incremento 9.2, 2026-10-14)
+
+**Decision**:
+
+- **Montagem dos destinos** em `bootstrap/observability.py` (como `bootstrap/identity.py` para a 012): as portas por
+  perfil, a `InstallationDestinations` a partir do `Settings` e o `trace_parts(parts)`, que monta o `UsageDestination`,
+  o `LangfuseDestination`, o `DestinationService` e o `UsageService`. A etapa `engine` monta o `TraceService` com os dois
+  destinos e `capture=destinations.capture_enabled`.
+- **Ajustes gravados**: sem banco, lidos no boot (`DestinationService.start()`); com banco, quando o pool de serviço abre
+  (`startups` do ciclo de vida, R13). Consequência: no `persistent`, a linha de comando (`ai-core eval run`) só conhece o
+  Langfuse da instalação — o da console vale no servidor.
+- **Encerramento**: o ciclo de vida grava o último lote antes de fechar o pool (`shutdowns`), e `Platform.aclose()`
+  esvazia os destinos e desliga o exportador do Langfuse. O `eval run` grava o lote da rodada na própria sessão de
+  armazenamento (009 R38).
+- **Chave mestra única por processo** (`identity.shared_master_key`): no `memory` sem a variável, a aleatória é sorteada
+  uma vez para a 012 e a 009; no `persistent` sem ela, a 009 fica sem cifra e gravar o segredo do Langfuse responde
+  `master_key_missing` (o resto funciona).
+- **Origem**: `platform(origin="evaluation")` no `ai-core eval run`; `production` no resto.
+- **Credenciais de teste**: `TEST_ADMIN_USERNAME`/`TEST_ADMIN_PASSWORD` reexportados por `ai_core.bootstrap.profiles`,
+  ao lado de `TEST_API_KEY` (R39).
+
+**Rationale**: o padrão já usado pela identidade (R13, R37), sem chamada de rede nem armazenamento novo.
+
+**Alternatives considered**: abrir o pool de serviço na linha de comando (contra o R13).

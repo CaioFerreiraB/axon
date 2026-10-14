@@ -2,13 +2,30 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+import re
+from collections.abc import AsyncIterator, Callable, Sequence
+from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, Final
+from typing import TYPE_CHECKING, Any, Final
+from urllib.parse import parse_qs, urlsplit
 
+import httpx
+
+from ai_core.bootstrap.identity import (
+    TEST_ADMIN_PASSWORD,
+    TEST_ADMIN_USERNAME,
+    TEST_CHAT_CALLBACK,
+    TEST_CHAT_CLIENT,
+    TEST_CHAT_SECRET,
+    TEST_CONSOLE_CALLBACK,
+    TEST_CONSOLE_CLIENT,
+)
 from ai_core.bootstrap.lifecycle import BootContext, Stage
 from ai_core.bootstrap.profiles import TEST_ADMIN_GROUP, TEST_API_KEY, TEST_OIDC_TOKEN
 from ai_core.bootstrap.settings import TEST_PROFILE, Settings
+
+if TYPE_CHECKING:
+    from ai_core.bootstrap.wiring import Platform
 
 ASSISTANT: Final = "geral"
 MODEL: Final = "qwen3:1.7b"
@@ -228,3 +245,91 @@ def names(stages: Sequence[Any]) -> list[str]:
 
 
 Factory = Callable[[Settings], Any]
+
+
+# --- Fase 9: identidade da plataforma no perfil de teste (R39, R43) ---------------------------------------------------
+
+PUBLIC_URL: Final = "http://localhost:8000"
+VERIFIER: Final = "v" * 64
+CHALLENGE: Final = "w1TpKUdYE9hUAcNSeeSRFioHDxfUxuHho_JHAfZ_vDM"
+"""S256 de `VERIFIER`: o PKCE do cliente público da console."""
+
+
+@asynccontextmanager
+async def serving(plataforma: Platform) -> AsyncIterator[httpx.AsyncClient]:
+    app = plataforma.app
+    assert app is not None, plataforma.report.render()
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url=PUBLIC_URL) as client:
+            yield client
+
+
+def hidden_fields(html: str) -> dict[str, str]:
+    return dict(re.findall(r'<input type="hidden" name="([a-z_]+)" value="([^"]*)"', html))
+
+
+async def login_code(
+    client: httpx.AsyncClient, *, client_id: str, callback: str, username: str, password: str, pkce: bool = False
+) -> str:
+    params = {
+        "client_id": client_id,
+        "redirect_uri": callback,
+        "response_type": "code",
+        "scope": "openid profile email groups",
+        "state": "s",
+        "nonce": "n",
+    }
+    if pkce:
+        params.update(code_challenge=CHALLENGE, code_challenge_method="S256")
+    page = await client.get("/oauth2/authorize", params=params)
+    if page.status_code == 302:  # sessão já aberta
+        return parse_qs(urlsplit(page.headers["location"]).query)["code"][0]
+    assert page.status_code == 200, page.text
+    response = await client.post(
+        "/oauth2/login", data={**hidden_fields(page.text), "identifier": username, "password": password}
+    )
+    assert response.status_code == 303, response.text
+    return parse_qs(urlsplit(response.headers["location"]).query)["code"][0]
+
+
+async def chat_token(
+    client: httpx.AsyncClient, username: str = TEST_ADMIN_USERNAME, password: str = TEST_ADMIN_PASSWORD
+) -> str:
+    code = await login_code(
+        client, client_id=TEST_CHAT_CLIENT, callback=TEST_CHAT_CALLBACK, username=username, password=password
+    )
+    response = await client.post(
+        "/oauth2/token",
+        data={"grant_type": "authorization_code", "code": code, "redirect_uri": TEST_CHAT_CALLBACK},
+        auth=(TEST_CHAT_CLIENT, TEST_CHAT_SECRET),
+    )
+    assert response.status_code == 200, response.text
+    return str(response.json()["access_token"])
+
+
+async def console_token(client: httpx.AsyncClient) -> str:
+    code = await login_code(
+        client,
+        client_id=TEST_CONSOLE_CLIENT,
+        callback=TEST_CONSOLE_CALLBACK,
+        username=TEST_ADMIN_USERNAME,
+        password=TEST_ADMIN_PASSWORD,
+        pkce=True,
+    )
+    response = await client.post(
+        "/oauth2/token",
+        data={
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": TEST_CONSOLE_CALLBACK,
+            "client_id": TEST_CONSOLE_CLIENT,
+            "code_verifier": VERIFIER,
+        },
+    )
+    assert response.status_code == 200, response.text
+    return str(response.json()["access_token"])
+
+
+def bearer(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}

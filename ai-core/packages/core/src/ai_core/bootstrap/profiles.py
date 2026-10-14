@@ -30,6 +30,9 @@ from ai_core.assistants.adapters.oidc import HttpJwksSource, JwksOidcVerifier
 from ai_core.assistants.api import ApiKeyInfo
 from ai_core.assistants.domain.access import OidcAudiences
 from ai_core.assistants.domain.keys import ApiKeyRecord, hash_key, parse_key
+from ai_core.bootstrap import observability as observability_parts
+from ai_core.bootstrap.identity import TEST_ADMIN_PASSWORD as TEST_ADMIN_PASSWORD
+from ai_core.bootstrap.identity import TEST_ADMIN_USERNAME as TEST_ADMIN_USERNAME
 from ai_core.bootstrap.identity import (
     env_identity_secrets,
     google_upstream,
@@ -102,11 +105,17 @@ REQUIRED_PORTS: Final = (
     "identity_attempts",
     "identity_secrets",
     "identity_upstream",
+    "system_overrides",
+    "usage_store",
+    "price_store",
+    "destination_settings",
+    "langfuse_transport",
 )
 """Portas secundárias que um perfil precisa atender, **na ordem de construção**. Acrescentar uma porta é acrescentar
 uma linha aqui. As seis depois de `oidc` são as da 007 e da 004 (Fase 3, research R22); `llm_secrets` vem antes de
-`providers`, cuja fábrica a usa (006 research R23, ADR-020); as sete últimas são as da 012 (Fase 9, R38) — a
-`identity_upstream` usa a `identity_secrets`."""
+`providers`, cuja fábrica a usa (006 research R23, ADR-020); as sete `identity_*` são as da 012 (Fase 9, R38) — a
+`identity_upstream` usa a `identity_secrets` —, e as cinco últimas, as sobreposições da 003 e os armazenamentos e o
+transporte do Langfuse da 009 (Fase 9, R38)."""
 
 STORAGE_PORTS: Final = (
     "api_keys",
@@ -118,6 +127,10 @@ STORAGE_PORTS: Final = (
     "identity_grants",
     "identity_keys",
     "identity_settings",
+    "system_overrides",
+    "usage_store",
+    "price_store",
+    "destination_settings",
 )
 """As portas construídas sobre `database`. Fora do laço do servidor, são refeitas sobre um pool temporário (R13)."""
 
@@ -132,7 +145,8 @@ TEST_ADMIN_GROUP: Final = "admin"
 TEST_OIDC_TOKEN: Final = "token-oidc-de-teste"
 """Credencial da superfície pública (`/v1`): `Authorization: Bearer <TEST_OIDC_TOKEN>`."""
 TEST_API_KEY: Final = "aic_7e57c0de00000001_chave-de-teste"
-"""Credencial da superfície privada (`/private/v1`): `Authorization: Bearer <TEST_API_KEY>`."""
+"""Credencial da superfície privada (`/private/v1`): `Authorization: Bearer <TEST_API_KEY>`. Com a identidade ligada, o
+admin semeado entra com `TEST_ADMIN_USERNAME` e `TEST_ADMIN_PASSWORD`, reexportados aqui (R39)."""
 
 DEV_SUBJECT: Final = "user:dev"
 """Dono da chave de desenvolvimento do perfil `memory` (`AI_CORE_DEV_API_KEY`)."""
@@ -316,6 +330,8 @@ def _memory_profile() -> Profile:
             **memory_identity_ports(),
             "identity_secrets": env_identity_secrets,
             "identity_upstream": google_upstream,
+            **observability_parts.memory_ports(),
+            "langfuse_transport": observability_parts.otel_transport,
         },
     )
 
@@ -352,6 +368,8 @@ def _persistent_profile() -> Profile:
             **postgres_identity_ports(),
             "identity_secrets": env_identity_secrets,
             "identity_upstream": google_upstream,
+            **observability_parts.postgres_ports(),
+            "langfuse_transport": observability_parts.otel_transport,
         },
     )
 
@@ -394,6 +412,8 @@ def _test_profile() -> Profile:
             **memory_identity_ports(),
             "identity_secrets": seeded_identity_secrets,
             "identity_upstream": simulated_upstream,
+            **observability_parts.memory_ports(),
+            "langfuse_transport": observability_parts.recording_transport,
         },
     )
 

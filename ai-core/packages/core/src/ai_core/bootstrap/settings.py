@@ -15,8 +15,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
 from urllib.parse import urlsplit
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from ai_core.assistants.domain.keys import parse_key
+from ai_core.observability.api import InvalidField
+from ai_core.observability.domain.settings import check_host
 
 MEMORY_PROFILE: Final = "memory"
 PERSISTENT_PROFILE: Final = "persistent"
@@ -50,6 +53,10 @@ QUEUE_WAIT_RANGE: Final = (1, 600_000)
 DEFAULT_DISPLAY_NAME: Final = "Agentic"
 """Nome neutro da instalação nas páginas do provedor e na console (012 FR-023)."""
 MASTER_KEY_BYTES: Final = 32
+DEFAULT_USAGE_TIMEZONE: Final = "UTC"
+DEFAULT_USAGE_RETENTION_DAYS: Final = 400
+MIN_USAGE_RETENTION_DAYS: Final = 30
+"""Uso por dia (009 US5): fuso padrão do relatório e retenção das linhas brutas (research R36)."""
 _LOCAL_HOSTS: Final = frozenset({"localhost", "127.0.0.1", "::1"})
 
 PREFIX: Final = "AI_CORE_"
@@ -108,6 +115,15 @@ class Settings:
     trusted_proxies: tuple[str, ...] = ()
     cookie_secure: bool | None = None
     """Ausente: ligado quando `public_url` é `https` (012 R5)."""
+    langfuse_host: str | None = None
+    langfuse_public_key: str | None = None
+    langfuse_secret_key: str | None = field(default=None, repr=False)
+    """Segredo. O grupo `AI_CORE_LANGFUSE_HOST|PUBLIC_KEY|SECRET_KEY` é tudo ou nada; definido, prevalece sobre a
+    console, que o mostra somente leitura (ADR-033)."""
+    langfuse_capture_content: bool | None = None
+    """`AI_CORE_LANGFUSE_CAPTURE_CONTENT`: definida, prevalece sobre a console (ADR-034)."""
+    usage_timezone: str = DEFAULT_USAGE_TIMEZONE
+    usage_retention_days: int = DEFAULT_USAGE_RETENTION_DAYS
 
     @property
     def secure_cookie(self) -> bool:
@@ -158,6 +174,36 @@ class Settings:
         _within(f"{PREFIX}QUEUE_SIZE", self.queue_size, QUEUE_SIZE_RANGE)
         _within(f"{PREFIX}QUEUE_WAIT_MS", self.queue_wait_ms, QUEUE_WAIT_RANGE)
         self._check_identity()
+        self._check_observability()
+
+    def _check_observability(self) -> None:
+        """Fase 9 (research R36): o grupo do Langfuse, o fuso e a retenção do uso. O segredo nunca aparece."""
+        group = {
+            f"{PREFIX}LANGFUSE_HOST": self.langfuse_host,
+            f"{PREFIX}LANGFUSE_PUBLIC_KEY": self.langfuse_public_key,
+            f"{PREFIX}LANGFUSE_SECRET_KEY": self.langfuse_secret_key,
+        }
+        missing = [name for name, value in group.items() if not value]
+        if 0 < len(missing) < len(group):
+            raise ConfigurationError(
+                f"{missing[0]}: o grupo {PREFIX}LANGFUSE_HOST, _PUBLIC_KEY e _SECRET_KEY é tudo ou nada"
+            )
+        if self.langfuse_host:
+            try:
+                check_host(self.langfuse_host)
+            except InvalidField as error:
+                raise ConfigurationError(f"{PREFIX}LANGFUSE_HOST: {str(error).removeprefix('host: ')}") from None
+        try:
+            ZoneInfo(self.usage_timezone)
+        except (ZoneInfoNotFoundError, ValueError):
+            raise ConfigurationError(
+                f"{PREFIX}USAGE_TIMEZONE: fuso IANA desconhecido: {self.usage_timezone!r}"
+            ) from None
+        if self.usage_retention_days < MIN_USAGE_RETENTION_DAYS:
+            raise ConfigurationError(
+                f"{PREFIX}USAGE_RETENTION_DAYS: precisa ser ao menos {MIN_USAGE_RETENTION_DAYS}: "
+                f"{self.usage_retention_days}"
+            )
 
     def _check_identity(self) -> None:
         """Fase 9 (research R36): param o boot e nomeiam a variável; a chave mestra nunca aparece."""
@@ -258,6 +304,12 @@ class EnvConfigSource:
                 entry.strip() for entry in self._text("TRUSTED_PROXIES", "").split(",") if entry.strip()
             ),
             cookie_secure=self._optional_bool("COOKIE_SECURE"),
+            langfuse_host=self._optional("LANGFUSE_HOST"),
+            langfuse_public_key=self._optional("LANGFUSE_PUBLIC_KEY"),
+            langfuse_secret_key=self._optional("LANGFUSE_SECRET_KEY"),
+            langfuse_capture_content=self._optional_bool("LANGFUSE_CAPTURE_CONTENT"),
+            usage_timezone=self._text("USAGE_TIMEZONE", DEFAULT_USAGE_TIMEZONE),
+            usage_retention_days=self._int("USAGE_RETENTION_DAYS", DEFAULT_USAGE_RETENTION_DAYS),
         )
 
     def _master_key(self) -> bytes | None:

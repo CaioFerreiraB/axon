@@ -541,3 +541,18 @@ chamadas em 90 dias < 1 s no Postgres de teste). Marcas `us5`, `us6`, `us7`.
 **Rationale**: o padrão das fases anteriores.
 
 **Alternatives considered**: —
+
+### R38 — Encaixe na 011 (incremento 9.2, 2026-10-14)
+
+**Decision**: duas mudanças de adapter, sem seam novo. (1) O exportador OTLP do `OtelLangfuseTransport` passa por um
+invólucro (`_Watched`) que registra o resultado de cada exportação: a exportação roda na thread do
+`BatchSpanProcessor`, e sem ele um Langfuse fora do ar nunca chegaria à saúde (011 US6 cenário 4); o último resultado
+vale — o Langfuse que volta deixa de aparecer degradado. (2) `UsageDestination.flush(store=None)` aceita outro
+`UsageStore` só para aquela gravação: a 011 passa o da sessão da linha de comando (`ai-core eval run`), em que o pool de
+serviço não abre (011 R13).
+
+**Rationale**: a saúde não pode dizer "ok" com o destino fora do ar; e o uso das rodadas de avaliação no `persistent`
+não pode se perder no encerramento.
+
+**Alternatives considered**: ler o log do OTel (frágil); uma tarefa periódica na linha de comando (o processo termina
+antes).

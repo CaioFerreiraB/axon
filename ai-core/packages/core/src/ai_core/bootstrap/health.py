@@ -10,7 +10,9 @@ fica em cache: o monitor consulta com frequência, e cada consulta tocaria o pro
 Fase 3 (clarificação 1 de 2026-10-02, research R28): um item **não crítico** por servidor MCP global. É o único lugar
 em que a plataforma pergunta se um servidor MCP está no ar — o boot nunca sai para a rede.
 
-Fase 9 (R41): item **crítico** `identity` com o provedor de identidade ligado.
+Fase 9 (R41): item **crítico** `identity` com o provedor de identidade ligado; itens não críticos `trace:usage` e
+`trace:langfuse` dos destinos do trace (009); e os modelos passam a ser os **efetivos** — com as sobreposições da 003 —,
+consultados a cada checagem, e não a tupla do boot.
 """
 
 from __future__ import annotations
@@ -26,6 +28,7 @@ from ai_core.bootstrap.lifecycle import BootReport, StageStatus
 from ai_core.http.ports import HealthItem, HealthReport
 from ai_core.llm.api import ModelPolicy, ModelRef, ModelRouting
 from ai_core.mcp.api import McpServer, ServerHealth
+from ai_core.observability.api import DestinationHealth
 from ai_core.packs.api import PackRegistry, PackStatus
 
 CHECK_TIMEOUT: Final = 3.0
@@ -39,6 +42,12 @@ EXIT_CODES: Final = {"ok": 0, "degraded": 1, "down": 2}
 
 DatabaseProbe = Callable[[], Awaitable[None]]
 """Confere o banco; levanta com o motivo — sem a URL — se não responde."""
+
+DeclaredModels = Callable[[], Awaitable[Sequence[ModelRef]]]
+"""Os modelos efetivos dos Assistants de sistema (`SystemAssistantAdmin.declared_models` da 003)."""
+
+DestinationProbe = Callable[[], Sequence[DestinationHealth]]
+"""A saúde dos destinos do trace (`TraceDestinations.health` da 009): sem I/O."""
 
 
 class Validator(Protocol):
@@ -54,8 +63,8 @@ class McpServers(Protocol):
 
 
 class PlatformHealth:
-    """Os itens: `database`, `boot:<etapa>`, `pack:<nome>`, `assistant:<nome>`, `model:<provider/modelo>` e
-    `mcp:<alias>` (um por servidor MCP global; `mcp` quando listar falha).
+    """Os itens: `database`, `boot:<etapa>`, `identity`, `pack:<nome>`, `assistant:<nome>`, `model:<provider/modelo>`,
+    `mcp:<alias>` (um por servidor MCP global; `mcp` quando listar falha) e `trace:<destino>`.
 
     `report` chega depois de construído: o boot termina de montar o relatório depois de criar a app.
     """
@@ -67,12 +76,13 @@ class PlatformHealth:
         packs: PackRegistry,
         assistants: Validator,
         routing: ModelRouting,
-        models: Sequence[ModelRef],
+        models: Sequence[ModelRef] | DeclaredModels,
         timeout: float = CHECK_TIMEOUT,
         ttl: float = CACHE_SECONDS,
         monotonic: Callable[[], float] = time.monotonic,
         mcp: McpServers | None = None,
         identity: Callable[[], str | None] | None = None,
+        destinations: DestinationProbe | None = None,
     ) -> None:
         self.report: BootReport | None = None
         self._mcp = mcp
@@ -81,7 +91,8 @@ class PlatformHealth:
         self._packs = packs
         self._assistants = assistants
         self._routing = routing
-        self._models = tuple(models)
+        self._models = models
+        self._destinations = destinations
         self._timeout = timeout
         self._ttl = ttl
         self._monotonic = monotonic
@@ -105,6 +116,7 @@ class PlatformHealth:
                 *assistants,
                 *models,
                 *mcp,
+                *self._destination_items(),
             )
         )
         self._cached = (now, report)
@@ -143,7 +155,13 @@ class PlatformHealth:
         )
 
     async def _model_items(self) -> tuple[HealthItem, ...]:
-        return tuple(await asyncio.gather(*(self._model_item(ref) for ref in self._models)))
+        if callable(self._models):
+            refs, failure = await self._attempt(self._models())
+            if refs is None:
+                return (HealthItem(name="models", ok=False, detail=failure),)
+        else:
+            refs = self._models
+        return tuple(await asyncio.gather(*(self._model_item(ref) for ref in refs)))
 
     async def _model_item(self, ref: ModelRef) -> HealthItem:
         name = f"model:{ref}"
@@ -174,6 +192,15 @@ class PlatformHealth:
             detail = f"{detail}; {missing}" if detail else missing
         return HealthItem(name=name, ok=result.ok and not result.missing, detail=detail)
 
+    def _destination_items(self) -> tuple[HealthItem, ...]:
+        """Nunca críticos (R41): o Langfuse fora do ar ou o uso sem gravar degradam, não derrubam (ADR-034)."""
+        if self._destinations is None:
+            return ()
+        return tuple(
+            HealthItem(name=f"trace:{item.name}", ok=item.state != "degraded", detail=_destination_detail(item))
+            for item in self._destinations()
+        )
+
     async def _attempt[T](self, check: Awaitable[T]) -> tuple[T | None, str | None]:
         """O resultado, ou o motivo da falha — inclusive passar do prazo. Uma checagem nunca derruba a saúde."""
         try:
@@ -182,6 +209,14 @@ class PlatformHealth:
             return None, f"sem resposta em {self._timeout:g} s"
         except Exception as error:
             return None, str(error) or type(error).__name__
+
+
+def _destination_detail(item: DestinationHealth) -> str | None:
+    if item.last_error:
+        return item.last_error
+    if item.dropped_24h:
+        return f"{item.dropped_24h} registro(s) descartado(s) nas últimas 24 h"
+    return "desligado" if item.state == "off" else None
 
 
 def boot_items(report: BootReport) -> tuple[HealthItem, ...]:

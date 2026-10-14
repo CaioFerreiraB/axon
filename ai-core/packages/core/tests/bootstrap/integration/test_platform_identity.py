@@ -10,35 +10,36 @@ from __future__ import annotations
 
 import dataclasses
 import os
-import re
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs, urlsplit
 
 import httpx
 import pytest
-from bootstrap_testkit import ASSISTANTS_YAML, OIDC, MemoryConfig, write_config
+from bootstrap_testkit import (
+    ASSISTANTS_YAML,
+    OIDC,
+    PUBLIC_URL,
+    MemoryConfig,
+    bearer,
+    chat_token,
+    console_token,
+    serving,
+    write_config,
+)
 
 from ai_core.bootstrap import profiles
 from ai_core.bootstrap.identity import (
-    TEST_ADMIN_PASSWORD,
     TEST_ADMIN_USERNAME,
     TEST_CHAT_CALLBACK,
     TEST_CHAT_CLIENT,
     TEST_CHAT_SECRET,
-    TEST_CONSOLE_CALLBACK,
-    TEST_CONSOLE_CLIENT,
 )
 from ai_core.bootstrap.profiles import TEST_API_KEY
 from ai_core.bootstrap.wiring import Platform, platform
 
-PUBLIC_URL = "http://localhost:8000"
 PG_DSN = os.environ.get("AI_CORE_TEST_POSTGRES_DSN")
 needs_pg = pytest.mark.skipif(PG_DSN is None, reason="defina AI_CORE_TEST_POSTGRES_DSN para rodar contra um Postgres")
-VERIFIER = "v" * 64
-CHALLENGE = "w1TpKUdYE9hUAcNSeeSRFioHDxfUxuHho_JHAfZ_vDM"  # S256 de VERIFIER
 
 
 def _identity_platform(tmp_path: Path, **extra: Any) -> Platform:
@@ -48,86 +49,6 @@ def _identity_platform(tmp_path: Path, **extra: Any) -> Platform:
     return plataforma
 
 
-@asynccontextmanager
-async def serving(plataforma: Platform) -> AsyncIterator[httpx.AsyncClient]:
-    app = plataforma.app
-    assert app is not None, plataforma.report.render()
-    async with app.router.lifespan_context(app):
-        transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(transport=transport, base_url=PUBLIC_URL) as client:
-            yield client
-
-
-def _hidden(html: str) -> dict[str, str]:
-    return dict(re.findall(r'<input type="hidden" name="([a-z_]+)" value="([^"]*)"', html))
-
-
-async def _login(
-    client: httpx.AsyncClient, *, client_id: str, callback: str, username: str, password: str, pkce: bool = False
-) -> str:
-    params = {
-        "client_id": client_id,
-        "redirect_uri": callback,
-        "response_type": "code",
-        "scope": "openid profile email groups",
-        "state": "s",
-        "nonce": "n",
-    }
-    if pkce:
-        params.update(code_challenge=CHALLENGE, code_challenge_method="S256")
-    page = await client.get("/oauth2/authorize", params=params)
-    if page.status_code == 302:  # sessão já aberta
-        return parse_qs(urlsplit(page.headers["location"]).query)["code"][0]
-    assert page.status_code == 200, page.text
-    response = await client.post(
-        "/oauth2/login", data={**_hidden(page.text), "identifier": username, "password": password}
-    )
-    assert response.status_code == 303, response.text
-    return parse_qs(urlsplit(response.headers["location"]).query)["code"][0]
-
-
-async def _chat_token(
-    client: httpx.AsyncClient, username: str = TEST_ADMIN_USERNAME, password: str = TEST_ADMIN_PASSWORD
-) -> str:
-    code = await _login(
-        client, client_id=TEST_CHAT_CLIENT, callback=TEST_CHAT_CALLBACK, username=username, password=password
-    )
-    response = await client.post(
-        "/oauth2/token",
-        data={"grant_type": "authorization_code", "code": code, "redirect_uri": TEST_CHAT_CALLBACK},
-        auth=(TEST_CHAT_CLIENT, TEST_CHAT_SECRET),
-    )
-    assert response.status_code == 200, response.text
-    return str(response.json()["access_token"])
-
-
-async def _console_token(client: httpx.AsyncClient) -> str:
-    code = await _login(
-        client,
-        client_id=TEST_CONSOLE_CLIENT,
-        callback=TEST_CONSOLE_CALLBACK,
-        username=TEST_ADMIN_USERNAME,
-        password=TEST_ADMIN_PASSWORD,
-        pkce=True,
-    )
-    response = await client.post(
-        "/oauth2/token",
-        data={
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": TEST_CONSOLE_CALLBACK,
-            "client_id": TEST_CONSOLE_CLIENT,
-            "code_verifier": VERIFIER,
-        },
-    )
-    assert response.status_code == 200, response.text
-    return str(response.json()["access_token"])
-
-
-def _bearer(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
-
-
 async def test_perfil_de_teste_com_identidade_login_e_token_do_chat(tmp_path: Path) -> None:
     plataforma = _identity_platform(tmp_path)
     assert plataforma.identity is not None
@@ -135,19 +56,19 @@ async def test_perfil_de_teste_com_identidade_login_e_token_do_chat(tmp_path: Pa
     async with serving(plataforma) as client:
         discovery = (await client.get("/.well-known/openid-configuration")).json()
         assert discovery["issuer"] == PUBLIC_URL
-        token = await _chat_token(client)
+        token = await chat_token(client)
         assert plataforma.access is not None
         principal = await plataforma.access.authenticate(surface="public", credential=token)
         # o subject é o nome de usuário, como na Fase 7 (ACL e donos continuam valendo), e os grupos vêm do token
         assert principal is not None and principal.subject == f"user:{TEST_ADMIN_USERNAME}"
         assert "admin" in principal.groups
-        models = await client.get("/v1/models", headers=_bearer(token))
+        models = await client.get("/v1/models", headers=bearer(token))
         assert models.status_code == 200, models.text
         assert models.json()["data"], "o admin semeado vê os Assistants públicos"
         # o token estático das suítes de pack não vale com a identidade ligada (R39)
         assert (await client.get("/v1/models", headers=OIDC)).status_code == 401
         # a chave de teste continua valendo na superfície privada
-        health = await client.get("/private/v1/health", headers=_bearer(TEST_API_KEY))
+        health = await client.get("/private/v1/health", headers=bearer(TEST_API_KEY))
         items = {item["name"]: item for item in health.json()["items"]}
         assert items["identity"]["ok"] is True and items["identity"]["critical"] is True
 
@@ -155,8 +76,8 @@ async def test_perfil_de_teste_com_identidade_login_e_token_do_chat(tmp_path: Pa
 async def test_token_da_console_nao_vale_no_chat(tmp_path: Path) -> None:
     plataforma = _identity_platform(tmp_path)
     async with serving(plataforma) as client:
-        console = await _console_token(client)
-        assert (await client.get("/v1/models", headers=_bearer(console))).status_code == 401
+        console = await console_token(client)
+        assert (await client.get("/v1/models", headers=bearer(console))).status_code == 401
 
 
 async def test_sem_identidade_o_token_de_teste_continua_valendo(tmp_path: Path) -> None:
@@ -188,7 +109,7 @@ async def test_marca_e_logotipo_da_instalacao_nas_paginas(tmp_path: Path) -> Non
 
 
 async def _login_cookie(client: httpx.AsyncClient) -> str:
-    await _chat_token(client)
+    await chat_token(client)
     return "; ".join(client.cookies.keys())
 
 
@@ -212,7 +133,7 @@ async def banco_limpo() -> AsyncIterator[str]:
     import psycopg
 
     async with await psycopg.AsyncConnection.connect(PG_DSN, autocommit=True) as connection:
-        for schema in ("assistants", "http", "mcp", "capabilities", "identity"):
+        for schema in ("assistants", "http", "mcp", "capabilities", "identity", "observability"):
             await connection.execute(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
     yield PG_DSN
 
@@ -258,15 +179,15 @@ async def test_persistent_admin_inicial_uma_vez_e_chaves_que_sobrevivem(
     assert primeira.ok, primeira.report.render()
     async with serving(primeira) as client:
         kid = (await client.get("/oauth2/jwks")).json()["keys"][0]["kid"]
-        token = await _chat_token(client, "root", "senha-do-admin-inicial")
-        assert (await client.get("/v1/models", headers=_bearer(token))).status_code == 200
+        token = await chat_token(client, "root", "senha-do-admin-inicial")
+        assert (await client.get("/v1/models", headers=bearer(token))).status_code == 200
 
     segunda = _persistent_platform(tmp_path, banco_limpo)
     assert segunda.ok, segunda.report.render()
     async with serving(segunda) as client:
         assert (await client.get("/oauth2/jwks")).json()["keys"][0]["kid"] == kid
         # o token emitido pela primeira instância continua valendo na segunda (a chave sobreviveu)
-        assert (await client.get("/v1/models", headers=_bearer(token))).status_code == 200
+        assert (await client.get("/v1/models", headers=bearer(token))).status_code == 200
         assert segunda.identity is not None
         page = await segunda.identity.accounts(active=None)
         assert [account.username for account in page.items] == ["root"]
@@ -280,3 +201,44 @@ async def test_persistent_chave_mestra_errada_para_o_boot(persistent: None, banc
     failure = plataforma.report.failure()
     assert failure is not None and failure.name == "identity"
     assert "keys rotate --force" in (failure.detail or "")
+
+
+@needs_pg
+async def test_persistent_uso_e_ajustes_dos_destinos_no_banco(
+    persistent: None, banco_limpo: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Incremento 9.2: o lote de uso vai ao Postgres pelo ciclo de vida, e os ajustes dos destinos gravados numa
+    instância são lidos pela seguinte quando o pool de serviço abre (011 R40, R13)."""
+    from ai_core.observability.api import UsageQuery
+
+    password = tmp_path / "admin.txt"
+    password.write_text("senha-do-admin-inicial\n", encoding="utf-8")
+    monkeypatch.setenv("AI_CORE_BOOTSTRAP_ADMIN_USERNAME", "root")
+    monkeypatch.setenv("AI_CORE_BOOTSTRAP_ADMIN_EMAIL", "root@exemplo.org")
+    monkeypatch.setenv("AI_CORE_BOOTSTRAP_ADMIN_PASSWORD_FILE", str(password))
+    monkeypatch.setenv("AI_CORE_IDENTITY_SECRET_OPEN_WEBUI", TEST_CHAT_SECRET)
+    day = profiles.FIXED_TIME.date()
+
+    primeira = _persistent_platform(tmp_path, banco_limpo)
+    assert primeira.ok and primeira.trace is not None and primeira.usage is not None, primeira.report.render()
+    assert primeira.destinations is not None
+    async with serving(primeira) as client:
+        token = await chat_token(client, "root", "senha-do-admin-inicial")
+        answer = await client.post(
+            "/v1/chat/completions",
+            headers=bearer(token),
+            json={"model": "geral", "messages": [{"role": "user", "content": "oi"}]},
+        )
+        assert answer.status_code == 200, answer.text
+        await primeira.trace.flush()
+        report = await primeira.usage.report(UsageQuery(start=day, end=day))
+        assert [(row.key, row.calls) for row in report.totals] == [("ollama/qwen3:1.7b", 1)]
+        await primeira.destinations.set_capture(enabled=True, actor="user:root", version=0)
+
+    segunda = _persistent_platform(tmp_path, banco_limpo)
+    assert segunda.ok and segunda.usage is not None and segunda.destinations is not None
+    async with serving(segunda):
+        assert (await segunda.destinations.settings()).capture_content is True
+        assert segunda.destinations.capture_enabled()
+        report = await segunda.usage.report(UsageQuery(start=day, end=day))
+        assert report.totals[0].calls == 1
