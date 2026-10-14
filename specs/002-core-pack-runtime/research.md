@@ -581,7 +581,11 @@ o `issuer` público e os endpoints de servidor pelo endereço interno — 012 R8
 senão, sem PKCE — o cliente é confidencial), `ENABLE_OAUTH_SIGNUP=true`, `ENABLE_LOGIN_FORM=false`,
 `OAUTH_MERGE_ACCOUNTS_BY_EMAIL=true` (religa as contas criadas com o Keycloak, R48) e `JWT_EXPIRES_IN=29d` (abaixo dos 30
 dias da sessão da 012). A conexão com a plataforma continua `system_oauth` com os cabeçalhos da Fase 7. **A conferir**
-contra o Open WebUI v0.12 na prova (T083): nomes exatos das variáveis de PKCE e de junção por e-mail.
+contra o Open WebUI v0.12 na prova (T083): nomes exatos das variáveis de PKCE e de junção por e-mail. **Conferido em
+2026-10-14** (incremento 9.1, `CORE_REF=v0.6.0-rc2`): com `OAUTH_CODE_CHALLENGE_METHOD=S256`, o v0.12 manda
+`code_challenge` e `code_challenge_method=S256` no `authorize`; com `OAUTH_MERGE_ACCOUNTS_BY_EMAIL=true`, as contas
+`ana` e `bia` da Fase 7 foram religadas pelo e-mail (uma conta por pessoa); token, `userinfo` e JWKS saíram pelo
+endereço interno (`ai-core:8000`), e o `check-webui.py` passou inteiro.
 
 **Rationale**: ADR-030; o Open WebUI continua repassando o token de cada pessoa, agora emitido pela plataforma.
 

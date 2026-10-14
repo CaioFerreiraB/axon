@@ -376,9 +376,17 @@ Caminhos em `agentic-deploy/`; o código é commitado lá, e aqui o SDD e o pont
 **Escopo**: US7, no submódulo `agentic-deploy/` (commits lá; aqui, o ponteiro e os artefatos da 002). Pré-requisito:
 release `v0.6.0` do core (011 R44), com a console (013).
 
-- [ ] T074 [US7] `docker-compose.yml`: serviço `postgres` (`postgres:17.6`, volume, `healthcheck`), `ai-core` no
+> **Andamento (2026-10-14, incremento 9.1)**: no `agentic-deploy`, Postgres sempre e `ai-core` no `persistent`,
+> Keycloak fora (serviço, volume no compose e `config/keycloak/`), Open WebUI na plataforma (T074, T075),
+> `config/identity.yaml` e `secrets/` (parte de T077), `.env.example` com "Sempre" e "Com interface" (parte de T078),
+> `scripts/dev-users.sh` e `check-webui.py` pelo formulário da plataforma (T079), README com a migração da Fase 7 e o
+> Google (parte de T081), `CORE_REF=v0.6.0-rc2` com `check-build.sh` verde (parte de T082) e a prova do modo `webui`
+> (parte de T083: R44 conferida). Ficam para os incrementos seguintes: a console (T076, T080), `overrides` no
+> `assistants.yaml` (resto de T077), a seção "Sem console" do Langfuse (resto de T078) e `CORE_REF=v0.6.0`.
+
+- [X] T074 [US7] `docker-compose.yml`: serviço `postgres` (`postgres:17.6`, volume, `healthcheck`), `ai-core` no
   `persistent` com `depends_on` saudável; remover `keycloak` e o volume `keycloak-data` (R43, R44)
-- [ ] T075 [US7] `docker-compose.yml`: `open-webui` apontado para a plataforma com as variáveis de R44
+- [X] T075 [US7] `docker-compose.yml`: `open-webui` apontado para a plataforma com as variáveis de R44
   (`JWT_EXPIRES_IN=29d`, `OAUTH_MERGE_ACCOUNTS_BY_EMAIL=true`, `ENABLE_LOGIN_FORM=false`), mantendo `system_oauth` e
   os cabeçalhos da Fase 7
 - [ ] T076 [US7] `Dockerfile`: estágios `console-build` e `console` (R46); `docker-compose.yml`: serviço `console` no
@@ -386,7 +394,7 @@ release `v0.6.0` do core (011 R44), com a console (013).
 - [ ] T077 [P] [US7] `config/identity.yaml` (R45), `config/assistants.yaml` com `overrides: [models, mcp]` no
   Assistant genérico e sem `overrides` no `scouting`; remover `config/keycloak/`
 - [ ] T078 [P] [US7] `.env.example` em seções (R47) e `secrets/.gitignore`
-- [ ] T079 [US7] `scripts/check-webui.py` reescrito para o formulário da plataforma (R49)
+- [X] T079 [US7] `scripts/check-webui.py` reescrito para o formulário da plataforma (R49)
 - [ ] T080 [P] [US7] `scripts/check-console.py` (R49) e `scripts/check-build.sh` com o alvo `console`
 - [ ] T081 [P] [US7] `README.md` do `agentic-deploy`: os quatro modos, a migração da Fase 7 (R48), o Google (endereço de
   retorno), o Langfuse com e sem console, a chave mestra e o que acontece se ela se perder

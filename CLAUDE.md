@@ -370,7 +370,13 @@ audiência `ai-core-admin`; `SCHEME_OF_SURFACE` ficou depreciado), admin pelo gr
 carregadas no início do ciclo de vida no `persistent` e `ai-core users create|list|disable|enable|password|groups` e
 `ai-core identity keys rotate`. No `test` com identidade, o admin `TEST_ADMIN_USERNAME`/`TEST_ADMIN_PASSWORD` e os
 clientes de exemplo vêm de `ai_core.bootstrap.identity`, e o `TEST_OIDC_TOKEN` deixa de valer (sem identidade, segue
-valendo).
+valendo). Com a identidade ligada, o subject é o `preferred_username` (o nome de usuário, como na Fase 7) e a CLI tem
+também `ai-core groups create|list`. A instalação (`agentic-deploy`, 002 US7 parcial) já usa isso, com
+`CORE_REF=v0.6.0-rc2`: o `ai-core` roda sempre no `persistent` com o Postgres do compose (`POSTGRES_PASSWORD`,
+`AI_CORE_MASTER_KEY`), o Keycloak saiu e o Open WebUI entra pelo login da plataforma (`config/identity.yaml`, cliente
+`open-webui` com PKCE S256, contas da Fase 7 religadas pelo e-mail); `scripts/dev-users.sh` cria `equipe`, `ana` e
+`bia`, e o `check-webui.py` entra pelo formulário da plataforma. A console (013), as sobreposições, o uso e o Langfuse
+são os incrementos 9.2 a 9.4.
 
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
