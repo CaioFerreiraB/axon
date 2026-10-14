@@ -56,18 +56,18 @@ def is_sensitive(name: str) -> bool:
     return _normalize(name) in SENSITIVE_NAMES
 
 
-def _truncate(text: str) -> str:
-    if len(text) <= MAX_TEXT:
+def _truncate(text: str, limit: int) -> str:
+    if len(text) <= limit:
         return text
-    return f"{text[:MAX_TEXT]}… [truncado: {len(text) - MAX_TEXT} caracteres]"
+    return f"{text[:limit]}… [truncado: {len(text) - limit} caracteres]"
 
 
-def redact_text(text: str) -> str:
-    """Substitui padrões de credencial em texto livre e trunca texto longo."""
+def redact_text(text: str, *, limit: int = MAX_TEXT) -> str:
+    """Substitui padrões de credencial em texto livre e trunca texto longo (o conteúdo opcional usa outro limite)."""
     redacted = _BEARER.sub(rf"\1 {REDACTED}", text)
     redacted = _ASSIGNMENT.sub(rf"\1\2\3{REDACTED}", redacted)
     redacted = _URL_CREDENTIAL.sub(rf"\1{REDACTED}\3", redacted)
-    return _truncate(redacted)
+    return _truncate(redacted, limit)
 
 
 def redact_value(value: JSONValue) -> JSONValue:

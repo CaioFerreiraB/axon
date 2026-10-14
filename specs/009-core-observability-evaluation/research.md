@@ -478,6 +478,13 @@ deixavam o OTel como adapter. Os nomes de atributo seguem as convenções `gen_a
 lote prontos e marcada como legado); o SDK Python do Langfuse (puxa dependências e assume que controla o ciclo de vida
 dos spans).
 
+**Medição (T065, 2026-10-14)**: `emit` de 3 000 eventos com o exportador OTLP travado e o banco de uso lento — ~10 µs
+por evento só com o primário, ~11,5 µs com o destino de uso, ~22,5 µs com uso e Langfuse. Nada espera rede nem banco,
+mas o mapeamento para spans dobra o custo de CPU por evento: a SC-006 ao pé da letra ("primário sozinho + 10%") não se
+cumpre com o Langfuse ligado. Em valor absoluto (~12 µs a mais por evento, dezenas de eventos por execução) é
+desprezível diante de uma chamada de modelo. **Pendente do mantenedor**: reescrever a SC-006 como teto absoluto (o
+teste usa 500 µs por evento) ou mover o mapeamento para a thread do exportador.
+
 ### R33 — Ajustes dos destinos, precedência e segredo
 
 **Decision**: `DestinationSettingsStore` guarda `langfuse_enabled`, `langfuse_host`, `langfuse_public_key`,

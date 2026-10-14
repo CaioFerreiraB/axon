@@ -28,6 +28,10 @@ dependencies = [
     # Spec 012 (research R2): hash de senha argon2id, confinado a ai_core/identity/adapters/ por import-linter. As wheels
     # `abi3` do argon2-cffi-bindings servem ao Python 3.14 e ao aarch64 do hardware alvo.
     "argon2-cffi>=25.1,<26",
+    # Spec 009 (research R32): destino Langfuse por OpenTelemetry (OTLP/HTTP), confinado a ai_core/observability/adapters/
+    # por import-linter — o núcleo do trace nunca importa biblioteca de observabilidade (R1).
+    "opentelemetry-sdk>=1.30,<2",
+    "opentelemetry-exporter-otlp-proto-http>=1.30,<2",
 ]
 
 [project.scripts]

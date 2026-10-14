@@ -19,7 +19,7 @@ from ai_core.llm.adapters.openrouter import OpenRouterProvider
 from ai_core.llm.adapters.secrets import InMemorySecretResolver
 from ai_core.llm.api import ModelCallFailed, ModelPolicy, ModelRef
 from ai_core.llm.ports import ModelProvider
-from ai_core.observability.api import TraceEvent
+from ai_core.observability.api import ModelExchange, TraceEvent
 
 REQUEST_ID: Final = "req-006-1"
 """Identificador de requisição dos testes; o mesmo que aparece nos `ModelCall` emitidos."""
@@ -35,13 +35,21 @@ Handler = Callable[[httpx2.Request], httpx2.Response]
 
 
 class RecordingTraceSink:
-    """Trace Sink (seam da 009) que acumula o que foi emitido, para os testes de instrumentação."""
+    """Trace Sink (seam da 009) que acumula o que foi emitido, para os testes de instrumentação.
+
+    `events` são os `ModelCall` (o que a instrumentação da Fase 1 prova); `exchanges`, os `ModelExchange` da Fase 9
+    (ADR-034), que o `TraceService` descarta com a captura desligada.
+    """
 
     def __init__(self) -> None:
         self.events: list[TraceEvent] = []
+        self.exchanges: list[ModelExchange] = []
 
     def emit(self, event: TraceEvent) -> None:
-        self.events.append(event)
+        if isinstance(event, ModelExchange):
+            self.exchanges.append(event)
+        else:
+            self.events.append(event)
 
 
 def policy(

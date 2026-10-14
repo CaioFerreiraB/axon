@@ -8,6 +8,7 @@ disciplina de quem consome (research R7). Não importa `adapters/`.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping, Sequence
+from typing import Final
 
 from ai_core.llm.api import (
     ModelCallFailed,
@@ -21,8 +22,8 @@ from ai_core.llm.api import (
 from ai_core.llm.domain.output import constraint_problem
 from ai_core.llm.domain.policy import ensure_allowed, resolve
 from ai_core.llm.ports import Clock, ModelProvider
-from ai_core.observability.api import ModelCall, TraceSink
-from ai_core_contracts import ChatChunk, ChatMessage, ChatResponse, ChatTool, ChatUsage, JSONValue
+from ai_core.observability.api import ExchangeMessage, ModelCall, ModelExchange, TraceSink
+from ai_core_contracts import ChatChunk, ChatMessage, ChatResponse, ChatTool, ChatToolCall, ChatUsage, JSONValue
 
 ERROR_FINISH_REASON = "error"
 """Desfecho registrado quando a chamada falha — o trace cobre sucesso e falha (SC-002)."""
@@ -77,6 +78,7 @@ class TracedModel:
             self._emit(started, finish_reason=ERROR_FINISH_REASON, usage=None)
             raise
         self._emit(started, finish_reason=response.get("finish_reason"), usage=response.get("usage"))
+        self._exchange(messages, _text_of(response["message"]))
         return response
 
     async def stream(
@@ -91,6 +93,7 @@ class TracedModel:
         finish_reason: str | None = None
         usage: ChatUsage | None = None
         failed = False
+        output: list[str] = []
         try:
             self._ensure_constraint(response_format)
             chunks = await self._provider.chat(
@@ -99,6 +102,8 @@ class TracedModel:
             async for chunk in chunks:
                 finish_reason = chunk.get("finish_reason", finish_reason)
                 usage = chunk.get("usage", usage)
+                output.append(chunk.get("delta") or "")
+                output.extend(_tool_call_text(call) for call in chunk.get("tool_calls") or ())
                 yield chunk
         except BaseException:
             failed = True
@@ -109,11 +114,27 @@ class TracedModel:
                 finish_reason=ERROR_FINISH_REASON if failed else finish_reason,
                 usage=usage,
             )
+            if not failed:
+                self._exchange(messages, "".join(output))
 
     def _ensure_constraint(self, response_format: Mapping[str, JSONValue] | None) -> None:
         problem = constraint_problem(self._role, response_format)
         if problem is not None:
             raise ModelCallFailed(provider=self._ref.provider, model=self._ref.model, reason=problem)
+
+    def _exchange(self, messages: Sequence[ChatMessage], output: str) -> None:
+        """O texto da chamada (ADR-034, 009 R35): o `TraceService` o descarta com a captura desligada. Sem cabeçalho nem
+        credencial — só as mensagens e a saída."""
+        self._trace.emit(
+            ModelExchange(
+                request_id=self._request_id,
+                role=self._role,
+                provider=self._ref.provider,
+                model=self._ref.model,
+                messages=tuple(_exchange_message(message) for message in messages),
+                output=output,
+            )
+        )
 
     def _emit(self, started: float, *, finish_reason: str | None, usage: ChatUsage | None) -> None:
         self._trace.emit(
@@ -128,6 +149,25 @@ class TracedModel:
                 finish_reason=finish_reason,
             )
         )
+
+
+_EXCHANGE_ROLES: Final[frozenset[str]] = frozenset({"system", "user", "assistant", "tool"})
+
+
+def _tool_call_text(call: ChatToolCall) -> str:
+    return f"[tool {call['name']}: {call['arguments']}]"
+
+
+def _text_of(message: ChatMessage) -> str:
+    """Texto da mensagem; chamadas de tool viram marcadores com nome e argumentos."""
+    parts = [message.get("content") or ""]
+    parts.extend(_tool_call_text(call) for call in message.get("tool_calls") or ())
+    return "\n".join(part for part in parts if part)
+
+
+def _exchange_message(message: ChatMessage) -> ExchangeMessage:
+    role = message["role"] if message["role"] in _EXCHANGE_ROLES else "user"
+    return ExchangeMessage(role=role, content=_text_of(message))  # type: ignore[arg-type]
 
 
 class ExecutionRouter:

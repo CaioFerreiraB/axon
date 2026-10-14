@@ -31,6 +31,34 @@ EXPECTED_NAMES = {
     "TraceSink",
     "TraceQuery",
     "TraceQueryUnavailable",
+    # Fase 9 (ADR-034; contracts/usage-api.md)
+    "ExchangeRole",
+    "ExchangeMessage",
+    "ModelExchange",
+    "UsageGrouping",
+    "UsageOrigin",
+    "SettingSource",
+    "PriceState",
+    "DestinationState",
+    "MAX_REPORT_DAYS",
+    "PRICE_SCALE",
+    "InvalidQuery",
+    "InvalidPrice",
+    "InvalidField",
+    "InstallationDefined",
+    "MasterKeyMissing",
+    "Conflict",
+    "UsageQuery",
+    "UsageRow",
+    "UsageDay",
+    "UsageReport",
+    "Price",
+    "DestinationSettingsView",
+    "DestinationHealth",
+    "ConnectionCheck",
+    "UsageReportSeam",
+    "PriceBook",
+    "TraceDestinations",
 }
 
 
@@ -106,7 +134,19 @@ def test_collections_are_immutable() -> None:
 
 def test_public_names_match_the_contract() -> None:
     public = {name for name in vars(api_module) if not name.startswith("_")}
-    imported = {"Mapping", "dataclass", "datetime", "Final", "Literal", "Protocol", "JSONValue", "annotations"}
+    imported = {
+        "Mapping",
+        "dataclass",
+        "field",
+        "date",
+        "datetime",
+        "Decimal",
+        "Final",
+        "Literal",
+        "Protocol",
+        "JSONValue",
+        "annotations",
+    }
     assert public - imported == EXPECTED_NAMES
 
 
@@ -119,4 +159,4 @@ def test_api_imports_only_stdlib_and_contracts() -> None:
             roots.update(alias.name.split(".")[0] for alias in node.names)
         elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
             roots.add(node.module.split(".")[0])
-    assert roots <= {"__future__", "collections", "dataclasses", "datetime", "typing", "ai_core_contracts"}
+    assert roots <= {"__future__", "collections", "dataclasses", "datetime", "decimal", "typing", "ai_core_contracts"}

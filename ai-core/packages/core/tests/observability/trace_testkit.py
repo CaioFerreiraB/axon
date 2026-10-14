@@ -6,10 +6,12 @@ from datetime import UTC, datetime
 from typing import Final
 
 from ai_core.observability.api import (
+    ExchangeMessage,
     ExecutionError,
     ExecutionFinished,
     ExecutionStarted,
     ModelCall,
+    ModelExchange,
     TraceRecord,
     ValidationRun,
 )
@@ -87,3 +89,36 @@ class FailingTraceExporter:
     def export(self, record: TraceRecord) -> None:
         self.attempts += 1
         raise self.error
+
+
+# --- Fase 9 (ADR-034) -------------------------------------------------------------------------------------------------
+
+MASTER_KEY: Final = bytes(range(32))
+
+
+class MovingClock:
+    """Relógio ajustável: o uso conta por dia local, e a saúde olha as últimas 24 h."""
+
+    def __init__(self, instant: datetime = AT) -> None:
+        self._instant = instant
+
+    def now(self) -> datetime:
+        return self._instant
+
+    def set(self, instant: datetime) -> None:
+        self._instant = instant
+
+
+def exchange(request_id: str = REQUEST_ID, **overrides: object) -> ModelExchange:
+    fields: dict[str, object] = {
+        "request_id": request_id,
+        "role": "generation",
+        "provider": "ollama",
+        "model": "qwen3:1.7b",
+        "messages": (
+            ExchangeMessage(role="system", content="Você é útil."),
+            ExchangeMessage(role="user", content="Minha chave é api_key=sk-segredo-123; qual é a capital?"),
+        ),
+        "output": "Brasília.",
+    }
+    return ModelExchange(**(fields | overrides))  # type: ignore[arg-type]

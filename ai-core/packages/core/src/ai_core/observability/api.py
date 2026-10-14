@@ -10,8 +10,9 @@ uma dataclass e um membro de `TraceEvent` — a assinatura de `emit` não muda.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Final, Literal, Protocol
 
 from ai_core_contracts import JSONValue
@@ -276,9 +277,42 @@ class Retrieval:
             raise ValueError("só os trechos entregues levam texto")
 
 
+type ExchangeRole = Literal["system", "user", "assistant", "tool"]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ExchangeMessage:
+    """Uma mensagem enviada ao modelo: papel e texto. Partes não textuais chegam como marcador (research R35)."""
+
+    role: ExchangeRole
+    content: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ModelExchange:
+    """O texto de uma chamada de modelo — as mensagens enviadas e a saída —, emitido pela 006 logo depois do `ModelCall`
+    (ADR-034, research R29). É o único evento com texto de prompt e resposta: o `TraceService` o descarta com a captura
+    desligada e, ligada, o entrega só a destinos que aceitam conteúdo, redigido e cortado. O primário nunca o recebe."""
+
+    request_id: str
+    role: str
+    provider: str
+    model: str
+    messages: tuple[ExchangeMessage, ...] = ()
+    output: str = ""
+
+    def __post_init__(self) -> None:
+        _require_text("request_id", self.request_id)
+        _require_text("role", self.role)
+        _require_text("provider", self.provider)
+        _require_text("model", self.model)
+        object.__setattr__(self, "messages", tuple(self.messages))
+
+
 type TraceEvent = (
     ExecutionStarted
     | ModelCall
+    | ModelExchange
     | ValidationRun
     | ToolCall
     | ControllerDecision
@@ -326,3 +360,211 @@ class TraceQuery(Protocol):
     def dropped_events(self) -> int:
         """Eventos descartados por falha do backend desde o início do processo (FR-011)."""
         ...
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Fase 9 (ADR-034; research R28 a R35): uso e custo, preços e destinos do trace
+# ---------------------------------------------------------------------------------------------------------------------
+
+type UsageGrouping = Literal["model", "assistant"]
+type UsageOrigin = Literal["production", "evaluation", "all"]
+type SettingSource = Literal["installation", "runtime", "default"]
+type PriceState = Literal["current", "superseded", "scheduled"]
+type DestinationState = Literal["ok", "degraded", "off"]
+
+MAX_REPORT_DAYS: Final = 366
+PRICE_SCALE: Final = 6
+"""Casas decimais dos preços (USD por milhão de tokens) e dos custos antes da apresentação (R31)."""
+
+
+class InvalidQuery(ValueError):
+    def __init__(self, message: str, *, field: str) -> None:
+        super().__init__(message)
+        self.field = field
+
+
+class InvalidPrice(ValueError):
+    def __init__(self, message: str, *, field: str) -> None:
+        super().__init__(message)
+        self.field = field
+
+
+class InvalidField(ValueError):
+    def __init__(self, message: str, *, field: str) -> None:
+        super().__init__(message)
+        self.field = field
+
+
+class InstallationDefined(ValueError):
+    """Ajuste definido pela instalação (variável de ambiente): a administração só o lê (ADR-033)."""
+
+    def __init__(self, message: str, *, field: str) -> None:
+        super().__init__(message)
+        self.field = field
+
+
+class MasterKeyMissing(RuntimeError):
+    """Sem `AI_CORE_MASTER_KEY`, o segredo do Langfuse não pode ser gravado (ADR-033)."""
+
+
+class Conflict(RuntimeError):
+    """Ajustes gravados sobre uma versão desatualizada; `current_version` é a guardada."""
+
+    def __init__(self, message: str, *, current_version: int | None = None) -> None:
+        super().__init__(message)
+        self.current_version = current_version
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class UsageQuery:
+    """Período em dias locais (inclusivos) no fuso `tz`, agrupado por modelo ou por Assistant, de uma origem."""
+
+    start: date
+    end: date
+    tz: str = "UTC"
+    by: UsageGrouping = "model"
+    origin: UsageOrigin = "production"
+
+    def __post_init__(self) -> None:
+        if self.start > self.end:
+            raise InvalidQuery("o início do período é depois do fim", field="start")
+        if (self.end - self.start).days + 1 > MAX_REPORT_DAYS:
+            raise InvalidQuery(f"o período passa de {MAX_REPORT_DAYS} dias", field="end")
+        if self.by not in ("model", "assistant"):
+            raise InvalidQuery(f"agrupamento desconhecido: {self.by!r}", field="by")
+        if self.origin not in ("production", "evaluation", "all"):
+            raise InvalidQuery(f"origem desconhecida: {self.origin!r}", field="origin")
+        if not self.tz.strip():
+            raise InvalidQuery("fuso vazio", field="tz")
+
+    @property
+    def days(self) -> int:
+        return (self.end - self.start).days + 1
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class UsageRow:
+    """Uso de uma chave num dia ou no período. `key` = `provider/model` ou o Assistant; `None` = fora de Assistant.
+    `cost` ausente quando falta preço vigente em algum dia da linha (`priced` falso)."""
+
+    key: str | None
+    calls: int = 0
+    requests: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cost: Decimal | None = None
+    priced: bool = True
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class UsageDay:
+    day: date
+    rows: tuple[UsageRow, ...] = ()
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class UsageReport:
+    query: UsageQuery
+    days: tuple[UsageDay, ...] = ()
+    totals: tuple[UsageRow, ...] = ()
+    total_cost: Decimal | None = None
+    requests: int = 0
+    """Requisições distintas que chamaram algum modelo no período (somar por modelo contaria duas vezes)."""
+    incomplete: bool = False
+    """Algum modelo usado no período não tinha preço vigente: o custo total é parcial."""
+    previous_total_cost: Decimal | None = None
+    """Custo do período de mesmo tamanho imediatamente anterior, para a comparação."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Price:
+    """USD por milhão de tokens de entrada e de saída, vigente a partir de `effective_from` (R31)."""
+
+    provider: str
+    model: str
+    usd_per_mtok_in: Decimal
+    usd_per_mtok_out: Decimal
+    effective_from: date
+    created_by: str
+    created_at: datetime
+    state: PriceState = "current"
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DestinationSettingsView:
+    """Os ajustes dos destinos com a origem de cada campo (ADR-033). Nunca traz o segredo do Langfuse."""
+
+    langfuse_enabled: bool = False
+    langfuse_host: str | None = None
+    langfuse_public_key: str | None = None
+    langfuse_secret_set: bool = False
+    capture_content: bool = False
+    sources: Mapping[str, SettingSource] = field(default_factory=dict)
+    version: int = 0
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DestinationHealth:
+    name: str
+    state: DestinationState
+    dropped_24h: int = 0
+    last_error: str | None = None
+    last_sent_at: datetime | None = None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ConnectionCheck:
+    ok: bool
+    detail: str
+
+
+class UsageReportSeam(Protocol):
+    """Relatório de uso e custo — consumido pela 008 (superfície de administração)."""
+
+    async def report(self, query: UsageQuery) -> UsageReport: ...
+
+
+class PriceBook(Protocol):
+    """Tabela de preços com vigência — consumida pela 008."""
+
+    async def prices(self) -> tuple[Price, ...]: ...
+
+    async def add_price(
+        self,
+        *,
+        provider: str,
+        model: str,
+        usd_per_mtok_in: Decimal,
+        usd_per_mtok_out: Decimal,
+        effective_from: date,
+        actor: str,
+    ) -> Price: ...
+
+    async def unpriced_models(self, *, start: date, end: date) -> tuple[str, ...]:
+        """Modelos usados no período sem preço vigente em algum dia dele."""
+        ...
+
+
+class TraceDestinations(Protocol):
+    """Ajustes do Langfuse e da captura de conteúdo, e a saúde dos destinos — consumido pela 008 e pela 011."""
+
+    async def settings(self) -> DestinationSettingsView: ...
+
+    async def set_langfuse(
+        self,
+        *,
+        enabled: bool | None = None,
+        host: str | None = None,
+        public_key: str | None = None,
+        secret_key: str | None = None,
+        actor: str,
+        version: int,
+    ) -> DestinationSettingsView: ...
+
+    async def set_capture(self, *, enabled: bool, actor: str, version: int) -> DestinationSettingsView: ...
+
+    async def test_langfuse(
+        self, *, host: str | None = None, public_key: str | None = None, secret_key: str | None = None
+    ) -> ConnectionCheck: ...
+
+    def health(self) -> tuple[DestinationHealth, ...]: ...

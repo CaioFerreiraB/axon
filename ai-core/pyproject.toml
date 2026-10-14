@@ -47,8 +47,9 @@ markers = [
     "us2: 007 US2 — credencial por referência; 005 US2 — flow agentic; 006 US2 — modelo por papel; 010 US2 — Assistant genérico com MCP; 009 US2 — harness",
     "us3: 007 US3 — cliente restrito ao grant; 006 US3 — providers externos e roteamento automático; 005 US3 — flow rag_first; 009 US3 — regressão em CI",
     "us4: 007 US4 — MCPs de usuário; 006 US4 — saída estruturada no controller; 005 US4 — validação no rag_first; 009 US4 — benchmark de modelos",
-    "us5: 007 US5 — política por servidor; 006 US5 — allowlist de modelo",
-    "us6: 007 US6 — proteções de rede; 003 US6 — Assistants de usuário",
+    "us5: 007 US5 — política por servidor; 006 US5 — allowlist de modelo; 009 US5 — uso e custo",
+    "us6: 007 US6 — proteções de rede; 003 US6 — Assistants de usuário; 009 US6 — destino Langfuse",
+    "us7: 009 US7 — captura opcional de prompt e resposta",
     "us8: 003 US8 — validação de Assistants",
     "us9: 003 US9 — administração por grupo, com token da plataforma ou chave",
     "us10: 003 US10 — sobreposições de Assistants de sistema",
@@ -831,3 +832,32 @@ type = "forbidden"
 source_modules = ["ai_core.bootstrap"]
 forbidden_modules = ["argon2"]
 allow_indirect_imports = true
+
+# --- Spec 009, Fase 9 (tasks.md T054) ----------------------------------------------------------------------------------
+
+[[tool.importlinter.contracts]]
+name = "o OpenTelemetry e o banco só existem nos adapters do trace"
+type = "forbidden"
+source_modules = [
+    "ai_core.observability.api",
+    "ai_core.observability.domain",
+    "ai_core.observability.ports",
+    "ai_core.observability.service",
+]
+forbidden_modules = ["opentelemetry", "psycopg", "psycopg_pool", "httpx", "cryptography"]
+
+[[tool.importlinter.contracts]]
+name = "o OpenTelemetry só existe nos adapters da 009"
+type = "forbidden"
+source_modules = [
+    "ai_core.packs",
+    "ai_core.llm",
+    "ai_core.graph",
+    "ai_core.http",
+    "ai_core.assistants",
+    "ai_core.mcp",
+    "ai_core.capabilities",
+    "ai_core.eval",
+    "ai_core.identity",
+]
+forbidden_modules = ["opentelemetry"]

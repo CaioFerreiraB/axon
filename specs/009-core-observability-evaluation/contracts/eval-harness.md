@@ -58,3 +58,10 @@ As do [research.md](../research.md) R17 (core) e R18 (domínio, `<pack>:<nome>`)
 | 5 | `compare` com dois relatórios de Assistants diferentes, lado a lado, com anotações | US4 cen. 1 |
 | 6 | item inválido e juiz ausente: o resto roda; as métricas de juiz ausentes | Edge Cases |
 | 7 | `reference_time` do item chega ao motor (as Turn Views o veem) | FR-003, ADR-013 |
+
+## Fase 9 (ADR-034)
+
+O harness lê o trace do backend primário (memória), que nunca recebe o `model_exchange` (o texto de prompt e resposta
+vai só a destinos que aceitam conteúdo, com a captura ligada): nada muda nas métricas. As rodadas do `ai-core eval run`
+entram no uso com a origem `evaluation` (clarificação de 2026-10-13), separadas da produção no dashboard.
+
