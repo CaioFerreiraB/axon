@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator, Callable
+from dataclasses import replace
 from datetime import timedelta
 from typing import Any
 
@@ -119,6 +120,28 @@ async def test_quem_espera_ve_a_fila_na_hora_e_segue_ao_ganhar_a_vaga() -> None:
     assert resto[1]["choices"][0]["delta"] == {"content": "ok"}
     assert resto[-1]["choices"][0]["finish_reason"] == "stop"
     assert engine.calls == 3
+
+
+async def test_no_modo_status_a_fila_e_o_progresso_vao_para_a_timeline() -> None:
+    """FR-005a: a mesma fila, como status do Open WebUI; nenhum raciocínio, e a linha final fecha a timeline."""
+    app, engine = montar(AdmissionLimits(max_executions=1, queue_size=3, max_wait=timedelta(seconds=5)))
+    service = app.state.chat_service
+    ocupando = service.stream(REQUEST, PRINCIPAL)
+    await abrir(ocupando)
+
+    timeline = service.stream(replace(REQUEST, progress="status"), PRINCIPAL)
+    _, fila = await abrir(timeline, 2)
+    assert fila["event"]["data"] == {"description": "Aguardando uma vaga (posição 1 na fila)…", "done": False}
+    assert fila["x_ai_core"]["progress"] == {"stage": "queue", "detail": "1"}
+
+    engine.gate.set()
+    await drenar(ocupando)
+    resto = await drenar(timeline)
+    assert not any(reasoning(chunk) for chunk in [fila, *resto])
+    statuses = [(c["event"]["data"]["description"], c["event"]["data"]["done"]) for c in resto if "event" in c]
+    assert statuses[0] == ("Escrevendo a resposta…", False)
+    assert statuses[-1][0].startswith("Concluído em ") and statuses[-1][1] is True
+    assert resto[-1]["choices"][0]["finish_reason"] == "stop"
 
 
 async def test_espera_esgotada_sem_streaming_e_503_e_em_streaming_e_fim_com_erro() -> None:

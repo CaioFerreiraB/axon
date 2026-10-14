@@ -9,13 +9,10 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Literal
 
 from ai_core.capabilities.api import CatalogTool
+from ai_core.graph.api import GateRoute
 from ai_core_contracts import Chunk
-
-type GateRoute = Literal["generate", "controller", "fallback"]
-"""`generate`: gerar com os trechos; `controller`: escalar para o loop; `fallback`: gerar sem trechos."""
 
 RETRIEVAL_KIND = "retrieval"
 

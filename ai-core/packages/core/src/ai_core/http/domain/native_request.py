@@ -14,6 +14,7 @@ from ai_core.http.domain.chat_request import (
     ChatRequestInvalid,
     parse_conversation_id,
     parse_messages,
+    parse_progress,
     parse_store,
     parse_stream,
     reject_forbidden,
@@ -22,7 +23,9 @@ from ai_core.http.domain.chat_request import (
 NATIVE_FIELDS: Final = frozenset({"assistant", "model", "messages", "stream", "conversation_id"})
 
 
-def parse_native(body: Mapping[str, Any], *, store_header: str | None = None) -> ChatRequest:
+def parse_native(
+    body: Mapping[str, Any], *, store_header: str | None = None, progress_header: str | None = None
+) -> ChatRequest:
     reject_forbidden(body)
     for field in sorted(str(key) for key in body if key not in NATIVE_FIELDS):
         raise ChatRequestInvalid(f"campo '{field}' não é aceito na requisição nativa", field=field)
@@ -41,4 +44,5 @@ def parse_native(body: Mapping[str, Any], *, store_header: str | None = None) ->
         stream=parse_stream(body),
         conversation_id=conversation_id,
         store=parse_store(store_header, conversation_id),
+        progress=parse_progress(progress_header),
     )

@@ -144,3 +144,20 @@ def test_envelope_e_igual_em_todos_os_chunks() -> None:
         assert chunk["object"] == "chat.completion.chunk"
         assert chunk["created"] == int(CREATED.timestamp())
         assert chunk["model"] == MODEL_ID
+
+
+@pytest.mark.us6
+def test_status_da_timeline_vai_na_chave_event_com_delta_vazio() -> None:
+    """FR-005a (R42): o Open WebUI v0.12 repassa `event` ao emissor dele; o cliente padrão vê um chunk vazio."""
+    from ai_core.http.domain.openai_chunks import status_chunk
+    from ai_core.http.domain.timeline import Status
+
+    started = status_chunk(Status("Escrevendo a resposta…", done=False), progress={"stage": "generate"}, **ENVELOPE)
+    assert started["choices"][0]["delta"] == {}
+    assert started["event"] == {"type": "status", "data": {"description": "Escrevendo a resposta…", "done": False}}
+    assert started["x_ai_core"] == {"progress": {"stage": "generate"}}
+
+    done = status_chunk(Status("Concluído em 2,0 s", done=True), **ENVELOPE)
+    assert done["event"]["data"]["done"] is True
+    assert "x_ai_core" not in done
+    assert done["id"] == started["id"] and done["object"] == "chat.completion.chunk"

@@ -14,11 +14,11 @@ from langgraph.runtime import get_runtime
 
 from ai_core.graph.adapters.langgraph.state import AgentContext, AgentState
 from ai_core.graph.adapters.langgraph.view import turn_view
-from ai_core.graph.api import ExecutionIssue
+from ai_core.graph.api import ExecutionIssue, GenerationOutcome, StepOutcome
 from ai_core.graph.domain.budget import Trimmed, estimate_tokens, trim_results
 from ai_core.graph.domain.transcript import generation_messages
 from ai_core.observability.api import Retrieval, RetrievedChunk, ValidationRun
-from ai_core_contracts import Chunk
+from ai_core_contracts import ChatUsage, Chunk
 
 STAGE_PREPARE = "prepare_context"
 STAGE_GENERATE = "generate"
@@ -26,10 +26,16 @@ STAGE_VALIDATE = "validate_answer"
 
 TOKEN = "token"
 PROGRESS = "progress"
+STEP = "step"
 
 
 def _writer() -> Any:
     return get_stream_writer()
+
+
+def finished(stage: str, outcome: StepOutcome | None = None) -> None:
+    """A etapa terminou, com o desfecho dela (ADR-028). Sai depois de todo o trabalho e de todo token da etapa."""
+    _writer()({"kind": STEP, "stage": stage, "outcome": outcome})
 
 
 def _context() -> AgentContext:
@@ -41,6 +47,7 @@ async def prepare_context(state: AgentState) -> dict[str, Any]:
     ctx = _context()
     _writer()({"kind": PROGRESS, "stage": STAGE_PREPARE})
     slices = await ctx.hooks.prepare(ctx.composition, turn_view(state), state.get("packs", {}))
+    finished(STAGE_PREPARE)
     return {"packs": {name: dict(values) for name, values in slices.items()}}
 
 
@@ -64,7 +71,10 @@ async def generate(state: AgentState) -> dict[str, Any]:
     # Os validators que reescrevem em streaming filtram cada pedaço antes de ele sair (ADR-024): só o que o filtro
     # libera vira token, e a cauda sai no fim. Sem esses validators, o filtro deixa tudo passar.
     answer_filter = ctx.hooks.open_answer_stream(ctx.composition, turn_view(state), state.get("packs", {}))
-    async for chunk in ctx.router.for_role("generation").stream(trimmed.messages):
+    model = ctx.router.for_role("generation")
+    usage: ChatUsage | None = None
+    async for chunk in model.stream(trimmed.messages):
+        usage = chunk.get("usage", usage)
         text = chunk["delta"]
         if text:
             released = answer_filter.feed(text)
@@ -73,6 +83,14 @@ async def generate(state: AgentState) -> dict[str, Any]:
     streamed = answer_filter.finish()
     if streamed.tail:
         writer({"kind": TOKEN, "text": streamed.tail})
+    finished(
+        STAGE_GENERATE,
+        GenerationOutcome(
+            model=str(model.ref),
+            input_tokens=None if usage is None else usage["prompt_tokens"],
+            output_tokens=None if usage is None else usage["completion_tokens"],
+        ),
+    )
     return {
         "answer": streamed.answer,
         "streamed": streamed,
@@ -126,7 +144,9 @@ async def validate_answer(state: AgentState) -> dict[str, Any]:
                 flags=run.result.flags,
             )
         )
-    return {"validation": outcome, "errors": _deliver_rest(state.get("answer"), outcome.answer)}
+    errors = _deliver_rest(state.get("answer"), outcome.answer)
+    finished(STAGE_VALIDATE)
+    return {"validation": outcome, "errors": errors}
 
 
 def _emit_retrieval(

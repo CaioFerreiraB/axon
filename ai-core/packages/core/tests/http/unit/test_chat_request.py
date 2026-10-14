@@ -130,3 +130,34 @@ def test_parse_le_o_cabecalho() -> None:
     assert parse(body()).store is True
     with pytest.raises(ChatRequestInvalid, match="x-ai-core-store"):
         parse(body(conversation_id="conv_1"), store_header="false")
+
+
+# --- Timeline de status: cabeçalho `x-ai-core-progress` (FR-005a, R42) --------------------------------------------
+
+
+@pytest.mark.us6
+@pytest.mark.parametrize(("value", "mode"), [(None, "reasoning"), ("reasoning", "reasoning"), (" Status ", "status")])
+def test_modo_de_progresso(value: str | None, mode: str) -> None:
+    from ai_core.http.domain.chat_request import parse_progress
+
+    assert parse_progress(value) == mode
+
+
+@pytest.mark.us6
+@pytest.mark.parametrize("value", ["timeline", "", "true"])
+def test_modo_de_progresso_desconhecido_e_recusado(value: str) -> None:
+    from ai_core.http.domain.chat_request import PROGRESS_HEADER, parse_progress
+
+    with pytest.raises(ChatRequestInvalid) as caught:
+        parse_progress(value)
+    assert (caught.value.code, caught.value.field) == ("invalid_header", PROGRESS_HEADER)
+
+
+@pytest.mark.us6
+def test_as_duas_entradas_leem_o_cabecalho_de_progresso() -> None:
+    from ai_core.http.domain.native_request import parse_native
+
+    assert parse(body()).progress == "reasoning"
+    assert parse(body(), progress_header="status").progress == "status"
+    native = {"assistant": "geral", "messages": [{"role": "user", "content": "oi"}]}
+    assert parse_native(native, progress_header="status").progress == "status"

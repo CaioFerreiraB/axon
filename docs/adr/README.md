@@ -32,6 +32,7 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 | [025](ADR-025-indice-do-scouting-devolve-a-similaridade-densa.md) | O índice do scouting devolve a similaridade densa de cada resultado | Aceita | 102, 103 |
 | [026](ADR-026-o-modelo-ve-o-identificador-de-cada-trecho.md) | O modelo vê o identificador de cada trecho | Aceita | 004, 005, 101, 104 |
 | [027](ADR-027-metricas-de-dominio-pelo-contrato-de-pack.md) | Métricas de domínio pelo contrato de pack | Aceita | 001, 002, 009, 105 |
+| [028](ADR-028-o-motor-publica-o-desfecho-de-cada-etapa.md) | O motor publica o desfecho de cada etapa | Aceita | 005, 008, 009 |
 
 ## Modelo para ADR novo
 

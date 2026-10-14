@@ -76,11 +76,22 @@ Push e PR: deploy keys só de leitura nos segredos `AGENTIC_APP_DEPLOY_KEY` (cad
 | `PACKS` | `ai-scouting @ git+ssh://git@github.com/CaioFerreiraB/ai-scouting.git@24cb157590dbc81c9b6778de0b868fcc8064c36b` |
 | Perfil do compose | `webui`: `keycloak` e `open-webui` sobem com `docker compose --profile webui up`; sem o perfil, a instalação é a de antes |
 | `keycloak` | `quay.io/keycloak/keycloak:26.7.5`, `start-dev --import-realm`, realm `config/keycloak/agentic-realm.json`, dados no volume `keycloak-data`, porta `${KEYCLOAK_HOST_PORT:-8180}` → 8080, `KC_HOSTNAME=http://localhost:8180`, `KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true` |
-| Realm `agentic` | cliente `open-webui` (confidencial), audiência `ai-core` e `groups` no access token, grupo `equipe`, usuários `ana` e `bia` (`equipe`); segredo e senha por placeholder do `.env` |
-| `open-webui` | `ghcr.io/open-webui/open-webui:v0.12.0`, porta `${OPEN_WEBUI_HOST_PORT:-3000}` → 8080, volume `open-webui-data`, configuração da 008 R40 só por ambiente, mais `DEFAULT_USER_ROLE=user` |
+| Realm `agentic` | cliente `open-webui` (confidencial), audiência `ai-core` e `groups` no access token, grupo `equipe`, usuários `ana` e `bia` (`equipe`); sessão de 10 h; segredo e senha por placeholder do `.env` |
+| `open-webui` | `ghcr.io/open-webui/open-webui:v0.12.0`, porta `${OPEN_WEBUI_HOST_PORT:-3000}` → 8080, volume `open-webui-data`, configuração da 008 R40 só por ambiente, mais `DEFAULT_USER_ROLE=user`, `DEFAULT_MODEL_PARAMS={"function_calling": "legacy"}` e `DEFAULT_MODEL_METADATA={"capabilities": {"builtin_tools": false}}`, `JWT_EXPIRES_IN=${OPEN_WEBUI_SESSION_EXPIRES_IN:-8h}` |
 | Core (`.env`) | `AI_CORE_OIDC_ISSUER`, `AI_CORE_OIDC_AUDIENCE=ai-core`, `AI_CORE_OIDC_JWKS_URL` (rede interna), `AI_CORE_OIDC_SUBJECT_CLAIM=preferred_username`; fila (`AI_CORE_MAX_EXECUTIONS`, `AI_CORE_QUEUE_SIZE`, `AI_CORE_QUEUE_WAIT_MS`) opcionais |
 | `config/assistants.yaml` | + `interno`: privado, `allow: ["group:equipe"]`, só `oidc`, flow `chat`, pack `generic` |
 
 `scripts/check-webui.py` (manual, com o perfil `webui` de pé): login OIDC de `ana` e de `bia` pelo Open WebUI, listas
-de modelos diferentes (`interno` só para a `bia`), uma mensagem pelo Open WebUI respondida pela plataforma, exatamente
-um `POST /v1/chat/completions` no log do `ai-core` e nenhuma conversa gravada para o subject.
+de modelos diferentes (`interno` só para a `bia`), uma mensagem montada como a tela de chat do v0.12 a monta (conversa
+salva, `session_id`, `model_item`, `features`) respondida pela plataforma, e exatamente um `POST /v1/chat/completions`
+no log do `ai-core`, com 200 (sem `tools` e efêmero).
+
+## Timeline de status (2026-10-13; research R41; 008 FR-005a)
+
+| Item | Valor |
+|---|---|
+| `CORE_REF` | `v0.5.0` (o motor publica o desfecho de cada etapa, ADR-028; a API mostra a timeline de status) |
+| `OPENAI_API_CONFIGS` | `headers` com `x-ai-core-store: false` **e** `x-ai-core-progress: status` |
+
+`scripts/check-webui.py`, passo novo: a mensagem gravada pelo Open WebUI tem `statusHistory`, começando em "Preparando o
+contexto da pergunta…", com a linha "Resposta de <modelo>" e terminando em "Concluído em …" com `done: true`.

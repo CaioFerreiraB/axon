@@ -280,3 +280,32 @@ exatamente quando `passages == 0`.
 | 004 | renderização `[documento — seção, p. N · id: <chunk_id>]`; `ToolSession.fence_chunks(name, chunks) -> FencedToolResult` |
 | 009 | evento `CoverageGate` |
 | 011 | `AI_CORE_RAG_CANDIDATES`, `AI_CORE_RAG_PASSAGES`, `AI_CORE_RAG_MIN_SCORE` → `RagSettings` |
+
+## Desfecho de etapa ([ADR-028](../../docs/adr/ADR-028-o-motor-publica-o-desfecho-de-cada-etapa.md)) — 2026-10-13
+
+### `StepFinished` (membro novo de `ExecutionEvent`)
+
+| Campo | Tipo | Regra |
+|---|---|---|
+| `stage` | `str` | a etapa que terminou; não vazio; o mesmo valor do `ProgressEvent` dela |
+| `outcome` | `StepOutcome \| None` | `None` quando não há o que contar (`prepare_context`, `validate_answer`) |
+
+Sai depois de todo o trabalho e de todo token da etapa, antes do progresso da seguinte. Com `stream=False`, não sai.
+
+### Desfechos (`StepOutcome`)
+
+| Tipo | Etapa | Campos |
+|---|---|---|
+| `ToolCallsOutcome` | `retrieve`, `execute_tool` | `calls: tuple[ToolCallSummary, ...]` — no `retrieve`, uma por tool de recuperação, até a que falhou |
+| `ToolCallSummary` | — | `tool`, `kind` (do catálogo; `None` fora dele), `arguments` (congelados), `status` (o do gateway da 004), `truncated`, `sources: tuple[SourceRef, ...]` |
+| `SourceRef` | — | `document` (não vazio), `section`, `page` — nunca o texto |
+| `RerankOutcome` | `rerank` | `candidates ≥ 0`, `kept: tuple[SourceRef, ...]` (na ordem), `degraded` (packs cujo reranker falhou) |
+| `GateOutcome` | `gate` | `covered`, `route` (`GateRoute`: `generate`, `controller`, `fallback`), `best_score`, `threshold`, `delivered ≥ 0` (trechos que couberam no teto; 0 fora de `generate`) |
+| `ControllerOutcome` | `controller` | `iteration ≥ 1`, `action` (`tool`, `answer`, `invalid`, `failed`), `model` (`provider/modelo`), `tool`, `arguments`, `reason` (o motivo da ação inválida, ou o tipo da falha) |
+| `GenerationOutcome` | `generate` | `model`, `input_tokens`, `output_tokens` (do `usage` do provider; `None` sem ele) |
+| `CatalogOutcome` | `load_capabilities` | `tools ≥ 0`, `unavailable` (aliases MCP, sem o motivo) |
+
+Os limites (iterações, contexto) não chamam o controller e não ganham desfecho: continuam como registros `notice`.
+`GateRoute` passou a ser publicado aqui; `domain/gate.py` o importa. Os desfechos são montados em `domain/steps.py`
+(`source_refs`, `tool_summary`), puro.
+

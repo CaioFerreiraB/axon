@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Final
+from typing import Any, Final, Literal
 
 from ai_core.assistants.api import WIDENING_FIELDS
 from ai_core.http.domain.errors import InvalidRequest
@@ -29,6 +29,11 @@ USER_ROLE: Final = "user"
 STORE_HEADER: Final = "x-ai-core-store"
 """Cabeçalho do pedido efêmero (FR-023): `false`, sem id de conversa, executa sem criar nem gravar conversa."""
 
+PROGRESS_HEADER: Final = "x-ai-core-progress"
+"""Como o progresso aparece em streaming (FR-005a): `reasoning` (padrão) ou `status`, a timeline do Open WebUI."""
+
+type ProgressMode = Literal["reasoning", "status"]
+
 
 class ChatRequestInvalid(InvalidRequest):
     """Corpo recusado. A mensagem sempre nomeia o campo, para que o cliente saiba o que corrigir."""
@@ -44,10 +49,15 @@ class ChatRequest:
     conversation_id: str | None = None
     store: bool = True
     """`False` no pedido efêmero (FR-023): nenhuma conversa é criada nem gravada."""
+    progress: ProgressMode = "reasoning"
+    """`status` mostra o progresso como timeline de status do Open WebUI (FR-005a)."""
 
 
-def parse(body: Mapping[str, Any], *, store_header: str | None = None) -> ChatRequest:
-    """Valida o corpo no formato OpenAI (e o cabeçalho `x-ai-core-store`) e devolve só o que a execução usa."""
+def parse(
+    body: Mapping[str, Any], *, store_header: str | None = None, progress_header: str | None = None
+) -> ChatRequest:
+    """Valida o corpo no formato OpenAI (e os cabeçalhos `x-ai-core-store` e `x-ai-core-progress`) e devolve só o que a
+    execução usa."""
     reject_forbidden(body)
 
     model = body.get("model")
@@ -61,6 +71,24 @@ def parse(body: Mapping[str, Any], *, store_header: str | None = None) -> ChatRe
         stream=parse_stream(body),
         conversation_id=conversation_id,
         store=parse_store(store_header, conversation_id),
+        progress=parse_progress(progress_header),
+    )
+
+
+def parse_progress(value: str | None) -> ProgressMode:
+    """O cabeçalho `x-ai-core-progress` (FR-005a, research R42): ausente ou `reasoning` é o FR-005; `status` é a
+    timeline. Outro valor é recusado — aceitar em silêncio esconderia um erro de configuração da conexão."""
+    if value is None:
+        return "reasoning"
+    normalized = value.strip().lower()
+    if normalized == "reasoning":
+        return "reasoning"
+    if normalized == "status":
+        return "status"
+    raise ChatRequestInvalid(
+        f"cabeçalho '{PROGRESS_HEADER}' aceita só 'reasoning' ou 'status': {value!r}",
+        field=PROGRESS_HEADER,
+        code="invalid_header",
     )
 
 

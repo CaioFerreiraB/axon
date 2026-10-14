@@ -715,3 +715,18 @@ não mudam (`0.1.1`). O pack `scouting` (101 US5) e a instalação apontam para 
 **Rationale**: a 101 precisa do `rag_first` e do ADR-026 numa referência estável.
 
 **Alternatives considered**: apontar para um commit.
+
+### R49 — Desfecho de etapa ([ADR-028](../../docs/adr/ADR-028-o-motor-publica-o-desfecho-de-cada-etapa.md), FR-012a; 2026-10-13)
+
+**Decision**: evento novo `StepFinished(stage, outcome)` no `ExecutionEvent`, escrito pelos nós no canal de stream
+(`{"kind": "step", ...}`, traduzido em `runtime.py`) ao fim de cada etapa, inclusive nos caminhos de falha
+(`retrieve` que falha, controller que falha). Desfechos tipados em `api.py`, montados por funções puras de
+`domain/steps.py`. O modelo vem de `BoundModel.ref` e os tokens do `usage` do último pedaço do stream (ou da resposta do
+controller) — sem mudança na 006. O motor não mede tempo: quem consome mede entre o `ProgressEvent` e o `StepFinished`.
+
+**Rationale**: o pedido do mantenedor de uma timeline com chamadas, retornos e decisões no Open WebUI (008 FR-005a); o
+que faltava estava no estado do grafo ou só no trace.
+
+**Alternatives considered**: texto mais rico no `detail` do `ProgressEvent`; mapeamento livre de fatos; ler o trace em
+tempo real (todas no ADR-028).
+

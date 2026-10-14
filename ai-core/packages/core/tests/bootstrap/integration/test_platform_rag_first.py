@@ -8,6 +8,7 @@ recebe os trechos com `· id: <chunk_id>`; a falha do retriever é 502 sem reexe
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -134,3 +135,27 @@ def test_limiar_do_operador_sem_controller_gera_sem_trechos(tmp_path: Path) -> N
     assert response.status_code == 200, response.text
     assert [e["kind"] for e in response.json()["x_ai_core"]["errors"]] == ["CoverageInsufficient"]
     assert [m for m in geracao.calls[-1]["messages"] if m["role"] == "tool"] == []
+
+
+def test_timeline_de_status_nomeia_a_busca_os_documentos_e_o_portao(tmp_path: Path) -> None:
+    """008 FR-005a com o motor real (ADR-028): o que o Open WebUI mostra numa conversa `rag_first`."""
+    geracao = ScriptedProvider(name="ollama", deltas=("Veja [[manual#s1]].",))
+    plataforma = _plataforma(tmp_path, Retriever(), geracao)
+    with TestClient(plataforma.app) as client:
+        response = client.post(
+            "/v1/chat/completions",
+            headers=OIDC | {"x-ai-core-progress": "status"},
+            json=body(model="leitor", stream=True),
+        )
+
+    assert response.status_code == 200, response.text
+    chunks = [json.loads(line[6:]) for line in response.text.splitlines() if line.startswith("data: {")]
+    timeline = [c["event"]["data"]["description"] for c in chunks if "event" in c]
+    assert "Consultando os documentos…" in timeline
+    (busca,) = [line for line in timeline if line.startswith("docs.search(")]
+    assert "→ ok: 3 trechos de 1 documento: Manual" in busca
+    assert any(line.startswith("3 de 3 trechos: Manual, p. 1; Manual, p. 2; Manual, p. 3") for line in timeline)
+    assert any(line.startswith("Coberto: melhor score 0,80, sem limiar → resposta com 3 trechos") for line in timeline)
+    assert any(line.startswith(f"Resposta de ollama/{MODEL}") for line in timeline)
+    assert timeline[-1].startswith("Concluído em ")
+    assert "conteúdo da seção" not in response.text

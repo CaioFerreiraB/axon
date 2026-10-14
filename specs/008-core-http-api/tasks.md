@@ -617,3 +617,18 @@ Task: "integration/test_http_end_to_end.py (T011)"
 - 011 (mesma fase) monta a app, injeta os adapters do perfil e oferece `ai-core serve`
 - Fase 2: a 003 fornece autenticador e resolvedor reais; entram listagem de modelos, conversas, CRUD e saúde
 - Fase 7: progresso de tool, fila de admissão e Open WebUI
+
+## Passada de 2026-10-13: timeline de status no Open WebUI (FR-005a, US6 cen. 5; research R42; [ADR-028](../../docs/adr/ADR-028-o-motor-publica-o-desfecho-de-cada-etapa.md))
+
+- [X] T079 [US6] `domain/chat_request.py`: `PROGRESS_HEADER`, `parse_progress` e `ChatRequest.progress`; `parse` e
+  `parse_native` leem o cabeçalho, e `adapters/chat.py` o repassa nas duas entradas
+- [X] T080 [US6] `domain/timeline.py` (puro): `Status`, `Timeline` e a formatação pt-BR; `domain/openai_chunks.py`:
+  `status_chunk`, `progress_of` e `queue_progress`
+- [X] T081 [US6] `service.py` (`ChatService.stream`): no modo `status`, fila, início e desfecho de etapa e fim pela
+  `Timeline`, com o tempo do `Clock`; o modo `reasoning` sem mudança
+- [X] T082 [P] [US6] Testes: `tests/http/unit/test_timeline.py`, `test_chat_request.py` (o cabeçalho),
+  `test_openai_chunks.py` (`status_chunk`), `tests/http/contract/test_admission.py` (fila no modo `status`),
+  `tests/http/contract/test_open_webui.py` (o fixture do v0.12 com o cabeçalho, sem ele, 400 nas duas entradas, a
+  requisição nativa) e, na 011, `tests/bootstrap/integration/test_platform_rag_first.py` (a timeline com o motor real)
+- [ ] T083 Passada de encaixe da 002 (`agentic-deploy`): a conexão manda `x-ai-core-progress: status`, `CORE_REF` na
+  tag nova; conferir no navegador

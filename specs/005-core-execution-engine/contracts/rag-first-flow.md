@@ -33,3 +33,9 @@ Cada passo emite `ProgressEvent` ao começar: `prepare_context`, `retrieve` (`"<
 | validators na ordem, `generation_context` = os entregues, inclusive depois do corte pelo teto | US4 cen. 1–2 |
 | recuperação que falha → `error`, nenhuma chamada de geração | R37 |
 | o modelo vê `· id: <chunk_id>` em cada trecho | ADR-026 |
+
+## Desfecho de etapa (ADR-028)
+
+Cada etapa que emite `ProgressEvent` termina com um `StepFinished` antes da etapa seguinte; o desfecho de cada uma está
+na tabela de [execution-engine.md](execution-engine.md), seção "Desfecho de etapa".
+

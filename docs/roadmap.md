@@ -56,7 +56,10 @@ sobrecarga é 503 com `Retry-After` antes de qualquer chamada de modelo —, mos
 histórico que a interface já guarda. A instalação (`agentic-deploy`, perfil `webui`) traz o Open WebUI e um Keycloak de
 desenvolvimento, com a prova automatizada (`scripts/check-webui.py`); ela achou e corrigiu um defeito do verificador
 OIDC da 003 com o JWKS do Keycloak (core `v0.4.1`). Os valores da fila seguem provisórios até a medição com um modelo
-local, que o mantenedor deixou para depois.
+local, que o mantenedor deixou para depois. Depois dela (2026-10-13), o progresso no Open WebUI virou uma timeline de
+status — chamadas e argumentos, trechos e documentos, decisões do portão e do controller, modelo, tokens e tempos de cada
+etapa — pelo desfecho de etapa que o motor publica (ADR-028) e o cabeçalho `x-ai-core-progress: status` da conexão (008
+FR-005a), no lugar do bloco "Pensou por N segundos".
 
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 

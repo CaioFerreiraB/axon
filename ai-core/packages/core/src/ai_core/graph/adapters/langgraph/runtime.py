@@ -13,9 +13,9 @@ from typing import Any, Final, Literal, cast
 from ai_core.capabilities.api import CatalogConflict
 from ai_core.graph.adapters.langgraph.flows import FlowGraph, compiled_flows
 from ai_core.graph.adapters.langgraph.nodes.agentic import STAGE_LOAD
-from ai_core.graph.adapters.langgraph.nodes.common import PROGRESS, TOKEN
+from ai_core.graph.adapters.langgraph.nodes.common import PROGRESS, STEP, TOKEN
 from ai_core.graph.adapters.langgraph.state import AgentContext, AgentState
-from ai_core.graph.api import ExecutionEvent, ExecutionIssue, FinalEvent, ProgressEvent, TokenEvent
+from ai_core.graph.api import ExecutionEvent, ExecutionIssue, FinalEvent, ProgressEvent, StepFinished, TokenEvent
 from ai_core.graph.domain.outcome import final_event
 from ai_core.graph.ports import ExecutionPlan
 from ai_core.llm.api import ModelCallFailed
@@ -103,6 +103,8 @@ def _from_custom(chunk: Any) -> ExecutionEvent:
         return TokenEvent(text=chunk["text"])
     if chunk.get("kind") == PROGRESS:
         return ProgressEvent(stage=chunk["stage"], detail=chunk.get("detail"))
+    if chunk.get("kind") == STEP:
+        return StepFinished(stage=chunk["stage"], outcome=chunk.get("outcome"))
     raise ValueError(f"pedaço de stream desconhecido: {chunk!r}")
 
 

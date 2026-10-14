@@ -173,3 +173,59 @@ def test_numeros_invalidos_sao_recusados_nomeando_o_campo(fields: dict[str, obje
 @pytest.mark.parametrize("min_score", [0.0, 1.0, 0.5])
 def test_limiar_nas_bordas_e_aceito(min_score: float) -> None:
     assert graph_api.RagSettings(min_score=min_score).min_score == min_score
+
+
+# --- Desfecho de etapa (ADR-028) -----------------------------------------------------------------------------------
+
+
+def test_nomes_publicos_do_desfecho_de_etapa() -> None:
+    public = {name for name in vars(graph_api) if not name.startswith("_")}
+    assert {
+        "StepFinished",
+        "StepOutcome",
+        "SourceRef",
+        "ToolCallSummary",
+        "ToolCallsOutcome",
+        "RerankOutcome",
+        "GateOutcome",
+        "GateRoute",
+        "ControllerOutcome",
+        "ControllerAction",
+        "GenerationOutcome",
+        "CatalogOutcome",
+    } <= public
+
+
+def test_fim_de_etapa_exige_etapa_e_aceita_desfecho_vazio() -> None:
+    assert graph_api.StepFinished(stage="validate_answer").outcome is None
+    with pytest.raises(ValueError):
+        graph_api.StepFinished(stage=" ")
+
+
+def test_argumentos_da_chamada_sao_congelados() -> None:
+    arguments = {"query": "x"}
+    summary = graph_api.ToolCallSummary(tool="docs.search", arguments=arguments, status="ok")
+    arguments["query"] = "mudou"
+    assert summary.arguments == {"query": "x"}
+    with pytest.raises(TypeError):
+        summary.arguments["query"] = "y"  # type: ignore[index]
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda: graph_api.SourceRef(document=""),
+        lambda: graph_api.ToolCallSummary(tool="", status="ok"),
+        lambda: graph_api.RerankOutcome(candidates=-1),
+        lambda: graph_api.GateOutcome(covered=True, route="outro"),  # type: ignore[arg-type]
+        lambda: graph_api.GateOutcome(covered=True, route="generate", delivered=-1),
+        lambda: graph_api.ControllerOutcome(iteration=0, action="answer", model="p/m"),
+        lambda: graph_api.ControllerOutcome(iteration=1, action="limit", model="p/m"),  # type: ignore[arg-type]
+        lambda: graph_api.GenerationOutcome(model=" "),
+        lambda: graph_api.GenerationOutcome(model="p/m", output_tokens=-2),
+        lambda: graph_api.CatalogOutcome(tools=-1),
+    ],
+)
+def test_desfecho_invalido_e_recusado_na_construcao(build: object) -> None:
+    with pytest.raises(ValueError):
+        build()  # type: ignore[operator]

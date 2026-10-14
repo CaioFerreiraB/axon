@@ -613,7 +613,14 @@ plataforma e `OPENAI_API_CONFIGS` com `auth_type: system_oauth` e `headers: {"x-
 `ENABLE_FOLLOW_UP_GENERATION`, `ENABLE_AUTOCOMPLETE_GENERATION`, `ENABLE_SEARCH_QUERY_GENERATION` e
 `ENABLE_RETRIEVAL_QUERY_GENERATION` em `false` (clarificação 3); OIDC (`OPENID_PROVIDER_URL`, `OAUTH_CLIENT_ID`,
 `OAUTH_CLIENT_SECRET`, `ENABLE_OAUTH_SIGNUP=true`, `ENABLE_LOGIN_FORM=false`); `ENABLE_PERSISTENT_CONFIG=false`, para que
-o ambiente prevaleça sobre o que ficou gravado; imagem fixada na `v0.12.0`. O teste da US8 com a interface conta as
+o ambiente prevaleça sobre o que ficou gravado; imagem fixada na `v0.12.0`. *Acrescido depois da prova no navegador
+(2026-10-13)*: `DEFAULT_MODEL_PARAMS={"function_calling": "legacy"}` e `DEFAULT_MODEL_METADATA={"capabilities":
+{"builtin_tools": false}}` — no v0.12 a chamada de função nativa é o padrão, e toda conversa do navegador (com
+`session_id`) levava as ferramentas embutidas do Open WebUI (38: memória, notas, hora, calendário, automações…) no campo
+`tools`, recusado com 400 `widening_field`. Só o metadado não bastou: o cadastro de modelo que a tela cria (ao mexer no
+modelo pelo painel) vem com todas as capacidades ligadas e vence o metadado padrão; os parâmetros desse cadastro ficam
+vazios, então o modo legado — que nunca manda `tools` à conexão — continua valendo. A prova automatizada não pegou na
+primeira versão porque montava o pedido direto pela API, sem o `session_id`; agora monta como a tela de chat. O teste da US8 com a interface conta as
 execuções no trace: uma por mensagem.
 
 **Rationale**: SC-001 (nenhum código de interface); as consultas de busca e de recuperação do próprio Open WebUI também
@@ -636,3 +643,59 @@ duas listas em `/v1/models`); bootstrap — a 011 lê as três variáveis e, com
 **Rationale**: o padrão da R24 (a 003 real, o motor real ou programado na porta de execução).
 
 **Alternatives considered**: teste de carga com modelo real na suíte (fica no quickstart, para medir os valores).
+
+## R42 — Timeline de status no Open WebUI (FR-005a; clarificação de 2026-10-13; ADR-028)
+
+**Decision**: o cabeçalho `x-ai-core-progress` escolhe o modo de progresso em streaming, nas duas entradas
+(`domain/chat_request.py`, `parse_progress`): `reasoning` (padrão, a R34) ou `status`. Outro valor é 400
+`invalid_header`. No modo `status`:
+
+- cada evento vira um chunk com `delta: {}` e a chave `event` = `{"type": "status", "data": {"description", "done"}}`;
+- o início de etapa (`ProgressEvent`) vai com `done: false` e o mesmo `x_ai_core.progress` de sempre;
+- o desfecho (`StepFinished`, 005 ADR-028) vai com `done: true`: uma linha por desfecho (no `retrieve`, uma por chamada),
+  com o tempo da etapa medido pelo `Clock` da API entre o início e o fim;
+- a fila vira status com `done: false`;
+- no `FinalEvent`, uma linha por registro (`Aviso: <mensagem>` para `notice`; `Erro em <etapa>: <tipo>` para `error`) e a
+  de conclusão (`Concluído em <tempo>[ · N citações]` ou `Terminou com erro em <tempo>`), antes do chunk final;
+- nenhum `reasoning_content`, e a timeline segue depois do primeiro texto.
+
+As linhas saem de `domain/timeline.py` (puro, tempo dado por quem chama): o início reaproveita a tabela da R34. O
+desfecho segue esta tabela:
+
+| Desfecho | Linha |
+|---|---|
+| `None` | `Contexto preparado` (`prepare_context`), `Resposta conferida` (`validate_answer`), `Etapa {stage} concluída` |
+| `CatalogOutcome` | `7 ferramentas disponíveis; indisponível: crm` |
+| `ControllerOutcome` | `Decisão (iteração 1, openai/gpt-4.1-nano): chamar scouting.search_docs(query="…")`, `responder`, `ação inválida (motivo)`, `o controller falhou; segue para a resposta` |
+| `ToolCallsOutcome` | `scouting.search_docs(query="…", top_k=20) → ok: 20 trechos de 4 documentos: POR 2025, Estatuto 2024, … e mais 1`; status `erro`, `tempo esgotado`, `ferramenta inexistente`, `argumentos inválidos`; `, cortado` |
+| `RerankOutcome` | `5 de 20 trechos: POR 2025 — Regra 12, p. 34; …` e o reranker que falhou |
+| `GateOutcome` | `Coberto: melhor score 0,89, sem limiar → resposta com 5 trechos`; `Não coberto: … → busca com ferramentas` ou `→ resposta sem trechos` |
+| `GenerationOutcome` | `Resposta de openrouter/openai/gpt-4.1-nano · 1.840 tokens de entrada, 312 de saída` |
+
+Argumentos em JSON compacto, cortados em 120 caracteres com "…"; até 3 documentos ou fontes nomeados, depois "e mais
+N"; números em pt-BR (`0,89`, `1.840`, `12 ms`, `1,2 s`, `1 min 3 s`). Texto de trecho, conteúdo de resultado e texto de
+erro de tool nunca aparecem: o desfecho do motor não os traz, e um registro `error` aparece pelo tipo, porque a mensagem
+dele pode trazer o texto de erro de uma tool ou de um servidor. A conexão da instalação manda o cabeçalho junto do
+`x-ai-core-store: false`.
+
+**Rationale**: o Open WebUI v0.12.0, no código da versão:
+
+- `utils/middleware.py`, no laço do streaming: repassa a chave `event` de cada chunk ao emissor de eventos
+  (`if 'event' in data and not request.state.direct`) e continua processando o `choices` do mesmo chunk;
+- `socket/main.py`: grava cada `status` na mensagem (`add_message_status_to_chat_by_id_and_message_id`), e a timeline
+  volta quando a conversa é reaberta;
+- `StatusHistory.svelte`: mostra o último status, animado só com `done: false`, e o histórico expansível com um ponto
+  por item;
+- `StatusItem.svelte`: renderiza a `description` como texto puro, sem markdown.
+
+Esse é o lugar do "o que está acontecendo": o bloco de raciocínio diz "Pensou por N segundos", não aceita nada depois do
+primeiro texto (abriria um segundo bloco, R34) e não mostra a conferência nem a conclusão. O cabeçalho mantém o padrão
+inalterado para qualquer outro cliente; a chave `event` é ignorada como campo extra pelos SDKs.
+
+**Alternatives considered**:
+
+- Raciocínio mais rico, em markdown dentro do bloco: pararia no primeiro texto e continuaria dizendo "pensou".
+- Os dois canais juntos: a mesma informação duas vezes na tela.
+- A chave `event` sempre, sem cabeçalho: dialeto do Open WebUI imposto a todo cliente.
+- Status com `action` de busca na web (`web_search`, `sources_retrieved`): os rótulos são de busca na web, em inglês, e
+  a lista leva links.

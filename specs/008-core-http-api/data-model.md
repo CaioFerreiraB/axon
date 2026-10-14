@@ -215,3 +215,23 @@ token; depois, `delta: {}` como antes.
 
 No stream já aberto, a espera esgotada vira o registro `{"stage": "admission", "kind": "QueueTimeout", "message": …}` no
 `x_ai_core.errors` do chunk final, com `finish_reason: "error"`.
+
+## Timeline de status (2026-10-13, FR-005a; research R42)
+
+### `ChatRequest` — campo novo
+
+| Campo | Tipo | Regra |
+|---|---|---|
+| `progress` | `"reasoning" \| "status"` | default `"reasoning"`; do cabeçalho `x-ai-core-progress`, nas duas entradas |
+
+### `domain/timeline.py`
+
+`Status(description, done)` e `Timeline(started_at)` com `queued(position)`, `started(event, at)`,
+`finished(event, at)` e `final(event, at)`. O tempo vem de quem chama (o `Clock` do serviço). O início de etapa guardado
+é retirado no fim, então um fim sem início sai sem tempo. As linhas estão na R42.
+
+### Erro novo
+
+| Causa | Status | `type` | `code` | `param` |
+|---|---|---|---|---|
+| `x-ai-core-progress` com valor diferente de `reasoning`/`status` | 400 | `invalid_request_error` | `invalid_header` | `x-ai-core-progress` |

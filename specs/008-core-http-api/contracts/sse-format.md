@@ -79,3 +79,30 @@ FinalEvent                  → como antes
 
 Suíte: `test_openai_chunks.py` ganha os casos de raciocínio (antes e depois do primeiro token);
 `test_progress_text.py`, a tabela.
+
+## Timeline de status (2026-10-13, FR-005a; research R42)
+
+Com `x-ai-core-progress: status`:
+
+```text
+(abre)                      → delta {"role": "assistant"}
+(na fila)                   → delta {}, event status {"description": "Aguardando uma vaga (posição 2 na fila)…", "done": false}, x_ai_core.progress
+ProgressEvent               → delta {}, event status {"description": "<linha de início>", "done": false}, x_ai_core.progress
+StepFinished                → delta {}, event status {"description": "<desfecho> · <tempo>", "done": true} (uma por linha)
+TokenEvent                  → delta {"content": "<pedaço>"}
+FinalEvent                  → delta {}, event status por registro e a linha de conclusão ("done": true); depois o chunk final de sempre
+```
+
+`event` = `{"type": "status", "data": {"description": …, "done": …}}`, no mesmo nível de `choices`.
+
+| Regra | Motivo |
+|---|---|
+| Nenhum `reasoning_content` nesse modo | a timeline substitui o bloco de "pensamento" |
+| Status também depois do primeiro texto | conferência, avisos e conclusão fazem parte da timeline |
+| Status sempre com `delta: {}` | a resposta é só a resposta (FR-005) |
+| A última linha antes do chunk final tem `done: true` | sem isso, o Open WebUI deixa a última linha animada |
+| Sem o cabeçalho (ou `reasoning`), a seção "Fase 7" vale como antes, e `StepFinished` não gera chunk | FR-005 |
+
+Suíte: `test_timeline.py` (as linhas), `test_openai_chunks.py` (`status_chunk`), `test_chat_request.py` (o cabeçalho),
+`test_admission.py` (fila no modo `status`), `test_open_webui.py` (o pedido do v0.12 com o cabeçalho, o 400 nas duas
+entradas e a requisição nativa).

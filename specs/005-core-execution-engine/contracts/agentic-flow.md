@@ -116,3 +116,9 @@ Só quando `grant.limits.max_context_tokens` está declarado. Estimativa: `ceil(
 | como no `chat` | `ExecutionStarted`, `ValidationRun`, `ExecutionFinished` | 005 |
 
 Nenhum evento leva argumentos de tool, conteúdo de resultado ou saída do modelo (ADR-017).
+
+## Desfecho de etapa (ADR-028)
+
+Cada etapa que emite `ProgressEvent` termina com um `StepFinished` antes da etapa seguinte; o desfecho de cada uma está
+na tabela de [execution-engine.md](execution-engine.md), seção "Desfecho de etapa".
+

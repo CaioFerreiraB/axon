@@ -13,6 +13,9 @@ from ai_core.graph.api import (
     ExecutionError, ExecutionRequestInvalid, UnknownFlow,
     FLOW_CHAT, FLOW_AGENTIC,          # FLOW_AGENTIC: Fase 3
     FLOW_RAG_FIRST, RagSettings,      # Fase 5 (research R44)
+    StepFinished, StepOutcome,        # desfecho de etapa (ADR-028, research R49)
+    SourceRef, ToolCallSummary, ToolCallsOutcome, RerankOutcome, GateOutcome, GateRoute,
+    ControllerOutcome, ControllerAction, GenerationOutcome, CatalogOutcome,
 )
 ```
 
@@ -27,6 +30,7 @@ async for event in events:
     match event:
         case TokenEvent(text=text):       ...   # chega enquanto a geração ainda corre
         case ProgressEvent(stage=stage):  ...
+        case StepFinished(stage=stage, outcome=outcome): ...   # ADR-028; quem não precisa, ignora
         case FinalEvent() as final:       ...   # exatamente um, sempre o último
 ```
 
@@ -132,3 +136,26 @@ executados acumulados e entregues aos validators (salvo os omitidos pelo teto, q
 | Acréscimo dos validators em lote sai como token antes do evento final | idem |
 | Reescrita no meio → `notice` `AnswerRewritten` | idem |
 | Com e sem streaming, o texto final é o mesmo | idem; `tests/graph/integration/test_streaming_validators.py` (Pack Runtime real) |
+
+## Desfecho de etapa (2026-10-13, [ADR-028](../../../docs/adr/ADR-028-o-motor-publica-o-desfecho-de-cada-etapa.md); research R49)
+
+| Regra | Verificada por |
+|---|---|
+| Todo `ProgressEvent` tem um `StepFinished` da mesma etapa antes do próximo `ProgressEvent`; o `FinalEvent` vem depois de tudo | `tests/graph/contract/test_step_outcomes.py` |
+| `generate` termina depois do último token, com o modelo e os tokens (`GenerationOutcome`) | idem |
+| `retrieve` traz cada chamada com `query`/`top_k`, status e fontes; na falha, a chamada que falhou, e nenhuma etapa depois | idem |
+| `rerank` traz as fontes mantidas e os packs com reranker que falhou; `gate`, a decisão e os trechos entregues | idem |
+| `controller` traz a ação, o modelo e, em `tool`, os argumentos; `execute_tool`, a chamada com o status | idem |
+| Nenhum desfecho traz texto de trecho, conteúdo de resultado, texto de erro de tool nem motivo de MCP indisponível | idem |
+| `stream=False` entrega só o `FinalEvent` | idem e item 9 acima |
+
+| Etapa | `outcome` |
+|---|---|
+| `prepare_context`, `validate_answer` | `None` |
+| `load_capabilities` | `CatalogOutcome` |
+| `controller` | `ControllerOutcome` |
+| `execute_tool`, `retrieve` | `ToolCallsOutcome` |
+| `rerank` | `RerankOutcome` |
+| `gate` | `GateOutcome` |
+| `generate` | `GenerationOutcome` |
+

@@ -7,6 +7,7 @@ decisão — trechos aceitos, junção, cobertura, rota, corte pelo teto — é 
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any, Final
 
 from langgraph.config import get_stream_writer
@@ -14,9 +15,16 @@ from langgraph.runtime import get_runtime
 
 from ai_core.capabilities.api import ToolCall
 from ai_core.graph.adapters.langgraph.nodes.agentic import STAGE_CONTROLLER, open_session
-from ai_core.graph.adapters.langgraph.nodes.common import PROGRESS, STAGE_GENERATE
+from ai_core.graph.adapters.langgraph.nodes.common import PROGRESS, STAGE_GENERATE, finished
 from ai_core.graph.adapters.langgraph.state import AgentContext, AgentState
-from ai_core.graph.api import ExecutionIssue, RagSettings
+from ai_core.graph.api import (
+    ExecutionIssue,
+    GateOutcome,
+    RagSettings,
+    RerankOutcome,
+    ToolCallsOutcome,
+    ToolCallSummary,
+)
 from ai_core.graph.domain.budget import fit_chunks
 from ai_core.graph.domain.gate import (
     Passage,
@@ -32,6 +40,7 @@ from ai_core.graph.domain.gate import (
     pack_of,
     retrieval_tools,
 )
+from ai_core.graph.domain.steps import source_refs, tool_summary
 from ai_core.graph.domain.transcript import ToolStep, generation_messages
 from ai_core.observability.api import CoverageGate, ExecutionError
 
@@ -68,11 +77,13 @@ async def retrieve(state: AgentState) -> dict[str, Any]:
     tools = retrieval_tools(session.tools.values())
     _progress(STAGE_RETRIEVE, f"{len(tools)} tool(s) de recuperação")
     found: list[Passage] = []
+    calls: list[ToolCallSummary] = []
     for tool in tools:
-        result = await session.execute(
-            ToolCall(name=tool.name, arguments={"query": state["question"], "top_k": settings.candidates})
-        )
+        call = ToolCall(name=tool.name, arguments={"query": state["question"], "top_k": settings.candidates})
+        result = await session.execute(call)
+        calls.append(tool_summary(call, result))
         if result.status != "ok":
+            finished(STAGE_RETRIEVE, ToolCallsOutcome(calls=tuple(calls)))
             reason = result.error or result.status
             message = f"tool '{tool.name}': {reason}"
             ctx.trace.emit(
@@ -83,6 +94,7 @@ async def retrieve(state: AgentState) -> dict[str, Any]:
             failure = ExecutionIssue(stage=STAGE_RETRIEVE, kind="RetrievalFailed", message=message)
             return {"route": ROUTE_END, "errors": [*issues, failure]}
         found.extend(Passage(pack=pack_of(tool.name), tool=tool.name, chunk=chunk) for chunk in result.chunks)
+    finished(STAGE_RETRIEVE, ToolCallsOutcome(calls=tuple(calls)))
     return {"route": STAGE_RERANK, "retrieved": tuple(found), "errors": issues}
 
 
@@ -98,6 +110,7 @@ async def rerank(state: AgentState) -> dict[str, Any]:
     _progress(STAGE_RERANK, f"{len(candidates)} candidato(s)")
     groups: list[tuple[Passage, ...]] = []
     issues: list[ExecutionIssue] = []
+    degraded: list[str] = []
     for pack, documents in group_by_pack(candidates).items():
         reranker = ctx.hooks.reranker(ctx.composition, pack)
         if reranker is None:
@@ -112,6 +125,7 @@ async def rerank(state: AgentState) -> dict[str, Any]:
         except Exception as error:
             accepted = RerankRefused(reason=f"levantou {type(error).__name__}: {error}")
         if isinstance(accepted, RerankRefused):
+            degraded.append(pack)
             issues.append(
                 ExecutionIssue(
                     stage=STAGE_RERANK,
@@ -122,7 +136,16 @@ async def rerank(state: AgentState) -> dict[str, Any]:
             )
             accepted = first(documents, settings.passages)
         groups.append(accepted)
-    return {"reranked": merge(groups, settings.passages), "errors": issues}
+    reranked = merge(groups, settings.passages)
+    finished(
+        STAGE_RERANK,
+        RerankOutcome(
+            candidates=len(candidates),
+            kept=source_refs(item.chunk for item in reranked),
+            degraded=tuple(degraded),
+        ),
+    )
+    return {"reranked": reranked, "errors": issues}
 
 
 async def gate(state: AgentState) -> dict[str, Any]:
@@ -135,20 +158,23 @@ async def gate(state: AgentState) -> dict[str, Any]:
     session = ctx.tools.get()
     covered = is_covered(reranked, settings.min_score)
     route = gate_route(covered, escalate=ctx.escalate and bool(session.tools))
+    decision = GateOutcome(covered=covered, route=route, best_score=best_score(reranked), threshold=settings.min_score)
     ctx.trace.emit(
         CoverageGate(
             request_id=state["request_id"],
             candidates=len(state.get("retrieved", ())),
             passages=len(reranked),
-            best_score=best_score(reranked),
+            best_score=decision.best_score,
             threshold=settings.min_score,
             covered=covered,
             route=route,
         )
     )
     if route == "controller":
+        finished(STAGE_GATE, decision)
         return {"route": STAGE_CONTROLLER}
     if route == "fallback":
+        finished(STAGE_GATE, decision)
         return {
             "route": STAGE_GENERATE,
             "errors": [
@@ -192,6 +218,7 @@ async def gate(state: AgentState) -> dict[str, Any]:
                 severity="notice",
             )
         )
+    finished(STAGE_GATE, replace(decision, delivered=len(fitted.items)))
     return {"route": STAGE_GENERATE, "steps": steps_for(fitted.items), "errors": issues}
 
 

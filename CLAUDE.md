@@ -323,13 +323,27 @@ usuários não mudar, realm `config/keycloak/agentic-realm.json`: cliente
 `open-webui`, audiência `ai-core` e `groups` no access token, usuários `ana` e `bia` do grupo `equipe`; o navegador usa
 `localhost:8180`, o emissor, e os contêineres `keycloak:8080`, por `KC_HOSTNAME_BACKCHANNEL_DYNAMIC`) e Open WebUI
 v0.12.0 configurado só por ambiente (`OPENAI_API_CONFIGS` com `system_oauth` e o cabeçalho, `BYPASS_MODEL_ACCESS_CONTROL`,
-tarefas auxiliares desligadas, `DEFAULT_USER_ROLE=user`); o core lê `AI_CORE_OIDC_*` do `.env` (subject por
+tarefas auxiliares desligadas, `DEFAULT_USER_ROLE=user` e chamada de função legada (`DEFAULT_MODEL_PARAMS`) sem as
+ferramentas embutidas (`DEFAULT_MODEL_METADATA`) — no v0.12 a nativa é o padrão, e as embutidas iriam em `tools`,
+recusado pela plataforma; o cadastro de modelo feito pela tela vence o metadado, mas não os parâmetros; e a sessão de 8 h,
+menor que a de 10 h do realm — se a do provedor cai antes, o Open WebUI fica sem token e mostra "Model '' was not
+found"); o core lê `AI_CORE_OIDC_*` do `.env` (subject por
 `preferred_username`), e o Assistant `interno` (só `group:equipe`) prova a lista por usuário. `scripts/check-webui.py`
 (só biblioteca padrão, manual) entra pelo formulário do Keycloak como `ana` e `bia`, compara as listas, manda uma
-mensagem pelo Open WebUI e confere um `POST /v1/chat/completions` no log do core e nenhuma conversa gravada. A prova
+mensagem montada como a tela de chat do v0.12 (conversa salva, `session_id`) e confere um `POST /v1/chat/completions`
+com 200 no log do core. A prova
 achou um defeito na 003: o JWKS do Keycloak traz uma chave de cifragem (`use: enc`, `RSA-OAEP`) que derrubava a
 atualização inteira e recusava todo token; o `JwksOidcVerifier` agora guarda só chaves de assinatura e ignora, uma a
 uma, as que não carregam (003 research R24). O core está na tag `v0.4.1` (contratos `0.1.2`, `ai-generic` 0.1.0).
+Depois da Fase 7, a **timeline de status** no Open WebUI (ADR-028; 005 FR-012a, R49; 008 FR-005a, R42): o motor fecha
+cada etapa com `StepFinished(stage, outcome)` — desfechos tipados em `graph/api.py` (`ToolCallsOutcome` com
+`ToolCallSummary` e `SourceRef`, `RerankOutcome`, `GateOutcome`, `ControllerOutcome`, `GenerationOutcome`,
+`CatalogOutcome`), montados por `graph/domain/steps.py`, com argumentos de tool e fontes, sem texto de trecho, de
+resultado ou de erro de tool; o motor não mede tempo. Com o cabeçalho `x-ai-core-progress: status` (padrão `reasoning`;
+outro valor → 400), a 008 manda cada início, desfecho, aviso e a conclusão como evento `status` do Open WebUI (chave
+`event` do chunk, `delta: {}`), também depois do primeiro texto e sem `reasoning_content`; as linhas pt-BR e os tempos
+(pelo `Clock`) saem de `http/domain/timeline.py`. A conexão da instalação manda o cabeçalho, e o `check-webui.py` lê o
+`statusHistory` gravado. Core `0.5.0` (tag `v0.5.0`, com o aval do mantenedor).
 
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =

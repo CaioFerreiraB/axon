@@ -490,7 +490,9 @@ Insumos: ADR-009, [ADR-021](../../docs/adr/ADR-021-workspace-ai-core-permanece-n
   `http://localhost:8180` (`KC_HOSTNAME`, o emissor dos tokens) e os contêineres `http://keycloak:8080`
   (`KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true`). *Acrescido na implementação*: os dados do Keycloak ficam no volume
   `keycloak-data` — sem ele, cada recriação reimporta o realm com IDs novos, e o Open WebUI recusa o mesmo e-mail
-  chegando com outro `sub`.
+  chegando com outro `sub`. A sessão do realm dura 10 h (`ssoSessionIdleTimeout` e `ssoSessionMaxLifespan`): com os 30
+  minutos de inatividade do padrão do Keycloak, a sessão do provedor caía enquanto a do Open WebUI (4 semanas) seguia, e
+  o token que ele repassa deixava de ser renovado.
 - **Rationale**: 008 R39 — access token JWT por padrão, audiência e grupos por mapper, realm reproduzível. Só para
   desenvolvimento e para a prova; em produção, o operador usa o provedor dele.
 - **Alternatives**: Authelia (access token opaco por padrão), Dex (sem grupos para usuários estáticos).
@@ -503,7 +505,9 @@ Insumos: ADR-009, [ADR-021](../../docs/adr/ADR-021-workspace-ai-core-permanece-n
   `OPENAI_API_CONFIGS` com `auth_type: system_oauth` e `headers: {"x-ai-core-store": "false"}`,
   `BYPASS_MODEL_ACCESS_CONTROL=true`, as seis tarefas auxiliares em `false`, OIDC (`OPENID_PROVIDER_URL` pela rede
   interna, `OAUTH_CLIENT_ID`/`SECRET`, `ENABLE_OAUTH_SIGNUP=true`, `ENABLE_LOGIN_FORM=false`,
-  `OPENID_REDIRECT_URI`, `WEBUI_URL`), `DEFAULT_USER_ROLE=user` e `WEBUI_SECRET_KEY` do `.env`. *Acrescido na
+  `OPENID_REDIRECT_URI`, `WEBUI_URL`), `DEFAULT_USER_ROLE=user`, `DEFAULT_MODEL_PARAMS` com `function_calling: legacy`, `DEFAULT_MODEL_METADATA` com
+  `builtin_tools: false`, `JWT_EXPIRES_IN` de 8 h (`OPEN_WEBUI_SESSION_EXPIRES_IN`; menor que a sessão do provedor) e
+  `WEBUI_SECRET_KEY` do `.env`. *Acrescido na
   implementação*: sem `DEFAULT_USER_ROLE=user`, quem entra depois do primeiro fica `pending` (a API do Open WebUI
   responde 401) — e quem pode o quê é decisão da plataforma (ACL da 003), não de aprovação na interface.
 - **Rationale**: SC-001 da 008 (zero código de interface); o perfil `webui` deixa o `docker compose up` de sempre igual.
@@ -531,3 +535,12 @@ Insumos: ADR-009, [ADR-021](../../docs/adr/ADR-021-workspace-ai-core-permanece-n
 - **Rationale**: a 008 US8 cen. 2–5 com a interface real, sem escrever interface; o CI do `agentic-deploy` continua só
   com o build (subir Keycloak e Open WebUI a cada push custaria minutos e memória).
 - **Alternatives**: Playwright num navegador (código de teste de interface, pesado para o CI e para o mantenedor).
+
+### R41 — A timeline de status na instalação (008 R42; ADR-028)
+
+- **Decision**: a conexão do Open WebUI manda também `x-ai-core-progress: status`, junto do `x-ai-core-store: false`,
+  e o `CORE_REF` vai para `v0.5.0`. O `check-webui.py` lê a timeline que o Open WebUI gravou na mensagem
+  (`statusHistory`, `models/chats.py` do v0.12) e confere começo, modelo e conclusão.
+- **Rationale**: é a configuração da instalação que liga a timeline (o padrão da API continua o raciocínio), e o
+  `statusHistory` gravado é o que o usuário vê ao reabrir a conversa.
+- **Alternatives**: ler o stream direto da plataforma no script (não provaria que o Open WebUI a recebeu e gravou).

@@ -347,10 +347,27 @@ Caminhos em `agentic-deploy/`; o código é commitado lá, e aqui o SDD e o pont
   implementação*: o Keycloak marca os cookies de sessão como `Secure` (o script usa uma política de cookies que trata
   `http://localhost` como seguro, como os navegadores); quem entra depois do primeiro ficava `pending` no Open WebUI
   (`DEFAULT_USER_ROLE=user`); o Keycloak sem volume trocava o `sub` dos usuários a cada recriação, e o Open WebUI recusava
-  o mesmo e-mail (volume `keycloak-data`); e todo access token era recusado pela 003 — a chave de cifragem do JWKS do Keycloak
+  o mesmo e-mail (volume `keycloak-data`); no navegador, toda conversa levava as ferramentas embutidas do Open WebUI em
+  `tools` (400 da plataforma) — desligadas pelo modo de chamada de função legado (`DEFAULT_MODEL_PARAMS`) e pelo
+  `DEFAULT_MODEL_METADATA`, e o script passou a montar a mensagem como a tela de chat (conversa salva, `session_id`);
+  depois de 30 minutos parada, a sessão do Keycloak caía e o Open WebUI ficava sem token ("Model '' was not found") —
+  sessão do realm de 10 h e a do Open WebUI de 8 h; e todo access token era recusado pela 003 — a chave de cifragem do JWKS do Keycloak
   descartava todas (corrigido na 003, T066–T067, core `v0.4.1`)
 - [X] T070 Com o aval do mantenedor: commit e push do `agentic-deploy` e a CI (`build.yml`) verde; no `agentic-app`,
   este SDD, o `CLAUDE.md` e o roadmap (Fase 7 completa) e o ponteiro do submódulo, e push
+
+---
+
+## Passada de encaixe da timeline de status — 2026-10-13 (research R41; contracts/installation.md "Timeline de status")
+
+Caminhos em `agentic-deploy/`; o código é commitado lá, e aqui o SDD e o ponteiro.
+
+- [X] T071 `docker-compose.yml`: `x-ai-core-progress: status` nos `headers` do `OPENAI_API_CONFIGS`; `Dockerfile`:
+  `CORE_REF=v0.5.0`; `README.md`: a timeline e o `CORE_REF` novo
+- [X] T072 `scripts/check-webui.py`: passo 5, a timeline gravada na mensagem (`statusHistory`)
+- [ ] T073 Com a tag `v0.5.0` publicada: `scripts/check-build.sh`, `docker compose --profile webui up -d --build` e
+  `scripts/check-webui.py` até passar; conferir no navegador (uma conversa com o `scouting`); com o aval do mantenedor,
+  commit e push do `agentic-deploy` e o ponteiro do submódulo aqui
 
 ---
 

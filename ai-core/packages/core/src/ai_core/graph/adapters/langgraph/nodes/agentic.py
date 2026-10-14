@@ -14,12 +14,13 @@ from langgraph.config import get_stream_writer
 from langgraph.runtime import get_runtime
 
 from ai_core.capabilities.api import ToolCall, ToolContext, ToolSession
-from ai_core.graph.adapters.langgraph.nodes.common import PROGRESS
+from ai_core.graph.adapters.langgraph.nodes.common import PROGRESS, finished
 from ai_core.graph.adapters.langgraph.state import AgentContext, AgentState
-from ai_core.graph.api import ExecutionIssue
+from ai_core.graph.api import CatalogOutcome, ControllerOutcome, ExecutionIssue, ToolCallsOutcome
 from ai_core.graph.domain.actions import AnswerAction, InvalidAction, ToolAction, parse_action, response_format
 from ai_core.graph.domain.budget import estimate_tokens, exceeds
 from ai_core.graph.domain.limits import DecisionKind, after_decision
+from ai_core.graph.domain.steps import tool_summary
 from ai_core.graph.domain.transcript import InvalidStep, Step, ToolStep, controller_messages
 from ai_core.llm.api import ModelCallFailed
 from ai_core.observability.api import ControllerDecision, DecisionAction, ExecutionError
@@ -87,6 +88,7 @@ async def load_capabilities(state: AgentState) -> dict[str, Any]:
     """Abre a sessão (`open_session`); catálogo vazio vai direto à geração, sem chamar o controller (R27)."""
     _progress(STAGE_LOAD)
     session, issues = await open_session(state, stage=STAGE_LOAD)
+    finished(STAGE_LOAD, CatalogOutcome(tools=len(session.tools), unavailable=tuple(session.unavailable)))
     return {"route": STAGE_CONTROLLER if session.tools else "generate", "errors": issues}
 
 
@@ -121,9 +123,15 @@ async def controller(state: AgentState) -> dict[str, Any]:
         }
 
     _progress(STAGE_CONTROLLER, f"iteração {iteration}")
+    model = ctx.router.for_role("controller")
+    ref = str(model.ref)
     try:
-        response = await ctx.router.for_role("controller").complete(messages, response_format=response_format(tools))
+        response = await model.complete(messages, response_format=response_format(tools))
     except ModelCallFailed as error:
+        finished(
+            STAGE_CONTROLLER,
+            ControllerOutcome(iteration=iteration, model=ref, action="failed", reason=type(error).__name__),
+        )
         ctx.trace.emit(
             ExecutionError(
                 request_id=state["request_id"], stage=STAGE_CONTROLLER, kind=type(error).__name__, message=str(error)
@@ -134,8 +142,15 @@ async def controller(state: AgentState) -> dict[str, Any]:
 
     action = parse_action(response["message"].get("content"))
     if isinstance(action, AnswerAction):
+        finished(STAGE_CONTROLLER, ControllerOutcome(iteration=iteration, model=ref, action="answer"))
         return {"iteration": iteration, "route": "generate", "decisions": [_decision(state, iteration, "answer")]}
     if isinstance(action, ToolAction):
+        finished(
+            STAGE_CONTROLLER,
+            ControllerOutcome(
+                iteration=iteration, model=ref, action="tool", tool=action.name, arguments=action.arguments
+            ),
+        )
         return {
             "iteration": iteration,
             "route": STAGE_EXECUTE,
@@ -143,6 +158,9 @@ async def controller(state: AgentState) -> dict[str, Any]:
             "decisions": [_decision(state, iteration, "tool", tool=action.name)],
         }
     # A iteração conta mesmo inválida (US2 cen. 3): sem isso, um controller que só erra rodaria sem fim (SC-002).
+    finished(
+        STAGE_CONTROLLER, ControllerOutcome(iteration=iteration, model=ref, action="invalid", reason=action.reason)
+    )
     return {"iteration": iteration} | _after(
         state,
         "invalid",
@@ -161,6 +179,7 @@ async def execute_tool(state: AgentState) -> dict[str, Any]:
         raise RuntimeError("execute_tool sem pedido do controller")
     _progress(STAGE_EXECUTE, call.name)
     result = await ctx.tools.get().execute(call)
+    finished(STAGE_EXECUTE, ToolCallsOutcome(calls=(tool_summary(call, result),)))
     iteration = state.get("iteration", 0)
     return _after(state, "tool", iteration, step=ToolStep(iteration=iteration, call=call, result=result)) | {
         "pending": None

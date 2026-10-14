@@ -12,16 +12,20 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
+from types import MappingProxyType
 from typing import Final, Literal, Protocol
 
 from ai_core.assistants.api import ExecutionGrant
 from ai_core.llm.api import ModelRole
-from ai_core_contracts import Citation, Message
+from ai_core_contracts import Citation, JSONValue, Message
 
 __all__ = [
     "FLOW_AGENTIC",
     "FLOW_CHAT",
     "FLOW_RAG_FIRST",
+    "CatalogOutcome",
+    "ControllerAction",
+    "ControllerOutcome",
     "ExecutionEngine",
     "ExecutionError",
     "ExecutionEvent",
@@ -30,10 +34,19 @@ __all__ = [
     "ExecutionRequest",
     "ExecutionRequestInvalid",
     "FinalEvent",
+    "GateOutcome",
+    "GateRoute",
+    "GenerationOutcome",
     "IssueSeverity",
     "ProgressEvent",
     "RagSettings",
+    "RerankOutcome",
+    "SourceRef",
+    "StepFinished",
+    "StepOutcome",
     "TokenEvent",
+    "ToolCallSummary",
+    "ToolCallsOutcome",
     "UnknownFlow",
 ]
 
@@ -56,6 +69,15 @@ def _require_text(field_name: str, value: str) -> None:
 def _require_count(field_name: str, value: int) -> None:
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
         raise ValueError(f"{field_name} precisa ser um inteiro ≥ 1: {value!r}")
+
+
+def _require_size(field_name: str, value: int | None) -> None:
+    if value is not None and (isinstance(value, bool) or not isinstance(value, int) or value < 0):
+        raise ValueError(f"{field_name} precisa ser um inteiro ≥ 0: {value!r}")
+
+
+def _frozen(arguments: Mapping[str, JSONValue]) -> Mapping[str, JSONValue]:
+    return MappingProxyType(dict(arguments))
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -133,6 +155,161 @@ class ProgressEvent:
         _require_text("stage", self.stage)
 
 
+# --- Desfecho de etapa (ADR-028) -----------------------------------------------------------------------------
+# O que cada etapa fez, para quem acompanha a execução: chamadas, contagens, fontes e decisões. Nunca texto de trecho,
+# conteúdo de resultado de tool, texto de erro de tool, prompt ou resposta. Os argumentos de tool podem ir: o stream é
+# do próprio Principal (o trace, que o operador lê, continua sem eles — ADR-017).
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class SourceRef:
+    """Onde está um trecho — documento, seção e página —, nunca o texto."""
+
+    document: str
+    section: str | None = None
+    page: int | None = None
+
+    def __post_init__(self) -> None:
+        _require_text("document", self.document)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ToolCallSummary:
+    """Uma chamada de tool da etapa: o que se pediu e o que voltou, sem o conteúdo nem o texto de erro.
+
+    `kind` é o tipo do catálogo (`retrieval`…), `None` para tool fora dele; `status` é o do gateway da 004 (`ok`,
+    `error`, `timeout`, `unknown`, `invalid_arguments`); `sources`, as fontes dos trechos que voltaram, na ordem.
+    """
+
+    tool: str
+    kind: str | None = None
+    arguments: Mapping[str, JSONValue] = field(default_factory=dict)
+    status: str
+    truncated: bool = False
+    sources: tuple[SourceRef, ...] = ()
+
+    def __post_init__(self) -> None:
+        _require_text("tool", self.tool)
+        _require_text("status", self.status)
+        object.__setattr__(self, "arguments", _frozen(self.arguments))
+        object.__setattr__(self, "sources", tuple(self.sources))
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ToolCallsOutcome:
+    """`retrieve` e `execute_tool`: as chamadas, na ordem. No `retrieve` que falha, até a que falhou."""
+
+    calls: tuple[ToolCallSummary, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "calls", tuple(self.calls))
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class RerankOutcome:
+    """`rerank`: de quantos candidatos, quais fontes ficaram (na ordem) e os packs cujo reranker falhou."""
+
+    candidates: int
+    kept: tuple[SourceRef, ...] = ()
+    degraded: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        _require_size("candidates", self.candidates)
+        object.__setattr__(self, "kept", tuple(self.kept))
+        object.__setattr__(self, "degraded", tuple(self.degraded))
+
+
+type GateRoute = Literal["generate", "controller", "fallback"]
+"""`generate`: gerar com os trechos; `controller`: escalar para o loop; `fallback`: gerar sem trechos."""
+
+_GATE_ROUTES: Final = frozenset({"generate", "controller", "fallback"})
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class GateOutcome:
+    """`gate`: a decisão do portão de cobertura e quantos trechos entraram no contexto da geração."""
+
+    covered: bool
+    route: GateRoute
+    best_score: float | None = None
+    threshold: float | None = None
+    delivered: int = 0
+
+    def __post_init__(self) -> None:
+        if self.route not in _GATE_ROUTES:
+            raise ValueError(f"rota do portão desconhecida: {self.route!r}")
+        _require_size("delivered", self.delivered)
+
+
+type ControllerAction = Literal["tool", "answer", "invalid", "failed"]
+"""O que saiu de uma chamada ao controller. Os limites (iterações, contexto) não chamam o controller: são registros."""
+
+_CONTROLLER_ACTIONS: Final = frozenset({"tool", "answer", "invalid", "failed"})
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ControllerOutcome:
+    """`controller`: a ação de uma iteração e o modelo que a decidiu. `reason` é curto e escrito pelo motor."""
+
+    iteration: int
+    action: ControllerAction
+    model: str
+    tool: str | None = None
+    arguments: Mapping[str, JSONValue] | None = None
+    reason: str | None = None
+
+    def __post_init__(self) -> None:
+        _require_count("iteration", self.iteration)
+        if self.action not in _CONTROLLER_ACTIONS:
+            raise ValueError(f"ação do controller desconhecida: {self.action!r}")
+        _require_text("model", self.model)
+        if self.arguments is not None:
+            object.__setattr__(self, "arguments", _frozen(self.arguments))
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class GenerationOutcome:
+    """`generate`: o modelo e os tokens, quando o provider os informa."""
+
+    model: str
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+
+    def __post_init__(self) -> None:
+        _require_text("model", self.model)
+        _require_size("input_tokens", self.input_tokens)
+        _require_size("output_tokens", self.output_tokens)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class CatalogOutcome:
+    """`load_capabilities`: quantas tools o catálogo da execução tem e os aliases MCP indisponíveis, sem o motivo."""
+
+    tools: int
+    unavailable: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        _require_size("tools", self.tools)
+        object.__setattr__(self, "unavailable", tuple(self.unavailable))
+
+
+type StepOutcome = (
+    ToolCallsOutcome | RerankOutcome | GateOutcome | ControllerOutcome | GenerationOutcome | CatalogOutcome
+)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class StepFinished:
+    """Uma etapa terminou, depois de todos os eventos dela (ADR-028). `outcome` é `None` quando não há o que contar
+    (`prepare_context`, `validate_answer`). O motor não mede tempo: quem consome mede do `ProgressEvent` até aqui."""
+
+    stage: str
+    outcome: StepOutcome | None = None
+
+    def __post_init__(self) -> None:
+        _require_text("stage", self.stage)
+
+
 type IssueSeverity = Literal["error", "notice"]
 """`error`: falha da execução ou de uma dependência. `notice`: registrado, mas não é falha — resultado de política
 (limite, ação inválida, teto de contexto) ou apontamento de validator (ADR-018, research R23)."""
@@ -172,8 +349,9 @@ class FinalEvent:
         object.__setattr__(self, "flags", frozenset(self.flags))
 
 
-type ExecutionEvent = TokenEvent | ProgressEvent | FinalEvent
-"""O que o consumidor recebe. Toda execução termina com exatamente um `FinalEvent`, sempre o último."""
+type ExecutionEvent = TokenEvent | ProgressEvent | StepFinished | FinalEvent
+"""O que o consumidor recebe. Toda execução termina com exatamente um `FinalEvent`, sempre o último. Quem não precisa do
+desfecho das etapas ignora o `StepFinished` (ADR-028)."""
 
 
 class ExecutionEngine(Protocol):

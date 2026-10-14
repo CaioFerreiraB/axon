@@ -12,6 +12,7 @@ from typing import Any, Final
 
 from ai_core.graph.api import ExecutionIssue, FinalEvent, ProgressEvent, TokenEvent
 from ai_core.http.domain.progress_text import QUEUE_STAGE, progress_line, queue_line
+from ai_core.http.domain.timeline import Status
 
 CHUNK_OBJECT: Final = "chat.completion.chunk"
 COMPLETION_OBJECT: Final = "chat.completion"
@@ -19,6 +20,8 @@ ASSISTANT_ROLE: Final = "assistant"
 FINISH_STOP: Final = "stop"
 FINISH_ERROR: Final = "error"
 EXTRA: Final = "x_ai_core"
+OPEN_WEBUI_EVENT: Final = "event"
+"""Chave que o Open WebUI v0.12 repassa ao emissor de eventos dele (research R42)."""
 
 
 def _envelope(*, request_id: str, model: str, created: datetime, object_type: str) -> dict[str, Any]:
@@ -58,11 +61,30 @@ def progress_chunk(
     """Progresso no campo extra (research R5) e, antes do texto da resposta, também como uma linha de raciocínio
     (`reasoning_content`), que o Open WebUI mostra à parte e o cliente padrão ignora (FR-005, R34). Depois do primeiro
     token, `reasoning=False`: uma linha ali abriria um segundo bloco de "pensamento" abaixo da resposta."""
+    delta = {"reasoning_content": progress_line(event.stage, event.detail) + "\n"} if reasoning else {}
+    return _chunk(
+        request_id=request_id, model=model, created=created, delta=delta, **{EXTRA: {"progress": progress_of(event)}}
+    )
+
+
+def progress_of(event: ProgressEvent) -> dict[str, Any]:
+    """O progresso no campo extra (research R5): a etapa e, quando há, o detalhe."""
     progress: dict[str, Any] = {"stage": event.stage}
     if event.detail is not None:
         progress["detail"] = event.detail
-    delta = {"reasoning_content": progress_line(event.stage, event.detail) + "\n"} if reasoning else {}
-    return _chunk(request_id=request_id, model=model, created=created, delta=delta, **{EXTRA: {"progress": progress}})
+    return progress
+
+
+def status_chunk(
+    status: Status, *, request_id: str, model: str, created: datetime, progress: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """Um item da timeline do Open WebUI (FR-005a, research R42): `delta` vazio e o status na chave `event`, que o
+    v0.12 repassa ao emissor de eventos dele e grava na mensagem. O início de etapa e a fila levam também o
+    `x_ai_core.progress` de sempre; o cliente padrão ignora as duas chaves."""
+    extra: dict[str, Any] = {} if progress is None else {EXTRA: {"progress": progress}}
+    body = _chunk(request_id=request_id, model=model, created=created, delta={}, **extra)
+    body[OPEN_WEBUI_EVENT] = {"type": "status", "data": {"description": status.description, "done": status.done}}
+    return body
 
 
 def queue_chunk(*, position: int, request_id: str, model: str, created: datetime) -> dict[str, Any]:
@@ -72,8 +94,12 @@ def queue_chunk(*, position: int, request_id: str, model: str, created: datetime
         model=model,
         created=created,
         delta={"reasoning_content": queue_line(position) + "\n"},
-        **{EXTRA: {"progress": {"stage": QUEUE_STAGE, "detail": str(position)}}},
+        **{EXTRA: {"progress": queue_progress(position)}},
     )
+
+
+def queue_progress(position: int) -> dict[str, Any]:
+    return {"stage": QUEUE_STAGE, "detail": str(position)}
 
 
 def final_chunk(event: FinalEvent, *, request_id: str, model: str, created: datetime) -> dict[str, Any]:

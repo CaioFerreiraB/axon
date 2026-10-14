@@ -63,3 +63,9 @@ motor não lê nem interpreta o conteúdo de uma fatia — só a carrega (princ�
 
 As chamadas de modelo são emitidas pela 006, que já instrumenta o cliente — o motor não as duplica
 ([research.md](../research.md) R10).
+
+## Desfecho de etapa (ADR-028)
+
+Cada etapa que emite `ProgressEvent` termina com um `StepFinished` antes da etapa seguinte; o desfecho de cada uma está
+na tabela de [execution-engine.md](execution-engine.md), seção "Desfecho de etapa".
+

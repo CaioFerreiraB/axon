@@ -21,6 +21,7 @@ from ai_core.graph.api import (
     ExecutionRequest,
     FinalEvent,
     ProgressEvent,
+    StepFinished,
     TokenEvent,
 )
 from ai_core.http.domain.admission import AdmissionLimits, decide, retry_after
@@ -39,9 +40,13 @@ from ai_core.http.domain.openai_chunks import (
     finish_reason,
     opening_chunk,
     progress_chunk,
+    progress_of,
     queue_chunk,
+    queue_progress,
+    status_chunk,
     token_chunk,
 )
+from ai_core.http.domain.timeline import Timeline
 from ai_core.http.ports import Clock, Conversation, ConversationPage, ConversationStore, RequestIds, StoredMessage
 from ai_core_contracts import Message
 
@@ -191,7 +196,8 @@ class ChatService:
 
         A recusa por sobrecarga sai antes do primeiro chunk — o adapter ainda escolhe o status (503). Quem espera na
         fila recebe a abertura e o aviso de fila na hora; esgotada a espera, o stream termina com o registro de erro
-        (FR-017). O progresso vai como raciocínio só até o primeiro token (FR-005, R34).
+        (FR-017). O progresso vai como raciocínio só até o primeiro token (FR-005, R34) ou, no modo `status`, como
+        timeline do Open WebUI do começo ao fim, com o desfecho de cada etapa e o tempo medido aqui (FR-005a, R42).
         """
         prepared = await self._prepare(request, principal)
         admission = self._slots.admit() if self._slots is not None else None
@@ -203,14 +209,23 @@ class ChatService:
             envelope: dict[str, Any] = {"request_id": request_id, "model": model, "created": created}
 
             events = self._engine.run(turn.grant, self._execution_request(turn, request, request_id))
+            timeline = Timeline(created) if request.progress == "status" else None
             yield opening_chunk(**envelope, conversation_id=turn.conversation_id)
             if admission is not None and admission.queued:
-                yield queue_chunk(position=admission.position, **envelope)
+                position = admission.position
+                if timeline is None:
+                    yield queue_chunk(position=position, **envelope)
+                else:
+                    yield status_chunk(timeline.queued(position), **envelope, progress=queue_progress(position))
                 assert self._slots is not None
                 if not await self._slots.wait(admission):
                     await _close(events)
                     await self._discard(turn)
-                    yield final_chunk(FinalEvent(answer="", errors=(_queue_timeout(),)), **envelope)
+                    timed_out = FinalEvent(answer="", errors=(_queue_timeout(),))
+                    if timeline is not None:
+                        for status in timeline.final(timed_out, self._clock.now()):
+                            yield status_chunk(status, **envelope)
+                    yield final_chunk(timed_out, **envelope)
                     return
             reasoning = True
             async for event in events:
@@ -218,11 +233,20 @@ class ChatService:
                     case TokenEvent():
                         reasoning = False
                         yield token_chunk(event, **envelope)
+                    case ProgressEvent() if timeline is not None:
+                        started = timeline.started(event, self._clock.now())
+                        yield status_chunk(started, **envelope, progress=progress_of(event))
                     case ProgressEvent():
                         yield progress_chunk(event, **envelope, reasoning=reasoning)
+                    case StepFinished() if timeline is not None:
+                        for status in timeline.finished(event, self._clock.now()):
+                            yield status_chunk(status, **envelope)
                     case FinalEvent():
                         # Grava antes do último chunk: quando o cliente vê o fim, a troca já está no histórico.
                         await self._record(turn, event, request_id)
+                        if timeline is not None:
+                            for status in timeline.final(event, self._clock.now()):
+                                yield status_chunk(status, **envelope)
                         yield final_chunk(event, **envelope)
         finally:
             if admission is not None and self._slots is not None:

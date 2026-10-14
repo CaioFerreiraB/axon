@@ -418,6 +418,8 @@ limite 3: exatamente 3 chamadas ao controller e 3 execuções, geração e `Iter
 
 ---
 
+---
+
 ## Phase 8: Fundação da Fase 5 (Blocking Prerequisites)
 
 **Purpose**: os toques declarados fora da 005 (R35), o seam acrescido, as políticas puras e o testkit que o `rag_first`
@@ -694,6 +696,19 @@ exatamente o conjunto de trechos entregue à geração — inclusive depois do c
 - [X] T094 Release (R48; ADR-021), **só com aprovação do mantenedor**: `version = "0.2.0"` em
   `ai-core/packages/core/pyproject.toml` (os contratos ficam em `0.1.1`; o `ai-generic` não muda), `uv lock`, commit,
   tag anotada `v0.2.0` no `agentic-app` e push da tag
+
+---
+
+## Passada de 2026-10-13: desfecho de etapa ([ADR-028](../../docs/adr/ADR-028-o-motor-publica-o-desfecho-de-cada-etapa.md); research R49)
+
+- [X] T095 `api.py`: `StepFinished`, `StepOutcome` e os desfechos (`SourceRef`, `ToolCallSummary`, `ToolCallsOutcome`,
+  `RerankOutcome`, `GateOutcome`, `GateRoute`, `ControllerOutcome`, `ControllerAction`, `GenerationOutcome`,
+  `CatalogOutcome`), validados na construção; `domain/gate.py` importa o `GateRoute`; `domain/steps.py` (puro)
+- [X] T096 Nós: `finished(stage, outcome)` em `nodes/common.py` e o desfecho de cada etapa em `common.py`,
+  `agentic.py` e `rag.py`, inclusive nos caminhos de falha; `runtime.py` traduz o pedaço `step`
+- [X] T097 Testes: `tests/graph/unit/test_graph_api.py` (nomes e validação), `tests/graph/unit/test_graph_steps.py`,
+  `tests/graph/contract/test_step_outcomes.py` (pareamento, desfecho por etapa nos três flows, sem texto de trecho nem
+  de erro, `stream=False`)
 
 ---
 
