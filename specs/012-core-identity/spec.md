@@ -300,9 +300,9 @@ token sai com outro identificador de chave.
 - **FR-020**: Senhas, códigos, tokens de renovação, segredos de cliente e chaves privadas NÃO DEVEM aparecer em log,
   trace, mensagem de erro nem resposta.
 - **FR-021**: Logins aceitos e recusados, bloqueios, recusas do Google e mudanças de conta DEVEM ser registrados em log
+  com o nome de usuário (quando existe) e o motivo, sem nenhum segredo.
 - **FR-022**: O módulo DEVE servir uma página "Minha conta", acessível a quem tem sessão no provedor, em que a pessoa troca a própria senha informando a atual; a troca DEVE encerrar as outras sessões dela e revogar os tokens de renovação dessas sessões. Conta só para Google não tem senha a trocar. Falha na senha atual conta para o bloqueio da FR-013.
 - **FR-023**: A página de login, a troca de senha e "Minha conta" DEVEM mostrar o nome da instalação e, se houver, o logotipo dela, ambos definidos pela instalação; sem eles, um nome neutro da plataforma. Essas páginas DEVEM funcionar primeiro em tela de celular e também no computador, e atender WCAG 2.2 AA.
-  com o nome de usuário (quando existe) e o motivo, sem nenhum segredo.
 
 ### Key Entities
 

@@ -32,6 +32,7 @@ Value objects publicados em `api.py` (marcados **seam**) e registros internos da
 | `created_at`, `updated_at` | `datetime` | UTC |
 | `updated_by` | `str \| None` | subject do ator (`user:<nome>`, `cli`, `bootstrap`) |
 | `last_login_at` | `datetime \| None` | |
+| `version` | `int` | começa em 1; a 008 a usa como `version`/`If-Match` nas escritas |
 
 ### `AccountDraft` (seam) — cadastro
 
@@ -71,27 +72,28 @@ dele o último admin ativo), `GoogleNotConfigured`, `InstallationDefined(field)`
 
 ### `AccountRecord`
 
-`Account` + `password_hash: str | None` + `google_sub: str | None` + `version: int`.
+`Account` (com a `version`) + `password_hash: str | None` + `google_sub: str | None`.
 
 ### `PendingAuthorization` — pedido de autorização aguardando login
 
-`id` (opaco, 32 bytes, guardado como hash), `client_id`, `redirect_uri`, `scope`, `state`, `nonce`, `code_challenge`,
-`code_challenge_method`, `csrf_hash`, `google_state`/`google_nonce`/`google_verifier` (quando o fluxo segue para o
-Google), `created_at`, `expires_at` (10 min).
+`id` (opaco, 32 bytes, guardado como hash), `client_id` e `redirect_uri` (ausentes no login para "Minha conta"),
+`scope`, `state`, `nonce`, `code_challenge` (só S256), `csrf_hash`, `account_id` (a senha conferiu e falta trocar a
+temporária), `google_state_hash`/`google_nonce`/`google_verifier` (quando o fluxo segue para o Google), `created_at`,
+`expires_at` (10 min).
 
 ### `AuthorizationCode`
 
-`hash`, `client_id`, `session_id`, `account_id`, `redirect_uri`, `scope`, `nonce`, `code_challenge`, `auth_time`,
-`amr`, `expires_at` (60 s), `used_at` (uso único; reuso revoga o que saiu dele).
+`hash`, `client_id`, `session_id`, `account_id`, `family_id` (a renovação que sai dele), `redirect_uri`, `scope`,
+`nonce`, `code_challenge`, `auth_time`, `amr`, `expires_at` (60 s), `used_at` (uso único; reuso revoga a família).
 
 ### `Session`
 
-`id_hash`, `account_id`, `auth_time`, `amr`, `created_at`, `expires_at` (30 dias absoluto), `revoked_at`,
-`csrf_hash` ("Minha conta").
+`id_hash`, `account_id`, `auth_time`, `amr`, `created_at`, `expires_at` (30 dias absoluto), `revoked_at`. O CSRF de
+"Minha conta" é derivado do token da sessão (SHA-256 com prefixo próprio), sem estado: só quem tem o cookie o calcula.
 
 ### `RefreshToken`
 
-`hash`, `family_id`, `session_id`, `client_id`, `scope`, `status` (`active` → `rotated` | `revoked`), `created_at`,
+`hash`, `family_id`, `session_id`, `client_id`, `account_id`, `scope`, `status` (`active` → `rotated` | `revoked`), `created_at`,
 `rotated_to` (hash).
 
 Transições:

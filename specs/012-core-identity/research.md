@@ -27,6 +27,9 @@ pré-aprovadas; o que segue resolve o que eles deixaram para o plano.
   cabem no host de 12 GB com o bloqueio de força bruta limitando a concorrência.
 - **Alternatives considered**: `hashlib.scrypt` da biblioteca padrão (o fallback do design; desnecessário com as
   wheels); bcrypt (limite de 72 bytes, contra o teto de 128 caracteres da FR-002).
+- **Medição (T067, 2026-10-14)**: verificação com o perfil de produção em **36 ms** (mediana de 7) numa máquina de
+  desenvolvimento x86_64 de 16 núcleos. O hardware alvo (ARM64, 2 OCPU) não estava disponível: a meta de < 250 ms fica
+  para conferir na passada da 002, na imagem.
 
 ## R3 — Páginas HTML sem motor de templates
 
@@ -39,6 +42,8 @@ pré-aprovadas; o que segue resolve o que eles deixaram para o plano.
   que um template sem autoescape abriria; sem script, a CSP fica `script-src 'none'`.
 - **Alternatives considered**: `jinja2` com autoescape (dependência nova para quatro páginas); renderizar a página na
   SPA da console (a página precisa existir sem console — ADR-030).
+- **Na implementação**: sem script, o botão "mostrar senha" do desenho não existe nas páginas do provedor; a fonte é a
+  pilha do sistema com "Mona Sans" em primeiro lugar (a fonte não é empacotada no core, e a CSP não tem `font-src`).
 
 ## R4 — Formulários sem `python-multipart`
 
@@ -169,10 +174,11 @@ pré-aprovadas; o que segue resolve o que eles deixaram para o plano.
 
 ## R15 — Eventos de segurança
 
-- **Decision**: logger `identity` em `INFO` com eventos estruturados (`login.ok`, `login.failed`, `login.locked`,
-  `google.refused`, `account.created|updated|disabled|enabled|password_reset`, `keys.rotated`), com usuário (quando
-  existe), cliente, motivo curto e ator; nunca senha, código, token, cookie ou segredo (FR-020, FR-021). Não entram no
-  Trace Sink da 009: não são execuções.
+- **Decision**: logger `ai_core.identity` (constante `LOGGER` do `service.py`) em `INFO` com eventos estruturados
+  (`login.ok`, `login.failed`, `login.locked`, `google.refused`,
+  `account.created|updated|disabled|enabled|password_reset`, `keys.rotated`), com usuário (quando existe), cliente,
+  motivo curto e ator; nunca senha, código, token, cookie ou segredo (FR-020, FR-021). Não entram no Trace Sink da
+  009: não são execuções.
 - **Rationale**: o trace é por requisição de execução; segurança vai para o log do processo, que o operador já coleta.
 - **Alternatives considered**: tabela de auditoria (sem caso de uso declarado; o `updated_by` da conta cobre a FR-010).
 

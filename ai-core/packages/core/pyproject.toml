@@ -1,7 +1,7 @@
 [project]
 name = "ai-core"
 version = "0.5.0"
-description = "Runtime genérico da plataforma Agentic AI (monolito modular; specs 002–009, 011)."
+description = "Runtime genérico da plataforma Agentic AI (monolito modular; specs 002–009, 011, 012)."
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
@@ -25,6 +25,9 @@ dependencies = [
     "psycopg-pool>=3.2,<4",
     # Spec 007 (research R6): SDK oficial de MCP — traz httpx2/httpcore2 —, confinado a ai_core/mcp/adapters/.
     "mcp>=2.2,<3",
+    # Spec 012 (research R2): hash de senha argon2id, confinado a ai_core/identity/adapters/ por import-linter. As wheels
+    # `abi3` do argon2-cffi-bindings servem ao Python 3.14 e ao aarch64 do hardware alvo.
+    "argon2-cffi>=25.1,<26",
 ]
 
 [project.scripts]

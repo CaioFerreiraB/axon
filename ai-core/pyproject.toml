@@ -20,6 +20,8 @@ dev = [
     "mypy>=1.11",
     "types-PyYAML",
     "types-jsonschema",
+    # Spec 012 (research R1): cliente OIDC (RP) da suíte de protocolo do provedor de identidade; só nos testes.
+    "authlib>=1.8,<2",
 ]
 
 [tool.pytest.ini_options]
@@ -36,6 +38,7 @@ pythonpath = [
     "packages/core/tests/mcp",
     "packages/core/tests/capabilities",
     "packages/core/tests/eval",
+    "packages/core/tests/identity",
 ]
 asyncio_mode = "auto"
 # Spec 007: uma marca por user story, para rodar `-k us1` … `-k us6` (tasks.md, "Independent Test").
@@ -47,6 +50,8 @@ markers = [
     "us5: 007 US5 — política por servidor; 006 US5 — allowlist de modelo",
     "us6: 007 US6 — proteções de rede; 003 US6 — Assistants de usuário",
     "us8: 003 US8 — validação de Assistants",
+    "us9: 003 US9 — administração por grupo, com token da plataforma ou chave",
+    "us10: 003 US10 — sobreposições de Assistants de sistema",
 ]
 asyncio_default_fixture_loop_scope = "function"
 # estende os padrões do pytest; o pack de teste (fixtures/) roda no próprio ambiente limpo
@@ -286,6 +291,10 @@ source_modules = [
     "ai_core.observability",
     "ai_core.graph",
     "ai_core.assistants",
+    "ai_core.identity.api",
+    "ai_core.identity.domain",
+    "ai_core.identity.ports",
+    "ai_core.identity.service",
 ]
 forbidden_modules = ["fastapi", "starlette"]
 
@@ -344,6 +353,7 @@ source_modules = [
     "ai_core.mcp",
     "ai_core.capabilities",
     "ai_core.eval",
+    "ai_core.identity",
 ]
 forbidden_modules = ["ai_core.bootstrap"]
 
@@ -709,3 +719,115 @@ forbidden_modules = [
     "ai_core.mcp",
 ]
 
+# --- Spec 012, Fase 9 (plan.md, "Fronteiras verificadas") -------------------------------------------------------------
+
+[[tool.importlinter.contracts]]
+name = "api.py da 012 não importa o resto do módulo"
+type = "forbidden"
+source_modules = ["ai_core.identity.api"]
+forbidden_modules = [
+    "ai_core.identity.domain",
+    "ai_core.identity.ports",
+    "ai_core.identity.service",
+    "ai_core.identity.adapters",
+]
+
+[[tool.importlinter.contracts]]
+name = "domain da 012 não importa portas, service nem adapters"
+type = "forbidden"
+source_modules = ["ai_core.identity.domain"]
+forbidden_modules = ["ai_core.identity.ports", "ai_core.identity.service", "ai_core.identity.adapters"]
+
+[[tool.importlinter.contracts]]
+name = "service da 012 não importa adapters"
+type = "forbidden"
+source_modules = ["ai_core.identity.service"]
+forbidden_modules = ["ai_core.identity.adapters"]
+
+# R1, R2, R12: criptografia, hash de senha, rede, banco, YAML e HTTP só nos adapters da identidade.
+[[tool.importlinter.contracts]]
+name = "o núcleo da 012 não importa biblioteca de infraestrutura"
+type = "forbidden"
+source_modules = [
+    "ai_core.identity.api",
+    "ai_core.identity.domain",
+    "ai_core.identity.ports",
+    "ai_core.identity.service",
+]
+forbidden_modules = [
+    "jwt",
+    "cryptography",
+    "argon2",
+    "httpx",
+    "psycopg",
+    "psycopg_pool",
+    "yaml",
+    "fastapi",
+    "starlette",
+]
+
+[[tool.importlinter.contracts]]
+name = "a 012 não importa outros módulos do core"
+type = "forbidden"
+source_modules = ["ai_core.identity"]
+forbidden_modules = [
+    "ai_core.packs",
+    "ai_core.llm",
+    "ai_core.observability",
+    "ai_core.graph",
+    "ai_core.http",
+    "ai_core.assistants",
+    "ai_core.mcp",
+    "ai_core.capabilities",
+    "ai_core.eval",
+]
+
+# Só a composition root (011) monta a identidade; os demais a enxergam pelo api.py (seams AccountAdmin, LoginSettings,
+# PublicKeySet).
+[[tool.importlinter.contracts]]
+name = "os outros módulos só enxergam a 012 pelo api.py"
+type = "forbidden"
+source_modules = [
+    "ai_core.packs",
+    "ai_core.llm",
+    "ai_core.observability",
+    "ai_core.graph",
+    "ai_core.http",
+    "ai_core.assistants",
+    "ai_core.mcp",
+    "ai_core.capabilities",
+    "ai_core.eval",
+]
+forbidden_modules = [
+    "ai_core.identity.domain",
+    "ai_core.identity.ports",
+    "ai_core.identity.service",
+    "ai_core.identity.adapters",
+]
+
+[[tool.importlinter.contracts]]
+name = "o argon2 só existe nos adapters da 012"
+type = "forbidden"
+source_modules = [
+    "ai_core.packs",
+    "ai_core.llm",
+    "ai_core.observability",
+    "ai_core.graph",
+    "ai_core.http",
+    "ai_core.assistants",
+    "ai_core.mcp",
+    "ai_core.capabilities",
+    "ai_core.eval",
+    "ai_core.identity.api",
+    "ai_core.identity.domain",
+    "ai_core.identity.ports",
+    "ai_core.identity.service",
+]
+forbidden_modules = ["argon2"]
+
+[[tool.importlinter.contracts]]
+name = "a composition root só alcança o argon2 pelos adapters da 012"
+type = "forbidden"
+source_modules = ["ai_core.bootstrap"]
+forbidden_modules = ["argon2"]
+allow_indirect_imports = true
