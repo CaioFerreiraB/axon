@@ -323,6 +323,18 @@ def _users_groups_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--set", action="append", default=[], dest="groups", help="grupo (repetível; vazio = nenhum)")
 
 
+def _group_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("name", help="nome do grupo (minúsculas, sem @)")
+
+
+def _groups_create(service: IdentityService, args: argparse.Namespace, persistent: bool, io: Io) -> Awaitable[int]:
+    return identity_cli.groups_create_command(service, name=args.name, persistent=persistent, out=io.out, err=io.err)
+
+
+def _groups_list(service: IdentityService, _args: argparse.Namespace, persistent: bool, io: Io) -> Awaitable[int]:
+    return identity_cli.groups_list_command(service, persistent=persistent, out=io.out, err=io.err)
+
+
 def _keys_rotate_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--force", action="store_true", help="retira todas as chaves e encerra todas as sessões")
 
@@ -559,6 +571,7 @@ GROUPS: Final[Mapping[str, str]] = {
     "keys": "chaves de API da superfície privada (003)",
     "eval": "harness de avaliação: conjunto dourado, linha de base e comparação (009)",
     "users": "contas do provedor de identidade da plataforma (012)",
+    "groups": "grupos do provedor de identidade da plataforma (012)",
     "identity": "provedor de identidade da plataforma (012)",
     "identity keys": "chaves de assinatura dos tokens (012)",
 }
@@ -633,6 +646,13 @@ COMMANDS: Final[tuple[Command, ...]] = (
         run=_identity_command(_users_groups),
         arguments=_users_groups_arguments,
     ),
+    Command(
+        path=("groups", "create"),
+        help="cria um grupo",
+        run=_identity_command(_groups_create),
+        arguments=_group_argument,
+    ),
+    Command(path=("groups", "list"), help="lista os grupos e os membros ativos", run=_identity_command(_groups_list)),
     Command(
         path=("identity", "keys", "rotate"),
         help="nova chave de assinatura; --force encerra todas as sessões",

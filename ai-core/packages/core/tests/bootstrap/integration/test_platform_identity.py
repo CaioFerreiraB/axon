@@ -136,6 +136,11 @@ async def test_perfil_de_teste_com_identidade_login_e_token_do_chat(tmp_path: Pa
         discovery = (await client.get("/.well-known/openid-configuration")).json()
         assert discovery["issuer"] == PUBLIC_URL
         token = await _chat_token(client)
+        assert plataforma.access is not None
+        principal = await plataforma.access.authenticate(surface="public", credential=token)
+        # o subject é o nome de usuário, como na Fase 7 (ACL e donos continuam valendo), e os grupos vêm do token
+        assert principal is not None and principal.subject == f"user:{TEST_ADMIN_USERNAME}"
+        assert "admin" in principal.groups
         models = await client.get("/v1/models", headers=_bearer(token))
         assert models.status_code == 200, models.text
         assert models.json()["data"], "o admin semeado vê os Assistants públicos"

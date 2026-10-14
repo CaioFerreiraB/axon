@@ -78,6 +78,14 @@ def test_persistent_cria_lista_redefine_e_gira_chaves(persistente: None, monkeyp
     code, out, _ = _run(["users", "list"])
     assert code == 0 and out.splitlines() == ["root  root@exemplo.org  admin  ativa"]
 
+    code, out, err = _run(["groups", "create", "equipe"])
+    assert code == 0, err
+    monkeypatch.setattr("sys.stdin", io.StringIO("senha-forte-da-bia\n"))
+    argv = ["users", "create", "bia", "--email", "bia@exemplo.org", "--group", "equipe", "--password-stdin"]
+    assert _run(argv)[0] == 0
+    code, out, _ = _run(["groups", "list"])
+    assert code == 0 and out.splitlines() == ["admin  1  (administração)", "equipe  1"]
+
     code, out, _ = _run(["users", "password", "root"])
     assert code == 0 and TEMPORARY_PASSWORD_PATTERN.fullmatch(out.splitlines()[-1])
 

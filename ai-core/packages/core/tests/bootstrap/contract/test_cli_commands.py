@@ -100,6 +100,8 @@ def test_os_comandos_vem_de_uma_lista_de_registro() -> None:
         ("users", "enable"),
         ("users", "password"),
         ("users", "groups"),
+        ("groups", "create"),
+        ("groups", "list"),
         ("identity", "keys", "rotate"),
     }
 

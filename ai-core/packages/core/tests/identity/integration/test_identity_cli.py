@@ -132,6 +132,15 @@ async def test_list_disable_enable_password_e_groups(started: Harness) -> None:
     assert await cli.users_disable_command(started.service, username="zeca", persistent=True, out=out, err=err) == 1
 
 
+async def test_grupos_pela_linha_de_comando(started: Harness) -> None:
+    out, err = _io()
+    assert await cli.groups_create_command(started.service, name="Equipe", persistent=True, out=out, err=err) == 0
+    assert await cli.groups_create_command(started.service, name="equipe", persistent=True, out=out, err=err) == 1
+    out = io.StringIO()
+    assert await cli.groups_list_command(started.service, persistent=True, out=out, err=err) == 0
+    assert out.getvalue().splitlines() == ["admin  0  (administração)", "equipe  0"]
+
+
 async def test_rotacao_de_chaves(started: Harness) -> None:
     before = started.service.jwks()["keys"][0]["kid"]
     out, err = _io()

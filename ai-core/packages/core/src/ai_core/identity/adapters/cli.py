@@ -1,4 +1,4 @@
-"""Comandos de linha de comando da 012 (research R14): `users …` e `identity keys rotate`.
+"""Comandos de linha de comando da 012 (research R14): `users …`, `groups …` e `identity keys rotate`.
 
 Funções que recebem o serviço já montado, as entradas e as saídas, e devolvem o código de saída. Quem as registra na
 raiz `ai-core` é a composition root (011), como os da 003: não há parser aqui. A senha da linha de comando é a
@@ -172,6 +172,29 @@ async def users_groups_command(
         print(f"erro: {error}", file=err)
         return EXIT_FAILED
     print(f"grupos: {_line(account)}", file=out)
+    return EXIT_OK
+
+
+async def groups_create_command(
+    service: IdentityService, *, name: str, persistent: bool, out: TextIO, err: TextIO
+) -> int:
+    """`ai-core groups create <grupo>`: o grupo precisa existir antes de alguém entrar nele."""
+    _warn(persistent, err)
+    try:
+        group = await service.create_group(name.strip().lower(), actor=ACTOR)
+    except IdentityError as error:
+        print(f"erro: {error}", file=err)
+        return EXIT_FAILED
+    print(f"criado: {group.name}", file=out)
+    return EXIT_OK
+
+
+async def groups_list_command(service: IdentityService, *, persistent: bool, out: TextIO, err: TextIO) -> int:
+    """`ai-core groups list`: nome, membros ativos e se é o grupo protegido de administração."""
+    _warn(persistent, err)
+    for group in await service.groups():
+        mark = "  (administração)" if group.protected else ""
+        print(f"{group.name}  {group.members}{mark}", file=out)
     return EXIT_OK
 
 

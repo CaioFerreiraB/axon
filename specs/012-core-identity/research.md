@@ -165,7 +165,8 @@ pré-aprovadas; o que segue resolve o que eles deixaram para o plano.
 
 - **Decision**: `ai-core users create <nome> --email … [--name …] [--group …]… [--password-stdin]` (sem a opção, pede a
   senha sem eco com `getpass`; a senha da CLI é a definitiva da pessoa, não temporária), `users list`, `users disable|enable
-  <nome>`, `users password <nome>` (gera temporária), `users groups <nome> --set …`, e `ai-core identity keys rotate
+  <nome>`, `users password <nome>` (gera temporária), `users groups <nome> --set …`, `groups create <grupo>`, `groups list` (acrescentados na implementação: a instalação
+cria o grupo antes de cadastrar quem entra nele), e `ai-core identity keys rotate
   [--force]`, em `adapters/cli.py`, registrados pela 011. Admin inicial por `AI_CORE_BOOTSTRAP_ADMIN_USERNAME`,
   `_EMAIL` e `_PASSWORD_FILE` (arquivo, nunca a senha em variável), só com zero contas (FR-018).
 - **Rationale**: o operador precisa do primeiro admin antes de existir console; segredo em arquivo segue o padrão de

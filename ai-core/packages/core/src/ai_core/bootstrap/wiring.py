@@ -428,10 +428,18 @@ def access_service(parts: Mapping[str, Any], *, keys: Any) -> AccessService:
         oidc=parts["oidc"],
         tokens=SecretsTokenGenerator(),
         clock=parts["clock"],
-        claims=OidcClaims(subject_claim=settings.oidc_subject_claim, groups_claim=settings.oidc_groups_claim),
+        claims=_oidc_claims(settings),
         admin_group=parts["assistants_config"].admin_group,
         audiences=OidcAudiences(public=settings.oidc_audience or DEFAULT_PUBLIC_AUDIENCE),
     )
+
+
+def _oidc_claims(settings: Settings) -> OidcClaims:
+    """Com a identidade da plataforma, o subject é o nome de usuário (`preferred_username`), como na Fase 7 — ACL e
+    donos já gravados continuam valendo (012 R10, 003 design); com um emissor externo, o que a configuração disser."""
+    if settings.identity_enabled:
+        return OidcClaims(subject_claim="preferred_username", groups_claim="groups")
+    return OidcClaims(subject_claim=settings.oidc_subject_claim, groups_claim=settings.oidc_groups_claim)
 
 
 def _api(ctx: BootContext) -> None:
