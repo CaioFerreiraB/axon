@@ -75,12 +75,12 @@ def user_mcp_router() -> APIRouter:
     return router
 
 
-def global_mcp_router() -> APIRouter:
-    """`/private/v1/mcp`: os servidores globais, só para o grupo de administração (R27)."""
+def global_mcp_router(*, surface: str = PRIVATE_SURFACE) -> APIRouter:
+    """`/private/v1/mcp` e `/admin/v1/mcp`: os servidores globais, só para o grupo de administração (R27, R43)."""
     router = APIRouter()
 
     async def admin(request: Request) -> Principal:
-        principal = await authenticated(request, PRIVATE_SURFACE)
+        principal = await authenticated(request, surface)
         gate: AdminGate = request.app.state.admin
         if not gate.is_admin(principal):
             # Quem não administra não fica sabendo que a rota existe — o 404 de recurso inexistente (R20).

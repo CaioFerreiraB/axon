@@ -1,6 +1,7 @@
 """Fábrica da app HTTP, chamada pela composition root (spec 011).
 
-As duas superfícies são os mesmos roteadores montados em dois prefixos, cada um sabendo qual é a sua (FR-001). A app
+As duas superfícies são os mesmos roteadores montados em dois prefixos, cada um sabendo qual é a sua (FR-001). A de
+administração (`/admin/v1`, US9) só existe quando a composition root passa os seams dela. A app
 recebe tudo pronto: os seams da 003, 002 e 005 e os adapters das portas deste módulo (princípio XIII).
 """
 
@@ -13,6 +14,7 @@ from datetime import timedelta
 from fastapi import FastAPI
 
 from ai_core.assistants.api import (
+    ADMIN_SURFACE,
     PRIVATE_SURFACE,
     PUBLIC_SURFACE,
     ApiKeyAdmin,
@@ -22,6 +24,7 @@ from ai_core.assistants.api import (
 )
 from ai_core.graph.api import ExecutionEngine
 from ai_core.http.adapters import errors
+from ai_core.http.adapters.admin import ADMIN_PREFIX, AdminHeaders, admin_fallback_router, admin_router
 from ai_core.http.adapters.chat import chat_router
 from ai_core.http.adapters.conversations import conversations_router
 from ai_core.http.adapters.mcp_routes import global_mcp_router, user_mcp_router
@@ -29,7 +32,15 @@ from ai_core.http.adapters.models import models_router
 from ai_core.http.adapters.private import private_router
 from ai_core.http.adapters.user_assistants import user_assistants_router
 from ai_core.http.domain.admission import AdmissionLimits as AdmissionLimits  # a 011 monta os limites (R36)
-from ai_core.http.ports import AdminGate, Clock, ConversationStore, HealthProvider, RequestIds
+from ai_core.http.ports import (
+    AdminGate,
+    AdminSeams,
+    Clock,
+    ConversationStore,
+    HealthProvider,
+    InstanceBranding,
+    RequestIds,
+)
 from ai_core.http.service import DEFAULT_RETENTION, ChatService, ConversationService
 from ai_core.mcp.api import McpRegistry
 from ai_core.packs.api import PackRegistry
@@ -59,6 +70,8 @@ def create_app(
     lifespan: Lifespan | None = None,
     mcp: McpRegistry | None = None,
     admission: AdmissionLimits | None = None,
+    admin_seams: AdminSeams | None = None,
+    instance: InstanceBranding | None = None,
 ) -> FastAPI:
     """Monta a app com os seams já injetados. A API não instancia nada de outro módulo (princípio XIII)."""
     app = FastAPI(title="ai-core", version="0.1.0", lifespan=lifespan)
@@ -95,4 +108,12 @@ def create_app(
         app.include_router(user_mcp_router(), prefix=PUBLIC_PREFIX)
         app.include_router(global_mcp_router(), prefix=PRIVATE_PREFIX)
     app.include_router(private_router(), prefix=PRIVATE_PREFIX)
+    if admin_seams is not None:
+        # Sem os seams de administração (perfis e suítes antigos), a superfície não existe (R43). A rota final do
+        # prefixo vem por último: autentica e responde o 404 de não admin a todo caminho que não é rota (FR-024).
+        app.add_middleware(AdminHeaders, request_ids=request_ids)
+        app.include_router(admin_router(admin_seams, instance or InstanceBranding()), prefix=ADMIN_PREFIX)
+        if mcp is not None:
+            app.include_router(global_mcp_router(surface=ADMIN_SURFACE), prefix=ADMIN_PREFIX)
+        app.include_router(admin_fallback_router(), prefix=ADMIN_PREFIX)
     return app

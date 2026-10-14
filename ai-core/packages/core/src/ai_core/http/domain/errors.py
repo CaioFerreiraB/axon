@@ -22,7 +22,11 @@ from ai_core.assistants.api import (
     RequestRejected,
 )
 from ai_core.graph.api import ExecutionRequestInvalid
+from ai_core.http.domain.admin_common import AdminInvalid
+from ai_core.identity import api as identity
+from ai_core.llm.api import ModelRoutingError
 from ai_core.mcp.api import McpConflict, UnknownServer
+from ai_core.observability import api as observability
 
 EXTRA: Final = "x_ai_core"
 ASSISTANT_NOT_FOUND: Final = "assistant não encontrado"
@@ -69,10 +73,18 @@ class ErrorResponse:
     param: str | None = None
     retry_after: int | None = None
     extra: Mapping[str, Any] = field(default_factory=dict)
+    detail: Mapping[str, Any] = field(default_factory=dict)
+    """Campos a mais dentro de `error` — `current_version` no conflito de versão da administração (R46)."""
 
     def body(self) -> dict[str, Any]:
         body: dict[str, Any] = {
-            "error": {"message": self.message, "type": self.type, "param": self.param, "code": self.code}
+            "error": {
+                "message": self.message,
+                "type": self.type,
+                "param": self.param,
+                "code": self.code,
+                **self.detail,
+            }
         }
         if self.extra:
             body[EXTRA] = dict(self.extra)
@@ -149,3 +161,52 @@ def error_for(error: BaseException) -> ErrorResponse | None:
 
 def _invalid(message: str, code: str, param: str | None) -> ErrorResponse:
     return ErrorResponse(status=400, type="invalid_request_error", code=code, message=message, param=param)
+
+
+# --- superfície de administração (Fase 9, research R46) ------------------------------------------------------------
+
+
+def _conflict(code: str, message: str, *, param: str | None = None, **detail: Any) -> ErrorResponse:
+    return ErrorResponse(status=409, type="conflict_error", code=code, message=message, param=param, detail=detail)
+
+
+def _admin_invalid(message: str, param: str | None) -> ErrorResponse:
+    return ErrorResponse(status=422, type="invalid_request_error", code="invalid_field", message=message, param=param)
+
+
+def admin_error_for(error: BaseException) -> ErrorResponse | None:
+    """A tabela da administração (contracts/admin-api.md, "Erros"): validação é 422 `invalid_field` com `param`; os
+    conflitos têm um código por causa; inexistente e não autorizado são o mesmo 404."""
+    message = str(error)
+    match error:
+        case AdminInvalid():
+            return _admin_invalid(message, error.field)
+        case NotFound() | identity.AccountNotFound() | identity.GroupNotFound() | UnknownServer():
+            return ErrorResponse(status=404, type="not_found_error", code="not_found", message=NOT_FOUND)
+        case RequestRejected():
+            return _admin_invalid(message, error.field)
+        case identity.InvalidField() | observability.InvalidField() | observability.InvalidPrice():
+            return _admin_invalid(message, error.field)
+        case observability.InvalidQuery():
+            return _admin_invalid(message, {"start": "from", "end": "to"}.get(error.field, error.field))
+        case identity.InstallationDefined() | observability.InstallationDefined():
+            return _conflict("installation_defined", message, param=error.field)
+        case observability.MasterKeyMissing():
+            return _conflict("master_key_missing", message, param="secret_key")
+        case identity.ProtectedGroup():
+            return _conflict("protected_group", message)
+        case identity.GoogleNotConfigured():
+            return _conflict("google_not_configured", message, param="google_enabled")
+        case identity.Conflict():
+            if error.field == "version":
+                return _conflict("version_conflict", message, param="version", current_version=error.current_version)
+            return _conflict("conflict", message, param=error.field)
+        case Conflict() | observability.Conflict():
+            return _conflict(
+                "version_conflict", message, param="version", current_version=getattr(error, "current_version", None)
+            )
+        case McpConflict():
+            return _conflict("conflict", message, param="alias")
+        case ModelRoutingError():
+            return _admin_invalid(message, "model")
+    return None

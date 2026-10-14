@@ -9,10 +9,11 @@ arquivo.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
-from ai_core.assistants.api import Principal
+from ai_core.assistants.api import Principal, SystemAssistantAdmin
 from ai_core.http.domain.records import (
     Conversation,
     ConversationPage,
@@ -21,9 +22,13 @@ from ai_core.http.domain.records import (
     MessageRole,
     StoredMessage,
 )
+from ai_core.identity.api import AccountAdmin, LoginSettings
+from ai_core.llm.api import ModelRouting
+from ai_core.observability.api import PriceBook, TraceDestinations, UsageReportSeam
 
 __all__ = [
     "AdminGate",
+    "AdminSeams",
     "Clock",
     "Conversation",
     "ConversationPage",
@@ -31,6 +36,7 @@ __all__ = [
     "HealthItem",
     "HealthProvider",
     "HealthReport",
+    "InstanceBranding",
     "MessageRole",
     "RequestIds",
     "StoredMessage",
@@ -91,3 +97,28 @@ class AdminGate(Protocol):
     """Quem administra a superfície privada. A regra é da 003; o `AccessService` dela cumpre esta forma (R20)."""
 
     def is_admin(self, principal: Principal) -> bool: ...
+
+
+# --- superfície de administração (Fase 9, research R43, R48) -------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class InstanceBranding:
+    """Nome e logotipo da instalação (011: `AI_CORE_DISPLAY_NAME` e `AI_CORE_LOGO_FILE`), para o `GET /admin/v1/me`."""
+
+    name: str = "Agentic"
+    logo_url: str | None = None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class AdminSeams:
+    """Os seams que a superfície de administração traduz (ADR-031). Sem identidade, contas e login ficam de fora."""
+
+    assistants: SystemAssistantAdmin
+    models: ModelRouting
+    usage: UsageReportSeam
+    prices: PriceBook
+    destinations: TraceDestinations
+    default_timezone: str = "UTC"
+    accounts: AccountAdmin | None = None
+    login: LoginSettings | None = None

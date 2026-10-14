@@ -14,7 +14,7 @@ from typing import Any, Final
 from fastapi import FastAPI
 from graph_testkit import ASSISTANT, MODEL, Grant, RecordingTraceSink, ScriptedHooks, provider
 
-from ai_core.assistants.api import SCHEME_OF_SURFACE, AssistantNotFound, Principal
+from ai_core.assistants.api import SCHEMES_OF_SURFACE, AssistantNotFound, Principal
 from ai_core.graph.adapters.clock import FixedClock as GraphFixedClock
 from ai_core.graph.adapters.langgraph import langgraph_runtime
 from ai_core.graph.api import ExecutionEvent, FinalEvent, ProgressEvent, TokenEvent
@@ -59,7 +59,7 @@ class SurfaceRecordingAuthenticator:
 
     async def authenticate(self, *, surface: str, credential: str | None) -> Principal:
         self.surfaces.append(surface)
-        return Principal(subject=ANONYMOUS, scheme=SCHEME_OF_SURFACE[surface])
+        return Principal(subject=ANONYMOUS, scheme=sorted(SCHEMES_OF_SURFACE[surface])[0])
 
 
 class HoldingEngine:
@@ -240,6 +240,7 @@ class Platform:
                 ANA_TOKEN: claims("ana", ttl=3600),
                 BIA_TOKEN: claims("bia", groups=["chefia"], ttl=3600),
                 CAIO_TOKEN: claims("caio", ttl=3600),
+                **overrides.pop("oidc_tokens", {}),
             }
         )
         self.access = access_service(keys=keys, oidc=oidc, clock=self.clock)
@@ -260,7 +261,13 @@ class Platform:
             users=self.users,
             clock=self.clock,
             mcp=self.mcp,
+            overrides=overrides.pop("system_overrides", None),
+            flow_roles=overrides.pop("flow_roles", None),
         )
+        admin_seams = overrides.pop("admin_seams", None)
+        if admin_seams is not None:
+            # Fase 9 (US9): a fábrica recebe a plataforma, porque os seams da administração usam a 003 montada aqui.
+            overrides["admin_seams"] = admin_seams(self)
         if self.mcp is not None:
             overrides["mcp"] = self.mcp
         self.conversations = overrides.pop("conversations", None) or InMemoryConversationStore()

@@ -11,7 +11,7 @@ Envelope da API: `{"error": {"message": "...", "type": "...", "code": "...", "pa
 
 | Status | `code` | Quando |
 |---|---|---|
-| 401 | `invalid_credentials` | credencial ausente, inválida, vencida ou de outra audiência |
+| 401 | `invalid_credential` | credencial ausente, inválida, vencida ou de outra audiência |
 | 404 | `not_found` | não admin; recurso inexistente |
 | 409 | `version_conflict` | `version` desatualizada (corpo traz `current_version`) |
 | 409 | `installation_defined` | campo definido pela instalação (`param` = campo) |
