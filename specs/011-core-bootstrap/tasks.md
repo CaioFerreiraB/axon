@@ -433,6 +433,46 @@ API sem rede (US3 cen. 3, clarificação 2).
 
 ---
 
+## Fase 9 (2026-10-14): encaixe da identidade, da administração e dos destinos (research R36–R44)
+
+**Escopo**: US6. Caminhos relativos a `ai-core/packages/core/`. Depende das passadas da Fase 9 da 012, 003, 009 (+006)
+e 008.
+
+## Phase 19: User Story 6 — A plataforma sobe com identidade, administração e destinos do trace (Priority: P2)
+
+### Tests for User Story 6
+
+- [ ] T053 [P] [US6] `tests/bootstrap/unit/test_settings_phase9.py`: as variáveis e os padrões de
+  [contracts/configuration.md](contracts/configuration.md) (Fase 9); cada erro que para o boot nomeia a variável e
+  nunca mostra o valor da chave mestra
+- [ ] T054 [P] [US6] `tests/bootstrap/contract/test_profiles_phase9.py`: as portas novas em `REQUIRED_PORTS` e
+  `STORAGE_PORTS` nos três perfis; `test` sem identidade continua aceitando `TEST_OIDC_TOKEN`; com identidade, semeia
+  `TEST_ADMIN_USERNAME`
+- [ ] T055 [P] [US6] `tests/bootstrap/integration/test_boot_phase9.py`: cenários 1–5 da US6 (chave mestra ausente no
+  `persistent`; emissor duplo; admin inicial uma vez; Langfuse fora do ar não impede o boot e aparece na saúde; suíte de
+  pack com o perfil `test`)
+- [ ] T056 [P] [US6] `tests/bootstrap/integration/test_platform_identity_admin.py` (R43, SC-007)
+- [ ] T057 [P] [US6] `tests/bootstrap/contract/test_cli_phase9.py`: `ai-core users …` e `ai-core identity keys rotate`
+  com a identidade ligada e desligada
+
+### Implementation for User Story 6
+
+- [ ] T058 [US6] `bootstrap/settings.py`: as variáveis e validações de R36
+- [ ] T059 [US6] `bootstrap/profiles.py`: as fábricas das portas novas nos três perfis (R38) e o `test` de R39
+- [ ] T060 [US6] `bootstrap/wiring.py`: migrações de `identity` e `observability`; etapa `identity` (R37);
+  `AccessService` com `OidcAudiences` e o `CallableJwksSource`; `AssistantsService` com o `SystemOverrideStore`;
+  `TraceService` com os destinos e a origem do processo (R40); `create_app` com `admin_seams`, `instance` e o router da
+  012; tarefas periódicas e o `aclose()` que esvazia os destinos
+- [ ] T061 [US6] `bootstrap/health.py` (R41) e `bootstrap/cli.py` (R42)
+- [ ] T062 [US6] Rodar T053–T057 e a suíte inteira do core até verde, com o Postgres de teste
+
+## Phase 20: Polish da Fase 9
+
+- [ ] T063 [P] `CLAUDE.md` e `specs/README.md`: a Fase 9 no core (identidade, administração, sobreposições, uso e
+  Langfuse) e o que falta (console 013, instalação 002)
+- [ ] T064 Verificação completa (`pytest`, `mypy`, `ruff`, `lint-imports`, Postgres) e, **com aprovação do
+  mantenedor**, release `0.6.0` (tag `v0.6.0`) antes da passada da 002 (R44)
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

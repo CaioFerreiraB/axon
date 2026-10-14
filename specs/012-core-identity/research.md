@@ -1,0 +1,198 @@
+# Research — 012 Identity
+
+Insumos: [spec.md](spec.md) (com as clarificações de 2026-10-13), [design.md](design.md), ADR-030, ADR-031, ADR-033,
+ADR-012, ADR-015, ADR-020, a constituição 1.3.0 e o `PRODUCT.md` da raiz. Decisões do `design.md` e dos ADRs entram como
+pré-aprovadas; o que segue resolve o que eles deixaram para o plano.
+
+## R1 — Protocolo próprio sobre `pyjwt[crypto]`, sem servidor de biblioteca
+
+- **Decision**: o subconjunto do OIDC (FR-004) é implementado no próprio módulo: as regras em `domain/` (validação do
+  pedido de autorização, PKCE S256, troca de código, rotação de renovação, montagem de claims, decisão de logout) e a
+  assinatura em `adapters/signing.py` com `pyjwt[crypto]`, já dependência do core (003). O authlib entra só como
+  dependência de **desenvolvimento**, como cliente (RP) da suíte de protocolo.
+- **Rationale**: o subconjunto é pequeno e fechado (sem implícito, sem registro dinâmico, sem consentimento —
+  ADR-030); as regras ficam puras e testáveis sem HTTP (princípio XIII); o servidor do authlib é desenhado em torno de
+  ganchos de Flask/Django, e para cinco endpoints a cola pesaria mais que o protocolo. Usar um RP de terceiros na suíte
+  prova a interoperabilidade que a implementação própria poderia esconder.
+- **Alternatives considered**: servidor do authlib (cola com FastAPI e modelos próprios, mais superfície); um IdP
+  externo leve (rejeitado no ADR-030); `python-jose` (sem vantagem sobre o `pyjwt`, já presente).
+
+## R2 — Hash de senha: argon2id com `argon2-cffi`
+
+- **Decision**: `argon2-cffi>=25.1,<26` em `adapters/passwords.py`, perfil RFC 9106 "baixa memória" (t=3, m=64 MiB,
+  p=4), re-hash no login quando os parâmetros mudam (`check_needs_rehash`), verificação em `asyncio.to_thread`. Usuário
+  inexistente passa por um hash fictício calculado uma vez no início (FR-003, SC-005).
+- **Rationale**: o `argon2-cffi-bindings` 26.1.0 publica wheels `cp310-abi3` para `manylinux` aarch64 e x86_64 — servem
+  ao Python 3.14 do workspace e ao hardware alvo (ARM64); argon2id é a recomendação atual para senhas. 64 MiB por login
+  cabem no host de 12 GB com o bloqueio de força bruta limitando a concorrência.
+- **Alternatives considered**: `hashlib.scrypt` da biblioteca padrão (o fallback do design; desnecessário com as
+  wheels); bcrypt (limite de 72 bytes, contra o teto de 128 caracteres da FR-002).
+
+## R3 — Páginas HTML sem motor de templates
+
+- **Decision**: as páginas (login, troca de senha, "Minha conta", erro) são strings HTML em
+  `adapters/pages.py`, montadas por uma função que **escapa toda substituição por padrão** (`html.escape`) e só aceita
+  trechos já seguros marcados explicitamente. CSS num arquivo estático servido pelo próprio router, com cache longo e
+  nome com hash. Nenhum script. Os tokens visuais são os da console (013), nos temas claro e escuro por
+  `prefers-color-scheme`.
+- **Rationale**: quatro páginas pequenas não justificam `jinja2`, que o FastAPI não traz; escape por padrão fecha o XSS
+  que um template sem autoescape abriria; sem script, a CSP fica `script-src 'none'`.
+- **Alternatives considered**: `jinja2` com autoescape (dependência nova para quatro páginas); renderizar a página na
+  SPA da console (a página precisa existir sem console — ADR-030).
+
+## R4 — Formulários sem `python-multipart`
+
+- **Decision**: o router lê `application/x-www-form-urlencoded` direto do corpo (`await request.body()` +
+  `urllib.parse.parse_qs`, teto de 16 KiB), recusando outro tipo de conteúdo com 415.
+- **Rationale**: o `Form` do FastAPI exige `python-multipart`, que não está no lock; os formulários do provedor têm
+  três a cinco campos de texto, sem arquivo.
+- **Alternatives considered**: `python-multipart` (dependência para um caso que a biblioteca padrão resolve).
+
+## R5 — Sessão do provedor e CSRF
+
+- **Decision**: cookie de sessão opaco (32 bytes, guardado como hash no `GrantStore`), `HttpOnly`, `SameSite=Lax`,
+  `Path=/`, sem `Domain`, só `Max-Age` (30 dias, clarificação de 2026-10-13); nome `__Host-aic_session` com `Secure`
+  quando `AI_CORE_COOKIE_SECURE` (padrão: ligado se `AI_CORE_PUBLIC_URL` é `https`), e `aic_session` sem `Secure` em
+  desenvolvimento sobre `http` — o prefixo `__Host-` exige `Secure`, `Path=/` e nenhum `Domain`, senão o navegador
+  descarta o cookie (achado C2 do `/speckit-analyze`); id trocado a cada login. CSRF por **token
+  sincronizador** guardado no pedido de autorização pendente (login, troca de senha) ou na sessão ("Minha conta"),
+  conferido em tempo constante, mais conferência de `Origin` quando o cabeçalho vem. A CSP das páginas tem
+  `form-action 'self'` **mais as origens dos endereços de retorno** dos clientes do `identity.yaml`: o Chrome aplica
+  `form-action` também ao redirecionamento que segue o POST do login, e só `'self'` bloquearia a volta ao cliente
+  (achado C1). O Google não entra na diretiva: o início do fluxo com ele é um link (GET), não um formulário.
+- **Rationale**: `SameSite=Lax` sozinho não protege o POST do login vindo de subdomínio irmão; o sincronizador cobre
+  isso sem estado no navegador. `Max-Age` em vez de `Expires` porque o relógio fixo do perfil `test` tornaria o cookie
+  vencido.
+- **Alternatives considered**: double-submit cookie (mais frágil sob subdomínios); JWT como cookie de sessão (revogação
+  exigiria lista de bloqueio).
+
+## R6 — Tokens e prazos
+
+- **Decision**: acesso RS256 de 10 min com `iss`, `aud`, `sub` (id estável da conta), `preferred_username`, `groups`,
+  `azp`, `scope`, `iat`, `exp`, `kid` no cabeçalho; identidade com `nonce`, `auth_time`, `amr`, `email`,
+  `email_verified`, `name`. Código de 60 s, uso único. Renovação opaca de 32 bytes; sessão absoluta de 30 dias
+  (clarificação de 2026-10-13); rotação a cada uso para cliente público, com detecção de reuso que revoga a família
+  (FR-006); sem rotação para cliente confidencial. Tolerância de relógio: a da 003 (60 s).
+- **Rationale**: o ADR-030 fixa RS256 e o TTL de 10 min; o `JwksOidcVerifier` da 003 aceita RS256; o Open WebUI renova
+  em paralelo (cliente confidencial), e a rotação ali causaria corridas.
+- **Alternatives considered**: ES256 (menor, mas RS256 é o obrigatório do OIDC e o que todo RP aceita); TTL de acesso
+  maior (alongaria o acesso de quem é desativado — SC-004).
+
+## R7 — Chaves de assinatura
+
+- **Decision**: RSA-2048 gerada com `cryptography` em `adapters/signing.py`; a privada é guardada no `SigningKeyStore`
+  cifrada pela porta `SecretCipher` (AES-GCM, subchave HKDF-SHA256 de `AI_CORE_MASTER_KEY` com `info="ai-core/identity/v1"`,
+  nonce de 12 bytes por gravação — ADR-033). Estados `active` → `retiring` → `retired`; o JWKS publica `active` e
+  `retiring`; uma chave sai de `retiring` quando passou o TTL do acesso + a tolerância desde a rotação. `kid` = 16
+  hex aleatórios. Rotação forçada (`--force`): retira todas as chaves, gera uma nova e revoga todas as sessões.
+- **Rationale**: sobrevive a restart sem segredo em claro no banco; a rotação normal não invalida tokens vigentes
+  (SC-007).
+- **Alternatives considered**: chave privada vinda da instalação (mais um segredo para o operador gerir; a geração no
+  primeiro boot é o caminho que o ADR-030 escolheu).
+
+## R8 — Descoberta com backchannel dinâmico
+
+- **Decision**: `issuer`, `authorization_endpoint` e `end_session_endpoint` sempre de `AI_CORE_PUBLIC_URL`;
+  `token_endpoint`, `userinfo_endpoint`, `jwks_uri` e `revocation_endpoint` a partir da base pela qual o pedido de
+  descoberta chegou (esquema e `Host`, ou `X-Forwarded-Proto`/`X-Forwarded-Host` só de proxies confiáveis). O `iss` dos
+  tokens é sempre o público.
+- **Rationale**: o navegador alcança a plataforma pelo endereço público; o Open WebUI, pelo nome do contêiner —
+  o mesmo truque do `KC_HOSTNAME_BACKCHANNEL_DYNAMIC` da Fase 7 (002 R37). Um `Host` forjado só muda a resposta de quem o
+  forjou; não há cache compartilhado da descoberta.
+- **Alternatives considered**: dois emissores (um por rede) — quebraria a verificação da 003, que confia num único
+  emissor (ADR-030).
+
+## R9 — Login com Google
+
+- **Decision**: cliente OIDC do Google em `adapters/google.py` sobre `httpx` (descoberta em
+  `https://accounts.google.com/.well-known/openid-configuration`, cache de 1 h; troca de código com segredo; `id_token`
+  verificado com `pyjwt` contra o JWKS do Google, `aud` = client id, `iss` ∈ {`https://accounts.google.com`,
+  `accounts.google.com`}, `nonce`). PKCE S256 e `state` também no fluxo com o Google. Regras puras em
+  `domain/google.py` (FR-008): `email_verified` verdadeiro; domínio aceito, quando a instalação o define (`hd` e sufixo do
+  e-mail); conta ativa com o e-mail normalizado; vínculo pelo `sub` do Google no primeiro sucesso; `sub` diferente do
+  vinculado é recusado. Nunca cria conta.
+- **Rationale**: o RP do Google é o lado cliente do mesmo protocolo; `httpx` e `pyjwt` já estão no core; a porta
+  `UpstreamOidc` permite o provedor simulado nas suítes.
+- **Alternatives considered**: biblioteca de cliente do Google (dependência pesada para três chamadas).
+
+## R10 — Contas e nomes
+
+- **Decision**: `Account.id` = UUID estável (o `sub`); `username` imutável no padrão do design (sem `@`); e-mail
+  normalizado (`strip().lower()`), único; login aceita usuário ou e-mail, decidido pela presença de `@` (clarificação de
+  2026-10-13). Grupos no mesmo padrão; o grupo de administração vem da 011 e é protegido (FR-011). Senha temporária
+  gerada: 20 caracteres de um alfabeto sem ambíguos, em grupos de 4 com hífen (≈ 100 bits), devolvida uma vez.
+- **Rationale**: o subject `user:<username>` da Fase 7 continua (003 lê `preferred_username`); o UUID deixa o `sub`
+  estável e opaco; a senha gerada em grupos é ditável e forte.
+- **Alternatives considered**: senha temporária por lista de palavras (exigiria embutir uma lista; o desenho da
+  console mostra um exemplo assim, que muda para o formato em grupos na implementação).
+
+## R11 — Bloqueio de força bruta
+
+- **Decision**: porta `LoginAttempts` em memória (processo único), janelas deslizantes por usuário normalizado e por
+  origem: 5 falhas em 15 min bloqueiam 15 min (FR-013). A origem é o IP do socket, ou o primeiro IP de
+  `X-Forwarded-For` não confiável quando o par vem de `AI_CORE_TRUSTED_PROXIES`. A troca de senha em "Minha conta" conta
+  para o mesmo contador. Bloqueio responde a mesma mensagem genérica, com o mesmo tempo (hash fictício).
+- **Rationale**: o mesmo modelo de processo único da 003 (contadores de taxa); sem dependência de infraestrutura.
+- **Alternatives considered**: contadores em Postgres (sem caso de uso enquanto há um processo).
+
+## R12 — Persistência
+
+- **Decision**: schema `identity` (ADR-015), migrações `001_accounts.sql` (contas, grupos, membros, vínculo Google),
+  `002_grants.sql` (pedidos pendentes, códigos, sessões, renovação), `003_signing_keys.sql`, `004_settings.sql`, no
+  padrão do `migrate()` dos demais módulos (trava consultiva, `schema_version`). Expurgo periódico de pedidos, códigos,
+  sessões e renovação vencidos — função do serviço, agendada pela 011. Segredos guardados só como hash (sessão,
+  renovação, código) ou cifrados (chave privada).
+- **Rationale**: padrão já provado em `assistants`, `http`, `mcp` e `capabilities`.
+- **Alternatives considered**: tabelas de sessão em memória mesmo no `persistent` (sessões de 30 dias não podem morrer
+  num restart).
+
+## R13 — Seams expostos
+
+- **Decision**: três seams em `api.py` (contrato em [contracts/identity-api.md](contracts/identity-api.md)):
+  `AccountAdmin` (contas e grupos, com o ator em toda operação), `LoginSettings` (Google ligado e origem) e
+  `PublicKeySet` (`jwks() -> Mapping`). O protocolo HTTP é o adapter primário `adapters/http.py`, exportado como uma
+  função `router(service, settings)` que a 011 inclui no app.
+- **Rationale**: a 008 só traduz HTTP para `AccountAdmin`/`LoginSettings` (ADR-031); a 011 injeta o `jwks()` no
+  verificador da 003 sem chamada de rede (FR-017); o protocolo fica dentro do módulo (ADR-030).
+- **Alternatives considered**: a 008 servir os endpoints do protocolo (a 008 aprenderia OIDC, contra o ADR-030).
+
+## R14 — Linha de comando e admin inicial
+
+- **Decision**: `ai-core users create <nome> --email … [--name …] [--group …]… [--password-stdin]` (sem a opção, pede a
+  senha sem eco com `getpass`; a senha da CLI é a definitiva da pessoa, não temporária), `users list`, `users disable|enable
+  <nome>`, `users password <nome>` (gera temporária), `users groups <nome> --set …`, e `ai-core identity keys rotate
+  [--force]`, em `adapters/cli.py`, registrados pela 011. Admin inicial por `AI_CORE_BOOTSTRAP_ADMIN_USERNAME`,
+  `_EMAIL` e `_PASSWORD_FILE` (arquivo, nunca a senha em variável), só com zero contas (FR-018).
+- **Rationale**: o operador precisa do primeiro admin antes de existir console; segredo em arquivo segue o padrão de
+  segredos do Docker.
+- **Alternatives considered**: senha do admin inicial em variável de ambiente (vaza em `docker inspect`).
+
+## R15 — Eventos de segurança
+
+- **Decision**: logger `identity` em `INFO` com eventos estruturados (`login.ok`, `login.failed`, `login.locked`,
+  `google.refused`, `account.created|updated|disabled|enabled|password_reset`, `keys.rotated`), com usuário (quando
+  existe), cliente, motivo curto e ator; nunca senha, código, token, cookie ou segredo (FR-020, FR-021). Não entram no
+  Trace Sink da 009: não são execuções.
+- **Rationale**: o trace é por requisição de execução; segurança vai para o log do processo, que o operador já coleta.
+- **Alternatives considered**: tabela de auditoria (sem caso de uso declarado; o `updated_by` da conta cobre a FR-010).
+
+## R16 — Testes
+
+- **Decision**: `tests/identity/` com `unit/` (domínio: PKCE, pedido de autorização, rotação e reuso, claims, bloqueio,
+  Google, nomes, senha), `contract/` (os três seams; cada porta contra memória e real — Postgres com
+  `AI_CORE_TEST_POSTGRES_DSN`, `argon2`, `cryptography`), `integration/` (suíte de protocolo com o authlib como RP sobre o
+  app em processo via transporte ASGI do `httpx`; casos adversariais da SC-002; Google simulado pela porta
+  `UpstreamOidc`; varredura de segredos nos logs). Hypothesis para nomes e entradas do formulário.
+- **Rationale**: o padrão das demais specs; o RP real prova a interoperabilidade.
+- **Alternatives considered**: suíte de conformidade da OpenID Foundation em Docker (útil antes de produção; fica como
+  verificação manual opcional, não no CI).
+
+## R17 — Escopo desta passada
+
+- **Decision**: US1–US7 da 012 inteiras. O encaixe é das passadas das consumidoras, nesta mesma fase: a 003
+  (`JwksSource` em processo, audiência por superfície, admin por grupo — US9), a 011 (etapa `identity`, portas,
+  configuração, CLI — US6), a 008 (rotas de `AccountAdmin`/`LoginSettings` — US9) e a 002 (instalação — US7). Esta
+  passada não toca `assistants/`, `http/` nem `bootstrap/`.
+- **Rationale**: uma passada por módulo (princípio II); a suíte de protocolo roda com o router montado num app de teste,
+  sem a 011.
+- **Alternatives considered**: implementar o encaixe aqui (violaria a fronteira).

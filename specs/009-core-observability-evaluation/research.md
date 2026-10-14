@@ -396,3 +396,141 @@ motor real no perfil `test` e um pack de teste com retriever, reranker e uma mé
 **Rationale**: a 105 precisa do harness e do protocolo de métrica numa referência estável.
 
 **Alternatives**: commit (ADR-021 prevê tag).
+
+## Fase 9 (2026-10-14): destinos do trace, uso e custo, Langfuse e conteúdo opcional
+
+Insumos: ADR-033, ADR-034, a clarificação de 2026-10-13 (avaliação entra no uso, marcada), o desenho aprovado da console
+(tela "Uso e custo", "Tabela de preços", "Observabilidade") e a skill `dataviz` (a paleta das séries é da 013).
+
+### R28 — Fan-out de destinos no `TraceService`
+
+**Decision**: `TraceService(primary: TraceExporter, destinations: Sequence[TraceDestination], reader, clock,
+content: ContentPolicy)`. O `primary` é o backend consultável (memória ou JSONL) e continua recebendo cada registro na
+hora (FR-012). Cada `TraceDestination` tem `accepts_content: bool`, `export(record)` não bloqueante e `stats()`
+(enfileirados, descartados, último erro); falha de um destino é contada nele e nunca chega a quem emite nem aos outros.
+O seam `TraceSink` não muda.
+
+**Rationale**: ADR-034; o primário mantém a semântica da FR-012, e os destinos de banco ou rede só enfileiram.
+
+**Alternatives considered**: tornar todos os destinos iguais ao primário (o Langfuse lento atrasaria a execução).
+
+### R29 — Evento `ModelExchange` e política de conteúdo
+
+**Decision**: `ModelExchange(request_id, role, provider, model, messages: tuple[ExchangeMessage, ...], output: str)` no
+`TraceEvent` (ADR-034 — o único evento com texto além dos trechos entregues da FR-004), emitido pela 006 logo depois do
+`ModelCall`. `ContentPolicy.capture` (efetivo de `TraceDestinations`) decide no `TraceService`: desligado → o evento é
+descartado antes de virar registro; ligado → passa pela redação de credenciais, cada mensagem e a saída cortadas em
+16 KiB com marca, e só vai a destinos com `accepts_content`. O primário nunca o recebe.
+
+**Rationale**: o texto existe só onde foi pedido e só para quem aceita (ADR-034); a regra fica num lugar.
+
+**Alternatives considered**: campo opcional no `ModelCall` (ADR-034 rejeitou).
+
+### R30 — Destino de uso e o relatório
+
+**Decision**: `UsageDestination` (projeção pura em `domain/usage.py`): `execution_started` abre a entrada da requisição
+(Assistant, flow, início) num mapa com TTL de 1 h; `model_call` vira linha de `model_calls` com o Assistant da entrada
+(sem entrada → sem Assistant); `execution_finished` fecha a execução. Buffer `deque(maxlen=10_000)`; `flush()` assíncrono
+grava em lote pelo `UsageStore` — chamado por uma tarefa periódica de 2 s (montada pela 011) e no encerramento. A origem
+(`production`/`evaluation`) é um parâmetro do destino, fixado pela 011 por processo (clarificação de 2026-10-13).
+Consulta: `UsageStore.daily(start, end, tz, by, origin)` agrega por dia local (`date_trunc('day', at AT TIME ZONE tz)`),
+e o serviço junta os preços (R31) para o custo.
+
+**Rationale**: linhas brutas são pequenas no volume esperado (SC-008: 100 mil chamadas em 90 dias); o fuso é parâmetro
+da consulta, então mudar o fuso não exige migração.
+
+**Alternatives considered**: agregados diários pré-calculados (um preço lançado depois exigiria recalcular; o fuso
+ficaria preso).
+
+### R31 — Preços com vigência e custo na consulta
+
+**Decision**: `PriceStore` com `prices(provider, model, usd_per_mtok_in, usd_per_mtok_out, effective_from date,
+created_by, created_at)`; preço vigente num dia = o de maior `effective_from` ≤ o dia. Custo de um dia e modelo =
+`in_tok × in / 1e6 + out_tok × out / 1e6`, em `Decimal` com 6 casas e arredondado só na apresentação. Modelo sem preço
+vigente num dia → custo ausente naquele dia e a linha marcada "sem preço"; o total do período fica "incompleto". Ollama
+sem preço é "sem preço" até alguém cadastrar zero.
+
+**Rationale**: ADR-034 (custo é projeção, calculado na consulta); `Decimal` evita erro de ponto flutuante em somas
+longas.
+
+**Alternatives considered**: preço por provider sem modelo (OpenRouter tem preço por modelo).
+
+### R32 — Langfuse por OpenTelemetry
+
+**Decision**: `LangfuseTransport` em `adapters/langfuse.py` com `opentelemetry-sdk` e
+`opentelemetry-exporter-otlp-proto-http` (confinados a `observability/adapters/` — o import-linter já proíbe OTel no
+núcleo, R1): endpoint `{host}/api/public/otel/v1/traces`, cabeçalho `Authorization: Basic base64(public:secret)`,
+`BatchSpanProcessor` (fila de 2 048, lote de 256, 5 s; descarta quando cheia). Mapeamento: `execution_started` abre o
+span raiz (nome = Assistant; `langfuse.trace.name`, `langfuse.trace.metadata.flow`/`packs`), guardado por `request_id`
+com TTL; `model_call` vira span filho com `start_time = at − duration_ms` e `end_time = at`,
+`langfuse.observation.type = "generation"`, `gen_ai.request.model`, `gen_ai.usage.input_tokens`/`output_tokens`, nível
+`ERROR` em falha; `model_exchange` preenche `langfuse.observation.input`/`output` do último span de geração da mesma
+requisição; `tool_call` vira span `tool`; `controller_decision`, `coverage_gate`, `validation_run`, `retrieval` e
+`execution_error` viram eventos do span raiz (mensagem redigida); `execution_finished` encerra o raiz. "Testar
+conexão": `GET {host}/api/public/projects` com a mesma autenticação (200 → projeto; 401 → credencial recusada).
+`reload()` ao gravar ajustes: novo provider/exportador; o antigo é esvaziado e desligado.
+
+**Rationale**: o Langfuse recebe OTLP nativamente; o SDK de OTel dá lote, fila limitada e retentativa; ADR-013 e R1 já
+deixavam o OTel como adapter. Os nomes de atributo seguem as convenções `gen_ai.*` e `langfuse.*` que o Langfuse mapeia
+— **a conferir** contra uma instância real na tarefa de verificação (T070).
+
+**Alternatives considered**: a API de ingestão própria do Langfuse com `httpx` (sem dependência nova, mas sem fila nem
+lote prontos e marcada como legado); o SDK Python do Langfuse (puxa dependências e assume que controla o ciclo de vida
+dos spans).
+
+### R33 — Ajustes dos destinos, precedência e segredo
+
+**Decision**: `DestinationSettingsStore` guarda `langfuse_enabled`, `langfuse_host`, `langfuse_public_key`,
+`langfuse_secret_sealed` (selado pela porta `SecretCipher`, AES-GCM com subchave HKDF `ai-core/observability/v1` —
+ADR-033), `capture_content`, `version`, `updated_by`, `updated_at`. Precedência pura em `domain/settings.py`:
+`AI_CORE_LANGFUSE_HOST|PUBLIC_KEY|SECRET_KEY` (tudo ou nada: parcial é erro de configuração, nomeando a que falta) >
+banco > padrão (desligado); `AI_CORE_LANGFUSE_CAPTURE_CONTENT` à parte. Campo da instalação → escrita recusada com
+`InstallationDefined(field)`; segredo nunca devolvido (só `secret_set: bool` e a origem). Sem chave mestra → gravar o
+segredo levanta `MasterKeyMissing`; o resto grava.
+
+**Rationale**: decisão do mantenedor (com console, chaves pela console; sem, pela instalação), sem o core saber se há
+console.
+
+**Alternatives considered**: segredo em claro no banco (ADR-033 rejeitou).
+
+### R34 — Retenção e saúde
+
+**Decision**: `UsageStore.purge(before)` diário (tarefa da 011), com `AI_CORE_USAGE_RETENTION_DAYS` (padrão 400); preços
+não expiram. Saúde: `TraceDestinations.health()` devolve, por destino, `ok | degraded` com descartes nas últimas 24 h e
+último erro — a 011 vira os itens não críticos `trace:usage` e `trace:langfuse`.
+
+**Rationale**: 400 dias cobrem comparação ano a ano; destino de observação nunca derruba a plataforma.
+
+**Alternatives considered**: sem retenção (crescimento sem limite).
+
+### R35 — Toque declarado na 006
+
+**Decision**: em `llm/service.py`, o `TracedModel` monta o `ModelExchange` com as mensagens enviadas (papel e texto;
+partes não textuais viram marcador) e a saída final — em streaming, a acumulada ao fim — e o emite depois do `ModelCall`.
+Nada de cabeçalho nem credencial. Sem custo quando a captura está desligada além de montar a tupla (o `TraceService`
+descarta).
+
+**Rationale**: ADR-034; quem tem o texto é a 006.
+
+**Alternatives considered**: a 009 pedir o texto à 006 (inverteria a seta).
+
+### R36 — Testes da Fase 9
+
+**Decision**: unidade (`usage.py`, preço vigente, fuso, precedência); conformidade (destinos: falha isolada, fila
+cheia descarta e conta; conteúdo nunca no primário — SC-007; `UsageStore`/`PriceStore`/`DestinationSettingsStore`
+memória × Postgres; `SecretCipher`; `LangfuseTransport` contra um coletor OTLP falso local); integração (SC-005: tokens
+do relatório = soma das chamadas emitidas; SC-006: destino travado não atrasa `emit` — medido; SC-008: 100 mil
+chamadas em 90 dias < 1 s no Postgres de teste). Marcas `us5`, `us6`, `us7`.
+
+**Rationale**: os SC são mensuráveis por teste.
+
+**Alternatives considered**: —
+
+### R37 — Release
+
+**Decision**: depois das passadas da Fase 9 (012, 003, 009+006, 008, 011), o core sobe para `0.6.0` — tag `v0.6.0`
+**só com aprovação do mantenedor**; contratos não mudam.
+
+**Rationale**: o padrão das fases anteriores.
+
+**Alternatives considered**: —

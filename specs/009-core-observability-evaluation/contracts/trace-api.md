@@ -102,3 +102,9 @@ trechos candidatos, reordenados e entregues à geração — identificador, scor
 seção, página) e, **só nos entregues**, o texto que o modelo viu (cortado e redigido). O harness da 009 os lê pela
 consulta de trace (research R15, R19).
 
+## Fase 9 (2026-10-14): destinos e o evento de conteúdo (ADR-034)
+
+- `TraceEvent` ganha `ModelExchange` (registro `model_exchange`): só existe com a captura de conteúdo ligada, só vai a
+  destinos com `accepts_content`, nunca ao backend primário consultável por requisição.
+- `emit` continua síncrono e nunca levanta; o primário recebe na hora (FR-012); os demais destinos enfileiram.
+- Seams novos de uso, preços e destinos em [usage-api.md](usage-api.md).

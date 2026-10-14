@@ -196,6 +196,27 @@ Adicionar um pack novo é acrescentar uma linha e rebuildar. Nenhum loader custo
 > próprio a partir da tag do `agentic-app`, instala os packs por cima, roda `packs check` e entrega um estágio de
 > runtime sem instalador. Os packs privados entram por montagem SSH do BuildKit, sem credencial em camada da imagem.
 
+### Fase 9: com ou sem console, sem Keycloak ([ADR-029](../../docs/adr/ADR-029-console-de-administracao-propria.md), [ADR-030](../../docs/adr/ADR-030-a-plataforma-e-o-provedor-de-identidade.md), [ADR-033](../../docs/adr/ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md))
+
+- **Dockerfile:** estágios novos `console-build` (`node:24-bookworm-slim`, copia `ai-core/console` do estágio `core`,
+  `npm ci && npm run build`) e `console` (`nginx-unprivileged`, sistema de arquivos somente leitura, `nginx.conf`
+  da 013). A console sai da mesma tag `CORE_REF` da plataforma.
+- **Compose:** `postgres` (volume próprio) entra em toda instalação, com ou sem interface, e o `ai-core` passa a
+  `AI_CORE_PROFILE=persistent` (clarificação de 2026-10-13). Perfil `webui` = Open WebUI apontado para a plataforma
+  (`OPENID_PROVIDER_URL={AI_CORE_PUBLIC_URL}/.well-known/openid-configuration`, cliente confidencial `open-webui`); o
+  serviço `keycloak`, o volume `keycloak-data` e `config/keycloak/` saem. A sessão do Open WebUI (`JWT_EXPIRES_IN`) fica
+  um pouco abaixo dos 30 dias da sessão do provedor (012, clarificação de 2026-10-13), como era 8 h contra 10 h. Perfil novo `console` = o serviço da console,
+  publicado na porta da instalação; com ele, `AI_CORE_PUBLIC_URL` é a origem da console.
+- **Configuração:** `config/identity.yaml` (clientes `open-webui` e `console`, endereços exatos); `.env.example`
+  dividido em seções "sem console" (com `AI_CORE_LANGFUSE_*`) e "com console" (sem elas), mais `AI_CORE_MASTER_KEY`,
+  `AI_CORE_BOOTSTRAP_ADMIN_*`, `AI_CORE_GOOGLE_*`, `AI_CORE_IDENTITY_SECRET_OPEN_WEBUI`, `AI_CORE_USAGE_TIMEZONE`;
+  `assistants.yaml` de exemplo com `overrides` num Assistant.
+- **Provas:** `scripts/check-webui.py` entra pelo formulário da plataforma (no lugar do Keycloak); `scripts/check-console`
+  (Playwright ou biblioteca padrão) entra com o admin inicial e grava uma sobreposição de modelo.
+- **Migração da Fase 7:** contas do Open WebUI ligadas ao `sub` do Keycloak — `OAUTH_MERGE_ACCOUNTS_BY_EMAIL=true` ou
+  volume novo do Open WebUI; as pessoas são cadastradas na plataforma (`ai-core users create`).
+- Detalhes (parâmetros do Open WebUI v0.12, nomes de perfil) ficam para o research do plano, na sequência das R36–R41.
+
 ## Portas e adapters **[ADR-012]**
 
 | Porta | Tipo | Adapters por fase | Teste |

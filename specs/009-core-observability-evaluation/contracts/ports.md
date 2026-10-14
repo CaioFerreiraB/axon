@@ -56,3 +56,14 @@ linha corrompida no arquivo é ignorada na leitura, com aviso em log, em vez de 
 
 `FailingTraceExporter` (só em teste) levanta em `export` para provar FR-011: a execução segue e o contador de
 descartes sobe.
+
+## Fase 9 (2026-10-14)
+
+| Porta | Métodos | Real | Memória / teste | Conformidade |
+|---|---|---|---|---|
+| `TraceDestination` | `name`, `accepts_content`, `export(record)` (não bloqueia), `flush()` (async), `stats()` | `UsageDestination`, `LangfuseDestination` | destino gravador e destino que falha/trava | falha isolada; fila cheia descarta e conta; conteúdo só onde aceito |
+| `UsageStore` | `append(rows)`, `daily(query)`, `previous_total(query)`, `purge(before)` | Postgres `observability.model_calls`/`executions` | listas com a mesma agregação em Python | fuso, origem, agrupamentos |
+| `PriceStore` | `all()`, `add(price)`, `effective(provider, model, day)` | Postgres `observability.prices` | lista | vigência |
+| `DestinationSettingsStore` | `get()`, `put(settings, expected_version)` | Postgres `observability.destination_settings` | valor | versão |
+| `SecretCipher` | `seal`, `open` | AES-GCM + HKDF (`ai-core/observability/v1`) | o real com chave fixa | ida e volta; chave errada |
+| `LangfuseTransport` | `send(spans)`, `check(host, public, secret)`, `shutdown()` | OTel SDK + OTLP/HTTP | coletor OTLP falso local; transporte que trava | lote; descarta sem bloquear; autenticação |

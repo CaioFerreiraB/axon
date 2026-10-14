@@ -127,3 +127,43 @@ class ApiKeyAdmin(Protocol):
 - `tests/assistants/contract/test_validation.py` — um estado por Assistant, motivos que nomeiam campo e referência;
 - `tests/assistants/contract/test_allowlist_parity.py` — a regra de allowlist da resolução e a da 006 concordam sobre
   o mesmo conjunto de casos (R5).
+
+## Fase 9 (2026-10-14): superfície de administração e `SystemAssistantAdmin`
+
+### Superfícies (ADR-031)
+
+`SCHEMES_OF_SURFACE` substitui `SCHEME_OF_SURFACE` (mantido, derivado e depreciado, até a série seguinte). Na superfície
+`admin`, credencial com o prefixo de chave da 003 segue o caminho de chave; qualquer outra, OIDC com a audiência
+`ai-core-admin`. Na `public`, OIDC com a audiência `ai-core`. Audiência errada → `None` (não autenticado).
+`is_admin(principal)` = membro do grupo de administração, em qualquer esquema.
+
+### `SystemAssistantAdmin` — consumido pela 008 (superfície de administração)
+
+```python
+class SystemAssistantAdmin(Protocol):
+    async def system_assistants(self, *, actor: Principal) -> tuple[SystemAssistantView, ...]: ...
+    async def system_assistant(self, name: str, *, actor: Principal) -> SystemAssistantView: ...
+    async def override_models(self, name: str, override: ModelsOverride, *, actor: Principal,
+                              version: int | None) -> SystemAssistantView: ...
+    async def override_mcp(self, name: str, override: McpOverride, *, actor: Principal,
+                           version: int | None) -> SystemAssistantView: ...
+    async def discard_override(self, name: str, section: OverrideSection, *, actor: Principal,
+                               version: int) -> SystemAssistantView: ...
+    async def history(self, name: str, *, actor: Principal) -> tuple[OverrideHistoryEntry, ...]: ...
+    def declared_models(self) -> tuple[ModelRef, ...]: ...      # efetivos, para a saúde (011)
+```
+
+| Situação | Resultado |
+|---|---|
+| ator fora do grupo de administração | `NotFound` (404) |
+| Assistant inexistente ou de usuário | `NotFound` |
+| seção fora de `overrides` | `RequestRejected(field="models" \| "mcp")` com "só muda por novo deploy" |
+| modelo fora de `models.allow`; papel exigido ausente; entrada sem namespace ou de alias alheio; alias inexistente; escrita em Assistant público | `RequestRejected(field=…)` nomeando o campo |
+| `version` diferente da guardada (`None` só quando não há sobreposição) | `Conflict` |
+| sucesso | a visão atualizada; vale na resolução seguinte, sem restart |
+
+### Conformidade — acréscimos
+
+`tests/assistants/contract/test_system_assistant_admin.py` (adversarial, marca `us10`),
+`tests/assistants/contract/test_override_store.py` (memória × Postgres), `tests/assistants/contract/test_surfaces.py`
+(três superfícies, audiências, admin por grupo, marca `us9`).

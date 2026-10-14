@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: Tradução de arch-v1 §10 (níveis de extensão), §11 (packs declarativos, code packs, composição), §13 (registro, descoberta, fail-closed, introspecção, CLI), §14 (deployment), §6 (isolamento de fatias); ADR-003, ADR-009, ADR-011, ADR-012.
+**Input**: Tradução de arch-v1 §10 (níveis de extensão), §11 (packs declarativos, code packs, composição), §13 (registro, descoberta, fail-closed, introspecção, CLI), §14 (deployment), §6 (isolamento de fatias); ADR-003, ADR-009, ADR-011, ADR-012. Fase 9 (2026-10-13): instalação com ou sem a console e sem Keycloak — ADR-029, ADR-030, ADR-033.
 
 ## Module Boundary *(mandatory)*
 
@@ -17,7 +17,7 @@
 - **Depende de infraestrutura (via portas)**: fonte dos packs instalados (descoberta) e configuração do operador (habilitação e configuração por pack).
 - **Não conhece**: flows e nós do grafo, HTTP, Assistants (recebe apenas a lista ordenada de packs a compor), a ordem de boot da plataforma (spec 011), qualquer domínio.
 - **Substituição**: preservar Pack Registry e Pack Hooks; o mecanismo de descoberta (entry points) pode mudar sem afetar consumidores.
-- **Insumo técnico**: [design.md](design.md); [ADR-003](../../docs/adr/ADR-003-mcp-usuario-pack-operador.md), [ADR-009](../../docs/adr/ADR-009-deploy-docker-build-arg.md), [ADR-011](../../docs/adr/ADR-011-contratos-independentes-do-motor.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md).
+- **Insumo técnico**: [design.md](design.md); [ADR-003](../../docs/adr/ADR-003-mcp-usuario-pack-operador.md), [ADR-009](../../docs/adr/ADR-009-deploy-docker-build-arg.md), [ADR-011](../../docs/adr/ADR-011-contratos-independentes-do-motor.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-022](../../docs/adr/ADR-022-instalacao-constroi-o-core-num-estagio-proprio.md), [ADR-029](../../docs/adr/ADR-029-console-de-administracao-propria.md), [ADR-030](../../docs/adr/ADR-030-a-plataforma-e-o-provedor-de-identidade.md), [ADR-033](../../docs/adr/ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md).
 
 ## Clarifications
 
@@ -36,6 +36,10 @@
 - Q: Como a instalação fixa a versão do core? → A: Pela tag de release `v0.1.0` do `agentic-app` (core e `ai-generic` lançados juntos — ADR-004), criada nesta passada.
 - Q: Como o build da instalação é verificado na Fase 4? → A: Por um script local (build com a chave SSH do operador) e pela CI do `agentic-deploy`, com deploy keys só de leitura do `agentic-app` e do `ai-scouting`; o *Independent Test* (pack compatível builda, incompatível falha) roda a cada push.
 - Q: Como o Pack Hooks entrega ao motor os validators que filtram o streaming? → A: `open_answer_stream(composition, view, slices)` abre um filtro que encadeia as sessões dos validators com `open_stream` que formam o prefixo da sequência de validators da composição; `finish()` devolve cauda, resposta filtrada e as execuções; `validate(..., streamed=…)` reaproveita essas execuções e roda só os validators restantes, sobre a resposta filtrada (ADR-024).
+
+### Session 2026-10-13
+
+- Q: A instalação padrão, sem console e sem Open WebUI (só a API com chave), também passa a trazer o Postgres? → A: Sim. Toda instalação de referência usa o perfil `persistent` com Postgres, com ou sem interface: chaves, Assistants de usuário, conversas, uso e sobreposições sobrevivem a um restart, e a API de administração funciona igual sem tela.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -136,6 +140,35 @@ Quando a capacidade é "estas tools de MCP + este prompt + estes validators simp
 
 ---
 
+### User Story 7 - Operador instala com ou sem a console, com login da própria plataforma (Priority: P2)
+
+O operador escolhe, no repositório de instalação, entre a instalação padrão — a plataforma sem interface de
+administração — e a instalação com a console (013). Com ou sem console, quem usa o Open WebUI entra pelo login da
+própria plataforma (012); o Keycloak sai da instalação. Toda instalação traz o Postgres. As credenciais
+do Google ficam sempre na instalação; as do Langfuse ficam na instalação quando não há console e na console quando há
+([ADR-033](../../docs/adr/ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md)).
+
+**Why this priority**: É o que o mantenedor pediu para a instalação; sem isso, a console e a identidade não chegam a
+quem opera.
+
+**Independent Test**: Subir a instalação sem console e verificar que nenhuma imagem da console existe e que o Open WebUI
+entra pelo login da plataforma; depois subir com a console e entrar nela com o admin inicial.
+
+**Acceptance Scenarios**:
+
+1. **Given** a instalação padrão, **When** o operador a sobe, **Then** não há serviço da console nem do Keycloak, a
+   plataforma atende pela API como hoje, e uma chave emitida continua valendo depois de um restart.
+2. **Given** a opção com console, **When** o operador a sobe, **Then** a console responde na porta configurada, e o
+   admin inicial declarado na instalação entra nela.
+3. **Given** o perfil com o Open WebUI, **When** uma pessoa cadastrada entra no chat, **Then** o login é a página da
+   plataforma, e ela vê os Assistants que os grupos dela permitem.
+4. **Given** o build com a console, **When** a imagem da console é construída, **Then** sai da mesma tag do core da
+   imagem da plataforma, e nenhuma credencial fica numa camada da imagem.
+5. **Given** a instalação sem console com as variáveis do Langfuse, **When** a plataforma sobe, **Then** os traces vão ao
+   Langfuse sem nenhuma configuração por tela.
+
+---
+
 ### Edge Cases
 
 - Dois packs instalados com o mesmo nome: nenhum dos dois carrega; erro nomeia o conflito.
@@ -146,6 +179,8 @@ Quando a capacidade é "estas tools de MCP + este prompt + estes validators simp
 - Composição com o pack A antes de B, ou sem B, quando A depende da fatia de B: composição recusada com erro que nomeia A e B (FR-008).
 - Namespace de pack declarativo colidindo com nome de pack instalado: erro de carregamento.
 - Validator que lança exceção durante a execução: a resposta não é entregue sem validação; a execução termina com erro explícito.
+- Instalação que vinha da Fase 7 com Keycloak: as contas do Open WebUI estavam ligadas ao identificador do Keycloak; a migração documentada religa pelo e-mail ou recomeça o volume do Open WebUI, e as pessoas são cadastradas na plataforma.
+- Instalação com console sem chave mestra: a plataforma não sobe (011), e a documentação da instalação mostra como gerar a chave.
 
 ## Requirements *(mandatory)*
 
@@ -169,6 +204,10 @@ Quando a capacidade é "estas tools de MCP + este prompt + estes validators simp
 - **FR-016**: Packs declarativos NÃO DEVEM poder declarar retriever próprio, transformação de documentos ou lógica condicional.
 - **FR-017**: O nome do entry point DEVE ser igual ao `name` do pack; esse nome identifica o pack na configuração do operador e no Pack Registry. `name` e `contract_version` DEVEM ser lidos da classe exportada pelo entry point, antes de instanciá-la; divergência de nomes ou ausência desses atributos na classe deixam o pack `error` sem instanciá-lo (importar o módulo do pack é inevitável para ler a classe; falha no import também deixa o pack `error`). A classe é instanciada sem argumentos — a configuração chega aos hooks pelo Pack Context (001 FR-019).
 - **FR-018**: O Pack Hooks DEVE abrir, para a geração, um filtro que encadeia as sessões de streaming dos validators do prefixo da sequência da composição, e o `validate` DEVE aceitar o resultado desse filtro para rodar só os validators restantes; sessão que quebra a regra do contrato (fim que não só acrescenta, tipo errado, exceção) é `PackHookError` nomeando pack e validator (ADR-024).
+- **FR-019**: O template de instalação DEVE oferecer a instalação padrão, sem a console, e a opção com a console (013), escolhida por um parâmetro da instalação, sem editar código. A imagem da console DEVE ser construída num estágio próprio, a partir da mesma tag do core da imagem da plataforma (ADR-022), e servida por um servidor estático que repassa os prefixos da plataforma na mesma origem. *(Fase 9, [ADR-029](../../docs/adr/ADR-029-console-de-administracao-propria.md).)*
+- **FR-020**: Toda instalação de referência DEVE usar o perfil persistente com Postgres, com ou sem interface; toda instalação com interface (Open WebUI ou console) DEVE usar o provedor de identidade da plataforma (012); o template NÃO DEVE trazer o Keycloak. O Open WebUI DEVE ser configurado como cliente confidencial da plataforma, repassando o token de cada usuário como na Fase 7. *(Fase 9, [ADR-030](../../docs/adr/ADR-030-a-plataforma-e-o-provedor-de-identidade.md).)*
+- **FR-021**: O template DEVE trazer exemplos de configuração para os dois casos — com e sem console —, com a chave mestra, o admin inicial, os clientes da identidade, as credenciais do Google (sempre na instalação) e as do Langfuse (na instalação só no caso sem console), sem nenhum valor real de segredo.
+- **FR-022**: A prova da instalação DEVE cobrir o login pela plataforma no Open WebUI (substituindo a prova pelo Keycloak) e, com a console, a entrada do admin inicial e uma sobreposição de modelo.
 
 ### Key Entities
 
@@ -186,6 +225,8 @@ Quando a capacidade é "estas tools de MCP + este prompt + estes validators simp
 - **SC-003**: 100% das incompatibilidades de contrato são detectadas no build da imagem, antes da produção.
 - **SC-004**: O operador identifica o estado de todos os packs e a causa de cada erro em menos de 1 minuto, usando apenas a linha de comando ou a introspecção.
 - **SC-005**: Nenhuma combinação de packs válidos produz uma composição não executável (verificado por teste de composição com todos os pares de packs de teste).
+- **SC-006**: Passar da instalação sem console para a com console é trocar um parâmetro da instalação, sem editar código nem arquivos do core.
+- **SC-007**: Nenhuma instalação de referência da Fase 9 traz o Keycloak, e a prova da instalação passa com o login da plataforma.
 
 ## Assumptions
 

@@ -83,7 +83,7 @@ A resposta à pergunta *"como uso scouting sem que o sistema conheça os MCPs do
 | Definidos por | operador, em YAML versionado | usuário, via API |
 | Armazenados em | arquivo de configuração | Postgres |
 | Podem referenciar | qualquer pack instalado, qualquer MCP global | packs permitidos ao usuário, MCPs próprios |
-| Sobrescritos por | novo deploy | o próprio usuário |
+| Sobrescritos por | novo deploy; pela administração, só as seções em `overrides` (Fase 9, ADR-032) | o próprio usuário |
 
 ## Autenticação (arch-v1 §15)
 
@@ -105,6 +105,44 @@ class Authenticator(Protocol):     # seam em api.py
 
 A dependência HTTP que extrai a credencial da requisição e chama `authenticate` é da spec 008 (adapter primário).
 Superfícies são poucas e estáveis; assistants crescem. Por isso a variável de roteamento é a superfície de auth, não o pack (ADR-002).
+
+### Fase 9: superfície de administração e emissor da plataforma ([ADR-030](../../docs/adr/ADR-030-a-plataforma-e-o-provedor-de-identidade.md), [ADR-031](../../docs/adr/ADR-031-superficie-de-administracao.md))
+
+- `Surface = "public" | "private" | "admin"`; `SCHEME_OF_SURFACE` vira `SCHEMES_OF_SURFACE: Mapping[Surface,
+  frozenset[Scheme]]` = `{public: {oidc}, private: {api_key}, admin: {oidc, api_key}}`. Na administração, `parse_key()`
+  com o prefixo `aic_` → caminho de chave; senão, OIDC.
+- Audiência por superfície: `public` aceita a do chat (`ai-core`), `admin` a da console (`ai-core-admin`); a 011 as
+  configura a partir dos clientes da 012.
+- `is_admin(principal, admin_group)` = `admin_group in principal.groups`, sem olhar o esquema.
+- O `JwksOidcVerifier` mantém a lógica e ganha uma fonte de chaves plugável (`JwksSource`): HTTP (descoberta ou
+  `AI_CORE_OIDC_JWKS_URL`, como hoje) ou uma função em processo — o seam `PublicKeySet` da 012, injetado pela 011, sem
+  chamada HTTP da plataforma para si mesma. Um único emissor: identidade ligada com `AI_CORE_OIDC_ISSUER` é erro de
+  configuração (validado pela 011).
+- Com a 012, o subject vem de `preferred_username` (`OidcClaims(subject_claim="preferred_username", groups_claim="groups")`),
+  como com o Keycloak na Fase 7.
+
+## Sobreposições de Assistants de sistema (Fase 9, [ADR-032](../../docs/adr/ADR-032-assistants-de-sistema-sobrepostos-em-runtime.md))
+
+```yaml
+assistants:
+  geral:
+    overrides: [models, mcp]     # conjunto fechado; ausente = só por deploy
+    models: {generation: openrouter/openai/gpt-4.1-nano, allow: ["openrouter/*"]}
+```
+
+- Merge puro em `domain/overrides.py`: `effective(definition, overrides) -> (definition, problems, states)`. Uma
+  sobreposição substitui a seção inteira e só vale se a seção está em `overrides`; senão, estado `inactive` com motivo.
+- `models`: só papéis; cada `ModelRef` casa `models.allow` (o teto do YAML).
+- `mcp`: aliases e as entradas com namespace MCP de `allowed_tools`/`write_tools`; as de pack ficam como no YAML. Se o
+  YAML não declara `allowed_tools` (tudo permitido) e a sobreposição restringe tools de MCP, a lista efetiva é: todas as
+  tools dos packs (enumeradas como a validação já faz) mais as tools de MCP escolhidas.
+- Validação: `static_reasons`, `reference_reasons`, `role_reasons`, `tool_reasons` e `collision_reasons` sobre a
+  definição efetiva. Na gravação, 422 nomeando o campo; na resolução, indisponível com o motivo prefixado pela seção.
+- `AssistantsService` passa a consultar `SystemOverrideStore` em `_find`, `discover` e `validate`, com cache por processo
+  invalidado na gravação (TTL de segurança de 5 s). `declared_models()` passa a ser do serviço, com os modelos efetivos,
+  para a saúde (011).
+- Impressão digital (clarificação de 2026-10-13): hash da seção do YAML, normalizada, gravado com a sobreposição;
+  diferente do YAML atual → `inactive`, motivo "o deploy mudou a seção". O deploy sempre vence.
 
 ## Autorização
 
@@ -162,6 +200,7 @@ Campos rejeitados por ampliar: `packs`, `mcp_servers`, `provider` fora da allowl
 |---|---|---|---|
 | Assistants de usuário | `AssistantStore` | memória → Postgres | Fase 1 → Fase 2 |
 | Contadores de rate limit | `RateCounterStore` | memória (processo único) → avaliar Postgres/Redis se houver réplicas | Fase 2 |
+| Sobreposições de Assistants de sistema (+ histórico) | `SystemOverrideStore` | memória → Postgres (`sql/003_system_overrides.sql`) | Fase 9 |
 
 ## Portas e adapters **[ADR-012]**
 
@@ -170,11 +209,14 @@ Campos rejeitados por ampliar: `packs`, `mcp_servers`, `provider` fora da allowl
 | `Authenticator` | primária (seam) | `service.py` | suíte de conformidade (os dois esquemas, credencial inválida) |
 | `GrantResolver` | primária (seam) | `service.py` | suíte adversarial: 404-não-403, ampliação rejeitada |
 | `AssistantDirectory` | primária (seam) | `service.py` | listagem filtrada por ACL |
+| `SystemAssistantAdmin` | primária (seam, Fase 9) | `service.py` | suíte adversarial: fora da allowlist, escrita em público, seção não permitida, sobreposição inativa, conflito de versão |
 | `AssistantStore` | secundária | YAML (sistema); memória → Postgres (usuário, Fase 2) — dividida em `AssistantConfigSource` e `UserAssistantStore` ([research R15](research.md)) | em memória + conformidade contra Postgres |
 | `ApiKeyStore` | secundária | ~~configuração do operador (Fase 2); armazenamento a decidir no plano~~ — memória → Postgres, só o hash (clarificação de 2026-09-30, [research R7, R8](research.md), [ADR-015](../../docs/adr/ADR-015-persistencia-postgres-por-modulo.md)) | em memória + conformidade contra Postgres |
-| `OidcVerifier` | secundária | JWKS do provedor OIDC | verificador de teste com chaves locais |
+| `OidcVerifier` | secundária | JWKS do provedor OIDC; Fase 9: fonte de chaves plugável — HTTP ou em processo (012, pela 011), audiência por superfície | verificador de teste com chaves locais |
+| `SystemOverrideStore` | secundária (Fase 9) | memória → Postgres | em memória + conformidade contra Postgres |
 | `RateCounterStore` | secundária | memória | em memória |
 | `Clock` | secundária | relógio do sistema (adapter único, injetado pela 011) | relógio fixo |
 
 Consome por seam (via `api.py` dos donos): Pack Registry (002), MCP Registry (007), nomes de flow (005), value objects da
-política de modelos (006, [ADR-016](../../docs/adr/ADR-016-grant-carrega-politica-de-modelos.md)).
+política de modelos (006, [ADR-016](../../docs/adr/ADR-016-grant-carrega-politica-de-modelos.md)). Não importa a 012:
+as chaves públicas do emissor chegam como uma função injetada pela 011.

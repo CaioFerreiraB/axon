@@ -255,3 +255,33 @@ os packs por build-arg, `ai-core packs check` no build e um runtime sem instalad
 | Testes de piso dos contratos fora do workspace (R3) | o workspace passa a exigir 3.14 com o core | declarar o core `>=3.12` prometeria suporte não testado |
 | Distribuições falsas (`*.dist-info`) nos testes do `EntryPointPackSource` | a conformidade da porta precisa rodar contra entry points reais | instalar distribuições num venv por teste é lento; esperar a 010 bloquearia a Fase 1 |
 | Revalidação da composição no Pack Hooks (R10) | `Composition` é um value object público e pode ser montado à mão | token privado dentro de `Composition` acopla o seam à implementação |
+
+## Fase 9 (US7) — 2026-10-14
+
+Insumos: ADR-029, ADR-030, ADR-033; a clarificação de 2026-10-13; os planos da Fase 9 da 012, 011, 013 e 008. Decisões em
+[research.md](research.md) R42–R50; contrato em [contracts/installation.md](contracts/installation.md) ("Fase 9").
+
+**Summary**: a instalação de referência passa a ter três modos por `COMPOSE_PROFILES` — padrão (API), `webui` e
+`console` —, sempre com Postgres; o Keycloak sai e o Open WebUI entra pelo provedor da própria plataforma; a imagem da
+console sai do mesmo Dockerfile e da mesma tag do core; o `.env.example` explica onde fica cada segredo; as provas
+cobrem o login da plataforma no chat e a administração pela console.
+
+**Constitution Check (Fase 9)**: VII (falha cedo: build da console falha o build; chave mestra ausente para o boot) ✅;
+XI (a console é opcional; a API funciona sem ela) ✅; ADR-022 (core e console da mesma tag) ✅. **Module boundary**: só
+o submódulo `agentic-deploy/` e os artefatos da 002 neste repositório. **Resultado**: PASS.
+
+**Project Structure (Fase 9)**:
+
+```text
+agentic-deploy/
+├── Dockerfile                 # + console-build, console
+├── docker-compose.yml         # + postgres, console; open-webui na plataforma; − keycloak
+├── .env.example               # seções Sempre / Com interface / Sem console
+├── config/identity.yaml       # novo; − config/keycloak/
+├── config/assistants.yaml     # overrides num Assistant de exemplo
+├── secrets/.gitignore         # o arquivo da senha do admin inicial fica fora do git
+├── scripts/check-build.sh     # + alvo console
+├── scripts/check-webui.py     # login da plataforma
+├── scripts/check-console.py   # novo
+└── README.md                  # modos, migração da Fase 7, Google, Langfuse
+```

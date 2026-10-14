@@ -407,6 +407,81 @@ Task: "domain/compare.py (T029)"
 
 ---
 
+## Fase 9 (2026-10-14): destinos, uso e custo, Langfuse e conteúdo
+
+**Escopo**: US5–US7 e o toque declarado na 006 ([research.md](research.md) R28–R37). Nada em `ai_core/http/` nem
+`ai_core/bootstrap/` (passadas da 008 e da 011).
+
+## Phase 12: Fundação da Fase 9 (Blocking Prerequisites)
+
+- [ ] T047 Dependências `opentelemetry-sdk>=1.30,<2` e `opentelemetry-exporter-otlp-proto-http>=1.30,<2` em
+  `packages/core/pyproject.toml` (comentário: spec 009 R32, confinadas a `observability/adapters/`); `uv sync`;
+  conferir wheels aarch64 do `protobuf` no `uv.lock`
+- [ ] T048 `observability/api.py`: `ModelExchange`, `ExchangeMessage` no `TraceEvent`; value objects e erros da Fase 9
+  ([data-model.md](data-model.md)); os `Protocol` `UsageReportSeam`, `PriceBook`, `TraceDestinations`
+  ([contracts/usage-api.md](contracts/usage-api.md)); `domain/records.py` reconhece `model_exchange`
+- [ ] T049 `observability/ports.py`: as seis portas da Fase 9 ([contracts/ports.md](contracts/ports.md)); adapters em
+  memória em `observability/adapters/memory.py` (destino gravador, destino que falha e que trava, stores, coletor OTLP
+  falso no kit de teste)
+- [ ] T050 [P] Testes e implementação de `observability/domain/content.py`: redação de credenciais e corte de 16 KiB
+  por mensagem com marca
+- [ ] T051 [P] `tests/observability/contract/test_cipher.py` e `observability/adapters/cipher.py` (HKDF
+  `ai-core/observability/v1`)
+- [ ] T052 `observability/adapters/postgres_schema.py` e `observability/adapters/sql/001_usage.sql`, `002_prices.sql`,
+  `003_destination_settings.sql` ([data-model.md](data-model.md), Fase 9)
+- [ ] T053 `tests/observability/contract/test_trace_destinations_fanout.py` e o `TraceService` com `primary` +
+  `destinations` + `ContentPolicy` (R28–R29): falha e trava isoladas e contadas; `ModelExchange` descartado com a
+  captura desligada; com ela ligada, só destinos com `accepts_content`; **nunca** no primário (SC-007); `emit` nunca
+  levanta
+- [ ] T054 Import-linter em `ai-core/pyproject.toml`: `opentelemetry` e `psycopg` só em `observability.adapters`;
+  marcas `us5`, `us6`, `us7`
+
+## Phase 13: User Story 5 — Ver uso e custo por modelo e por dia (Priority: P2)
+
+- [ ] T055 [P] [US5] `tests/observability/unit/test_usage_projection.py` e `tests/observability/unit/test_prices.py`:
+  projeção (`execution_started` → Assistant da chamada; sem execução → "fora de Assistant"); dia local com fuso
+  (23h30 em `America/Sao_Paulo` conta no dia local); preço vigente pelo maior `effective_from` ≤ dia; custo em
+  `Decimal`; sem preço → ausente e total incompleto
+- [ ] T056 [P] [US5] `tests/observability/contract/test_usage_store.py` e `test_price_store.py` (memória × Postgres)
+- [ ] T057 [US5] `observability/domain/usage.py` e `observability/domain/prices.py` para T055
+- [ ] T058 [US5] `observability/adapters/postgres.py` (`UsageStore`, `PriceStore`) e o agregado em memória para T056
+- [ ] T059 [US5] `observability/adapters/usage.py` (`UsageDestination`: buffer `maxlen=10_000`, `flush` em lote,
+  descartes contados, origem por parâmetro) e, no serviço, `UsageReportSeam.report` e `PriceBook`
+- [ ] T060 [P] [US5] `tests/observability/contract/test_usage_report.py` e `test_price_book.py` (cenários 1–6 da US5;
+  SC-005); `tests/observability/integration/test_usage_volume.py` com 100 mil chamadas em 90 dias no Postgres de teste
+  (SC-008: < 1 s)
+
+## Phase 14: User Story 6 — Enviar traces ao Langfuse (Priority: P2)
+
+- [ ] T061 [P] [US6] `tests/observability/unit/test_destination_settings.py`: precedência; grupo das variáveis do
+  Langfuse tudo ou nada; origem por campo
+- [ ] T062 [P] [US6] `tests/observability/contract/test_langfuse_transport.py` contra o coletor OTLP falso: mapeamento
+  de R32 (raiz por requisição, geração com início = `at − duration_ms`, uso de tokens, tool, eventos, erro); lote; fila
+  cheia descarta sem bloquear; Basic auth; `check` com 200 e 401
+- [ ] T063 [P] [US6] `tests/observability/contract/test_trace_destinations.py`: segredo só de escrita;
+  `InstallationDefined`; `MasterKeyMissing`; `Conflict`; `reload` troca o exportador sem perder o que estava na fila
+- [ ] T064 [US6] `observability/domain/settings.py`, `observability/adapters/langfuse.py` (`LangfuseDestination`,
+  `LangfuseTransport`), o `DestinationSettingsStore` no `adapters/postgres.py` e o seam `TraceDestinations` no serviço
+- [ ] T065 [US6] `tests/observability/integration/test_destination_latency.py` (SC-006): com o transporte travado e o
+  banco de uso lento, `emit` de 1 000 eventos não demora mais que o primário sozinho + 10%
+
+## Phase 15: User Story 7 — Captura opcional de prompt e resposta (Priority: P3)
+
+- [ ] T066 [P] [US7] `tests/llm/contract/test_model_exchange.py` (toque na 006): `TracedModel` emite `ModelExchange`
+  depois do `ModelCall`, em `complete` e em `stream` (saída acumulada), sem credencial nem cabeçalho
+- [ ] T067 [US7] `llm/service.py` (`TracedModel._emit`): monta e emite o `ModelExchange` (R35)
+- [ ] T068 [US7] `tests/observability/integration/test_content_capture.py`: desligada → nenhum destino recebe texto;
+  ligada → o Langfuse falso recebe entrada e saída na geração, redigidas e cortadas; o JSONL não recebe nada (SC-007)
+
+## Phase 16: Polish da Fase 9
+
+- [ ] T069 [P] `specs/README.md` (status da 009 e da 006 na Fase 9) e `contracts/eval-harness.md` (o harness ignora
+  `model_exchange`)
+- [ ] T070 Verificação manual com um Langfuse real (Cloud ou `docker compose` do Langfuse), com o mantenedor: conferir o
+  trace, as gerações, os tokens e, com a captura ligada, entrada e saída — e corrigir os nomes de atributo do R32 se o
+  Langfuse os mapear diferente
+- [ ] T071 Rodar `uv run pytest`, `mypy`, `ruff check packages`, `lint-imports` e as portas contra o Postgres
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

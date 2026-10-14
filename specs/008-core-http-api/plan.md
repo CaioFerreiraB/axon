@@ -453,3 +453,56 @@ ai-core/packages/core/tests/http/
 | Open WebUI (instalação, 002) | Conexão `system_oauth` para `/v1`, cabeçalho `x-ai-core-store: false`, tarefas auxiliares desligadas, `BYPASS_MODEL_ACCESS_CONTROL=true` (R40); provedor OIDC com access token JWT, audiência e grupos (R39) |
 | 011 | Lê as três variáveis e passa `create_app(..., admission=AdmissionLimits(...))` |
 | 005 | Os estágios de progresso publicados viram texto para pessoas; estágio novo aparece com a linha genérica até entrar na tabela |
+
+# Fase 9 (2026-10-14): superfície de administração (US9)
+
+Insumos: ADR-029, ADR-031, ADR-032, ADR-033, ADR-034; os planos da Fase 9 da 012, 003 e 009 (seams consumidos); o
+desenho aprovado da console. Decisões em [research.md](research.md) R43–R49; contrato em
+[contracts/admin-api.md](contracts/admin-api.md). **Refinamento do `design.md`**: versão no corpo em vez de
+`If-Match` (R45), sem mudar a regra da FR-026.
+
+## Summary (Fase 9)
+
+Uma terceira superfície, `/admin/v1`, só para o grupo de administração, com token da console ou chave de API. Ela
+traduz HTTP para os seams dos módulos donos — Assistants de sistema e sobreposições (003), "testar modelo" (006),
+servidores MCP globais (007), uso, preços e destinos do trace (009), contas, grupos e login (012), chaves (003) e saúde
+(011) — sem regra própria (ADR-029). Não admin vê 404 em tudo; nenhuma resposta traz segredo.
+
+## Technical Context (Fase 9)
+
+**Dependências**: nenhuma nova. **Seams consumidos novos**: `SystemAssistantAdmin` (003), `ModelRouting.check` (006),
+`UsageReportSeam`/`PriceBook`/`TraceDestinations` (009), `AccountAdmin`/`LoginSettings` (012). **Storage**: nenhum.
+**Testing**: formatos puros e o contrato rota a rota. **Constraints**: sem CORS; `no-store`; 404 indistinguível.
+
+## Constitution Check (Fase 9)
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| II. Seams | ✅ | Só `api.py` dos donos; `SCHEMES_OF_SURFACE` da 003 (ADR-031) |
+| IV. Assistant é a fronteira | ✅ | 404 para não admin; audiência própria da console (na 003) |
+| VI. Conteúdo externo | ✅ | Nenhum segredo nas respostas (varredura no contrato); senha temporária só na resposta que a define |
+| XI. API independente da interface | ✅ | Toda tela da console tem rota aqui; nenhuma regra na rota |
+| XIII. Portas e adapters | ✅ | Formatos puros em `domain/admin_*.py`; FastAPI só em `adapters/admin.py` |
+
+**Module boundary gate (Fase 9)**: `ai_core/http/**` e `tests/http/**`; o Module Boundary da spec passa a listar a 006
+(`ModelRouting.check`) e a 012 entre os seams consumidos. Nada em `bootstrap/`: a 011 passa os seams na passada dela.
+**Resultado**: PASS.
+
+## Project Structure (Fase 9)
+
+```text
+ai-core/packages/core/src/ai_core/http/
+├── adapters/admin.py              # router /admin/v1
+├── adapters/app.py                # create_app(..., admin_seams: AdminSeams | None, instance: InstanceBranding | None)
+├── adapters/mcp_routes.py         # global_mcp_router montável em /private/v1 e /admin/v1
+├── domain/admin_assistants.py, admin_usage.py, admin_accounts.py, admin_observability.py
+├── domain/errors.py               # + mapeamentos da Fase 9
+└── ports.py                       # + AdminSeams, InstanceBranding (dataclasses de injeção)
+```
+
+## Seam Notes for Consumers (Fase 9)
+
+| Consumidor | O que precisa saber |
+|---|---|
+| 011 | Passar `admin_seams` e `instance` ao `create_app` quando a identidade (ou só as chaves) estiver montada; sem eles, `/admin/v1` não existe |
+| 013 (console) | [contracts/admin-api.md](contracts/admin-api.md) é a fonte dos esquemas; `GET /me` 404 = acesso negado |

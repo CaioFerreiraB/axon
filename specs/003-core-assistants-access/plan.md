@@ -309,3 +309,68 @@ ai-core/packages/core/src/ai_core/bootstrap/wiring.py         # toque: injeta en
 | 008 | Criação/atualização de Assistant de usuário pode recusar com `field` = `models`, `allowed_tools`, `write_tools` ou `mcp` — a tradução para 400 já existe |
 | 011 | Passar `flow_roles=engine.flow_roles()` ao `AssistantsService` |
 
+# Fase 9 (2026-10-14): superfície de administração e sobreposições
+
+Insumos: a clarificação de 2026-10-13 (o deploy vence), ADR-030, ADR-031, ADR-032, o plano da 012 (seam `PublicKeySet`,
+audiências dos clientes) e o desenho aprovado da console (telas de Assistentes e de detalhe). Decisões em
+[research.md](research.md) R25–R32. **Sem divergência do `design.md`** (que já recebeu a seção da Fase 9).
+
+## Summary (Fase 9)
+
+Duas user stories. **US9**: a terceira superfície, `admin`, aceita token da plataforma com a audiência da console ou
+chave de API; admin passa a ser só o grupo; o verificador OIDC confere a audiência da superfície e lê as chaves de uma
+fonte plugável — HTTP, como hoje, ou a função `jwks()` da 012 injetada pela 011. **US10**: Assistants de sistema ganham a
+flag `overrides` no YAML e um armazenamento de sobreposições de `models` e `mcp`, com versão, autor e histórico; a
+configuração efetiva (YAML + sobreposições ativas) passa a valer na descoberta, na resolução, na validação e na saúde;
+o seam `SystemAssistantAdmin` expõe isso à 008. O deploy sempre vence: sobreposição de seção não liberada ou mudada fica
+inativa, com motivo.
+
+## Technical Context (Fase 9)
+
+**Dependências**: nenhuma nova. **Seams consumidos novos**: nenhum por import — a função `jwks()` da 012 chega pela 011
+como um chamável. **Storage**: migração `assistants/adapters/sql/003_system_overrides.sql`. **Testing**: unidade de
+`domain/overrides.py`; conformidade do `SystemOverrideStore` (memória × Postgres), do `OidcVerifier` com as duas fontes e
+do seam `SystemAssistantAdmin` (adversarial); superfícies. **Constraints**: nenhuma sobreposição amplia o YAML; o
+`resolve` nunca usa sobreposição inativa ou inválida; cache por processo invalidado na gravação.
+
+## Constitution Check (Fase 9)
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| II. Seams | ✅ | Mudança de seam (`SCHEME_OF_SURFACE`) sob o ADR-031, com o nome antigo mantido e depreciado por uma série; seam novo `SystemAssistantAdmin` com conformidade; a 012 não é importada |
+| IV. Assistant é a fronteira | ✅ | A sobreposição fica dentro da allowlist e das regras de escrita; audiência própria impede token do chat na administração; não admin recebe 404 |
+| VII. Falha fechada | ✅ | Sobreposição que deixou de valer torna o Assistant indisponível com motivo (`override.<seção>`), nunca resolvido em silêncio |
+| VIII. Modelos por papel | ✅ | A sobreposição troca modelos por papel; a allowlist continua do deploy |
+| XIII. Portas e adapters | ✅ | Regras puras em `domain/overrides.py`; porta nova `SystemOverrideStore` (armazenamento) com memória e Postgres; `JwksSource` dentro do adapter OIDC |
+
+**Module boundary gate (Fase 9)**: `ai_core/assistants/**` e `tests/assistants/**`; `ai-core/pyproject.toml` (marcas
+`us9`, `us10`); `specs/README.md`. **Nada** em `http/` nem `bootstrap/`: a 008 passa a usar `SCHEMES_OF_SURFACE` e o
+seam novo na passada dela; a 011 monta o `CallableJwksSource`, as audiências e o `SystemOverrideStore` na dela.
+**Resultado**: PASS.
+
+## Project Structure (Fase 9)
+
+```text
+ai-core/packages/core/src/ai_core/assistants/
+├── api.py                         # + ADMIN_SURFACE, SCHEMES_OF_SURFACE, OverrideSection, ModelsOverride, McpOverride,
+│                                  #   OverrideView, SystemAssistantView, OverrideHistoryEntry, SystemAssistantAdmin
+├── domain/
+│   ├── access.py                  # is_admin só pelo grupo
+│   ├── definitions.py             # + overrides no AssistantDefinition e no read_config
+│   └── overrides.py               # novo: impressão digital, estados, definição efetiva, mesclagem de allowed_tools
+├── ports.py                       # OidcVerifier.verify(token, *, audience); + SystemOverrideStore
+├── service.py                     # AccessService (superfícies, audiências); AssistantsService (efetiva, seam novo)
+└── adapters/
+    ├── oidc.py                    # JwksSource: HttpJwksSource, CallableJwksSource
+    ├── memory.py                  # + InMemorySystemOverrideStore; StaticOidcVerifier com audiência
+    ├── overrides_postgres.py      # novo: PostgresSystemOverrideStore
+    └── sql/003_system_overrides.sql
+```
+
+## Seam Notes for Consumers (Fase 9)
+
+| Consumidor | O que precisa saber |
+|---|---|
+| 008 | Usar `SCHEMES_OF_SURFACE`; a superfície `admin` chama `authenticate(surface="admin", …)`; `SystemAssistantAdmin` para as rotas de Assistants; `RequestRejected` → 422 nomeando o campo, `Conflict` → 409 |
+| 011 | `OidcAudiences` a partir dos clientes da 012; `JwksOidcVerifier(source=CallableJwksSource(identity.jwks))` com a identidade ligada; `SystemOverrideStore` no perfil (memória/Postgres) e a migração `003`; saúde por `assistants.declared_models()` |
+| Operador | `overrides: [models, mcp]` por Assistant; sem a flag, nada muda pela console |

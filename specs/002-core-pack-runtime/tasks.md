@@ -371,6 +371,32 @@ Caminhos em `agentic-deploy/`; o código é commitado lá, e aqui o SDD e o pont
 
 ---
 
+## Passada de encaixe da Fase 9 na instalação — 2026-10-14 (research R42–R50; contracts/installation.md "Fase 9")
+
+**Escopo**: US7, no submódulo `agentic-deploy/` (commits lá; aqui, o ponteiro e os artefatos da 002). Pré-requisito:
+release `v0.6.0` do core (011 R44), com a console (013).
+
+- [ ] T074 [US7] `docker-compose.yml`: serviço `postgres` (`postgres:17.6`, volume, `healthcheck`), `ai-core` no
+  `persistent` com `depends_on` saudável; remover `keycloak` e o volume `keycloak-data` (R43, R44)
+- [ ] T075 [US7] `docker-compose.yml`: `open-webui` apontado para a plataforma com as variáveis de R44
+  (`JWT_EXPIRES_IN=29d`, `OAUTH_MERGE_ACCOUNTS_BY_EMAIL=true`, `ENABLE_LOGIN_FORM=false`), mantendo `system_oauth` e
+  os cabeçalhos da Fase 7
+- [ ] T076 [US7] `Dockerfile`: estágios `console-build` e `console` (R46); `docker-compose.yml`: serviço `console` no
+  perfil `console`, somente leitura, `tmpfs`, `AI_CORE_UPSTREAM`; `AI_CORE_TRUSTED_PROXIES` no `ai-core`
+- [ ] T077 [P] [US7] `config/identity.yaml` (R45), `config/assistants.yaml` com `overrides: [models, mcp]` no
+  Assistant genérico e sem `overrides` no `scouting`; remover `config/keycloak/`
+- [ ] T078 [P] [US7] `.env.example` em seções (R47) e `secrets/.gitignore`
+- [ ] T079 [US7] `scripts/check-webui.py` reescrito para o formulário da plataforma (R49)
+- [ ] T080 [P] [US7] `scripts/check-console.py` (R49) e `scripts/check-build.sh` com o alvo `console`
+- [ ] T081 [P] [US7] `README.md` do `agentic-deploy`: os quatro modos, a migração da Fase 7 (R48), o Google (endereço de
+  retorno), o Langfuse com e sem console, a chave mestra e o que acontece se ela se perder
+- [ ] T082 [US7] `CORE_REF=v0.6.0` (R50); `scripts/check-build.sh` verde (com a console)
+- [ ] T083 [US7] Provas com o mantenedor: modo padrão (chave emitida sobrevive a restart); `webui` (`check-webui.py` com
+  `ana` e `bia`; conferir as variáveis de PKCE e de junção do Open WebUI v0.12 e corrigir R44 se preciso); `console`
+  (`check-console.py`; login Google real se o cliente estiver configurado; Langfuse real pela tela)
+- [ ] T084 [P] Atualizar `contracts/installation.md`, `specs/README.md`, `docs/roadmap.md` (Fase 9 completa, se for o
+  caso) e `CLAUDE.md`; ponteiro do submódulo `agentic-deploy` neste repositório
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

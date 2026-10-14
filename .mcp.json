@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "type": "stdio",
+      "command": "/home/caio/.nvm/versions/node/v24.21.0/bin/npx",
+      "args": [
+        "@playwright/mcp@latest"
+      ],
+      "env": {}
+    }
+  }
+}

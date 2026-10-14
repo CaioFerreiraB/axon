@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Uso — Agentic</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#FFFFFF;--side:#FAFAFA;--ink:#18181B;--ink2:#71717A;--rule:#E4E4E7;--accent:#2563EB}
+html,body{width:1440px;height:900px;overflow:hidden;background:var(--bg);color:var(--ink);font:14px/1.5 Geist,system-ui,sans-serif}
+.num{font-variant-numeric:tabular-nums}.mono{font-family:"Geist Mono",monospace;font-size:13px}
+.app{display:grid;grid-template-columns:240px 1fr;height:900px}
+aside{background:var(--side);border-right:1px solid var(--rule);padding:18px 12px;display:flex;flex-direction:column;gap:18px}
+.brand{font-weight:600;font-size:16px;padding:6px 10px}
+nav a{display:block;padding:8px 10px;border-radius:6px;color:var(--ink);text-decoration:none;font-weight:500}
+nav a.on{background:#fff;border:1px solid var(--rule)}
+main{padding:28px 36px;display:flex;flex-direction:column;gap:22px}
+.top{display:flex;align-items:center;gap:12px}
+.top h1{font-size:22px;font-weight:600;margin-right:auto}
+.btn{border:1px solid var(--rule);border-radius:6px;padding:6px 12px;background:#fff;font-weight:500}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.card{border:1px solid var(--rule);border-radius:10px;padding:18px}
+.card label{font-size:13px;color:var(--ink2)}
+.card b{display:block;font-size:30px;font-weight:600;letter-spacing:-.02em;margin-top:6px}
+.card span{font-size:12px;color:#15803D}
+.panel{border:1px solid var(--rule);border-radius:10px;padding:18px}
+.panel h2{font-size:15px;font-weight:600;margin-bottom:14px}
+svg{display:block}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:12px;color:var(--ink2);font-weight:500;padding:8px;border-bottom:1px solid var(--rule)}
+td{padding:10px 8px;border-bottom:1px solid var(--rule)}
+.r{text-align:right}
+.tag{font-size:12px;background:#FEF3C7;color:#92400E;padding:2px 8px;border-radius:999px}
+</style></head><body><div class="app">
+<aside><div class="brand">Agentic</div>
+ <nav><a class="on" href="#">Uso</a><a href="#">Assistentes</a><a href="#">Servidores MCP</a><a href="#">Observabilidade</a><a href="#">Acesso</a></nav>
+</aside>
+<main>
+ <div class="top"><h1>Uso</h1><span class="btn">Últimos 30 dias</span><span class="btn">Produção</span></div>
+ <div class="cards num">
+  <div class="card"><label>Custo</label><b>US$ 41,87</b><span>+8% vs. período anterior</span></div>
+  <div class="card"><label>Requisições</label><b>3.214</b><span>+12%</span></div>
+  <div class="card"><label>Chamadas de modelo</label><b>5.902</b><span>+9%</span></div>
+  <div class="card"><label>Tokens</label><b>21,1 M</b><span>+11%</span></div>
+ </div>
+ <div class="panel"><h2>Custo por dia</h2>
+  <svg width="1100" height="240" viewBox="0 0 1100 240"><polyline fill="none" stroke="#2563EB" stroke-width="2.5" points="0,190 37,186 74,212 111,214 148,180 185,174 222,170 259,176 296,166 333,206 370,208 407,162 444,158 481,160 518,154 555,130 592,200 629,202 666,118 703,112 740,104 777,108 814,100 851,190 888,194 925,94 962,88 999,90 1036,84 1073,128"/><line x1="0" y1="238" x2="1100" y2="238" stroke="#E4E4E7"/></svg>
+ </div>
+ <div class="panel num"><h2>Por modelo</h2>
+  <table><thead><tr><th>Modelo</th><th class="r">Chamadas</th><th class="r">Tokens</th><th class="r">Custo</th></tr></thead>
+  <tbody><tr><td class="mono">openrouter/openai/gpt-4.1-mini</td><td class="r">3.118</td><td class="r">13,3 M</td><td class="r">US$ 33,52</td></tr>
+  <tr><td class="mono">openai/gpt-4.1-nano</td><td class="r">1.906</td><td class="r">5,8 M</td><td class="r">US$ 8,35</td></tr></tbody></table>
+ </div>
+</main></div></body></html>

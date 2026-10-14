@@ -414,3 +414,112 @@ token era recusado (achado na prova do Open WebUI, 002 research R40). Ignorar a 
 serve para verificar assinatura, e um token que a nomeie continua sem chave e é recusado.
 
 **Alternatives considered**: filtrar só por `alg` conhecido (deixaria passar uma chave RS256 marcada `use: enc`).
+
+# Fase 9 (2026-10-14): superfície de administração e sobreposições
+
+## R25 — Três superfícies: `SCHEMES_OF_SURFACE`
+
+**Decision**: `Surface = Literal["public", "private", "admin"]`, `ADMIN_SURFACE = "admin"`, e o seam
+`SCHEME_OF_SURFACE` vira `SCHEMES_OF_SURFACE: Mapping[str, frozenset[Scheme]]` = `{public: {oidc}, private: {api_key},
+admin: {oidc, api_key}}` (ADR-031). `SCHEME_OF_SURFACE` continua exportado por uma série, derivado do novo para as duas
+superfícies antigas, marcado como depreciado no docstring. No `authenticate`, a superfície com dois esquemas decide pelo
+formato: `parse_key(credencial)` reconhece o prefixo `aic_` → caminho de chave; senão, OIDC.
+
+**Rationale**: a 008 só precisa saber os esquemas da superfície; o despacho pelo formato é determinístico e não exige
+tentar os dois caminhos.
+
+**Alternatives considered**: tentar OIDC e cair para chave (dois custos e mensagens de erro ambíguas); cabeçalho
+diferente por esquema (cliente teria que saber, sem ganho).
+
+## R26 — Audiência por superfície e chaves em processo
+
+**Decision**: a porta `OidcVerifier.verify(token, *, audience: str)` passa a receber a audiência esperada; o
+`AccessService` recebe `OidcAudiences(public="ai-core", admin="ai-core-admin")` (configurado pela 011 a partir dos
+clientes da 012) e passa a da superfície. O `JwksOidcVerifier` mantém a lógica (algoritmos assimétricos, emissor,
+`exp`, chaves só de assinatura — R24) e ganha uma fonte de chaves plugável: `JwksSource` = `HttpJwksSource` (descoberta
+ou `AI_CORE_OIDC_JWKS_URL`, o caminho atual, com cache) ou `CallableJwksSource(fn)` (a função `jwks()` do seam
+`PublicKeySet` da 012, injetada pela 011, sem rede). Token de outra audiência → `None` (401 na 008).
+
+**Rationale**: ADR-030 (verificação local, emissor único) e ADR-031 (token do chat não alcança a administração); a 003
+continua sem importar a 012 — só recebe uma função.
+
+**Alternatives considered**: dois verificadores, um por audiência (duplicaria cache e configuração); aceitar as duas
+audiências nas duas superfícies (anularia o ADR-031).
+
+## R27 — Admin pelo grupo, em qualquer esquema
+
+**Decision**: `is_admin(principal, admin_group)` = `admin_group is not None and admin_group in principal.groups`. O
+`AdminGate` da 008 continua sendo o `AccessService.is_admin`.
+
+**Rationale**: cada superfície já limita os esquemas que aceita (R25); o esquema deixou de ser critério (ADR-031).
+
+**Alternatives considered**: manter `api_key` obrigatório (a console não existiria).
+
+## R28 — Flag `overrides` e impressão digital da seção
+
+**Decision**: `AssistantDefinition.overrides: frozenset[Literal["models", "mcp"]]` lido de `overrides` no YAML (ausente
+= vazio; valor desconhecido = problema do Assistant). Funções puras em `domain/overrides.py`:
+`section_fingerprint(definition, section)` = SHA-256 do JSON canônico da seção — `models`: os papéis declarados (a
+allowlist fica de fora: ela é o teto, não a seção sobreposta); `mcp`: aliases ordenados e as entradas com namespace MCP de
+`allowed_tools`/`write_tools`. `effective(definition, overrides) -> (definition, states)`: para cada seção com
+sobreposição guardada, `active` se a seção está em `overrides` **e** a impressão digital guardada é igual à atual;
+senão `inactive` com motivo `"o deploy não permite mais"` ou `"o deploy mudou a seção"` (clarificação de 2026-10-13).
+
+**Rationale**: o deploy sempre vence (ADR-032); a impressão digital torna "mudou" uma comparação, sem guardar o YAML
+antigo inteiro.
+
+**Alternatives considered**: comparar o YAML inteiro do Assistant (qualquer mudança em outra seção inativaria a
+sobreposição sem motivo).
+
+## R29 — Conteúdo e validação das sobreposições
+
+**Decision**: `models`: `Mapping[ModelRole, ModelRef]` dos papéis; cada `ModelRef` casa `models.allow` do YAML; a
+validação de papéis por flow (R18) roda sobre a definição efetiva. `mcp`: `aliases`, `allowed: frozenset[str]` e
+`write: frozenset[str]`, todas as entradas com namespace de um alias da própria sobreposição; a efetiva troca só as
+entradas de MCP de `allowed_tools`/`write_tools` e mantém as de pack. Se o YAML não declara `allowed_tools` (tudo
+permitido) e a sobreposição restringe MCP, a lista efetiva vira: todas as tools dos packs (como a validação já enumera)
+mais as tools de MCP escolhidas. Gravar roda `static_reasons`/`reference_reasons`/`role_reasons`/`tool_reasons`/
+`collision_reasons` e a FR-012 (escrita em público) sobre a efetiva: qualquer motivo → `RequestRejected(field=...)`.
+
+**Rationale**: a mesma régua da criação de Assistant de usuário (FR-020); a sobreposição nunca amplia o YAML.
+
+**Alternatives considered**: sobrepor a allowlist (rejeitado no ADR-032).
+
+## R30 — Armazenamento, versão e histórico
+
+**Decision**: porta `SystemOverrideStore` (`get(name)`, `all()`, `put(name, section, payload, fingerprint, actor,
+expected_version)`, `delete(name, section, actor, expected_version)`, `history(name)`), memória e Postgres
+(`sql/003_system_overrides.sql`: `system_overrides(assistant, section, payload jsonb, fingerprint, version, updated_by,
+updated_at, PK(assistant, section))` e `system_override_history(id, assistant, section, payload, fingerprint, version,
+actor, at, action)`). Versão desatualizada → `Conflict`. `put` e `delete` gravam o histórico na mesma transação.
+
+**Rationale**: FR-021 (autor, instante, versão, histórico); ADR-015.
+
+**Alternatives considered**: histórico só no log (não consultável pela aba "Histórico" da console).
+
+## R31 — Seam `SystemAssistantAdmin` e configuração efetiva no serviço
+
+**Decision**: seam novo no `api.py` (contrato em [contracts/assistants-api.md](contracts/assistants-api.md), seção
+Fase 9), implementado pelo `AssistantsService`: `system_assistants(actor)`, `system_assistant(name, actor)`,
+`override_models(...)`, `override_mcp(...)`, `discard_override(...)`, `history(...)`, todos exigindo `is_admin` (404
+para os demais) e `declared_models()` para a saúde. O serviço passa a resolver a definição efetiva em `_find`,
+`discover` e `validate` com um cache por processo invalidado a cada gravação (TTL de segurança de 5 s), e o `resolve`
+nunca usa sobreposição inativa nem inválida (indisponível com motivo `override.<seção>`). Modelos candidatos para
+"testar modelo" são da 008 com o Model Router (006): o seam devolve a allowlist e os papéis.
+
+**Rationale**: a regra mora onde a configuração efetiva é usada; a 008 só traduz HTTP (ADR-029).
+
+**Alternatives considered**: a 008 montar a efetiva (duplicaria a regra fora do dono).
+
+## R32 — Testes da Fase 9
+
+**Decision**: unidade de `domain/overrides.py` (impressão digital estável, estados, mesclagem de `allowed_tools`);
+conformidade do `SystemOverrideStore` (memória × Postgres; versão; histórico); suíte adversarial do seam (fora da
+allowlist → `RequestRejected`; seção não liberada; escrita em público; MCP apagado → indisponível com motivo; flag
+removida → inativa; seção mudada → inativa; conflito de versão; não admin → `NotFound`); autenticação nas três
+superfícies (token da console na pública e do chat na administração recusados; chave de admin na administração aceita).
+Marcas `us9` e `us10`.
+
+**Rationale**: SC-006 e SC-007 são adversariais.
+
+**Alternatives considered**: —

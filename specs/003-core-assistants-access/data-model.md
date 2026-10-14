@@ -223,3 +223,47 @@ ou `mcp`). Formatos das mensagens em [contracts/assistants-yaml.md](contracts/as
 `ExecutionEngine.flow_roles() -> Mapping[str, tuple[ModelRole, ...]]`: um item por flow de `flows()`, com os papéis que
 `run` confere para ele (`chat`: `generation`; `agentic`: `controller`, `generation`).
 
+## Fase 9 (2026-10-14): superfície de administração e sobreposições (research R25–R31)
+
+### Vocabulário
+
+`Surface = Literal["public", "private", "admin"]`; `ADMIN_SURFACE = "admin"`;
+`SCHEMES_OF_SURFACE = {public: {oidc}, private: {api_key}, admin: {oidc, api_key}}`;
+`OverrideSection = Literal["models", "mcp"]`; `OverrideState = Literal["active", "inactive"]`.
+
+### `AssistantDefinition` — campo novo
+
+`overrides: frozenset[OverrideSection]` (do YAML; padrão vazio).
+
+### `ModelsOverride` e `McpOverride` (publicados)
+
+- `ModelsOverride(roles: Mapping[ModelRole, ModelRef])`
+- `McpOverride(aliases: tuple[str, ...], allowed: frozenset[str], write: frozenset[str])` — entradas sempre
+  `<alias>.<tool>` de um alias da própria sobreposição
+
+### `OverrideView` (publicado)
+
+`section`, `payload` (`ModelsOverride | McpOverride`), `state`, `reason` (para `inactive`), `version`, `updated_by`,
+`updated_at`.
+
+### `SystemAssistantView` (publicado)
+
+`name`, `description`, `visibility`, `flow`, `status` (`AssistantStatus`), `overridable: frozenset[OverrideSection]`,
+`yaml_models: Mapping[ModelRole, ModelRef]`, `allow: tuple[str, ...]`, `yaml_mcp: McpOverride` (a seção do YAML),
+`overrides: tuple[OverrideView, ...]`, `effective_models: Mapping[ModelRole, ModelRef]`, `effective_mcp: McpOverride`,
+`required_roles: tuple[ModelRole, ...]` (do flow).
+
+### `OverrideHistoryEntry` (publicado)
+
+`section`, `action` (`saved`, `discarded`), `payload`, `version`, `actor`, `at`.
+
+### `OidcAudiences` (configuração do `AccessService`)
+
+`public: str` (padrão `ai-core`), `admin: str` (padrão `ai-core-admin`).
+
+### Armazenamento (schema `assistants`, migração `003_system_overrides.sql`)
+
+| Tabela | Chave | Colunas |
+|---|---|---|
+| `system_overrides` | (`assistant`, `section`) | `payload jsonb`, `fingerprint text`, `version int`, `updated_by text`, `updated_at timestamptz` |
+| `system_override_history` | `id bigserial` | `assistant`, `section`, `action`, `payload jsonb`, `fingerprint`, `version`, `actor`, `at` |

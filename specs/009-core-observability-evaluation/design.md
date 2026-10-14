@@ -1,6 +1,7 @@
 # Design — 009 Observability & Evaluation
 
-> Insumo técnico pré-aprovado para `/speckit-plan`. Origem: arch-v1 §29, §27; ADR-007, ADR-012, ADR-013.
+> Insumo técnico pré-aprovado para `/speckit-plan`. Origem: arch-v1 §29, §27; ADR-007, ADR-012, ADR-013; Fase 9:
+> ADR-033, ADR-034 e o plano da Fase 9 (2026-10-13).
 
 ## Localização
 
@@ -36,6 +37,56 @@ dados com o `request_id`; nenhum deles conhece o backend nem o harness.
 Um trace por requisição, cobrindo: assistant resolvido, packs ativos, tools em catálogo, cada iteração do controller, cada tool executada com latência, chunks recuperados com score, tokens por papel, validators e seus resultados.
 
 Sem isso, depurar por que o controller escolheu determinada tool é adivinhação.
+
+## Destinos, uso, custo e Langfuse (Fase 9, [ADR-034](../../docs/adr/ADR-034-trace-com-destinos-e-conteudo-opcional.md))
+
+**Fan-out.** `TraceService(exporters=[principal, uso, langfuse])` no lugar do exporter único — muda a porta interna
+`TraceExporter`, não o seam. Cada destino declara `accepts_content: bool`; a falha de um é isolada e contada. O
+`ModelExchange` é descartado no próprio `TraceService` com a captura desligada e só vai a destinos com `accepts_content`.
+
+**Uso.**
+
+- Projeção pura em `observability/domain/usage.py`: `execution_started`, `model_call` e `execution_finished` viram
+  linhas; o Assistant da chamada vem do `execution_started` da mesma requisição (mapa com TTL — as chamadas de uma
+  requisição são sequenciais).
+- Tabelas no schema `observability` ([ADR-015](../../docs/adr/ADR-015-persistencia-postgres-por-modulo.md)):
+  `model_calls(request_id, at, origin, assistant, provider, model, role, input_tokens, output_tokens, duration_ms,
+  failed)` e `executions(request_id, started_at, finished_at, origin, assistant, flow, ok, duration_ms)`. A origem
+  (`production`/`evaluation`) é fixada pela composition root ao montar o destino: `ai-core eval run` monta com
+  `evaluation` (clarificação de 2026-10-13). Linhas brutas, sem agregados
+  pré-calculados.
+- Buffer limitado (`deque`), `emit` continua síncrono; esvaziado a cada 2 s por uma `PeriodicTask` do ciclo de vida da
+  app e no `Platform.aclose()` (CLI e harness também esvaziam); excesso descartado e contado (`trace:usage` na saúde).
+- Consulta: `date_trunc('day', at AT TIME ZONE tz)`; o adapter de memória calcula igual em Python. Fuso padrão
+  `AI_CORE_USAGE_TIMEZONE` (UTC; a instalação usa `America/Sao_Paulo`). Retenção `AI_CORE_USAGE_RETENTION_DAYS`
+  (padrão 400), expurgo diário.
+
+**Preços.** `prices(provider, model, usd_per_mtok_in, usd_per_mtok_out, effective_from)`; custo calculado na consulta
+pelo preço vigente em cada dia. Os preços ficam aqui, não na 006: a 009 não pode importar `ai_core.llm`
+(import-linter), e o custo é projeção de relatório, não roteamento.
+
+**Langfuse.**
+
+- Candidato recomendado (spike no research): `opentelemetry-sdk` + exportador OTLP/HTTP para
+  `{host}/api/public/otel/v1/traces` com Basic auth; o `BatchSpanProcessor` dá a fila limitada que descarta em vez de
+  bloquear. Já permitido em `observability/adapters/` (ADR-013; o import-linter barra fora dele). Alternativa: a API de
+  ingestão com `httpx`.
+- Mapeamento: `ExecutionStarted`/`ExecutionFinished` → trace raiz (nome = Assistant; flow e packs como metadados);
+  `ModelCall` → generation (início = `at − duration_ms`, modelo, uso; nível de erro em falha); `ToolCall` → span;
+  `ControllerDecision`, `CoverageGate`, `ValidationRun`, `Retrieval` → eventos; `ExecutionError` → evento de erro
+  (mensagem redigida); `ModelExchange` → entrada e saída da generation. Traces raiz órfãos fecham por TTL.
+- `reload()` ao gravar os ajustes: reconstrói o exportador e esvazia o antigo. "Testar conexão": GET autenticado num
+  endpoint público do Langfuse (confirmar no spike). Item de saúde não crítico `trace:langfuse`.
+
+**Ajustes e segredos.** Precedência pura em `domain/` (instalação > runtime > padrão, com a origem por campo);
+`AI_CORE_LANGFUSE_{HOST,PUBLIC_KEY,SECRET_KEY}` é tudo ou nada (parcial = erro de configuração que nomeia a
+variável que falta); `AI_CORE_LANGFUSE_CAPTURE_CONTENT` vale à parte. Chave secreta de runtime cifrada pela porta
+`SecretCipher` (AES-GCM, subchave HKDF `ai-core/observability/v1` de `AI_CORE_MASTER_KEY`, [ADR-033](../../docs/adr/ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md)); sem chave
+mestra, gravar a secreta é recusado.
+
+**Conteúdo.** `ModelExchange(request_id, role, provider, model, messages, output)`, emitido pela 006 logo depois do
+`ModelCall`; o destino os pareia pela ordem. Redação de credenciais e corte por mensagem (16 KB). JSONL e memória nunca o
+recebem — teste de conformidade dos destinos.
 
 ## Harness de avaliação
 
@@ -83,7 +134,14 @@ qualidade em português · tool calling · fidelidade em RAG
 |---|---|---|---|
 | Trace Sink | primária (seam, emissão) | `observability/service.py` | emissores gravam num sink em memória |
 | Consulta de trace | primária (seam) | `observability/service.py` | por `request_id` |
-| `TraceExporter` | secundária | arquivo (Fase 1) → a decidir no plano | em memória; falha do exporter não interrompe a execução |
+| `TraceExporter` | secundária | arquivo (Fase 1); Fase 9: lista de destinos (principal, uso, Langfuse), cada um com `accepts_content` | em memória; falha de um destino não interrompe a execução nem os outros |
+| Usage Report, Price Book, Trace Destinations | primária (seams, Fase 9) | `observability/service.py` | relatório contra chamadas emitidas; precedência de ajustes; segredo só de escrita |
+| `UsageStore` | secundária (Fase 9) | memória → Postgres | conformidade memória + Postgres (fuso, vigência de preço) |
+| `PriceStore` | secundária (Fase 9) | memória → Postgres | conformidade memória + Postgres |
+| `DestinationSettingsStore` | secundária (Fase 9) | memória → Postgres | conformidade memória + Postgres |
+| `SecretCipher` | secundária (Fase 9) | AES-GCM + HKDF | chave fixa de teste |
+| `LangfuseTransport` | secundária (Fase 9) | OTLP/HTTP (ou API de ingestão) | Langfuse simulado; travado não bloqueia |
+| `Clock` | secundária | sistema | relógio fixo |
 | Eval Harness | adapter primário sobre `ExecutionEngine` (005) | `eval/service.py` + CLI | conjunto dourado mínimo contra o pack de referência |
 | `BaselineStore` | secundária | arquivo versionado | em memória |
 | `Judge` | secundária (só offline) | modelo via `LLMProvider` | juiz simulado |

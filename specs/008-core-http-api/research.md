@@ -699,3 +699,82 @@ inalterado para qualquer outro cliente; a chave `event` é ignorada como campo e
 - A chave `event` sempre, sem cabeçalho: dialeto do Open WebUI imposto a todo cliente.
 - Status com `action` de busca na web (`web_search`, `sources_retrieved`): os rótulos são de busca na web, em inglês, e
   a lista leva links.
+
+# Fase 9 (2026-10-14): superfície de administração (US9)
+
+## R43 — Uma superfície nova, montada à parte
+
+**Decision**: `adapters/admin.py` com um `APIRouter` em `ADMIN_PREFIX = "/admin/v1"`, incluído por `create_app` quando
+os seams de administração são passados (`admin_seams: AdminSeams | None`, um `dataclass` com `assistants`
+(`SystemAssistantAdmin`), `models` (o `check` do Model Router), `usage`, `prices`, `destinations`, `accounts`,
+`login`, `keys`, `mcp`, `instance`). A autenticação usa `authenticated(request, surface="admin")` (003 R25) e o
+`AdminGate`; não admin → `NotFound` → 404 pela tabela de erros existente. O router de MCP global da superfície privada é
+reaproveitado com outro prefixo.
+
+**Rationale**: ADR-031; a superfície privada não muda; sem os seams (perfil antigo ou teste), a superfície não existe.
+
+**Alternatives considered**: rotas de administração na superfície privada com OIDC (ADR-031 rejeitou).
+
+## R44 — Formatos puros em `domain/admin_*.py`
+
+**Decision**: a tradução corpo ↔ value object fica em funções puras: `domain/admin_assistants.py`,
+`domain/admin_usage.py`, `domain/admin_accounts.py`, `domain/admin_observability.py` — leem o JSON cru (como
+`assistant_body.py` e `mcp_body.py` já fazem), recusam campos desconhecidos com `422 invalid_field` e montam as
+respostas de [contracts/admin-api.md](contracts/admin-api.md). Valores monetários saem como string decimal.
+
+**Rationale**: o padrão do módulo (corpo cru, regra pura, testável sem HTTP).
+
+**Alternatives considered**: modelos Pydantic (o módulo não os usa; o OpenAPI sem corpo já é a decisão anterior).
+
+## R45 — Versão no corpo, não em `If-Match`
+
+**Decision**: escritas versionadas levam `version` no corpo (no `DELETE`, na query); conflito → `409
+version_conflict` com `current_version`. As respostas de leitura trazem `version` por recurso.
+
+**Rationale**: as sobreposições têm uma versão por seção, não por recurso inteiro; um campo explícito é mais simples
+para a console que um `ETag` composto. Refina o "`ETag`/`If-Match`" do `design.md` e da FR-026 sem mudar a regra
+(versão lida obrigatória, conflito sem sobrescrever).
+
+**Alternatives considered**: `ETag` por seção em rotas separadas (mais chamadas na console).
+
+## R46 — Erros novos na tabela
+
+**Decision**: `domain/errors.py` ganha os mapeamentos: `Conflict` (003, 012, 009) → 409 `version_conflict` ou, com
+causa, `installation_defined` / `master_key_missing` / `protected_group` / `google_not_configured`;
+`RequestRejected(field)`, `InvalidField`, `InvalidPrice`, `InvalidQuery` → 422 `invalid_field` com `param`. Mensagem do
+módulo dono, sem detalhe de infraestrutura.
+
+**Rationale**: FR-026; a console mostra o motivo junto ao campo (013 FR-001).
+
+**Alternatives considered**: —
+
+## R47 — "Testar modelo" pelo Model Router
+
+**Decision**: `POST /assistants/{name}/models/check` lê a visão do Assistant (003), recusa modelo fora de `allow`
+(422) e chama `ModelRouting.check(ModelPolicy(roles={role: ref}, allow=view.allow))` (006); devolve disponibilidade,
+detalhe e o tempo medido pelo `Clock`. A 008 passa a consumir o `api.py` da 006 só para isso (Module Boundary
+atualizado).
+
+**Rationale**: a verificação já existe no seam da 006; nenhuma regra nova.
+
+**Alternatives considered**: a 003 testar o modelo (a 003 não conhece providers).
+
+## R48 — Marca da instalação no `/me`
+
+**Decision**: `create_app` recebe `instance: InstanceBranding(name, logo_url)` (011, de `AI_CORE_DISPLAY_NAME` e da
+existência de `AI_CORE_LOGO_FILE`; o arquivo é servido pela 012 em `/oauth2/assets/logo`); `GET /admin/v1/me` o devolve.
+
+**Rationale**: resolve o achado X1 do analyze da 012 — a console precisa do nome e do logotipo "lidos da API" (013
+FR-020) — sem a 008 conhecer a 012.
+
+**Alternatives considered**: rota pública de marca (só serve antes do login, e a console já passa pela página da 012).
+
+## R49 — Testes
+
+**Decision**: `tests/http/unit/test_admin_*.py` (formatos puros), `tests/http/contract/test_admin_api.py` (rota a rota
+com os seams em memória: token da console e chave de admin, não admin 404, token do chat 401, varredura de segredo,
+`no-store`, `409`/`422` com `param`). Marca `us9`.
+
+**Rationale**: SC-008 e SC-009.
+
+**Alternatives considered**: —

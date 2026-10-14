@@ -361,3 +361,43 @@ ai-core/packages/core/tests/bootstrap/
 | `McpService` por sessão de armazenamento no boot e na CLI (R25) | o pool do `persistent` pertence ao laço em que abre (R13) | um serviço só quebraria fora do laço do servidor |
 | Trocas de porta em `platform()` (R31) | a suíte ponta a ponta precisa programar controller e servidores MCP sem rede | fakes fixos no perfil `test` limitariam o que uma suíte prova (clarificação 2) |
 
+# Fase 9 (2026-10-14): identidade, administração, sobreposições e destinos do trace (US6)
+
+Insumos: ADR-030 a ADR-034; os planos da Fase 9 da 012, 003, 009 e 008 (o que cada um deixou para a composição).
+Decisões em [research.md](research.md) R36–R44. **Sem divergência do `design.md`** (seção da Fase 9 já acrescentada).
+
+## Summary (Fase 9)
+
+A passada de encaixe: variáveis novas validadas cedo; etapa `identity` entre `adapters` e `packs`; o verificador da 003
+lendo as chaves da 012 em processo, com audiência por superfície; o `AssistantsService` com as sobreposições; o
+`TraceService` com os destinos de uso e Langfuse e a origem do processo; o `create_app` com a superfície de
+administração e o router da 012; tarefas periódicas, CLI e saúde novas. O `test` continua compatível com as suítes de
+pack e liga a identidade sob pedido.
+
+## Technical Context (Fase 9)
+
+**Dependências**: nenhuma além das das passadas anteriores. **Storage**: migrações de `identity` e `observability` na
+etapa `adapters`. **Testing**: configuração (validações), perfis (portas novas), boot (ordem e falhas), CLI, saúde e a
+prova ponta a ponta sem rede (R43).
+
+## Constitution Check (Fase 9)
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| II. Seams | ✅ | A 011 só instancia e injeta; a função `jwks()` da 012 chega à 003 como chamável |
+| VII. Falha fechada | ✅ | Configuração inconsistente para o boot nomeando a variável; destinos degradam sem derrubar |
+| XIII. Portas e adapters | ✅ | Só a composition root importa `service.py`/`adapters/` dos módulos |
+
+**Module boundary gate (Fase 9)**: `ai_core/bootstrap/**` e `tests/bootstrap/**`; `specs/README.md`; `CLAUDE.md`.
+**Resultado**: PASS.
+
+## Project Structure (Fase 9)
+
+```text
+ai-core/packages/core/src/ai_core/bootstrap/
+├── settings.py      # variáveis da Fase 9 e validações (R36)
+├── profiles.py      # portas novas nos três perfis; TEST_ADMIN_USERNAME/PASSWORD (R38, R39)
+├── wiring.py        # etapa identity; AccessService/AssistantsService/TraceService/create_app novos (R37, R40)
+├── health.py        # trace:usage, trace:langfuse, identity; modelos efetivos (R41)
+└── cli.py           # users …, identity keys rotate (R42)
+```

@@ -537,3 +537,114 @@ retriever no grant — as duas regras se fecham. Nenhum seam muda: é a troca de
 **Alternatives considered**: coleções declaradas pelo operador num arquivo (mais uma fonte para desalinhar do pack);
 aceitar qualquer nome (referência fantasma no grant, contra o R11).
 
+# Fase 9 (2026-10-14): identidade, administração, sobreposições e destinos do trace
+
+### R36 — Variáveis novas e validação na etapa `configuration`
+
+**Decision**: `Settings` ganha (contrato em [contracts/configuration.md](contracts/configuration.md), Fase 9):
+`identity_enabled` (`AI_CORE_IDENTITY_ENABLED`, padrão falso), `public_url` (`AI_CORE_PUBLIC_URL`, obrigatório com a
+identidade ligada), `identity_clients_file`, `master_key` (`AI_CORE_MASTER_KEY`, 32 bytes em base64; nunca em log nem
+relatório), `display_name` (`AI_CORE_DISPLAY_NAME`, padrão "Agentic"), `logo_file`, `trusted_proxies`,
+`cookie_secure`, `usage_timezone` (padrão `UTC`), `usage_retention_days` (400). Validações que **param o boot** com
+erro que nomeia a variável: identidade ligada com `AI_CORE_OIDC_ISSUER` (emissor único, ADR-030); identidade ligada sem
+`AI_CORE_PUBLIC_URL` ou sem o arquivo de clientes; `persistent` com identidade ligada sem chave mestra (ADR-033); chave
+mestra malformada; grupo `AI_CORE_LANGFUSE_HOST|PUBLIC_KEY|SECRET_KEY` incompleto; fuso desconhecido. As variáveis do
+Google, do admin inicial e dos segredos de cliente são lidas pelas portas de segredo da 012 (ADR-020), não pelo
+`Settings`.
+
+**Rationale**: falha cedo (princípio VII) e uma fonte de configuração.
+
+**Alternatives considered**: degradar a identidade em vez de parar (a instalação ficaria sem login nenhum — pior que
+não subir).
+
+### R37 — Etapa `identity` e ordem do boot
+
+**Decision**: `configuration` → `adapters` (migrações de `assistants`, `http`, `mcp`, `capabilities`, **`identity`**,
+**`observability`**) → **`identity`** (só com a identidade ligada; crítica: monta o `IdentityService`, `start()` — chave
+de assinatura —, admin inicial, grupo de administração protegido vindo de `api_keys.admin_group`) → `packs` →
+`mcp_registry` → `engine` → `assistants` → `api`. A etapa `assistants` monta o `AccessService` com
+`OidcAudiences(public=<audience do cliente open-webui>, admin=<audience do cliente console>)` e, com a identidade, o
+`JwksOidcVerifier(issuer=public_url, source=CallableJwksSource(identity.jwks))`; e o `AssistantsService` com o
+`SystemOverrideStore`. A etapa `api` passa `admin_seams` e `instance` ao `create_app` e inclui o router da 012.
+
+**Rationale**: a 003 precisa das chaves antes de servir; a identidade não depende de packs nem de MCP.
+
+**Alternatives considered**: identidade depois de `assistants` (o verificador nasceria sem chaves).
+
+### R38 — Portas novas por perfil
+
+**Decision**: `REQUIRED_PORTS` ganha `identity_accounts`, `identity_grants`, `identity_keys`, `identity_settings`,
+`identity_attempts`, `identity_upstream`, `identity_secrets`, `system_overrides`, `usage_store`, `price_store`,
+`destination_settings`, `langfuse_transport`; `STORAGE_PORTS` ganha os de banco. `memory`: tudo em memória, chave mestra
+aleatória por processo (com aviso no relatório de boot), Google real se configurado. `persistent`: Postgres e Google
+real. `test`: memória, Google simulado, Langfuse simulado, chave mestra fixa. Trocáveis por `overrides` como os demais
+(exceto armazenamento).
+
+**Rationale**: o padrão dos perfis (FR-018).
+
+**Alternatives considered**: —
+
+### R39 — Perfil `test` compatível com as suítes de pack
+
+**Decision**: o `test` mantém, por padrão, o verificador estático de `TEST_OIDC_TOKEN` (as suítes do `ai-scouting`
+dependem dele). Com `AI_CORE_IDENTITY_ENABLED=true` no ambiente ou `platform(profile="test", config={...})`, monta a
+identidade em memória, semeia o admin `TEST_ADMIN_USERNAME = "admin-teste"` com `TEST_ADMIN_PASSWORD` (exportados por
+`ai_core.bootstrap.profiles`) e usa o JWKS em processo; `TEST_API_KEY` continua valendo nas superfícies privada e de
+administração.
+
+**Rationale**: nenhuma suíte existente quebra; a nova suíte de plataforma liga a identidade explicitamente.
+
+**Alternatives considered**: ligar a identidade sempre no `test` (quebraria o `TEST_OIDC_TOKEN` das suítes de pack).
+
+### R40 — Destinos do trace e origem do processo
+
+**Decision**: a etapa `adapters` monta o `TraceService(primary=<memória|JSONL>, destinations=[UsageDestination(origin),
+LangfuseDestination(...)], content=ContentPolicy(...))`; `origin = "evaluation"` no `ai-core eval run` e `"production"`
+no resto (clarificação de 2026-10-13 da 009). Tarefas do ciclo de vida (`PeriodicTask`): flush do uso a cada 2 s,
+expurgo da identidade a cada hora, retenção do uso a cada dia; `Platform.aclose()` esvazia os destinos (CLI e harness
+também).
+
+**Rationale**: ADR-034; o harness não vira produção no dashboard.
+
+**Alternatives considered**: —
+
+### R41 — Saúde
+
+**Decision**: itens não críticos `trace:usage` e `trace:langfuse` a partir de `TraceDestinations.health()`; o item de
+modelos passa a usar `assistants.declared_models()` (efetivos) por consulta, não a tupla do boot; item crítico
+`identity` (chaves carregadas) com a identidade ligada.
+
+**Rationale**: 011 FR-020.
+
+**Alternatives considered**: —
+
+### R42 — CLI
+
+**Decision**: `COMMANDS`/`GROUPS` em `bootstrap/cli.py` ganham `users create|list|disable|enable|password|groups` e
+`identity keys rotate [--force]` (comandos da 012), rodando na sessão de armazenamento (`wiring.storage`); sem a
+identidade ligada, saem com código não zero e a mensagem "identidade desligada".
+
+**Rationale**: o operador cria o primeiro admin antes de existir console (012 FR-018).
+
+**Alternatives considered**: —
+
+### R43 — Prova ponta a ponta sem rede
+
+**Decision**: `tests/bootstrap/integration/test_platform_identity_admin.py`: `platform(profile="test")` com a
+identidade ligada; o authlib como RP faz login como o admin semeado pelo cliente `open-webui` (audiência do chat) e pelo
+cliente `console` (PKCE); `GET /v1/models` com o token do chat; `GET /admin/v1/me` com o da console (e 401 com o do
+chat); sobreposição de `generation` num Assistant com `overrides: [models]`; uma conversa; `GET /admin/v1/usage` com a
+chamada (SC-007 da 011).
+
+**Rationale**: a prova da fase sem rede nem serviço externo (SC-003 da 011).
+
+**Alternatives considered**: —
+
+### R44 — Release
+
+**Decision**: depois desta passada, o core vai para `0.6.0` (tag `v0.6.0`) **com aprovação do mantenedor**, antes da
+passada da 002 (instalação), que fixa `CORE_REF`.
+
+**Rationale**: o padrão das fases anteriores.
+
+**Alternatives considered**: —

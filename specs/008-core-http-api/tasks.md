@@ -551,6 +551,43 @@ progresso do motor e a espera na fila aparecem como raciocínio antes do texto.
 
 ---
 
+## Fase 9 (2026-10-14): superfície de administração (research R43–R49)
+
+**Escopo**: US9. Caminhos relativos a `ai-core/packages/core/`. Nada em `ai_core/bootstrap/` (passada da 011).
+
+## Phase 20: User Story 9 — Administração pela superfície de administração (Priority: P2)
+
+### Tests for User Story 9
+
+- [ ] T084 [P] [US9] `tests/http/unit/test_admin_assistants.py`, `test_admin_usage.py`, `test_admin_accounts.py`,
+  `test_admin_observability.py`: corpos válidos e inválidos de [contracts/admin-api.md](contracts/admin-api.md) (campo
+  desconhecido → `invalid_field` com `param`; `version` obrigatória onde o contrato pede; dinheiro como string decimal;
+  `acknowledged` obrigatório para ligar a captura)
+- [ ] T085 [P] [US9] `tests/http/contract/test_admin_api.py` (marca `us9`): para cada rota do contrato, admin por token da
+  console e por chave → sucesso; não admin → `404` idêntico ao de rota inexistente (corpo e cabeçalhos); token do chat
+  → `401`; `409` (`version_conflict` com `current_version`, `installation_defined`, `master_key_missing`,
+  `protected_group`, `google_not_configured`) e `422` com `param`; `Cache-Control: no-store`; varredura de segredos em
+  todas as respostas (SC-009); a senha temporária só em `POST /users` e `POST /users/{u}/password`
+
+### Implementation for User Story 9
+
+- [ ] T086 [US9] `http/ports.py`: `AdminSeams` e `InstanceBranding` (dataclasses de injeção, só com tipos dos `api.py`
+  da 003, 006, 007, 009 e 012)
+- [ ] T087 [P] [US9] `http/domain/admin_assistants.py`, `admin_usage.py`, `admin_accounts.py`,
+  `admin_observability.py` para T084
+- [ ] T088 [US9] `http/domain/errors.py`: os mapeamentos de R46
+- [ ] T089 [US9] `http/adapters/admin.py`: o router de R43 com todas as rotas do contrato; `GET /me` com `instance`
+  (R48); `POST /assistants/{name}/models/check` pelo `ModelRouting.check` (R47); `mcp_routes.global_mcp_router` montado
+  também em `/admin/v1`; `authenticated(request, surface="admin")` e `SCHEMES_OF_SURFACE` da 003
+- [ ] T090 [US9] `http/adapters/app.py`: `create_app(..., admin_seams=None, instance=None)` inclui o router quando há
+  seams; `http/adapters/auth.py` usa `SCHEMES_OF_SURFACE`
+- [ ] T091 [US9] Rodar T084–T085 e a suíte inteira da 008 até verde
+
+## Phase 21: Polish da Fase 9
+
+- [ ] T092 [P] Spec 008: Module Boundary com 006 e 012 nos seams consumidos; `specs/README.md` (status da 008 na Fase 9)
+- [ ] T093 Rodar `uv run pytest`, `mypy`, `ruff check packages`, `lint-imports`
+
 ## Dependencies & Execution Order
 
 **Fase 7**: US6 — T058 ∥ T059 ∥ T060 (testes puros), depois T061 → T062 → T063 (T063 usa as linhas de T061); T064 ∥

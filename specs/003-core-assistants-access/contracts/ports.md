@@ -92,3 +92,11 @@ credencial — falha fechada, anunciada no relatório de boot.
 
 O Postgres roda quando `AI_CORE_TEST_POSTGRES_DSN` está definida (a CI do core a define, com um serviço Postgres); sem
 ela, os casos do adapter real são pulados com motivo explícito, como o Ollama da 006.
+
+## Fase 9 (2026-10-14)
+
+| Porta | Mudança | Adapters | Conformidade |
+|---|---|---|---|
+| `OidcVerifier` | `verify(token, *, audience: str)` | `JwksOidcVerifier(issuer, source: JwksSource, clock, algorithms)`; `StaticOidcVerifier` passa a conferir a audiência | `test_oidc_verifier.py`: audiência errada → `None`; as duas fontes |
+| `JwksSource` (nova, interna ao adapter OIDC) | `async keys() -> Mapping` | `HttpJwksSource` (o caminho atual, com cache e R24), `CallableJwksSource(fn)` (o `jwks()` da 012) | mesma suíte |
+| `SystemOverrideStore` (nova) | `get`, `all`, `put`, `delete`, `history` | memória → Postgres (`003_system_overrides.sql`) | `test_override_store.py` |

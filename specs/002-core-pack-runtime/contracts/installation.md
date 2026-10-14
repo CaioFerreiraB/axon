@@ -95,3 +95,20 @@ no log do `ai-core`, com 200 (sem `tools` e efêmero).
 
 `scripts/check-webui.py`, passo novo: a mensagem gravada pelo Open WebUI tem `statusHistory`, começando em "Preparando o
 contexto da pergunta…", com a linha "Resposta de <modelo>" e terminando em "Concluído em …" com `done: true`.
+
+## Fase 9 (2026-10-14): com ou sem console, sem Keycloak (research R42–R50)
+
+| Modo | `COMPOSE_PROFILES` | Serviços | Login |
+|---|---|---|---|
+| Padrão | vazio | `ai-core`, `postgres`, `qdrant` | só chaves de API (`ai-core keys create`) |
+| Com chat | `webui` | + `open-webui` | página da plataforma (012); Open WebUI como cliente confidencial |
+| Com console | `console` | + `console` (nginx) | página da plataforma; console como cliente público |
+| Completo | `webui,console` | todos | os dois |
+
+- **Sempre**: `AI_CORE_PROFILE=persistent`, Postgres com volume, `AI_CORE_MASTER_KEY`.
+- **Com interface**: `AI_CORE_IDENTITY_ENABLED=true`, `AI_CORE_PUBLIC_URL`, `config/identity.yaml` montado,
+  `AI_CORE_IDENTITY_SECRET_OPEN_WEBUI` (com `webui`), admin inicial por arquivo; Google opcional.
+- **Langfuse**: sem console, pelas variáveis `AI_CORE_LANGFUSE_*`; com console, pela tela.
+- **Removidos**: `keycloak`, `keycloak-data`, `config/keycloak/`, `KEYCLOAK_*`, `OPEN_WEBUI_OIDC_SECRET`.
+- **Provas**: `scripts/check-build.sh` (com o alvo `console`), `scripts/check-webui.py` (login da plataforma),
+  `scripts/check-console.py` (admin, sobreposição, uso).

@@ -15,6 +15,7 @@ limitando `/speckit-tasks` e `/speckit-implement` às user stories da fase (ex.:
 | **6 — Avaliação** | **Antes de calibrar qualquer número do RAG** | 009 · US2, US3, US4 · 105 · US1–US5 |
 | **7 — Open WebUI** ✅ | Assistants aparecem como modelos | 008 · US6, US8 |
 | **8 — GraphRAG** | Retriever de grafo atrás do contrato existente | 106 (resolver a ontologia primeiro) |
+| **9 — Console e identidade própria** | Login da própria plataforma (senha e Google) no lugar do Keycloak e administração gráfica do que o deploy permitir: modelos e MCPs por Assistant, uso e custo, Langfuse, ajustes de login | 012 · todas · 013 · todas · 003 · US9, US10 · 009 · US5–US7 · 006 · toque `model_exchange` · 008 · US9 · 011 · US6 · 002 · US7 |
 
 **Fase 1 concluída em 2026-09-21.** `ai-core serve` sobe a plataforma a partir de `packs.yaml` e `assistants.yaml`, e
 uma requisição no formato OpenAI atravessa API (008), motor (005), Pack Hooks (002) com o `ai-generic` (010) e Model
@@ -61,6 +62,14 @@ status — chamadas e argumentos, trechos e documentos, decisões do portão e d
 etapa — pelo desfecho de etapa que o motor publica (ADR-028) e o cabeçalho `x-ai-core-progress: status` da conexão (008
 FR-005a), no lugar do bloco "Pensou por N segundos".
 
+**Fase 9 em especificação (2026-10-13).** ADRs 029–034 aceitos e constituição 1.3.0: a plataforma passa a ser o
+provedor de identidade (012) — o Open WebUI e a console entram por ela, e a 003 continua verificando o JWT —, ganha
+uma superfície de administração (`/admin/v1`, grupo de administração, token da plataforma ou chave), sobreposições de
+Assistants de sistema sob a flag `overrides` do YAML, segredos de runtime cifrados com a chave mestra da instalação
+(a variável de ambiente prevalece), e um trace com destinos — uso e custo por dia para o dashboard, Langfuse, e o texto
+de prompt e resposta só quando ligado. A console (013) é uma SPA opcional na instalação. A Fase 8 (GraphRAG) não muda
+de número: as fases não são estritamente sequenciais.
+
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 
 **Pendências entre specs resolvidas em 2026-10-07.** OpenAI como controller (ADR-023: o adapter converte o esquema
@@ -87,4 +96,9 @@ Cada linha é uma troca de adapter atrás de uma porta (ADR-012); quem escolhe o
 | MCP registry | `McpServerStore` | memória → Postgres | 3 | 007 |
 | Auditoria de tool mutante | `AuditLog` | memória → Postgres | 3 | 004 |
 | Trace | `TraceExporter` | arquivo → a decidir | 1 | 009 |
+| Uso por chamada de modelo e preços | `UsageStore`, `PriceStore` | memória → Postgres | 9 | 009 |
+| Ajustes do Langfuse (segredo cifrado) | `DestinationSettingsStore` | memória → Postgres | 9 | 009 |
+| Sobreposições de Assistants de sistema | `SystemOverrideStore` | memória → Postgres | 9 | 003 |
+| Contas, grupos, sessões, chaves de assinatura, ajustes de login | `AccountStore`, `GrantStore`, `SigningKeyStore`, `IdentitySettingsStore` | memória → Postgres | 9 | 012 |
+| Tentativas de login | `LoginAttempts` | memória (processo único) | 9 | 012 |
 | Chunks e vetores | `ChunkIndex` (seam do índice) | Qdrant | 5 | 102 |

@@ -15,7 +15,7 @@ infraestrutura genérica e todo conhecimento de domínio vive em extensões.
 |---|---|
 | GRIS dentro da plataforma | Permanece projeto próprio; expõe MCP e é consumido como qualquer sistema externo (spec 007) |
 | Workflows de longa duração | Não há caso de uso ([ADR-010](../docs/adr/ADR-010-temporal-fora.md)) |
-| Lógica de agente na interface | Open WebUI é apenas apresentação (princípio XI) |
+| Lógica de agente ou regra de negócio na interface | Open WebUI e a console de administração são apenas apresentação (princípio XI, [ADR-029](../docs/adr/ADR-029-console-de-administracao-propria.md)) |
 | Instalação de código arbitrário pelo usuário final | Extensão de usuário é via MCP remoto ([ADR-003](../docs/adr/ADR-003-mcp-usuario-pack-operador.md)) |
 | Isolamento entre organizações (multi-tenancy) | Instalação separada é o default (spec 003) |
 
@@ -23,9 +23,13 @@ infraestrutura genérica e todo conhecimento de domínio vive em extensões.
 
 ```mermaid
 flowchart TB
-    USER[Usuário] --> SURF{"Superfície de auth<br/>(008 · 003)"}
+    USER[Usuário] -->|login| IDP["Provedor de identidade<br/>(012)"]
+    IDP -->|token| SURF
+    USER --> SURF{"Superfície de auth<br/>(008 · 003)"}
     SURF -->|OIDC| PUB["/v1 (público)"]
     SURF -->|API key| PRIV["/private/v1 (privado)"]
+    SURF -->|OIDC ou API key, grupo admin| ADM["/admin/v1 (administração)"]
+    CONSOLE["Console (013)"] --> ADM
 
     PUB --> RESOLVE["Resolver Assistant + ACL<br/>(003)"]
     PRIV --> RESOLVE
@@ -72,11 +76,13 @@ estão no [relatório de estilo arquitetural](../docs/relatorio-estilo-arquitetu
 flowchart LR
     subgraph PRIM["Adapters primários"]
         HTTP["008 · API HTTP"]
+        OIDC["012 · Endpoints OIDC e login"]
         CLI["CLI ai-core (011)"]
         EVAL["009 · Eval harness"]
     end
     subgraph HEX["Núcleo de aplicação (ai-core)"]
         ACC["003 · Access"]
+        IDN["012 · Identity"]
         RT["002 · Pack Runtime"]
         ENG["005 · Engine"]
         GW["004 · Gateway"]
@@ -93,6 +99,8 @@ flowchart LR
     end
     HTTP --> ACC
     HTTP --> ENG
+    HTTP --> IDN
+    OIDC --> IDN
     CLI --> RT
     CLI --> ACC
     EVAL --> ENG
@@ -104,6 +112,7 @@ flowchart LR
     GW --> MCP
     ROU --> LLM
     ACC -.-> PG
+    IDN -.-> PG
     GW -.-> PG
     ENG -.-> PG
     ACC -.-> CLK
@@ -116,7 +125,8 @@ flowchart LR
 ```
 
 Setas cheias: portas que já existiam na arch-v1. Setas tracejadas: portas introduzidas pelos ADRs 012 e 013. A
-composition root (011) não aparece: é ela que instancia os adapters e os injeta.
+composition root (011) não aparece: é ela que instancia os adapters e os injeta. A console (013) não é módulo do
+núcleo: é um cliente HTTP da superfície de administração e do protocolo OIDC da 012 ([ADR-029](../docs/adr/ADR-029-console-de-administracao-propria.md)).
 
 **Dentro de cada módulo:**
 
@@ -140,10 +150,12 @@ prevista; cada uma tem adapter em memória e suíte de conformidade.
 flowchart TD
     subgraph RCORE["repositório ai-core · uv workspace · specs 0xx"]
         C[ai-core-contracts<br/>001]
-        CORE[ai-core<br/>002–009, 011]
+        CORE[ai-core<br/>002–009, 011, 012]
         GEN[ai-generic<br/>010]
+        CON[console<br/>013 · SPA, fora do uv]
         C --> CORE
         C --> GEN
+        CON -.HTTP.-> CORE
     end
 
     subgraph RSCT["repositório ai-scouting · specs 1xx"]
@@ -173,16 +185,18 @@ Ao criar spec nova, use o próximo número livre **dentro do bloco** (ver [CLAUD
 | Spec | Módulo | Distribuição / caminho | Fase | Status |
 |---|---|---|---|---|
 | [001](001-core-contracts/spec.md) | Contratos públicos | `ai-core-contracts` | 0 | Fase 0 implementada (US1–US4); `0.1.1` (ADR-024) e `0.1.2` (`ai_core_contracts.eval` e o hook opcional `eval_metrics` — [ADR-027](../docs/adr/ADR-027-metricas-de-dominio-pelo-contrato-de-pack.md)) |
-| [002](002-core-pack-runtime/spec.md) | Descoberta, carga e composição de packs + build da instalação | `ai_core/packs` | 1–4 | Fase 1 implementada (US1, US2, US3 cen. 2–4); Fase 2 (US4) e Fase 3 (US3 cen. 1, Pack Toolset) implementadas; Fase 4 (US5): build da instalação no repositório `agentic-deploy` (submódulo; ADR-022); Fase 6: o seam `PackEvalMetrics` (ADR-027); Fase 7: a instalação com o perfil `webui` (Open WebUI v0.12 e Keycloak de desenvolvimento) |
-| [003](003-core-assistants-access/spec.md) | Assistants, identidade e autorização | `ai_core/assistants` | 2, 3 | Fase 2 implementada (US1–US7) e ligada pela 008 e pela 011; Fase 3: validação de papéis por flow (ADR-019), de `allowed_tools`/`write_tools` com namespace e da colisão alias × pack |
+| [002](002-core-pack-runtime/spec.md) | Descoberta, carga e composição de packs + build da instalação | `ai_core/packs` | 1–4, 9 | Fase 1 implementada (US1, US2, US3 cen. 2–4); Fase 2 (US4) e Fase 3 (US3 cen. 1, Pack Toolset) implementadas; Fase 4 (US5): build da instalação no repositório `agentic-deploy` (submódulo; ADR-022); Fase 6: o seam `PackEvalMetrics` (ADR-027); Fase 7: a instalação com o perfil `webui` (Open WebUI v0.12 e Keycloak de desenvolvimento); Fase 9 especificada (US7: instalação com ou sem console, sem Keycloak) |
+| [003](003-core-assistants-access/spec.md) | Assistants, identidade e autorização | `ai_core/assistants` | 2, 3, 9 | Fase 2 implementada (US1–US7) e ligada pela 008 e pela 011; Fase 3: validação de papéis por flow (ADR-019), de `allowed_tools`/`write_tools` com namespace e da colisão alias × pack; Fase 9 especificada (US9: superfície de administração; US10: sobreposições — ADR-031, ADR-032) |
 | [004](004-core-capability-gateway/spec.md) | Catálogo de capacidades e execução segura de tools | `ai_core/capabilities` | 3 | Fase 3 implementada (US1–US5); ligada pela 002, 003, 005 e 011 |
 | [005](005-core-execution-engine/spec.md) | Motor de execução (flows / grafo) | `ai_core/graph` | 1, 3, 5 | Fase 1 implementada (US1: flow `chat`); Fase 3 implementada (US2: flow `agentic`); Fase 5 implementada (US3, US4: flow `rag_first`, com os toques na 002, 004, 009 e 011 e o [ADR-026](../docs/adr/ADR-026-o-modelo-ve-o-identificador-de-cada-trecho.md)); encaixe na 011 (`capabilities`) e na 008 (`severity`) nas passadas delas; desfecho de etapa (`StepFinished`, ADR-028) |
-| [006](006-core-llm-providers/spec.md) | Providers de LLM e modelo por papel | `ai_core/llm` | 1, 3 | Fases 1 e 3 implementadas (US1–US5): OpenAI e OpenRouter sobre a camada compatível, credencial pela porta `SecretResolver` ([ADR-020](../docs/adr/ADR-020-segredos-uma-fonte-por-perfil-uma-porta-por-modulo.md)), roteamento automático recusado e saída estruturada no controller; ligada pela 011 (`llm_secrets`) |
+| [006](006-core-llm-providers/spec.md) | Providers de LLM e modelo por papel | `ai_core/llm` | 1, 3, 9 | Fases 1 e 3 implementadas (US1–US5): OpenAI e OpenRouter sobre a camada compatível, credencial pela porta `SecretResolver` ([ADR-020](../docs/adr/ADR-020-segredos-uma-fonte-por-perfil-uma-porta-por-modulo.md)), roteamento automático recusado e saída estruturada no controller; ligada pela 011 (`llm_secrets`); Fase 9 especificada (FR-012: evento `model_exchange`, ADR-034) |
 | [007](007-core-mcp-integration/spec.md) | Registry e cliente MCP | `ai_core/mcp` | 3 | Fase 3 implementada (US1–US6); ligada pela 011 e exposta pela 008 (`/v1/mcp`, `/private/v1/mcp`) |
-| [008](008-core-http-api/spec.md) | API HTTP, compat OpenAI, streaming, histórico | `ai_core/http` | 1, 2, 3, 7 | Fases 1 e 2 implementadas (US1; US2, US3, US4 Assistants, US5, US7); Fase 3: rotas de MCP do usuário e globais, desfecho por gravidade (ADR-018) e `x-should-retry`; Fase 7 (API): fila com 503 `overloaded` e `Retry-After`, progresso como raciocínio (`reasoning_content`) até o primeiro texto, pedido efêmero (`x-ai-core-store: false`) e compatibilidade com o Open WebUI v0.12 — a interface de verdade fecha na passada de encaixe da 002; timeline de status no Open WebUI (`x-ai-core-progress: status`, FR-005a) |
-| [009](009-core-observability-evaluation/spec.md) | Trace (Trace Sink) e harness de avaliação | `ai_core/observability`, `ai_core/eval` | 1–6 | Fase 1 implementada (US1: trace e Trace Sink); Fase 6 implementada (US2–US4: harness — conjunto dourado, métricas do trace, juiz offline, linha de base, `ai-core eval run|compare`) |
+| [008](008-core-http-api/spec.md) | API HTTP, compat OpenAI, streaming, histórico | `ai_core/http` | 1, 2, 3, 7, 9 | Fases 1 e 2 implementadas (US1; US2, US3, US4 Assistants, US5, US7); Fase 3: rotas de MCP do usuário e globais, desfecho por gravidade (ADR-018) e `x-should-retry`; Fase 7 (API): fila com 503 `overloaded` e `Retry-After`, progresso como raciocínio (`reasoning_content`) até o primeiro texto, pedido efêmero (`x-ai-core-store: false`) e compatibilidade com o Open WebUI v0.12 — a interface de verdade fecha na passada de encaixe da 002; timeline de status no Open WebUI (`x-ai-core-progress: status`, FR-005a); Fase 9 especificada (US9: `/admin/v1`) |
+| [009](009-core-observability-evaluation/spec.md) | Trace (Trace Sink) e harness de avaliação | `ai_core/observability`, `ai_core/eval` | 1–6, 9 | Fase 1 implementada (US1: trace e Trace Sink); Fase 6 implementada (US2–US4: harness — conjunto dourado, métricas do trace, juiz offline, linha de base, `ai-core eval run|compare`); Fase 9 especificada (US5–US7: uso e custo, Langfuse, conteúdo opcional — ADR-034) |
 | [010](010-core-generic-pack/spec.md) | Pack genérico de referência | `ai-generic` (`packages/generic`) | 1, 3 | Fases 1 e 3 implementadas (US1, US2); FR-005 decidida: continua pack, sem flow preferido |
-| [011](011-core-bootstrap/spec.md) | Bootstrap e composition root: configuração, perfis de adapters, ordem de boot, CLI, health | `ai_core/bootstrap` | 1, 2, 3, 7 | Fases 1 e 2 implementadas (US1–US5: perfis `memory`, `persistent` e `test`, autenticação real, CLI `ai-core`, saúde agregada); Fase 3: registry MCP e gateway de tools nos três perfis, `agentic`, `ai-core audit`, saúde por servidor MCP, trocas de porta; Fase 7: `AI_CORE_MAX_EXECUTIONS`, `AI_CORE_QUEUE_SIZE` e `AI_CORE_QUEUE_WAIT_MS` (admissão da 008) |
+| [011](011-core-bootstrap/spec.md) | Bootstrap e composition root: configuração, perfis de adapters, ordem de boot, CLI, health | `ai_core/bootstrap` | 1, 2, 3, 7, 9 | Fases 1 e 2 implementadas (US1–US5: perfis `memory`, `persistent` e `test`, autenticação real, CLI `ai-core`, saúde agregada); Fase 3: registry MCP e gateway de tools nos três perfis, `agentic`, `ai-core audit`, saúde por servidor MCP, trocas de porta; Fase 7: `AI_CORE_MAX_EXECUTIONS`, `AI_CORE_QUEUE_SIZE` e `AI_CORE_QUEUE_WAIT_MS` (admissão da 008); Fase 9 especificada (US6: identidade, administração, destinos do trace, chave mestra) |
+| [012](012-core-identity/spec.md) | Provedor de identidade: contas, senha, login Google, grupos, emissão de tokens OIDC | `ai_core/identity` | 9 | Draft ([ADR-030](../docs/adr/ADR-030-a-plataforma-e-o-provedor-de-identidade.md)) |
+| [013](013-core-admin-console/spec.md) | Console de administração (SPA) | `ai-core/console/` | 9 | Draft ([ADR-029](../docs/adr/ADR-029-console-de-administracao-propria.md)) |
 | [101](101-scouting-pack/spec.md) | Pack scouting: composição, contexto determinístico, prompts | `ai_scouting/pack.py`, `context/`, `prompts/` | 4, 5 | Fases 4 e 5 implementadas (US1–US5) no submódulo `ai-scouting` (ADR-021): pack com `rag_first`, coleção `scouting`, `config_schema` e a recuperação da 103 e os validators da 104 publicados; 0.3.0 com as métricas da 105 |
 | [102](102-scouting-corpus-ingestion/spec.md) | Ingestão, chunking estrutural, modelo de vigência, índice | `ai_scouting/rag/ingestion/`, `rag/index/` | 5 | Fase 5 implementada (US1–US5): seam `ChunkIndex` com Qdrant (build atrás de alias) e memória, e5-small em ONNX, BM25, CLI `ai-scouting-corpus`; corpus inicial em `ai-scouting/corpus/` |
 | [103](103-scouting-retrieval/spec.md) | Retrieval híbrido e rerank | `ai_scouting/rag/retrieval/` | 5 | Fase 5 implementada (US1–US5): `ScoutingRetriever` (score = similaridade densa, ADR-025), `MetadataReranker` (desempate sem pesos), tool `search_docs`; publicados pelo pack (US5 da 101) |
@@ -208,14 +222,18 @@ secundárias (armazenamento, relógio, segredos…) não são seams: são intern
 | **Principal** + **Execution Grant** | 003 | 004, 005, 007, 008 | Quem pede e o que a execução pode usar, já resolvido e restrito |
 | **Assistant Directory** | 003 | 008 | Listagem filtrada por ACL e CRUD de assistants de usuário |
 | **API Key Admin** | 003 | 008 | Emissão, listagem e revogação de chaves de API (superfície privada; a CLI é adapter da própria 003) |
+| **System Assistant Admin** | 003 | 008 | Configuração efetiva, sobreposições de `models` e `mcp` permitidas pelo YAML e seu estado (Fase 9, [ADR-032](../docs/adr/ADR-032-assistants-de-sistema-sobrepostos-em-runtime.md)) |
+| **Account Admin** + **Login Settings** | 012 | 008 | Usuários, grupos e vínculo Google; Google ligado ou desligado e de onde vem cada ajuste (Fase 9, [ADR-030](../docs/adr/ADR-030-a-plataforma-e-o-provedor-de-identidade.md)) |
+| **Public Key Set** | 012 | 011 (injeta no verificador OIDC da 003) | O JWKS do emissor da plataforma, em processo (Fase 9) |
 | **Capability Catalog** + **Tool Gateway** | 004 | 005 | Uma sessão por execução (`Capabilities.open(grant, contexto)`): catálogo com namespace, já filtrado, e execução de tool com validação, timeout, limite, cerca, política de escrita e auditoria antes da escrita; trechos de recuperação com `· id: <chunk_id>`, cortados por trecho inteiro, e `fence_chunks` para o `rag_first` ([ADR-026](../docs/adr/ADR-026-o-modelo-ve-o-identificador-de-cada-trecho.md)) |
 | **Consulta de auditoria** | 004 | 011 (`ai-core audit`) | Registros de tools de escrita, filtrados por Principal, Assistant, tool e período |
 | **Execution Engine** (`run(grant, request) → eventos`) + **nomes de flow** e **papéis por flow** | 005 | 008, 009, 003 (valida nomes e papéis, [ADR-019](../docs/adr/ADR-019-papeis-por-flow-no-seam-execution-engine.md)) | Única porta de entrada para executar; saída é um fluxo de eventos. O grant é o da 003 e os registros têm gravidade `error`/`notice` ([ADR-018](../docs/adr/ADR-018-seam-execution-engine-fase-3.md)); `rag_first` e `RagSettings` na Fase 5; cada etapa termina com `StepFinished` e o desfecho dela ([ADR-028](../docs/adr/ADR-028-o-motor-publica-o-desfecho-de-cada-etapa.md)), que a 008 mostra como timeline no Open WebUI |
 | **Model Router** | 006 | 005; 003 (só os value objects da política — [ADR-016](../docs/adr/ADR-016-grant-carrega-politica-de-modelos.md)) | Resolve provider+modelo por papel, aplicando allowlist e recusando roteamento automático |
 | **MCP Registry** + **catálogo de aliases** + **cliente MCP restrito** | 007 | 003 (catálogo, na forma de `McpDirectory`), 004 (cliente), 008 (registry) | Servidores por alias, escopo e política; cliente limitado aos aliases do grant, com `discover` que devolve também os servidores com falha |
-| **Trace Sink** | 009 | 004, 005, 006 | Porta de emissão de dados de trace por requisição; o backend é adapter ([ADR-013](../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md)); cresce por eventos aditivos sem argumento nem conteúdo — `tool_call` (004), `controller_decision`, `coverage_gate` e `retrieval` (005; este com o texto só dos trechos entregues) ([ADR-017](../docs/adr/ADR-017-trace-sink-cresce-por-eventos-aditivos.md)) |
+| **Trace Sink** | 009 | 004, 005, 006 | Porta de emissão de dados de trace por requisição; o backend é adapter ([ADR-013](../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md)); cresce por eventos aditivos sem argumento nem conteúdo — `tool_call` (004), `controller_decision`, `coverage_gate` e `retrieval` (005; este com o texto só dos trechos entregues) ([ADR-017](../docs/adr/ADR-017-trace-sink-cresce-por-eventos-aditivos.md)); o único evento com prompt e resposta é `model_exchange` (006), opcional e só para destinos que aceitam conteúdo ([ADR-034](../docs/adr/ADR-034-trace-com-destinos-e-conteudo-opcional.md)) |
 | **Trace** + **Eval Harness** (formato de conjunto dourado e formato de relatório) | 009 | 008 (id de requisição), 105, CI | Consulta de trace por requisição; execução de conjuntos dourados, com data de referência por item, métricas lidas do trace e linha de base (`ai-core eval run|compare`, Fase 6) |
-| **API HTTP** | 008 | clientes externos (Open WebUI) | Superfícies `/v1` e `/private/v1` |
+| **Usage Report** + **Price Book** + **Trace Destinations** | 009 | 008 | Uso por dia, modelo e Assistant com custo calculado na consulta; tabela de preços com vigência; destinos do trace (Langfuse, captura de conteúdo) e de onde vem cada ajuste (Fase 9, [ADR-034](../docs/adr/ADR-034-trace-com-destinos-e-conteudo-opcional.md)) |
+| **API HTTP** | 008 | clientes externos (Open WebUI, console 013) | Superfícies `/v1`, `/private/v1` e `/admin/v1` ([ADR-031](../docs/adr/ADR-031-superficie-de-administracao.md)) |
 | **Índice do scouting** (modelo de chunk indexado + porta `ChunkIndex`) | 102 | 103, 106; 104 (só o modelo) | Contrato interno do `ai-scouting`; o schema do Qdrant é detalhe do adapter |
 
 A **composition root (011)** não expõe seam: ela consome o `api.py`, o `service.py` e os `adapters/` de todos os módulos
@@ -237,6 +255,8 @@ flowchart LR
         C009[009 trace/eval]
         C010[010 pack genérico]
         C011[011 bootstrap<br/>monta todos]
+        C012[012 identidade]
+        C013[013 console]
     end
     subgraph SCT["ai-scouting (1xx)"]
         S101[101 pack]
@@ -275,6 +295,9 @@ flowchart LR
     C008 --> C009
     C009 --> C001
     C009 --> C005
+    C008 --> C012
+    C013 -.HTTP.-> C008
+    C013 -.OIDC.-> C012
 
     S101 --> C001
     S102 --> C001
@@ -289,7 +312,8 @@ flowchart LR
 ```
 
 Setas = "consome um seam de". A 011 (composition root) consome todos os módulos do core e não é consumida por nenhum;
-suas setas foram omitidas para não poluir o grafo.
+suas setas foram omitidas para não poluir o grafo. Setas pontilhadas da 013 são protocolo (HTTP, OIDC), não import: a
+console não importa código do core.
 
 **Dependências mútuas entre specs** — 003↔005 (a 003 valida nomes de flow; a 005 recebe o grant), 003↔007 (a 003 valida
 aliases; a 007 recebe Principal e grant) e 005↔009 (a 005 emite no Trace Sink; o harness da 009 executa pelo motor).

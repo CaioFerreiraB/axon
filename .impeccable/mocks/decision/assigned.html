@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Uso e custo — Agentic</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--paper:#FFFFFF;--rail:#FBF1E9;--mm:#F6D3BC;--mm2:#EFB896;--ink:#2A2C30;--ink2:#5E626A;--rule:#E7E1DB;--blue:#1F4FB8;--red:#B42318;--amber:#9A5B00}
+html,body{width:1440px;height:900px;overflow:hidden;background:var(--paper);color:var(--ink);font:15px/1.5 Barlow,system-ui,sans-serif}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:"JetBrains Mono",monospace;font-size:13px}
+.app{display:grid;grid-template-columns:232px 1fr;height:900px}
+.rail{background:var(--rail);border-right:1px solid var(--mm);padding:22px 18px;display:flex;flex-direction:column;gap:26px;
+ background-image:linear-gradient(var(--mm) 1px,transparent 1px),linear-gradient(90deg,var(--mm) 1px,transparent 1px);background-size:40px 40px;background-position:-1px -1px}
+.brand{font:600 22px/1.1 "Barlow Semi Condensed";letter-spacing:-.01em}
+.brand small{display:block;font:500 12px Barlow;color:var(--ink2);letter-spacing:.06em;text-transform:uppercase;margin-top:4px}
+nav a{display:flex;justify-content:space-between;padding:9px 12px;border-radius:6px;color:var(--ink);text-decoration:none;font-weight:500;background:rgba(255,255,255,.6);margin-bottom:6px}
+nav a.on{background:var(--ink);color:#fff}
+nav a .tag{font:500 11px Barlow;color:var(--blue)}
+.who{margin-top:auto;font-size:13px;color:var(--ink2);background:rgba(255,255,255,.7);padding:10px 12px;border-radius:6px}
+main{padding:24px 36px;display:flex;flex-direction:column;gap:22px;overflow:hidden}
+.top{display:flex;align-items:center;gap:16px}
+.top h1{font:600 28px/1 "Barlow Semi Condensed";margin-right:auto}
+.seg{display:flex;border:1px solid var(--rule);border-radius:6px;overflow:hidden}
+.seg span{padding:7px 14px;font-weight:500;font-size:14px;border-right:1px solid var(--rule)}
+.seg span:last-child{border-right:0}.seg .on{background:var(--ink);color:#fff}
+.sel{border:1px solid var(--rule);border-radius:6px;padding:7px 12px;font-size:14px}
+.tz{font-size:13px;color:var(--ink2)}
+.figs{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:40px;padding-bottom:18px;border-bottom:1px solid var(--rule)}
+.fig label{display:block;font-size:13px;color:var(--ink2);text-transform:uppercase;letter-spacing:.06em;font-weight:500}
+.fig b{display:block;font:600 64px/1.05 "Barlow Semi Condensed";letter-spacing:-.02em}
+.fig .sub{font-size:13px;color:var(--ink2)}
+.fig .warn{color:var(--amber);font-weight:500}
+.fig.small b{font-size:44px;margin-top:14px}
+.chart{position:relative;height:300px;border:1px solid var(--mm2);
+ background-image:linear-gradient(var(--mm2) 1px,transparent 1px),linear-gradient(90deg,var(--mm2) 1px,transparent 1px),linear-gradient(var(--mm) 1px,transparent 1px),linear-gradient(90deg,var(--mm) 1px,transparent 1px);
+ background-size:100px 50px,100px 50px,10px 10px,10px 10px;background-color:#fff}
+.bars{position:absolute;left:56px;right:16px;bottom:28px;top:24px;display:flex;align-items:flex-end;gap:8px}
+.bar{flex:1;display:flex;flex-direction:column-reverse}
+.bar i{display:block}.a{background:#2A2C30}.b{background:#7A7F88}.c{background:#C3C6CC}
+.y{position:absolute;left:8px;top:18px;bottom:22px;display:flex;flex-direction:column;justify-content:space-between;font-size:12px;color:var(--ink2)}
+.x{position:absolute;left:56px;right:16px;bottom:6px;display:flex;justify-content:space-between;font-size:12px;color:var(--ink2)}
+.note{position:absolute;color:var(--blue);font-size:13px;font-weight:500;padding-left:10px;border-left:2px solid var(--blue);background:rgba(255,255,255,.88);line-height:1.35}
+.mark{position:absolute;top:24px;bottom:28px;width:0;border-left:2px dashed var(--blue)}
+.legend{display:flex;gap:18px;font-size:13px;color:var(--ink2)}
+.legend i{display:inline-block;width:10px;height:10px;margin-right:6px;vertical-align:-1px}
+table{width:100%;border-collapse:collapse}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink2);text-align:right;font-weight:500;padding:8px 10px;border-bottom:1px solid var(--ink)}
+th:first-child,td:first-child{text-align:left}
+td{padding:9px 10px;border-bottom:1px solid var(--rule);text-align:right}
+.pill{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--amber);background:#FBF3DB;padding:2px 8px;border-radius:999px}
+</style></head><body><div class="app">
+<aside class="rail">
+ <div class="brand">Agentic<small>Console de administração</small></div>
+ <nav>
+  <a class="on" href="#">Uso e custo</a>
+  <a href="#">Assistentes <span class="tag">2 sobrepostos</span></a>
+  <a href="#">Servidores MCP</a>
+  <a href="#">Observabilidade</a>
+  <a href="#">Acesso</a>
+ </nav>
+ <div class="who">ana · grupo admin<br>Tema: sistema</div>
+</aside>
+<main>
+ <div class="top">
+  <h1>Uso e custo</h1>
+  <div class="seg"><span>7 dias</span><span class="on">30 dias</span><span>90 dias</span></div>
+  <div class="seg"><span class="on">Por modelo</span><span>Por Assistant</span></div>
+  <div class="sel">Origem: produção</div>
+  <div class="tz">14/09 a 13/10 · America/Sao_Paulo</div>
+ </div>
+ <section class="figs num">
+  <div class="fig"><label>Custo do período</label><b>US$ 41,87</b><span class="sub warn">Incompleto: ollama/qwen3:1.7b sem preço</span></div>
+  <div class="fig small"><label>Requisições</label><b>3.214</b><span class="sub">+12% sobre os 30 dias anteriores</span></div>
+  <div class="fig small"><label>Chamadas de modelo</label><b>5.902</b><span class="sub">1,84 por requisição</span></div>
+  <div class="fig small"><label>Tokens</label><b>21,1 M</b><span class="sub">18,2 M entrada · 2,9 M saída</span></div>
+ </section>
+ <div class="legend"><span><i class="a"></i><span class="mono">openrouter/openai/gpt-4.1-mini</span></span><span><i class="b"></i><span class="mono">openai/gpt-4.1-nano</span></span><span><i class="c"></i><span class="mono">ollama/qwen3:1.7b</span></span><span style="margin-left:auto;color:var(--blue)">— mudanças anotadas</span></div>
+ <div class="chart num">
+  <div class="y"><span>US$ 3,00</span><span>2,00</span><span>1,00</span><span>0</span></div>
+  <div class="bars">
+   <div class="bar"><i class="a" style="height:38px"></i><i class="b" style="height:14px"></i><i class="c" style="height:6px"></i></div><div class="bar"><i class="a" style="height:44px"></i><i class="b" style="height:12px"></i><i class="c" style="height:5px"></i></div><div class="bar"><i class="a" style="height:20px"></i><i class="b" style="height:8px"></i><i class="c" style="height:4px"></i></div><div class="bar"><i class="a" style="height:18px"></i><i class="b" style="height:7px"></i><i class="c" style="height:4px"></i></div><div class="bar"><i class="a" style="height:52px"></i><i class="b" style="height:16px"></i><i class="c" style="height:6px"></i></div>
+   <div class="bar"><i class="a" style="height:58px"></i><i class="b" style="height:15px"></i><i class="c" style="height:7px"></i></div><div class="bar"><i class="a" style="height:61px"></i><i class="b" style="height:17px"></i><i class="c" style="height:6px"></i></div><div class="bar"><i class="a" style="height:55px"></i><i class="b" style="height:14px"></i><i class="c" style="height:5px"></i></div><div class="bar"><i class="a" style="height:64px"></i><i class="b" style="height:18px"></i><i class="c" style="height:7px"></i></div><div class="bar"><i class="a" style="height:26px"></i><i class="b" style="height:9px"></i><i class="c" style="height:4px"></i></div>
+   <div class="bar"><i class="a" style="height:22px"></i><i class="b" style="height:8px"></i><i class="c" style="height:3px"></i></div><div class="bar"><i class="a" style="height:66px"></i><i class="b" style="height:19px"></i><i class="c" style="height:6px"></i></div><div class="bar"><i class="a" style="height:70px"></i><i class="b" style="height:18px"></i><i class="c" style="height:7px"></i></div><div class="bar"><i class="a" style="height:68px"></i><i class="b" style="height:20px"></i><i class="c" style="height:6px"></i></div><div class="bar"><i class="a" style="height:72px"></i><i class="b" style="height:21px"></i><i class="c" style="height:8px"></i></div>
+   <div class="bar"><i class="a" style="height:96px"></i><i class="b" style="height:20px"></i><i class="c" style="height:8px"></i></div><div class="bar"><i class="a" style="height:30px"></i><i class="b" style="height:9px"></i><i class="c" style="height:4px"></i></div><div class="bar"><i class="a" style="height:27px"></i><i class="b" style="height:8px"></i><i class="c" style="height:4px"></i></div><div class="bar"><i class="a" style="height:104px"></i><i class="b" style="height:22px"></i><i class="c" style="height:9px"></i></div><div class="bar"><i class="a" style="height:110px"></i><i class="b" style="height:24px"></i><i class="c" style="height:8px"></i></div>
+   <div class="bar"><i class="a" style="height:118px"></i><i class="b" style="height:23px"></i><i class="c" style="height:9px"></i></div><div class="bar"><i class="a" style="height:112px"></i><i class="b" style="height:22px"></i><i class="c" style="height:9px"></i></div><div class="bar"><i class="a" style="height:121px"></i><i class="b" style="height:25px"></i><i class="c" style="height:10px"></i></div><div class="bar"><i class="a" style="height:40px"></i><i class="b" style="height:10px"></i><i class="c" style="height:5px"></i></div><div class="bar"><i class="a" style="height:36px"></i><i class="b" style="height:9px"></i><i class="c" style="height:4px"></i></div>
+   <div class="bar"><i class="a" style="height:126px"></i><i class="b" style="height:26px"></i><i class="c" style="height:10px"></i></div><div class="bar"><i class="a" style="height:131px"></i><i class="b" style="height:25px"></i><i class="c" style="height:11px"></i></div><div class="bar"><i class="a" style="height:128px"></i><i class="b" style="height:27px"></i><i class="c" style="height:10px"></i></div><div class="bar"><i class="a" style="height:134px"></i><i class="b" style="height:26px"></i><i class="c" style="height:11px"></i></div><div class="bar"><i class="a" style="height:88px"></i><i class="b" style="height:18px"></i><i class="c" style="height:7px"></i></div>
+  </div>
+  <div class="mark" style="left:calc(56px + 50.3%)"></div>
+  <div class="note" style="left:calc(56px + 50.3% + 6px);top:30px">01/10 · preço novo<br><span class="mono">gpt-4.1-mini</span> US$ 0,40 / 1,60</div>
+  <div class="mark" style="left:calc(56px + 68%)"></div>
+  <div class="note" style="left:calc(56px + 68% + 6px);top:96px">07/10 · ana trocou a geração<br>do Assistant <b>geral</b></div>
+  <div class="x"><span>14/09</span><span>21/09</span><span>28/09</span><span>05/10</span><span>13/10</span></div>
+ </div>
+ <table class="num">
+  <thead><tr><th>Modelo</th><th>Chamadas</th><th>Entrada</th><th>Saída</th><th>Custo</th></tr></thead>
+  <tbody>
+   <tr><td class="mono">openrouter/openai/gpt-4.1-mini</td><td>3.118</td><td>11,4 M</td><td>1,9 M</td><td>US$ 33,52</td></tr>
+   <tr><td class="mono">openai/gpt-4.1-nano</td><td>1.906</td><td>5,1 M</td><td>0,7 M</td><td>US$ 8,35</td></tr>
+   <tr><td class="mono">ollama/qwen3:1.7b</td><td>878</td><td>1,7 M</td><td>0,3 M</td><td><span class="pill">sem preço</span></td></tr>
+  </tbody>
+ </table>
+</main></div></body></html>

@@ -544,3 +544,112 @@ Insumos: ADR-009, [ADR-021](../../docs/adr/ADR-021-workspace-ai-core-permanece-n
 - **Rationale**: é a configuração da instalação que liga a timeline (o padrão da API continua o raciocínio), e o
   `statusHistory` gravado é o que o usuário vê ao reabrir a conversa.
 - **Alternatives**: ler o stream direto da plataforma no script (não provaria que o Open WebUI a recebeu e gravou).
+
+## Fase 9 (2026-10-14): instalação com ou sem console, sem Keycloak (US7)
+
+Insumos: ADR-029, ADR-030, ADR-033; a clarificação de 2026-10-13 (Postgres em toda instalação); os planos da Fase 9 da
+012 (clientes, variáveis), 011 (configuração), 013 (nginx) e 008 (superfície de administração).
+
+### R42 — Três modos pelo compose
+
+**Decision**: modo padrão (sem perfil) = `ai-core` + `postgres` + `qdrant`, identidade desligada, só chaves de API;
+`--profile webui` acrescenta o Open WebUI; `--profile console` acrescenta a console; os dois combinam. Com qualquer
+interface, o `.env` liga `AI_CORE_IDENTITY_ENABLED=true`. O operador escolhe o modo com `COMPOSE_PROFILES` no `.env`
+(ex.: `COMPOSE_PROFILES=webui,console`), sem editar o compose (SC-006).
+
+**Rationale**: o compose já usa perfis (Fase 7); `COMPOSE_PROFILES` é o parâmetro de instalação mais simples.
+
+**Alternatives considered**: build-arg para a console (a console é outra imagem, não parte da do core).
+
+### R43 — Postgres sempre
+
+**Decision**: serviço `postgres` (`postgres:17.6`, volume `postgres-data`, `healthcheck` com `pg_isready`, sem porta
+publicada), `ai-core` com `AI_CORE_PROFILE=persistent`, `AI_CORE_DATABASE_URL` e `depends_on: {postgres:
+{condition: service_healthy}}`. Senha do banco por `POSTGRES_PASSWORD` no `.env`.
+
+**Rationale**: clarificação de 2026-10-13 da 002; contas, sobreposições, uso e chaves sobrevivem a restart.
+
+**Alternatives considered**: manter o `memory` no modo padrão (rejeitado pelo mantenedor).
+
+### R44 — Keycloak fora; Open WebUI na plataforma
+
+**Decision**: saem o serviço `keycloak`, o volume `keycloak-data`, `config/keycloak/` e as variáveis `KEYCLOAK_*`. O
+Open WebUI passa a: `OPENID_PROVIDER_URL=http://ai-core:8000/.well-known/openid-configuration` (a descoberta responde
+o `issuer` público e os endpoints de servidor pelo endereço interno — 012 R8), `OAUTH_CLIENT_ID=open-webui`,
+`OAUTH_CLIENT_SECRET=${AI_CORE_IDENTITY_SECRET_OPEN_WEBUI}`, `OAUTH_PROVIDER_NAME=${AI_CORE_DISPLAY_NAME}`,
+`OAUTH_SCOPES=openid email profile groups offline_access`, `OAUTH_CODE_CHALLENGE_METHOD=S256` (se o v0.12 o aceitar;
+senão, sem PKCE — o cliente é confidencial), `ENABLE_OAUTH_SIGNUP=true`, `ENABLE_LOGIN_FORM=false`,
+`OAUTH_MERGE_ACCOUNTS_BY_EMAIL=true` (religa as contas criadas com o Keycloak, R48) e `JWT_EXPIRES_IN=29d` (abaixo dos 30
+dias da sessão da 012). A conexão com a plataforma continua `system_oauth` com os cabeçalhos da Fase 7. **A conferir**
+contra o Open WebUI v0.12 na prova (T083): nomes exatos das variáveis de PKCE e de junção por e-mail.
+
+**Rationale**: ADR-030; o Open WebUI continua repassando o token de cada pessoa, agora emitido pela plataforma.
+
+**Alternatives considered**: —
+
+### R45 — `identity.yaml` e endereços
+
+**Decision**: `config/identity.yaml` com os clientes `open-webui` (confidencial, `secret: open_webui`, audiência
+`ai-core`, retorno `http://localhost:${OPEN_WEBUI_HOST_PORT}/oauth/oidc/callback`) e `console` (público, audiência
+`ai-core-admin`, retorno `http://localhost:${CONSOLE_HOST_PORT}/callback`), escritos para `localhost` e montados
+somente leitura; o README explica como trocar pelos domínios de produção. `AI_CORE_PUBLIC_URL` = a origem da console com
+o perfil `console`, ou `http://localhost:${AI_CORE_HOST_PORT}` sem ela.
+
+**Rationale**: o arquivo de clientes é do operador (012); endereços exatos são controle de segurança.
+
+**Alternatives considered**: gerar o `identity.yaml` por script na subida (mais uma peça para entender).
+
+### R46 — Imagem da console no mesmo Dockerfile
+
+**Decision**: estágios novos `console-build` (`node:24.11-bookworm-slim`, copia `ai-core/console` do clone do estágio
+`core` pela mesma `CORE_REF`, `npm ci && npm run build`) e `console` (`nginxinc/nginx-unprivileged:1.29-alpine`,
+`dist/` em `/usr/share/nginx/html`, `nginx.conf.template` em `/etc/nginx/templates/`, `AI_CORE_UPSTREAM` por ambiente).
+Serviço `console` no compose com `build.target: console`, `read_only: true`, `tmpfs` para `/tmp` e `/var/cache/nginx`,
+porta `${CONSOLE_HOST_PORT:-8080}:8080`, perfil `console`. `AI_CORE_TRUSTED_PROXIES` inclui a rede do compose.
+
+**Rationale**: ADR-022 (o core e o que vem dele saem da mesma tag); a console só é construída quando o perfil a usa.
+
+**Alternatives considered**: imagem publicada da console (não há registro de imagens, ADR-022).
+
+### R47 — `.env.example` em seções
+
+**Decision**: seções "Sempre" (perfil, Postgres, chave mestra — `openssl rand -base64 32` —, nome da instalação,
+OpenRouter, Qdrant, RAG, fila), "Com interface" (identidade, URL pública, segredo do Open WebUI, admin inicial por
+arquivo `secrets/bootstrap-admin-password`, Google opcional e `AI_CORE_GOOGLE_LOGIN` comentado) e "Sem console"
+(`AI_CORE_LANGFUSE_*`, comentado; com a console, as chaves do Langfuse vão pela tela — ADR-033). Nenhum valor real.
+
+**Rationale**: FR-021 da 002; a decisão do mantenedor sobre onde ficam as chaves do Langfuse.
+
+**Alternatives considered**: dois arquivos de exemplo (mais fácil de desalinhar).
+
+### R48 — Migração da Fase 7
+
+**Decision**: README com o passo a passo: parar o compose, remover o volume `keycloak-data`, cadastrar as pessoas com
+`docker compose run --rm ai-core ai-core users create …` (mesmos nomes de usuário da Fase 7, para que ACL e donos
+continuem), subir com `webui`; contas do Open WebUI religadas pelo e-mail (`OAUTH_MERGE_ACCOUNTS_BY_EMAIL`) ou volume
+`open-webui-data` novo.
+
+**Rationale**: o subject `user:<nome>` não muda (012 R10); só o `sub` do Open WebUI muda.
+
+**Alternatives considered**: —
+
+### R49 — Provas da instalação
+
+**Decision**: `scripts/check-webui.py` reescrito (só biblioteca padrão): entra pelo formulário da plataforma
+(`/oauth2/authorize` → página de login, campos `request` e `csrf`, `POST /oauth2/login`) como `ana` e `bia`, compara as
+listas de modelos e manda uma mensagem, como antes. `scripts/check-console.py` (só biblioteca padrão): fluxo de código
+com PKCE do cliente `console` contra a 012, `GET /admin/v1/me`, sobreposição de `generation` num Assistant com
+`overrides: [models]`, uma conversa pela API e o uso dela em `GET /admin/v1/usage`. `scripts/check-build.sh` constrói
+também o alvo `console`.
+
+**Rationale**: FR-022 da 002; o padrão das provas manuais da Fase 7.
+
+**Alternatives considered**: Playwright contra o compose (a suíte e2e da 013 já cobre a interface).
+
+### R50 — Versões
+
+**Decision**: `CORE_REF=v0.6.0` (depois da release da 011 R44); o `ai-scouting` no mesmo ponteiro.
+
+**Rationale**: ADR-022.
+
+**Alternatives considered**: —

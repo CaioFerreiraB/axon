@@ -33,6 +33,12 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 | [026](ADR-026-o-modelo-ve-o-identificador-de-cada-trecho.md) | O modelo vê o identificador de cada trecho | Aceita | 004, 005, 101, 104 |
 | [027](ADR-027-metricas-de-dominio-pelo-contrato-de-pack.md) | Métricas de domínio pelo contrato de pack | Aceita | 001, 002, 009, 105 |
 | [028](ADR-028-o-motor-publica-o-desfecho-de-cada-etapa.md) | O motor publica o desfecho de cada etapa | Aceita | 005, 008, 009 |
+| [029](ADR-029-console-de-administracao-propria.md) | Console de administração própria | Aceita | 013, 008, 002 |
+| [030](ADR-030-a-plataforma-e-o-provedor-de-identidade.md) | A plataforma é o provedor de identidade | Aceita | 012, 003, 011, 002 |
+| [031](ADR-031-superficie-de-administracao.md) | Superfície de administração: admin é o grupo, com token da plataforma ou chave | Aceita | 003, 008, 012, 013 |
+| [032](ADR-032-assistants-de-sistema-sobrepostos-em-runtime.md) | Assistants de sistema podem ser sobrepostos em runtime, se o YAML permitir | Aceita | 003, 008, 011, 013 |
+| [033](ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md) | Segredos configurados em runtime ficam cifrados com a chave mestra da instalação (refina o 020) | Aceita | 011, 009, 012 |
+| [034](ADR-034-trace-com-destinos-e-conteudo-opcional.md) | O trace se ramifica em destinos; conteúdo só por evento dedicado e opcional (refina o 017) | Aceita | 009, 006, 011 |
 
 ## Modelo para ADR novo
 

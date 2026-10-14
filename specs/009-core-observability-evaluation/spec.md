@@ -6,18 +6,18 @@
 
 **Status**: Draft
 
-**Input**: Tradução de arch-v1 §29 (trace, harness, métricas), §27 (benchmark de modelos), §31 Fase 6; ADR-007.
+**Input**: Tradução de arch-v1 §29 (trace, harness, métricas), §27 (benchmark de modelos), §31 Fase 6; ADR-007. Fase 9 (2026-10-13): uso e custo por modelo e por dia, Langfuse e captura opcional de conteúdo — ADR-033, ADR-034.
 
 ## Module Boundary *(mandatory)*
 
 - **Módulo**: Observability & Evaluation — trace estruturado de cada execução e harness genérico que roda conjuntos dourados fornecidos por packs.
 - **Repositório / distribuição**: `ai-core` → `ai_core/observability/` (Trace Sink e consulta de trace) e `ai_core/eval/` (harness).
 - **Consome (seams)**: Execution Engine (eventos) — 005, pelo harness; `Chunk` — 001.
-- **Expõe (seams)**: **Trace Sink** (porta de emissão de dados de trace por requisição) — consumido por 004, 005 e 006; **Trace** (consulta por identificador de requisição) — consumido por 008 e pelo operador; **Eval Harness** com o **formato de conjunto dourado** — consumidos pelo CI e por packs (ex.: 105).
-- **Depende de infraestrutura (via portas)**: backend de trace (exporter), armazenamento de linhas de base, juiz LLM (só offline).
+- **Expõe (seams)**: **Trace Sink** (porta de emissão de dados de trace por requisição) — consumido por 004, 005 e 006; **Trace** (consulta por identificador de requisição) — consumido por 008 e pelo operador; **Eval Harness** com o **formato de conjunto dourado** — consumidos pelo CI e por packs (ex.: 105); **Usage Report** (uso e custo por dia, modelo e Assistant), **Price Book** (preços com vigência) e **Trace Destinations** (Langfuse, captura de conteúdo, estado dos destinos) — consumidos pela 008, superfície de administração (Fase 9).
+- **Depende de infraestrutura (via portas)**: backend de trace (exporter), destinos adicionais do trace (projeção de uso, Langfuse — rede), armazenamento de uso, preços e ajustes dos destinos, cifra com a chave mestra da instalação, segredos de instalação, relógio, armazenamento de linhas de base, juiz LLM (só offline).
 - **Não conhece**: domínio (métricas específicas de domínio são fornecidas pelo pack), flows internos (lê apenas eventos e dados de trace), quem emite dados de trace além do que chega pelo Trace Sink.
-- **Substituição**: preservar o Trace Sink, o formato do conjunto dourado e o formato de relatório; o backend de trace pode ser trocado (é adapter).
-- **Insumo técnico**: [design.md](design.md); [ADR-007](../../docs/adr/ADR-007-citacao-mecanica.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md).
+- **Substituição**: preservar o Trace Sink, o formato do conjunto dourado, o formato de relatório e os seams de uso, preços e destinos; o backend de trace e os destinos podem ser trocados (são adapters).
+- **Insumo técnico**: [design.md](design.md); [ADR-007](../../docs/adr/ADR-007-citacao-mecanica.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md), [ADR-017](../../docs/adr/ADR-017-trace-sink-cresce-por-eventos-aditivos.md), [ADR-033](../../docs/adr/ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md), [ADR-034](../../docs/adr/ADR-034-trace-com-destinos-e-conteudo-opcional.md).
 
 ## Clarifications
 
@@ -37,6 +37,7 @@
 - Q: As métricas de geração julgadas por modelo (fidelidade ao trecho e cobertura da resposta de referência) entram já nesta fase? → A: Sim. O operador escolhe o modelo juiz na configuração da rodada — fora de qualquer Assistant, roteado pelo Model Router —; cada julgamento é repetido 3 vezes e reportado com média e variância; nunca barra o CI sozinho; sem juiz configurado, essas métricas aparecem como ausentes.
 - Q: No benchmark de modelos, como entram RAM e CPU, que são do servidor do modelo e não do processo do harness? → A: O harness mede o que observa — tempo até o primeiro token, tokens/s, latência, confiabilidade de tool calling (ações válidas do controller) e fidelidade —; RAM e CPU entram como anotação do operador no relatório (campo livre por modelo), sem medição automática.
 - Q: De onde o juiz tira o texto dos trechos entregues à geração, que precisa ler para julgar a fidelidade, se o evento de recuperação foi decidido sem texto? → A: O evento de recuperação passa a levar o texto **só dos trechos entregues** à geração — o que o modelo viu —, cortado em 2.000 caracteres e redigido como todo texto livre do trace; candidatos e reordenados continuam sem texto. Revê em parte a resposta da primeira pergunta desta sessão (decidido durante a implementação).
+- Q: As rodadas de avaliação (`ai-core eval run`, inclusive o modelo juiz) entram no uso e custo? → A: Entram, marcadas com a origem "avaliação"; o relatório mostra só a produção por padrão e permite incluir a avaliação ou ver só ela.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -100,11 +101,93 @@ O mesmo harness compara modelos candidatos em tokens/s, tempo até o primeiro to
 
 ---
 
+### User Story 5 - Ver uso e custo por modelo e por dia (Priority: P2)
+
+O operador consulta, para um período, quantas requisições a plataforma atendeu, quantas chamadas de modelo fez, quantos
+tokens de entrada e de saída consumiu e quanto isso custou, por dia e por modelo ou por Assistant. O custo vem de uma
+tabela de preços que ele mantém (USD por milhão de tokens de entrada e de saída, com data de início) e é calculado na
+consulta: um preço lançado depois corrige o histórico ([ADR-034](../../docs/adr/ADR-034-trace-com-destinos-e-conteudo-opcional.md)).
+
+**Why this priority**: É o dashboard que o mantenedor pediu para a console (013); a consulta é deste módulo porque o dado
+nasce do trace.
+
+**Independent Test**: Emitir, pelo Trace Sink, execuções com chamadas em dois modelos em dois dias, um deles com preço;
+consultar o relatório e conferir totais, séries diárias, custo e a marca "sem preço".
+
+**Acceptance Scenarios**:
+
+1. **Given** chamadas de modelo em dois dias, **When** o operador consulta por dia e por modelo, **Then** recebe, por dia
+   e por modelo, requisições, chamadas, tokens de entrada e de saída e custo.
+2. **Given** um modelo sem preço, **When** o relatório é consultado, **Then** o custo dele é ausente, marcado "sem
+   preço", e o total do período avisa que está incompleto.
+3. **Given** um preço cadastrado com data de início no passado, **When** o relatório é consultado de novo, **Then** o
+   custo do período passa a usar esse preço desde aquela data.
+4. **Given** uma chamada às 23h30 em Brasília, **When** o relatório usa o fuso de Brasília, **Then** ela conta no dia
+   local, não no dia UTC.
+5. **Given** o destino de uso indisponível, **When** execuções acontecem, **Then** nenhuma é atrasada nem falha; os
+   registros perdidos são contados e aparecem na saúde.
+6. **Given** uma rodada de avaliação no período, **When** o operador consulta sem filtro, **Then** o relatório mostra só
+   a produção; com o filtro de avaliação, mostra as chamadas da rodada e do juiz.
+
+---
+
+### User Story 6 - Enviar traces ao Langfuse (Priority: P2)
+
+O operador liga o envio ao Langfuse com endereço e chaves — pela administração, quando a instalação não os define, ou
+pela instalação, que então prevalece ([ADR-033](../../docs/adr/ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md)). Cada execução vira um trace no
+Langfuse, com as chamadas de modelo (modelo, tokens, tempos), as chamadas de tool, as decisões do controller e do portão
+e os erros.
+
+**Why this priority**: Pedido do mantenedor; o trace atual só se lê por arquivo ou pela consulta por requisição.
+
+**Independent Test**: Contra um Langfuse simulado, ligar o envio e executar uma conversa `agentic` com uma tool; o
+simulado recebe um trace com a geração, a tool e a decisão, sem nenhum texto de prompt ou resposta.
+
+**Acceptance Scenarios**:
+
+1. **Given** o envio ligado, **When** uma execução termina, **Then** o Langfuse recebe um trace com as gerações e spans
+   correspondentes, em até alguns segundos.
+2. **Given** o Langfuse fora do ar ou lento, **When** execuções acontecem, **Then** nenhuma é atrasada nem falha; os
+   envios perdidos são contados e o estado do destino mostra o último erro.
+3. **Given** a instalação define endereço e chaves, **When** a administração tenta alterá-los, **Then** é recusado, e a
+   consulta dos ajustes mostra a origem "instalação".
+4. **Given** chaves gravadas pela administração, **When** os ajustes são consultados, **Then** a chave secreta aparece
+   só como existente, nunca o valor.
+5. **Given** um pedido de "testar conexão", **When** o Langfuse responde, **Then** o resultado diz se as credenciais
+   foram aceitas.
+
+---
+
+### User Story 7 - Captura opcional de prompt e resposta (Priority: P3)
+
+O operador pode ligar a captura do texto de prompt e resposta das chamadas de modelo. Desligada por padrão. Ligada, o
+texto vai só para destinos que aceitam conteúdo — hoje, o Langfuse —, redigido e cortado; o trace consultável por
+requisição e o arquivo do operador nunca o recebem.
+
+**Why this priority**: Dá ao Langfuse o valor pleno de depuração, com risco de privacidade que exige opção explícita.
+
+**Independent Test**: Com a captura desligada, nenhum destino recebe texto; ligada, só o Langfuse simulado recebe, e o
+backend principal continua sem texto.
+
+**Acceptance Scenarios**:
+
+1. **Given** a captura desligada, **When** uma execução acontece, **Then** nenhum destino recebe o texto de prompt ou de
+   resposta.
+2. **Given** a captura ligada, **When** uma execução acontece, **Then** o Langfuse recebe as mensagens e a saída de cada
+   chamada, redigidas e cortadas; o backend principal não recebe nada disso.
+
+---
+
 ### Edge Cases
 
 - Item do conjunto dourado que referencia documento fora do corpus: não é falha do sistema. O core não conhece o corpus — conferir o conjunto contra o catálogo é do pack (105) —, e o harness aponta, como aviso no item, a evidência esperada que não aparece entre os candidatos de nenhum item da rodada ("evidência não vista"); item com formato inválido é sinalizado como inválido e não roda.
 - Juiz LLM indisponível: métricas determinísticas continuam; as de juiz ficam marcadas como ausentes.
 - Trace de execução com conteúdo sensível do usuário: retenção limitada e configurável; credenciais nunca registradas.
+- Chamada de modelo sem tokens informados pelo provider: entra no uso como chamada, com tokens ausentes ("sem tokens"), e não soma custo.
+- Chamada de modelo fora de uma execução (por exemplo, o juiz do harness): entra no uso sem Assistant, com a origem do processo (`avaliação`, no caso do juiz); o relatório a mostra como "fora de Assistant".
+- Dois preços para o mesmo modelo: vale, em cada dia, o de data de início mais recente que não seja posterior ao dia.
+- Langfuse reconfigurado no meio de execuções: os registros já enfileirados vão ao destino antigo; os seguintes, ao novo.
+- Chave mestra ausente no perfil persistente: gravar a chave secreta do Langfuse é recusado com a explicação; o resto dos ajustes grava.
 
 ## Requirements *(mandatory)*
 
@@ -121,8 +204,15 @@ O mesmo harness compara modelos candidatos em tokens/s, tempo até o primeiro to
 - **FR-009**: O harness DEVE suportar benchmark comparativo de modelos, medindo o que observa da execução — tempo até o primeiro token, tokens/s, latência, confiabilidade de tool calling (ações válidas do controller) e fidelidade —; RAM e CPU do servidor do modelo NÃO são medidas, e entram como anotação do operador por modelo no relatório.
 - **FR-010**: O módulo DEVE oferecer o Trace Sink: uma porta de emissão pela qual 004, 005 e 006 registram dados de trace com o identificador da requisição, sem conhecer o backend (ADR-013).
 - **FR-011**: A falha do backend de trace NÃO DEVE interromper nem atrasar perceptivelmente a execução; dados perdidos são sinalizados.
-- **FR-012**: Cada dado de trace DEVE ser entregue ao backend no momento da emissão, um registro por evento, de modo que o trace de uma execução interrompida permaneça consultável e uma execução em andamento seja observável.
+- **FR-012**: Cada dado de trace DEVE ser entregue ao **backend principal** (o consultável por requisição) no momento da emissão, um registro por evento, de modo que o trace de uma execução interrompida permaneça consultável e uma execução em andamento seja observável. Os demais destinos (FR-014) entregam em lote, com atraso de segundos. *(Refinada em 2026-10-13 pelo [ADR-034](../../docs/adr/ADR-034-trace-com-destinos-e-conteudo-opcional.md).)*
 - **FR-013**: O seam de emissão DEVE receber eventos tipados publicados por este módulo e NÃO DEVE expor tipos de biblioteca de observabilidade; acrescentar um tipo de evento NÃO DEVE alterar o seam.
+- **FR-014**: Cada evento DEVE ser entregue a todos os destinos configurados: o backend principal, o destino de uso e o Langfuse, quando ligado. A falha de um destino NÃO DEVE afetar os outros nem quem emite; destinos de banco ou de rede DEVEM enfileirar num buffer limitado, esvaziado fora do caminho da requisição, e contar o que descartam; os contadores aparecem na saúde.
+- **FR-015**: O destino de uso DEVE guardar, por chamada de modelo, instante, requisição, origem (`produção` ou `avaliação`), Assistant (quando há execução), provider, modelo, papel, tokens de entrada e de saída, duração e falha; e, por execução, início, fim, origem, Assistant, flow e desfecho. A origem é a do processo: as rodadas do harness, juiz incluído, gravam `avaliação`.
+- **FR-016**: O seam Usage Report DEVE devolver, para um período, um fuso, um agrupamento (modelo ou Assistant) e um filtro de origem (padrão: só `produção`; ou `avaliação`, ou as duas): séries diárias e totais de requisições, chamadas de modelo, tokens de entrada e de saída e custo, com "sem preço" por linha e total incompleto quando faltar preço. O dia é o do fuso pedido; o padrão é o da instalação.
+- **FR-017**: O seam Price Book DEVE manter preços por provider e modelo — USD por milhão de tokens de entrada e de saída, com data de início — e o custo DEVE ser calculado na consulta, pelo preço vigente em cada dia. Modelo sem preço não tem custo.
+- **FR-018**: O seam Trace Destinations DEVE expor e gravar os ajustes do Langfuse (endereço, chave pública, chave secreta só de escrita, ligado) e da captura de conteúdo, com a origem de cada campo (instalação, runtime ou padrão); a instalação prevalece. A chave secreta gravada em runtime DEVE ficar cifrada com a chave mestra da instalação ([ADR-033](../../docs/adr/ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md)) e nunca DEVE ser devolvida. Gravar DEVE reconfigurar o destino sem restart. Uma operação de teste DEVE dizer se o Langfuse aceita as credenciais.
+- **FR-019**: O texto de prompt e de resposta DEVE existir só num evento dedicado (emitido pela 006 junto com a chamada de modelo), que só é entregue com a captura de conteúdo ligada (desligada por padrão) e só a destinos que declaram aceitar conteúdo; o backend principal NÃO DEVE recebê-lo. O texto passa pela redação de credenciais e é cortado por mensagem. Nenhum outro evento carrega texto de prompt, resposta, argumento ou resultado de tool, exceto os trechos entregues já previstos na FR-004 ([ADR-017](../../docs/adr/ADR-017-trace-sink-cresce-por-eventos-aditivos.md), ADR-034).
+- **FR-020**: O uso DEVE ser expurgado depois de um período de retenção configurável pela instalação.
 
 ### Key Entities
 
@@ -132,6 +222,11 @@ O mesmo harness compara modelos candidatos em tokens/s, tempo até o primeiro to
 - **Golden Set / Golden Item**: conjunto dourado e seus itens; cada evidência esperada é um documento, com seção ou identificador de trecho opcionais.
 - **Eval Run / Baseline**: execução do harness e linha de base de comparação.
 - **Domain Metric** (contrato 001): métrica fornecida por um pack — nome e valor por item sobre uma **Eval Observation** (item esperado, resposta, citações e trechos com proveniência), sem acesso ao core.
+- **Trace Destination**: para onde os eventos vão — backend principal, uso, Langfuse —, cada um dizendo se aceita conteúdo.
+- **Usage Record**: uma chamada de modelo ou uma execução, como o destino de uso as guarda (FR-015).
+- **Price**: provider, modelo, USD por milhão de tokens de entrada e de saída, data de início.
+- **Destination Settings**: ajustes do Langfuse e da captura de conteúdo, com a origem de cada campo; a chave secreta cifrada.
+- **Model Exchange**: o evento com as mensagens e a saída de uma chamada de modelo, só para destinos que aceitam conteúdo.
 
 ## Success Criteria *(mandatory)*
 
@@ -141,10 +236,16 @@ O mesmo harness compara modelos candidatos em tokens/s, tempo até o primeiro to
 - **SC-002**: Uma rodada de 50 perguntas conclui em tempo compatível com rodar a cada PR relevante (meta: até 30 minutos).
 - **SC-003**: 100% das regressões determinísticas acima da tolerância são barradas no CI.
 - **SC-004**: Toda mudança de calibração tem relatório antes/depois.
+- **SC-005**: Os totais de tokens do relatório de uso batem 100% com a soma das chamadas de modelo emitidas no período, em teste.
+- **SC-006**: Com o Langfuse ou o banco de uso indisponíveis, nenhuma execução fica mais lenta de forma perceptível nem falha.
+- **SC-007**: Em nenhum cenário de teste o texto de prompt ou de resposta chega ao backend principal, e com a captura desligada não chega a nenhum destino.
+- **SC-008**: O relatório de 90 dias com até 100 mil chamadas de modelo responde em menos de 1 segundo.
 
 ## Assumptions
 
 - O conteúdo dos conjuntos dourados é responsabilidade do pack de domínio (ex.: spec 105); o core fornece só formato e runner.
 - Instrumentação de trace é incremental desde a Fase 1; o harness completo entra na Fase 6.
-- Backend de trace (arquivo, Postgres ou ferramenta de observabilidade) é decidido no plano; é adapter do exporter. A candidata "API do OpenTelemetry como porta" foi resolvida na clarificação de 2026-09-17: o seam é contrato próprio, e OpenTelemetry, se entrar, é adapter.
+- Backend de trace (arquivo, Postgres ou ferramenta de observabilidade) é decidido no plano; é adapter do exporter. A candidata "API do OpenTelemetry como porta" foi resolvida na clarificação de 2026-09-17: o seam é contrato próprio, e OpenTelemetry, se entrar, é adapter — candidato a transporte do destino Langfuse (Fase 9, research do plano).
+- Uso, preços e ajustes dos destinos exigem o perfil `persistent` para sobreviver a um restart; no `memory`, ficam em memória.
+- O custo é estimativa: preços manuais, sem separar tokens de cache ou de raciocínio, e com os tokens que o provider informa.
 - Trace e harness estão em lados opostos do hexágono (porta secundária × adapter primário); dividi-los em duas specs é opcional e, se feito, segue "Como reescrever um módulo" em `specs/README.md`.

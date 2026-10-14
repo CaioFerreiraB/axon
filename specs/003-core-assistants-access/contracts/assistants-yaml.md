@@ -158,3 +158,19 @@ Com namespace de alias MCP, só o alias é conferido: o nome da tool exigiria co
 `tests/assistants/unit/test_assistants_reference_rules.py` (as três funções) e `tests/assistants/contract/` (validação e
 criação/atualização de usuário): cada linha da tabela, e o exemplo completo acima válido com `financeiro` no registry.
 
+## Fase 9 (2026-10-14): `overrides` (ADR-032)
+
+```yaml
+assistants:
+  geral:
+    overrides: [models, mcp]     # o que a administração pode sobrepor; ausente = só por novo deploy
+    models: {generation: openrouter/openai/gpt-4.1-mini, controller: openrouter/openai/gpt-4.1-nano, allow: ["openrouter/*"]}
+    mcp: [arquivos, agenda]
+```
+
+| Campo | Regra |
+|---|---|
+| `overrides` | lista de `models` e/ou `mcp`; outro valor → problema do Assistant (`overrides: valor desconhecido 'x'`); repetição ignorada |
+
+Uma sobreposição só vale enquanto a seção está em `overrides` e a seção do YAML não mudou desde que foi gravada; o
+deploy sempre vence (clarificação de 2026-10-13).

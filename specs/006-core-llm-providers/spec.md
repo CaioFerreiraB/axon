@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: Tradução de arch-v1 §5 (`LLMProvider`), §16 (elo 6), §26 (providers e modelo por papel), §27 (Ollama e hardware alvo); ADR-008.
+**Input**: Tradução de arch-v1 §5 (`LLMProvider`), §16 (elo 6), §26 (providers e modelo por papel), §27 (Ollama e hardware alvo); ADR-008. Fase 9 (2026-10-13): toque declarado — o evento de conteúdo da chamada de modelo (ADR-034).
 
 ## Module Boundary *(mandatory)*
 
@@ -17,7 +17,7 @@
 - **Depende de infraestrutura (via portas)**: provedores de modelo, local e remotos (adapters de `LLMProvider`); segredos (credenciais dos providers remotos).
 - **Não conhece**: flows, packs, prompts, domínio.
 - **Substituição**: preservar o Model Router e o contrato `LLMProvider`; providers podem ser adicionados ou trocados livremente (são adapters).
-- **Insumo técnico**: [design.md](design.md); [ADR-008](../../docs/adr/ADR-008-modelo-por-papel.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md), [ADR-020](../../docs/adr/ADR-020-segredos-uma-fonte-por-perfil-uma-porta-por-modulo.md) (segredos, Fase 3).
+- **Insumo técnico**: [design.md](design.md); [ADR-008](../../docs/adr/ADR-008-modelo-por-papel.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md), [ADR-020](../../docs/adr/ADR-020-segredos-uma-fonte-por-perfil-uma-porta-por-modulo.md) (segredos, Fase 3), [ADR-034](../../docs/adr/ADR-034-trace-com-destinos-e-conteudo-opcional.md) (evento de conteúdo, Fase 9).
 
 ## Clarifications
 
@@ -158,6 +158,7 @@ Cada chamada informa ao trace provider, modelo, papel, tokens de entrada e saíd
 - **FR-009**: O sistema DEVE oferecer verificação de saúde, sob demanda, dos providers e modelos configurados, informando disponível/indisponível com o motivo. A verificação NÃO DEVE ser etapa bloqueante do boot.
 - **FR-010**: Todo provider DEVE aplicar um timeout de conexão e um timeout de inatividade entre pedaços do stream, ambos configuráveis por provider, e NÃO DEVE impor teto de tempo total à chamada. Estouro de qualquer um dos dois DEVE resultar em erro explícito que nomeia provider e modelo.
 - **FR-011**: Provider remoto sem credencial DEVE ser registrado mesmo assim e relatado indisponível na verificação de saúde, com o motivo "sem credencial" e o nome da variável esperada. Toda chamada a ele DEVE falhar antes de qualquer acesso à rede, com erro explícito que nomeia provider, modelo e variável. A ausência NÃO DEVE impedir o boot, e o valor de uma credencial NÃO DEVE aparecer em erro, log ou trace.
+- **FR-012**: Junto com cada entrada da FR-008, o cliente DEVE emitir pelo Trace Sink o evento de conteúdo da chamada (`ModelExchange` da 009): as mensagens enviadas e a saída devolvida — em streaming, a saída acumulada ao fim do stream. O que fazer com ele (descartar, redigir, cortar, entregar só a destinos que aceitam conteúdo) é da 009; este módulo só o produz. Credenciais e cabeçalhos de autenticação NÃO DEVEM fazer parte dele. *(Fase 9, [ADR-034](../../docs/adr/ADR-034-trace-com-destinos-e-conteudo-opcional.md).)*
 
 ### Key Entities
 

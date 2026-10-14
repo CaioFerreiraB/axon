@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Conta de uso — Agentic</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--band:#0F4C5C;--band2:#0B3A47;--ink:#1B1D21;--ink2:#5C6168;--rule:#DADDE1;--paper:#FFFFFF;--soft:#F3F5F6;--hl:#F2C94C;--red:#B42318}
+html,body{width:1440px;height:900px;overflow:hidden;background:var(--soft);color:var(--ink);font:15px/1.5 "Public Sans",system-ui,sans-serif}
+.num{font-variant-numeric:tabular-nums}.mono{font-family:"Source Code Pro",monospace;font-size:13px}
+header{background:var(--band);color:#fff;padding:0 40px}
+.hrow{display:flex;align-items:center;height:64px;gap:24px}
+.hrow b{font-size:20px;font-weight:700;letter-spacing:-.01em}
+.hrow .who{margin-left:auto;font-size:14px;color:#fff}
+.tabs{display:flex;gap:4px}
+.tabs a{color:#fff;text-decoration:none;padding:10px 16px;font-weight:500;font-size:14px;border-radius:6px 6px 0 0;color:#E6F0F2}
+.tabs a.on{background:var(--soft);color:var(--band)}
+main{padding:28px 40px;display:grid;grid-template-columns:1fr 380px;gap:28px}
+.sheet{background:var(--paper);border:1px solid var(--rule);border-radius:8px;padding:24px 28px}
+.head{display:flex;align-items:baseline;gap:16px;margin-bottom:18px}
+.head h1{font-size:24px;font-weight:700;margin-right:auto}
+.seg{display:flex;border:1px solid var(--rule);border-radius:6px;overflow:hidden;font-size:14px}
+.seg span{padding:6px 12px;border-right:1px solid var(--rule)}.seg span:last-child{border:0}.seg .on{background:var(--band);color:#fff}
+.total{display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:0;border:2px solid var(--ink);border-radius:6px;overflow:hidden;margin-bottom:24px}
+.total div{padding:14px 18px;border-right:1px solid var(--rule)}.total div:last-child{border:0}
+.total .pay{background:var(--hl);border-right:2px solid var(--ink)}
+.total label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink2);font-weight:600}
+.total .pay label,.total .pay small{color:var(--ink)}
+.total b{display:block;font-size:40px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.total small{font-size:12px;color:var(--ink2)}
+.hist h2,.tar h2{font-size:14px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-bottom:12px}
+.bars{display:flex;align-items:flex-end;gap:6px;height:240px;border-bottom:2px solid var(--ink);padding-bottom:0;position:relative}
+.bars i{flex:1;background:var(--band);display:block}
+.bars i.lo{background:#7FA3AD}
+.avg{position:absolute;left:0;right:0;border-top:1px dashed var(--ink2)}
+.avg span{position:absolute;right:0;top:-20px;font-size:12px;color:var(--ink2);background:#fff;padding:0 4px}
+.xl{display:flex;justify-content:space-between;font-size:12px;color:var(--ink2);margin-top:6px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink2);font-weight:600;padding:8px 6px;border-bottom:2px solid var(--ink)}
+td{padding:9px 6px;border-bottom:1px solid var(--rule)}
+td.r,th.r{text-align:right}
+.badge{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:#FDEBEC;color:var(--red);padding:2px 8px;border-radius:999px}
+.note{margin-top:16px;font-size:13px;color:var(--ink2);border-left:3px solid var(--hl);padding-left:10px}
+</style></head><body>
+<header>
+ <div class="hrow"><b>Agentic</b><span style="color:#E6F0F2">Console de administração</span><span class="who">ana · admin</span></div>
+ <nav class="tabs"><a class="on" href="#">Uso e custo</a><a href="#">Assistentes</a><a href="#">Servidores MCP</a><a href="#">Observabilidade</a><a href="#">Acesso</a></nav>
+</header>
+<main>
+ <section class="sheet">
+  <div class="head"><h1>Conta de uso · 14/09 a 13/10</h1><div class="seg"><span>7 dias</span><span class="on">30 dias</span><span>90 dias</span></div><div class="seg"><span class="on">Produção</span><span>Avaliação</span></div></div>
+  <div class="total num">
+   <div class="pay"><label>Total do período</label><b>US$ 41,87</b><small>1 modelo sem tarifa</small></div>
+   <div><label>Requisições</label><b>3.214</b><small>média 107 por dia</small></div>
+   <div><label>Chamadas de modelo</label><b>5.902</b><small>1,84 por requisição</small></div>
+   <div><label>Tokens</label><b>21,1 M</b><small>18,2 M entrada · 2,9 M saída</small></div>
+  </div>
+  <div class="hist">
+   <h2>Histórico de consumo diário (US$)</h2>
+   <div class="bars num">
+    <i style="height:28%"></i><i style="height:31%"></i><i class="lo" style="height:14%"></i><i class="lo" style="height:12%"></i><i style="height:36%"></i><i style="height:40%"></i><i style="height:42%"></i><i style="height:38%"></i><i style="height:44%"></i><i class="lo" style="height:18%"></i>
+    <i class="lo" style="height:16%"></i><i style="height:46%"></i><i style="height:48%"></i><i style="height:47%"></i><i style="height:50%"></i><i style="height:62%"></i><i class="lo" style="height:20%"></i><i class="lo" style="height:19%"></i><i style="height:68%"></i><i style="height:71%"></i>
+    <i style="height:76%"></i><i style="height:73%"></i><i style="height:78%"></i><i class="lo" style="height:26%"></i><i class="lo" style="height:24%"></i><i style="height:81%"></i><i style="height:84%"></i><i style="height:83%"></i><i style="height:86%"></i><i style="height:58%"></i>
+    <div class="avg" style="bottom:48%"><span>média US$ 1,40</span></div>
+   </div>
+   <div class="xl"><span>14/09</span><span>21/09</span><span>28/09</span><span>05/10</span><span>13/10</span></div>
+  </div>
+ </section>
+ <aside class="sheet tar">
+  <h2>Tarifas vigentes (US$ por 1 M de tokens)</h2>
+  <table class="num">
+   <thead><tr><th>Modelo</th><th class="r">Entrada</th><th class="r">Saída</th></tr></thead>
+   <tbody>
+    <tr><td class="mono">gpt-4.1-mini</td><td class="r">0,40</td><td class="r">1,60</td></tr>
+    <tr><td colspan="3" style="font-size:12px;color:var(--ink2);padding-top:0">openrouter · vigente desde 01/10/2026</td></tr>
+    <tr><td class="mono">gpt-4.1-nano</td><td class="r">0,10</td><td class="r">0,40</td></tr>
+    <tr><td colspan="3" style="font-size:12px;color:var(--ink2);padding-top:0">openai · vigente desde 02/09/2026</td></tr>
+    <tr><td class="mono">qwen3:1.7b</td><td class="r" colspan="2"><span class="badge">sem tarifa</span></td></tr>
+    <tr><td colspan="3" style="font-size:12px;color:var(--ink2);padding-top:0">ollama · local</td></tr>
+   </tbody>
+  </table>
+  <p class="note">Preço lançado com data no passado recalcula o histórico desde aquela data.</p>
+ </aside>
+</main></body></html>

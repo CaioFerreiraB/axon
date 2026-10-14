@@ -6,18 +6,18 @@
 
 **Status**: Draft
 
-**Input**: Tradução de arch-v1 §25 (API, duas superfícies, compat OpenAI e Open WebUI, streaming, requisição nativa), §28 (histórico de conversa), §31 Fase 7; ADR-002.
+**Input**: Tradução de arch-v1 §25 (API, duas superfícies, compat OpenAI e Open WebUI, streaming, requisição nativa), §28 (histórico de conversa), §31 Fase 7; ADR-002. Fase 9 (2026-10-13): superfície de administração para a console — ADR-029, ADR-031, ADR-032, ADR-033, ADR-034.
 
 ## Module Boundary *(mandatory)*
 
-- **Módulo**: HTTP API — superfícies pública e privada, compatibilidade com o formato OpenAI, tradução de eventos do motor para SSE e histórico de conversa.
+- **Módulo**: HTTP API — superfícies pública, privada e de administração, compatibilidade com o formato OpenAI, tradução de eventos do motor para SSE e histórico de conversa.
 - **Repositório / distribuição**: `ai-core` → `ai_core/http/` (antes `ai_core/api/`; renomeado para não colidir com a convenção `api.py` do ADR-012).
-- **Consome (seams)**: autenticação, Principal, Execution Grant, Assistant Directory e API Key Admin — 003, pelo `api.py` dela a partir da Fase 2 (na Fase 1, pelas formas que este módulo publicava como `Protocol`); Execution Engine (eventos) — 005; Pack Registry (introspecção) — 002; MCP Registry (CRUD) — 007, a partir da Fase 3; Trace (identificador de requisição) — 009.
-- **Expõe (seams)**: **API HTTP** — `/v1` (OIDC) e `/private/v1` (chave de API) — consumida por clientes externos (Open WebUI, scripts). É o adapter primário da plataforma; não expõe seam Python.
+- **Consome (seams)**: autenticação, Principal, Execution Grant, Assistant Directory, API Key Admin e, na Fase 9, System Assistant Admin — 003, pelo `api.py` dela a partir da Fase 2 (na Fase 1, pelas formas que este módulo publicava como `Protocol`); Execution Engine (eventos) — 005; Pack Registry (introspecção) — 002; MCP Registry (CRUD e saúde) — 007, a partir da Fase 3; Model Router (verificação de saúde de modelo, "testar modelo") — 006, na Fase 9; Trace (identificador de requisição) e, na Fase 9, Usage Report, Price Book e Trace Destinations — 009; Account Admin e Login Settings — 012, na Fase 9.
+- **Expõe (seams)**: **API HTTP** — `/v1` (OIDC), `/private/v1` (chave de API) e `/admin/v1` (token da console ou chave de API, grupo de administração — Fase 9) — consumida por clientes externos (Open WebUI, console 013, scripts). É o adapter primário da plataforma; não expõe seam Python.
 - **Depende de infraestrutura (via portas)**: armazenamento das conversas; relógio (expiração de conversas); saúde agregada da plataforma (porta própria, implementada pela composition root, 011). O framework HTTP é o próprio adapter.
 - **Não conhece**: flows e seu estado, packs individuais, providers, políticas de tool.
 - **Substituição**: preservar os endpoints e o formato compatível com OpenAI; a camada HTTP pode ser reescrita sem afetar outros módulos.
-- **Insumo técnico**: [design.md](design.md); [ADR-002](../../docs/adr/ADR-002-assistant-fronteira-isolamento.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md).
+- **Insumo técnico**: [design.md](design.md); [ADR-002](../../docs/adr/ADR-002-assistant-fronteira-isolamento.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md), [ADR-029](../../docs/adr/ADR-029-console-de-administracao-propria.md), [ADR-031](../../docs/adr/ADR-031-superficie-de-administracao.md), [ADR-032](../../docs/adr/ADR-032-assistants-de-sistema-sobrepostos-em-runtime.md).
 
 ## Clarifications
 
@@ -196,6 +196,37 @@ Open WebUI se conecta pela compat OpenAI na superfície pública: o usuário ent
 
 ---
 
+### User Story 9 - Administração pela superfície de administração (Priority: P2)
+
+A superfície `/admin/v1` reúne o que a console (013) usa e o que a automação sem console usa com chave de API: quem sou
+eu; Assistants de sistema com a configuração efetiva e as sobreposições (gravar, descartar, testar modelo); MCPs globais;
+uso e custo; preços; Langfuse e captura de conteúdo; contas, grupos e ajustes de login. Só o grupo de administração
+alcança essas rotas; os demais recebem 404, e credencial inválida recebe 401 ([ADR-031](../../docs/adr/ADR-031-superficie-de-administracao.md)).
+
+**Why this priority**: A console não tem lógica própria (ADR-029); sem essas rotas ela não existe, e a instalação sem
+console perde a administração por automação.
+
+**Independent Test**: Com um token de admin da console e com uma chave de API de admin, percorrer as rotas de
+administração; com um token de não admin, todas respondem 404; com um token do Open WebUI, 401.
+
+**Acceptance Scenarios**:
+
+1. **Given** um token da console de um admin, **When** pede `GET /admin/v1/me`, **Then** recebe o subject e os grupos;
+   **Given** um não admin, **Then** recebe 404.
+2. **Given** um Assistant com `overrides: [models]`, **When** um admin grava a sobreposição com a versão que leu,
+   **Then** recebe a configuração efetiva nova; **Given** uma versão desatualizada, **Then** recebe 409 sem gravar.
+3. **Given** uma sobreposição fora da allowlist, **When** gravada, **Then** recebe 422 que nomeia o campo, no envelope de
+   erro da plataforma.
+4. **Given** uso registrado, **When** um admin consulta o uso por período, fuso e agrupamento, **Then** recebe séries
+   diárias, totais e as marcas de "sem preço" calculadas pela 009.
+5. **Given** a chave secreta do Langfuse gravada, **When** um admin consulta os ajustes, **Then** a resposta diz que a
+   chave existe e de onde vem, e não traz o valor.
+6. **Given** um admin, **When** cadastra uma conta com senha temporária, **Then** a resposta traz a senha uma única vez;
+   nenhuma outra resposta a repete.
+7. **Given** um token emitido para o Open WebUI a um admin, **When** chega a `/admin/v1`, **Then** recebe 401.
+
+---
+
 ### Edge Cases
 
 - Execução sem streaming com MCP do Assistant fora do ar: a resposta é gerada sem a tool, o registro `McpUnavailable` é `error`, e a API responde 502 com a resposta, os motivos e `x-should-retry: false` — o SDK oficial não repete.
@@ -217,12 +248,16 @@ Open WebUI se conecta pela compat OpenAI na superfície pública: o usuário ent
 - Open WebUI repassa um token expirado ou de outro emissor: a API responde 401 no formato de erro da OpenAI, como para qualquer cliente; a interface mostra o erro, e o usuário entra de novo — a API não renova tokens.
 - Pedido com `x-ai-core-store: false` e id de conversa: recusado com 400 que nomeia o cabeçalho, antes de qualquer execução — continuar uma conversa armazenada sem gravá-la é contraditório. Valor do cabeçalho diferente de `true` ou `false`: 400 que nomeia o cabeçalho.
 - Chave de API emitida com o subject de um usuário alcança as conversas e os Assistants dele: emitir chaves é poder do grupo de administração (003 FR-015), e a conversa pertence ao subject, não à superfície.
+- Rota de administração pedida por um não admin: 404 idêntico ao de rota inexistente; a existência da administração não vaza.
+- Dois admins gravam a mesma sobreposição ou o mesmo ajuste: o segundo recebe 409 com a versão atual; nada é sobrescrito.
+- Gravar a chave secreta do Langfuse sem chave mestra na instalação: 409 que explica a falta, sem gravar.
+- Campo de ajuste definido pela instalação: escrita recusada com 409 que nomeia o campo e a origem.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: A API DEVE oferecer superfície pública (`/v1`, OIDC) e privada (`/private/v1`, chave de API) num único serviço.
+- **FR-001**: A API DEVE oferecer superfície pública (`/v1`, OIDC), privada (`/private/v1`, chave de API) e de administração (`/admin/v1`, token da console ou chave de API — Fase 9, [ADR-031](../../docs/adr/ADR-031-superficie-de-administracao.md)) num único serviço.
 - **FR-002**: A API DEVE implementar chat completions compatível com OpenAI, com e sem streaming SSE.
 - **FR-003**: A API DEVE listar como modelos exatamente os Assistants que o Principal resolve (003 FR-008), um por Assistant, com id `<assistant>` e o modelo de geração declarado e a descrição em campos extras. Pedidos com `<assistant>/<modelo>` ou `<assistant>/<provider>/<modelo>` continuam aceitos dentro da allowlist.
 - **FR-004**: A API DEVE aceitar requisição nativa (Assistant, mensagens, streaming) e rejeitar campos de ampliação.
@@ -246,12 +281,17 @@ Open WebUI se conecta pela compat OpenAI na superfície pública: o usuário ent
 - **FR-021**: Falha do armazenamento de credenciais durante a autenticação DEVE responder 503 no formato de erro da OpenAI, com código `storage_unavailable`, antes de qualquer outra verificação; a mensagem nomeia o armazenamento e não expõe detalhe de infraestrutura (endereço, driver, mensagem do banco).
 - **FR-022**: O desfecho de uma execução DEVE ser decidido pela gravidade dos registros do evento final (005, ADR-018), nunca pelo tipo: só registros `notice` → sucesso (`finish_reason: "stop"`, 200 sem streaming); algum registro `error` → falha (`finish_reason: "error"` no stream; 502 sem streaming, com a resposta e os motivos no corpo). Toda resposta de falha de execução DEVE levar o cabeçalho `x-should-retry: false`, para que clientes que repetem 5xx automaticamente não reexecutem o loop nem tools de escrita.
 - **FR-023**: Nas duas superfícies, um pedido sem id de conversa e com o cabeçalho `x-ai-core-store: false` DEVE ser efêmero: executa e responde normalmente, mas não cria nem grava conversa e não devolve id de conversa. O cabeçalho com id de conversa, ou com valor diferente de `true`/`false`, DEVE ser recusado com 400 que o nomeia, antes de qualquer execução. Sem o cabeçalho (ou com `true`), vale o FR-013.
+- **FR-024**: A superfície de administração DEVE aceitar só o grupo de administração (003), em qualquer esquema que ela aceite; credencial inválida → 401 no envelope de erro; Principal autenticado fora do grupo → 404 em toda rota, igual a rota inexistente.
+- **FR-025**: A superfície de administração DEVE expor, sobre os seams dos módulos donos e sem regra própria: `me`; Assistants de sistema (lista e detalhe com YAML, sobreposições, efetivo, estado e seções permitidas; gravar e descartar sobreposição de `models` e de `mcp`; testar modelo pela verificação de saúde da 006); MCPs globais (o CRUD da superfície privada) com a lista de tools e a saúde de cada servidor; uso (período, fuso, agrupamento) e preços; ajustes do Langfuse e da captura de conteúdo, com teste de conexão; contas, grupos e ajustes de login (012). O formato fica no contrato `admin-api.md`.
+- **FR-026**: Toda escrita na superfície de administração sobre um recurso versionado (sobreposição, ajustes) DEVE exigir a versão lida; versão desatualizada → 409 com a versão atual. Recusa de validação → 422 que nomeia o campo; escrita em campo definido pela instalação → 409 que nomeia o campo e a origem.
+- **FR-027**: Nenhuma resposta da superfície de administração DEVE trazer valor de segredo (chaves do Langfuse, credenciais de MCP, hashes); a senha temporária de uma conta aparece só na resposta da operação que a definiu.
+- **FR-028**: A API NÃO DEVE habilitar requisições entre origens: a console é servida na mesma origem da plataforma (013), e os prefixos da API são repassados sem reescrita.
 
 ### Key Entities
 
 - **Conversation**: id, subject do dono, Assistant, modelo de geração, datas de criação e de última atividade, número de mensagens.
 - **Message**: conversa, papel (usuário ou assistente), conteúdo, momento, identificador da requisição (trace) e, nas respostas, as citações e marcações do evento final.
-- **Model Listing Entry**: id `<assistant>` (estável quando o operador troca o modelo); campos extras com o modelo de geração declarado, a descrição e a origem (sistema ou usuário).
+- **Model Listing Entry**: id `<assistant>` (estável quando o operador troca o modelo); campos extras com o modelo de geração declarado, a descrição e a origem (sistema ou usuário). Com sobreposição ativa (003), o modelo de geração listado é o efetivo.
 
 ## Success Criteria *(mandatory)*
 
@@ -264,6 +304,8 @@ Open WebUI se conecta pela compat OpenAI na superfície pública: o usuário ent
 - **SC-005**: 100% das conversas continuadas depois de um reinício do serviço recuperam o histórico completo, e 0 mensagens de assistente enviadas pelo cliente entram numa execução com id de conversa (testes com o perfil persistente).
 - **SC-006**: Em teste de carga acima do limite, 0 execuções além do limite configurado rodam ao mesmo tempo, e 100% das recusas por sobrecarga acontecem antes de qualquer chamada de modelo.
 - **SC-007**: 100% das conversas apagadas pelo usuário deixam de ser recuperáveis pela API imediatamente, e nenhuma conversa permanece armazenada além do prazo de retenção mais um ciclo de expiração (teste com relógio fixo).
+- **SC-008**: 100% das ações da console (013) têm rota na superfície de administração, e cada rota funciona também com chave de API de admin, sem console.
+- **SC-009**: Em teste, nenhum Principal fora do grupo de administração distingue uma rota de administração de uma inexistente, e nenhuma resposta de administração traz valor de segredo.
 
 ## Assumptions
 
@@ -275,6 +317,6 @@ Open WebUI se conecta pela compat OpenAI na superfície pública: o usuário ent
 - O harness de avaliação (009) roda em processo próprio e não passa por esta fila; avaliação não roda no mesmo host da produção.
 - Os traces (009) seguem a própria retenção, limitada e configurável; apagar uma conversa não apaga, na v1, os traces das requisições dela.
 - A aplicação HTTP é montada pela composition root (011), que injeta os seams consumidos.
-- Não há interface própria além do Open WebUI; nenhuma lógica de agente vive na interface.
-- O Open WebUI faz login no mesmo provedor OIDC que a 003 verifica e repassa o access token de cada usuário (`system_oauth`); o token precisa ter o emissor, a audiência e as claims de subject e grupos que a configuração da 003 lê. A instalação de referência (002) traz um provedor de desenvolvimento; em produção, o operador usa o dele.
+- As interfaces são o Open WebUI (chat) e, opcional, a console de administração (013, Fase 9); nenhuma lógica de agente nem regra de negócio vive nelas (princípio XI, ADR-029).
+- O Open WebUI faz login no mesmo provedor OIDC que a 003 verifica e repassa o access token de cada usuário (`system_oauth`); o token precisa ter o emissor, a audiência e as claims de subject e grupos que a configuração da 003 lê. Desde a Fase 9, a instalação de referência (002) usa o provedor da própria plataforma (012, ADR-030) no lugar do Keycloak de desenvolvimento; um provedor externo continua possível.
 - Na instalação de referência, as tarefas auxiliares do Open WebUI (título, tags, sugestões de continuação, autocompletar) ficam desligadas; o operador que as religar sabe que cada uma é uma execução completa do Assistant e ocupa vaga da fila (FR-016).

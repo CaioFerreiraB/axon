@@ -225,3 +225,36 @@ da composição; coletado uma vez na carga (hook que levanta ou devolve tipo err
 
 `Judgement(faithfulness: float | None, coverage: float | None)`, em `[0, 1]` (definido em `domain/judging.py`; a porta o
 reexporta). `EvalHarness.run(golden, *, assistant, principal, annotations=())`.
+
+## Fase 9 (2026-10-14): destinos, uso, preços e conteúdo (research R28–R35)
+
+### Evento novo no `TraceEvent` (seam, ADR-034)
+
+`ModelExchange(request_id, role, provider, model, messages: tuple[ExchangeMessage, ...], output: str)`;
+`ExchangeMessage(role: Literal["system", "user", "assistant", "tool"], content: str)`. Registro `model_exchange`; nunca
+entregue ao backend primário.
+
+### Value objects dos seams novos
+
+| Nome | Campos |
+|---|---|
+| `UsageQuery` | `start: date`, `end: date` (inclusivos), `tz: str` (IANA), `by: Literal["model", "assistant"]`, `origin: Literal["production", "evaluation", "all"]` |
+| `UsageRow` | `key` (modelo `provider/model` ou Assistant; `None` = "fora de Assistant"), `calls`, `requests`, `input_tokens`, `output_tokens`, `cost: Decimal \| None`, `priced: bool` |
+| `UsageDay` | `day: date`, `rows: tuple[UsageRow, ...]` |
+| `UsageReport` | `query`, `days: tuple[UsageDay, ...]`, `totals: tuple[UsageRow, ...]`, `total_cost: Decimal \| None`, `incomplete: bool`, `previous_total_cost: Decimal \| None` (mesmo tamanho de período, antes) |
+| `Price` | `provider`, `model`, `usd_per_mtok_in: Decimal`, `usd_per_mtok_out: Decimal`, `effective_from: date`, `created_by`, `created_at`, `state: Literal["current", "superseded", "scheduled"]` |
+| `DestinationSettingsView` | `langfuse_enabled`, `langfuse_host`, `langfuse_public_key`, `langfuse_secret_set: bool`, `capture_content`, `sources: Mapping[str, SettingSource]`, `version` |
+| `DestinationHealth` | `name` (`usage`, `langfuse`), `state: Literal["ok", "degraded", "off"]`, `dropped_24h: int`, `last_error: str \| None`, `last_sent_at: datetime \| None` |
+| `ConnectionCheck` | `ok: bool`, `detail: str` (ex.: projeto aceito, credencial recusada, endereço inalcançável) |
+
+Erros novos: `InstallationDefined(field)`, `MasterKeyMissing`, `InvalidPrice(field)`, `Conflict` (versão).
+
+### Tabelas (schema `observability`, ADR-015)
+
+| Tabela | Chave | Colunas |
+|---|---|---|
+| `model_calls` | `id bigserial` | `request_id`, `at timestamptz`, `origin`, `assistant`, `provider`, `model`, `role`, `input_tokens`, `output_tokens`, `duration_ms`, `failed`; índices em `at` e (`provider`, `model`, `at`) |
+| `executions` | `request_id` | `started_at`, `finished_at`, `origin`, `assistant`, `flow`, `ok`, `duration_ms`; índice em `started_at` |
+| `prices` | (`provider`, `model`, `effective_from`) | `usd_per_mtok_in numeric(12,6)`, `usd_per_mtok_out numeric(12,6)`, `created_by`, `created_at` |
+| `destination_settings` | `id = 1` | `langfuse_enabled`, `langfuse_host`, `langfuse_public_key`, `langfuse_secret_sealed bytea`, `capture_content`, `version`, `updated_by`, `updated_at` |
+| `schema_version` | `version` | padrão |

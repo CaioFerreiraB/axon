@@ -286,3 +286,71 @@ ausente); só métricas determinísticas barram (SC-003); as mudanças de seam t
 | Protocolo de métrica no contrato 001 (ADR-027) | métrica de domínio no mesmo relatório e na mesma barreira, sem o pack importar o core | cálculo fora do harness duplicaria linha de base e CI |
 | Evento `Retrieval` com proveniência | recall por documento precisa de documento e seção dos trechos | ids sozinhos não casam com evidência por documento (clarificação 2) |
 | Três julgamentos por item | variância visível; juiz não barra sozinho | um julgamento esconderia a instabilidade do juiz |
+
+## Fase 9 (US5, US6, US7: uso e custo, Langfuse, conteúdo opcional) — 2026-10-14
+
+Insumos: ADR-033, ADR-034, a clarificação de 2026-10-13, o desenho aprovado da console e a skill `dataviz`. Decisões em
+[research.md](research.md) R28–R37. **Sem divergência do `design.md`** (seção "Destinos, uso, custo e Langfuse").
+
+### Summary — Fase 9
+
+O trace passa a ter destinos além do backend primário: **uso** (linhas por chamada e por execução em Postgres, com a
+origem do processo) e **Langfuse** (OTLP pelo SDK do OpenTelemetry, em lote, sem bloquear). Três seams novos para a
+008: **Usage Report** (dia local, por modelo ou Assistant, custo calculado na consulta pelo preço vigente), **Price Book**
+(preços com vigência) e **Trace Destinations** (ajustes do Langfuse e da captura, com a origem de cada campo e o
+segredo cifrado). O texto de prompt e resposta só existe no evento `ModelExchange` da 006, com a captura ligada, e só
+para o Langfuse.
+
+### Technical Context — o que muda
+
+**Dependências novas** (confinadas a `observability/adapters/`): `opentelemetry-sdk>=1.30,<2` e
+`opentelemetry-exporter-otlp-proto-http>=1.30,<2` (R32); `cryptography` (já presente, para o `SecretCipher`).
+**Storage**: schema `observability` com migrações em `observability/adapters/sql/` (`001_usage.sql`,
+`002_prices.sql`, `003_destination_settings.sql`). **Performance**: `emit` continua O(1) e sem I/O além do primário;
+relatório de 90 dias com 100 mil chamadas < 1 s (SC-008). **Constraints**: conteúdo nunca no primário (SC-007); OTel e
+`psycopg` só em `adapters/`.
+
+### Constitution Check — Fase 9
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| II. Seams | ✅ | `TraceSink` sem mudança de assinatura; `TraceEvent` cresce por ADR (034); três seams novos com conformidade; a 009 não importa a 006 (preços próprios, R31) |
+| VI. Conteúdo externo | ✅ | Texto só com opção explícita, redigido, cortado, e só para destino que aceita; segredo do Langfuse cifrado e só de escrita (ADR-033) |
+| VII. Falha fechada | ✅ | Destino que falha é contado e aparece na saúde; nunca derruba nem atrasa a execução |
+| X. Medir antes de calibrar | ✅ | O custo é estimativa declarada; nenhum número de RAG muda |
+| XIII. Portas e adapters | ✅ | Projeção de uso, precedência e preço vigente puros em `domain/`; seis portas novas com memória e real |
+
+**Module boundary gate (Fase 9)**: `ai_core/observability/**` e `tests/observability/**`; **toque declarado** na 006
+(`llm/service.py`: emitir `ModelExchange`, R35); `packages/core/pyproject.toml` (OTel); `ai-core/pyproject.toml`
+(import-linter: OTel só em `observability.adapters`; marcas `us5`–`us7`). Nada em `http/` nem `bootstrap/` (passadas da
+008 e da 011). **Resultado**: PASS.
+
+### Project Structure — Fase 9
+
+```text
+ai-core/packages/core/src/ai_core/observability/
+├── api.py                 # + ModelExchange, ExchangeMessage; UsageQuery…; UsageReportSeam, PriceBook, TraceDestinations
+├── domain/
+│   ├── usage.py           # projeção de registros em linhas; agregação de referência (memória)
+│   ├── prices.py          # preço vigente; custo em Decimal
+│   ├── settings.py        # precedência e origem dos ajustes
+│   └── content.py         # redação e corte do ModelExchange
+├── ports.py               # + TraceDestination, UsageStore, PriceStore, DestinationSettingsStore, SecretCipher, LangfuseTransport
+├── service.py             # TraceService com destinos; ObservabilityAdmin (os três seams)
+└── adapters/
+    ├── usage.py           # UsageDestination (buffer + flush)
+    ├── langfuse.py        # LangfuseDestination + LangfuseTransport (OTel)
+    ├── postgres.py        # UsageStore, PriceStore, DestinationSettingsStore
+    ├── postgres_schema.py # migrate(pool) do schema observability
+    ├── cipher.py          # AES-GCM + HKDF
+    └── sql/001_usage.sql, 002_prices.sql, 003_destination_settings.sql
+ai-core/packages/core/src/ai_core/llm/service.py   # toque: ModelExchange (R35)
+```
+
+### Seam Notes for Consumers — Fase 9
+
+| Consumidor | O que precisa saber |
+|---|---|
+| 006 | Emitir `ModelExchange` depois de cada `ModelCall`, com mensagens e saída; nunca credencial |
+| 008 | `UsageReportSeam`, `PriceBook`, `TraceDestinations` nas rotas de administração; `InstallationDefined`/`Conflict` → 409, `MasterKeyMissing` → 409, `InvalidQuery`/`InvalidPrice`/`InvalidField` → 422 |
+| 011 | Montar `TraceService(primary, destinations=[UsageDestination(origin), LangfuseDestination], …)`; `origin="evaluation"` no `ai-core eval run`; tarefas: flush de 2 s, retenção diária; `flush` no `aclose()`; migrações do schema `observability`; itens de saúde `trace:usage`, `trace:langfuse`; `AI_CORE_LANGFUSE_*`, `AI_CORE_USAGE_*` |

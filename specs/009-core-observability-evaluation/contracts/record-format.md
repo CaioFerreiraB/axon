@@ -80,3 +80,14 @@ gravado:  "message": "401 Unauthorized: {'Authorization': 'Bearer «redigido»'}
 
 Regras completas na tabela de redação do [data-model.md](../data-model.md). Texto acima de 2000 caracteres é gravado
 truncado, com a marca `… [truncado: N caracteres]`.
+
+## Fase 9 (2026-10-14): `model_exchange`
+
+| Campo | Tipo | Nota |
+|---|---|---|
+| `role` | `str` | papel de modelo |
+| `provider`, `model` | `str` | |
+| `messages` | lista de `{role, content}` | redigido; cada `content` cortado em 16 KiB com `«… cortado»` |
+| `output` | `str` | redigido e cortado igual |
+
+Nunca aparece no JSONL nem na memória (backends primários).

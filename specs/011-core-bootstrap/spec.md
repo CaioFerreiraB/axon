@@ -6,18 +6,18 @@
 
 **Status**: Draft
 
-**Input**: ADR-012 (composition root), ADR-013 (relógio único, Trace Sink); [relatório de estilo arquitetural](../../docs/relatorio-estilo-arquitetural.md), lacuna G6; arch-v1 §13 (boot, CLI) e §14 (deployment).
+**Input**: ADR-012 (composition root), ADR-013 (relógio único, Trace Sink); [relatório de estilo arquitetural](../../docs/relatorio-estilo-arquitetural.md), lacuna G6; arch-v1 §13 (boot, CLI) e §14 (deployment). Fase 9 (2026-10-13): identidade da plataforma, superfície de administração, sobreposições, destinos do trace e chave mestra — ADR-030 a ADR-034.
 
 ## Module Boundary *(mandatory)*
 
 - **Módulo**: Bootstrap — composition root do `ai-core`: carrega a configuração do operador, escolhe e instancia o adapter de cada porta, injeta seams e adapters nos módulos, conduz a ordem de boot e oferece os pontos de entrada do processo.
 - **Repositório / distribuição**: `ai-core` → `packages/core/src/ai_core/bootstrap/`; comando `ai-core` (raiz).
-- **Consome (seams)**: o `api.py` de todos os módulos do core (002–009) e os `adapters/` deles. É o único módulo autorizado a importar adapters de outros módulos (princípio XIII).
+- **Consome (seams)**: o `api.py` de todos os módulos do core (002–009 e 012) e os `adapters/` deles. É o único módulo autorizado a importar adapters de outros módulos (princípio XIII).
 - **Expõe (seams)**: nenhum seam Python. Expõe os pontos de entrada do processo — servidor e raiz da linha de comando `ai-core`, onde cada módulo contribui seus subcomandos —, consumidos pelo operador, pelo template de instalação (002) e pela CI.
 - **Depende de infraestrutura (via portas)**: configuração do operador (arquivos e ambiente). Indiretamente, toda a infraestrutura dos módulos, cujos adapters instancia.
 - **Não conhece**: regras de negócio de qualquer módulo (grant, catálogo, flows, políticas de tool), o estado interno do motor e o contexto de execução (005), qualquer domínio.
 - **Substituição**: preservar a ordem de boot com falha fechada, os perfis de adapters e os comandos da linha de comando; a técnica de injeção é livre.
-- **Insumo técnico**: [design.md](design.md); [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md), [ADR-009](../../docs/adr/ADR-009-deploy-docker-build-arg.md).
+- **Insumo técnico**: [design.md](design.md); [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md), [ADR-009](../../docs/adr/ADR-009-deploy-docker-build-arg.md), [ADR-020](../../docs/adr/ADR-020-segredos-uma-fonte-por-perfil-uma-porta-por-modulo.md), [ADR-030](../../docs/adr/ADR-030-a-plataforma-e-o-provedor-de-identidade.md), [ADR-033](../../docs/adr/ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md), [ADR-034](../../docs/adr/ADR-034-trace-com-destinos-e-conteudo-opcional.md).
 
 ## Clarifications
 
@@ -126,6 +126,35 @@ A verificação de saúde reúne o estado de cada módulo — packs carregados e
 
 ---
 
+### User Story 6 - A plataforma sobe com identidade, administração e destinos do trace (Priority: P2)
+
+O operador liga o provedor de identidade da plataforma (012) e a composição o monta antes da API, gera a chave de
+assinatura na primeira vez, cria o admin inicial quando a instalação o declara e não há contas, injeta as chaves
+públicas no verificador da 003 e monta o adapter primário do protocolo no mesmo app da 008. Também monta as
+sobreposições da 003, os destinos do trace da 009 (uso e Langfuse) e a superfície de administração, e lê a chave mestra
+da instalação, recusando o boot quando ela falta e há o que cifrar.
+
+**Why this priority**: Sem a composição, nenhum dos módulos da Fase 9 existe no processo; é a passada de encaixe.
+
+**Independent Test**: Subir o perfil `test` com a identidade ligada; entrar pelo protocolo com o admin semeado, chamar
+`/v1/models` com o token do chat e `/admin/v1/me` com o token da console; sobrepor o modelo de um Assistant, conversar e
+ler o uso.
+
+**Acceptance Scenarios**:
+
+1. **Given** o perfil `persistent` com a identidade ligada e sem `AI_CORE_MASTER_KEY`, **When** a plataforma sobe,
+   **Then** o boot falha na etapa `configuration` com erro que nomeia a variável.
+2. **Given** a identidade ligada e `AI_CORE_OIDC_ISSUER` também configurado, **When** a plataforma sobe, **Then** o boot
+   falha nomeando o conflito: a plataforma confia num único emissor.
+3. **Given** uma instalação sem contas e as variáveis de admin inicial, **When** a plataforma sobe, **Then** o admin
+   existe no grupo de administração; numa segunda subida, as variáveis são ignoradas com aviso.
+4. **Given** o Langfuse configurado e fora do ar, **When** a plataforma sobe, **Then** o boot conclui; a saúde mostra
+   `trace:langfuse` como não crítico e indisponível.
+5. **Given** o perfil `test`, **When** uma suíte de pack o monta, **Then** encontra o admin semeado e as credenciais dele
+   exportadas pela distribuição, como já encontra a chave de teste.
+
+---
+
 ### Edge Cases
 
 - Configuração de pack que referencia pack não instalado: tratada pela 002 (`error: não instalado`); o boot continua.
@@ -134,6 +163,9 @@ A verificação de saúde reúne o estado de cada módulo — packs carregados e
 - Sinal de parada durante o boot: as etapas já concluídas são desfeitas na ordem inversa.
 - Referência de segredo ausente no ambiente: o adapter que precisa dela falha na inicialização com erro que nomeia a referência, nunca o valor. *(Refinado pelo [ADR-020](../../docs/adr/ADR-020-segredos-uma-fonte-por-perfil-uma-porta-por-modulo.md): a peça que depende da credencial é montada em estado de falha e o boot continua — etapa `mcp_registry` degradada para servidor MCP; item `model:<provider/modelo>` indisponível na saúde e erro explícito na chamada para provider de modelo.)*
 - Perfil `memory` sem chave de desenvolvimento nem OIDC configurados: o boot conclui, toda credencial é recusada (401), e o relatório de boot diz isso em destaque — nunca uma plataforma aberta por falta de configuração.
+- Perfil `memory` com a identidade ligada e sem chave mestra: o boot gera uma chave efêmera, e o relatório avisa que contas, sessões e chaves somem no restart.
+- Variáveis do Langfuse definidas pela metade: erro de configuração que nomeia a variável que falta.
+- Banco de uso fora do ar com o resto do Postgres de pé: impossível por construção (um banco único, ADR-015); com o banco fora, a saúde já é `down`.
 
 ## Requirements *(mandatory)*
 
@@ -154,6 +186,12 @@ A verificação de saúde reúne o estado de cada módulo — packs carregados e
 - **FR-013**: No encerramento, o sistema DEVE parar de aceitar requisições, aguardar as execuções em andamento até um prazo configurável e liberar os recursos na ordem inversa do boot.
 - **FR-014**: O perfil de teste DEVE subir a plataforma inteira sem nenhum serviço externo (armazenamento, vetores, rede, provider de modelo real), e DEVE fazer parte da distribuição, para que a suíte de qualquer pack possa montar a plataforma de verdade. A montagem DEVE aceitar a troca do adapter de qualquer porta, para que a suíte programe o controller e os servidores MCP; sem troca, o controller simulado responde direto e não há servidor MCP.
 - **FR-015**: Todo perfil DEVE autenticar com o verificador real da 003 — nenhum perfil aceita requisição sem credencial. O `persistent` verifica OIDC pelo JWKS do emissor configurado e chaves de API no armazenamento persistente; o `memory`, OIDC quando configurado e uma chave de desenvolvimento lida do ambiente, no grupo de administração; o `test`, um verificador OIDC estático e uma chave semeada, cujas credenciais a distribuição exporta para as suítes.
+- **FR-016**: Com a identidade ligada, a composição DEVE montar a 012 numa etapa própria, depois de `adapters` e antes de `assistants` — chave de assinatura, admin inicial, grupo de administração protegido (lido de onde o operador o declara) —, injetar o seam Public Key Set no verificador OIDC da 003 (sem chamada de rede para si mesma), configurar as audiências por superfície a partir dos clientes da 012 e montar o adapter primário do protocolo no mesmo app da API. Identidade ligada com um emissor externo configurado DEVE ser erro de configuração. *(Fase 9, [ADR-030](../../docs/adr/ADR-030-a-plataforma-e-o-provedor-de-identidade.md).)*
+- **FR-017**: A configuração DEVE incluir a chave mestra da instalação (ADR-033): obrigatória no perfil `persistent` quando há o que cifrar (identidade ligada ou segredo gravado em runtime); efêmera, com aviso, no `memory`; fixa no `test`. Ela NÃO DEVE aparecer em log, relatório nem erro.
+- **FR-018**: A composição DEVE montar as portas novas da Fase 9 em cada perfil — sobreposições da 003; uso, preços e ajustes dos destinos da 009; contas, sessões, chaves e ajustes da 012 — em memória no `memory` e no `test`, em Postgres no `persistent`, com as migrações dos schemas `identity` e `observability` na etapa `adapters`.
+- **FR-019**: A composição DEVE montar os destinos do trace (009): o backend principal, o destino de uso e, quando configurado, o Langfuse, e as tarefas do ciclo de vida que os esvaziam; no encerramento e no fim de cada comando da linha de comando, os destinos DEVEM ser esvaziados.
+- **FR-020**: A saúde agregada DEVE ganhar os itens não críticos `trace:usage` e `trace:langfuse` (descartes e último erro) e passar a ler os modelos efetivos dos Assistants (com sobreposições), não só os declarados no YAML.
+- **FR-021**: A linha de comando DEVE ganhar os subcomandos contribuídos pela 012 (`users`, `identity keys rotate`), e o perfil `test` DEVE semear um admin cujas credenciais a distribuição exporta, ao lado das que já exporta.
 
 ### Key Entities
 
@@ -161,6 +199,7 @@ A verificação de saúde reúne o estado de cada módulo — packs carregados e
 - **Adapter Profile**: mapeamento porta → adapter para uma fase ou um ambiente (em memória, persistente, teste).
 - **Boot Stage**: etapa da inicialização, com estado (concluída, degradada, falhou) e motivo.
 - **Health Report**: estado agregado por módulo e por item, com motivo.
+- **Master Key**: chave da instalação da qual cada módulo deriva a subchave com que cifra os próprios segredos de runtime (ADR-033).
 
 ## Success Criteria *(mandatory)*
 
@@ -172,6 +211,7 @@ A verificação de saúde reúne o estado de cada módulo — packs carregados e
 - **SC-004**: Em 100% dos cenários de falha injetada (pack defeituoso, Assistant inválido, MCP indisponível), o boot conclui e os itens que não dependem da falha atendem.
 - **SC-005**: O operador identifica, só pela saída do boot ou pela saúde agregada, qual etapa ou item falhou e por quê, em menos de 1 minuto.
 - **SC-006**: Adicionar um adapter novo a uma porta existente exige mudança apenas no módulo dono do adapter e neste módulo.
+- **SC-007**: Com a identidade ligada, a suíte ponta a ponta — login, conversa pelo token do chat, administração pelo token da console, sobreposição e relatório de uso — roda inteira sem rede e sem serviços externos.
 
 ## Assumptions
 
@@ -179,4 +219,4 @@ A verificação de saúde reúne o estado de cada módulo — packs carregados e
 - Processo único na v1; múltiplas réplicas ficam fora de escopo, como os contadores de taxa da 003.
 - A técnica de injeção (construtores explícitos ou container) é decidida no plano; a constituição exige apenas que ela fique neste módulo.
 - O perfil de teste usa um provider de modelo simulado, fornecido como adapter do contrato `LLMProvider`.
-- O perfil persistente cresce por fase: Assistants de usuário e histórico na Fase 2; registry MCP e auditoria na Fase 3; checkpoint quando houver retomada (ver `docs/roadmap.md`).
+- O perfil persistente cresce por fase: Assistants de usuário e histórico na Fase 2; registry MCP e auditoria na Fase 3; contas, sessões e chaves (012), sobreposições (003), uso, preços e ajustes dos destinos (009) na Fase 9; checkpoint quando houver retomada (ver `docs/roadmap.md`).

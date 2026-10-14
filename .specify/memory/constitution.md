@@ -1,21 +1,27 @@
 <!--
 Sync Impact Report
-- Version change: 1.1.0 → 1.2.0 (MINOR: orientação materialmente alterada numa decisão pré-aprovada;
-  nenhum princípio muda)
-- Origem: ADR-014 (política de versões 0.x de `ai-core-contracts`), aceito em 2026-09-15;
-  specs/001-core-contracts (clarificação de 2026-09-15, FR-016/FR-018/FR-020, e o /speckit-analyze que
-  apontou o conflito com a redação anterior).
-- Princípios modificados: nenhum
-- Princípios adicionados: nenhum
-- Seções modificadas: Stack e restrições técnicas — linha "Contratos" da tabela (cita a convenção 0.x e o
-  ADR-014) e "Restrições de ambiente → Versionamento" ("breaking change = major; janela de um minor" →
-  convenção 0.x deslocada, faixa derivada da `contract_version`, janela de uma série compatível, CI barra
-  bump insuficiente e remoção sem depreciação)
+- Version change: 1.2.0 → 1.3.0 (MINOR: orientação materialmente ampliada — componentes novos na
+  tabela de stack e no vocabulário; nenhum princípio removido nem redefinido)
+- Origem: ADRs 029–034, aceitos em 2026-10-13 (console de administração própria; a plataforma é o
+  provedor de identidade; superfície de administração; sobreposição de Assistants de sistema;
+  segredos de runtime cifrados; trace com destinos e conteúdo opcional)
+- Princípios modificados (títulos inalterados):
+  - VI. Conteúdo externo é não-confiável — novo item: segredo configurado em runtime é cifrado com a
+    chave mestra da instalação, nunca devolvido pela API, e a variável de ambiente prevalece (ADR-033)
+  - XI. API independente da interface; streaming desde o início — o primeiro item passa a cobrir
+    Open WebUI e a console: nenhuma lógica de agente nem regra de negócio na interface; toda tela da
+    console tem equivalente na API (ADR-029)
+- Seções modificadas:
+  - Vocabulário normativo — termos novos "Console" e "Sobreposição"
+  - Stack e restrições técnicas — linha "Interface" (Open WebUI para chat + console opcional), linha
+    nova "Identidade" (provedor OIDC da plataforma, ADR-030), linha de PostgreSQL passa a citar
+    contas, sobreposições e uso
 - Seções removidas: nenhuma
-- Templates: nenhum ajuste necessário (.specify/templates/overrides/* não citam a regra de versões)
-- Artefatos afetados fora da constituição: specs/001-core-contracts/plan.md (Constitution Check, linha
-  "Versionamento") e specs/001-core-contracts/design.md (linhas superadas pelo ADR-014) — ajustados na mesma
-  sessão, fora deste comando
+- Templates: nenhum ajuste necessário (.specify/templates/overrides/* não citam interface, identidade
+  nem segredos de runtime)
+- Artefatos afetados fora da constituição: specs/README.md (tabela "fora de escopo": a linha da
+  interface passa a valer para as duas interfaces; módulos 012 e 013) e docs/roadmap.md (Fase 9) —
+  ajustados na mesma sessão, fora deste comando
 - TODOs: nenhum.
 -->
 
@@ -106,6 +112,9 @@ em breve; isso só é barato se cada um estiver atrás de seams estáveis.
   explícita em Assistants privados e são sempre auditadas (Principal + argumentos).
 - Usuário final nunca executa código no processo do core: extensão de usuário é MCP remoto;
   código Python é extensão do operador (ADR-003).
+- Segredo configurado em runtime (pela administração) é gravado cifrado com a chave mestra da
+  instalação, no módulo dono, e nunca é devolvido pela API; a variável de ambiente da instalação,
+  quando definida, prevalece sobre ele (ADR-033).
 
 ### VII. Falha fechada e explícita
 
@@ -138,8 +147,9 @@ em breve; isso só é barato se cada um estiver atrás de seams estáveis.
 
 ### XI. API independente da interface; streaming desde o início
 
-- A API NÃO DEPENDE da interface gráfica; Open WebUI é só apresentação e nenhuma lógica de agente
-  vive nela.
+- A API NÃO DEPENDE de interface gráfica. Open WebUI e a console de administração são só
+  apresentação: nenhuma lógica de agente nem regra de negócio (validação, autorização, precedência
+  de configuração) vive nelas, e toda tela da console tem equivalente na API (ADR-029).
 - Streaming faz parte do contrato desde a primeira fase; não é retrofit.
 
 ### XII. Simplicidade deliberada
@@ -199,6 +209,8 @@ Os termos abaixo têm significado único em todas as specs, planos e código.
 | **Turn View** | Visão somente-leitura e estável da execução entregue aos hooks de pack (ADR-011) |
 | **Operador** | Quem administra a instalação: escolhe packs, builda a imagem, define Assistants de sistema |
 | **Usuário** | Quem consome a plataforma: cria Assistants próprios e registra MCPs próprios |
+| **Console** | Interface de administração da plataforma, opcional na instalação e restrita ao grupo de administração; consome só a API (ADR-029) |
+| **Sobreposição** | Alteração em runtime de uma seção de um Assistant de sistema que o YAML do operador declara sobreponível; o YAML continua sendo o teto (ADR-032) |
 
 ```text
 Pack       → o que o sistema SABE FAZER      (capacidade)
@@ -220,8 +232,9 @@ Decisões pré-aprovadas. Um plano que diverge delas precisa de ADR.
 | Componentes auxiliares | LangChain, somente quando útil e somente dentro de adapters do core |
 | LLM local / externo | Ollama · OpenAI · OpenRouter — adapters do contrato `LLMProvider` (spec 006) |
 | Vetores | Qdrant (denso + esparso, fusão nativa) — adapter do índice do scouting (spec 102) |
-| Registries, histórico, auditoria | PostgreSQL — adapters das portas de armazenamento de cada módulo |
-| Interface | Open WebUI (via compat OpenAI) |
+| Registries, histórico, auditoria, contas, sobreposições, uso | PostgreSQL — adapters das portas de armazenamento de cada módulo |
+| Interface | Open WebUI (chat, via compat OpenAI) · console de administração própria (SPA React + TypeScript, opcional na instalação; ADR-029) |
+| Identidade | Provedor OIDC da própria plataforma (módulo 012): contas locais com senha argon2id e login Google só para usuários cadastrados; a 003 verifica o JWT localmente (ADR-030) |
 | Packs | Distribuições Python descobertas por entry point `ai_core.packs` |
 | Contratos | `ai-core-contracts`, semver próprio com convenção 0.x deslocada (ADR-014), apenas stdlib + `typing_extensions` |
 | Composição | Composition root na spec 011 (`ai_core/bootstrap/`); num pack, o `pack.py` |
@@ -276,4 +289,4 @@ Restrições de ambiente:
 - Todo PR de implementação DEVE passar nas verificações de fronteira de import, na suíte de
   conformidade dos seams que o módulo expõe e nas suítes das portas secundárias que ele declara.
 
-**Version**: 1.2.0 | **Ratified**: 2026-09-10 | **Last Amended**: 2026-09-15
+**Version**: 1.3.0 | **Ratified**: 2026-09-10 | **Last Amended**: 2026-10-13

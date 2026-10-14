@@ -148,6 +148,36 @@ apaga conversas cuja última atividade é anterior a `agora − prazo`. `agora` 
 que torna a expiração testável com relógio fixo. O prazo padrão é de 180 dias, configurável pelo operador. Os traces
 (009) seguem a retenção própria.
 
+## Superfície de administração (Fase 9, [ADR-031](../../docs/adr/ADR-031-superficie-de-administracao.md))
+
+`/admin/v1`, montada por `adapters/admin.py`; a forma dos pedidos e respostas fica em `domain/admin_*.py` (puro). Cada
+rota é uma tradução fina para um seam do módulo dono — nenhuma regra mora aqui (ADR-029).
+
+| Rota | Seam (dono) |
+|---|---|
+| `GET /me` | Principal (003) |
+| `GET /assistants`, `GET /assistants/{nome}` | System Assistant Admin (003) |
+| `PUT /assistants/{nome}/models`, `PUT /assistants/{nome}/mcp` (com `If-Match`), `DELETE /assistants/{nome}/overrides/{seção}` | System Assistant Admin (003) |
+| `POST /assistants/{nome}/models/check` | Model Router `check(policy)` (006) |
+| `GET/POST /mcp`, `GET/PUT/DELETE /mcp/{alias}`, `GET /mcp/{alias}/health` | MCP Registry (007) — o mesmo router da superfície privada, montado nas duas |
+| `GET /usage?from&to&tz&by=model\|assistant&origin=production\|evaluation\|all` | Usage Report (009) |
+| `GET /prices`, `PUT /prices` | Price Book (009) |
+| `GET /observability`, `PUT /observability/langfuse`, `PUT /observability/capture`, `POST /observability/langfuse/test` | Trace Destinations (009) |
+| `GET /prices/unpriced` | Price Book (009) |
+| `GET /assistants/{nome}/history` | System Assistant Admin (003) |
+| `GET/POST /users`, `PATCH /users/{nome}`, `POST /users/{nome}/password`, `POST /users/{nome}/disable`, `POST /users/{nome}/enable`, `DELETE /users/{nome}/google` | Account Admin (012) |
+| `GET/POST /groups`, `DELETE /groups/{nome}`, `PUT /groups/{nome}/members` | Account Admin (012) |
+| `GET/PUT /login-settings` | Login Settings (012) |
+| `GET /keys`, `POST /keys`, `DELETE /keys/{id}` | API Key Admin (003) |
+| `GET /health` | `HealthProvider` (011) |
+
+- Autenticação por `authenticated(request, surface="admin")`; 401 para credencial inválida, 404 para não admin (porta
+  `AdminGate`, agora `admin_group in groups`).
+- Versão lida no corpo das escritas de recursos versionados (`version`; no `DELETE`, na query) — uma por seção de
+  sobreposição (research R45); 409 com a versão atual.
+- Sem CORS: a console chega pela mesma origem (o servidor estático repassa os prefixos sem reescrever — 013).
+- O contrato `contracts/admin-api.md` (escrito no plano) é a fonte dos esquemas que a console espelha.
+
 ## Persistência
 
 | Dado | Porta | Adapter | Quando |
@@ -158,13 +188,14 @@ que torna a expiração testável com relógio fixo. O prazo padrão é de 180 d
 
 | Porta | Tipo | Adapters por fase | Teste |
 |---|---|---|---|
-| API HTTP (`/v1`, `/private/v1`) | primária (externa) | FastAPI em `adapters/` | suíte ponta a ponta via HTTP no perfil `test` da 011 (SC-002) |
+| API HTTP (`/v1`, `/private/v1`, `/admin/v1` na Fase 9) | primária (externa) | FastAPI em `adapters/` | suíte ponta a ponta via HTTP no perfil `test` da 011 (SC-002); suíte de administração: 404 para não admin, 401 para token do chat, 409/422, nenhum segredo nas respostas |
 | `ConversationStore` | secundária | memória (Fase 1) → Postgres (Fase 2) | em memória + conformidade contra Postgres; isolamento entre Principals; continuação após reinício |
 | `HealthProvider` | secundária | agregador da composition root (011) | provider fixo em memória |
 | `Clock` | secundária | relógio do sistema (adapter único, injetado pela 011) | relógio fixo — expiração de conversas |
 
 Consome por seam: Authenticator, GrantResolver e AssistantDirectory (003), Execution Engine (005), Pack Registry (002),
-MCP Registry (007), identificador de trace (009). A saúde agregada entra pela porta `HealthProvider`, implementada pela
+MCP Registry (007), identificador de trace (009); na Fase 9, System Assistant Admin (003), Model Router `check` (006),
+Usage Report, Price Book e Trace Destinations (009), Account Admin e Login Settings (012). A saúde agregada entra pela porta `HealthProvider`, implementada pela
 011 — a 008 não importa a 011, que é quem a monta. A rejeição de campos de ampliação é regra de `domain/` da 003; aqui
 só se mapeia o formato OpenAI para a requisição nativa.
 

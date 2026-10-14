@@ -140,3 +140,25 @@ Valor inválido impede o boot nomeando a variável. Os três chegam ao motor com
 Os defaults são provisórios, medidos no hardware alvo (008 quickstart, "Fase 7"). A etapa `api` monta
 `AdmissionLimits` e a passa a `create_app(admission=…)`; valor fora da faixa falha a etapa `configuration` nomeando a
 variável. O harness de avaliação (009) não passa pela API e não entra na fila.
+
+## Fase 9 (2026-10-14): identidade, administração e destinos do trace (research R36)
+
+| Variável | Padrão | Regra |
+|---|---|---|
+| `AI_CORE_IDENTITY_ENABLED` | `false` | liga o provedor de identidade (012) |
+| `AI_CORE_PUBLIC_URL` | — | obrigatório com a identidade; é o emissor; `https` exceto `localhost` |
+| `AI_CORE_IDENTITY_CLIENTS_FILE` | — | obrigatório com a identidade; formato da 012 (`identity.yaml`) |
+| `AI_CORE_MASTER_KEY` | — | 32 bytes em base64; obrigatória no `persistent` com a identidade ligada ou segredo gravado; aleatória no `memory`, fixa no `test`; nunca em log |
+| `AI_CORE_DISPLAY_NAME` | `Agentic` | nome da instalação nas páginas e na console |
+| `AI_CORE_LOGO_FILE` | — | SVG ou PNG montado; servido pela 012 |
+| `AI_CORE_TRUSTED_PROXIES` | — | IPs ou redes (CIDR), separados por vírgula |
+| `AI_CORE_COOKIE_SECURE` | ligado com `https` | cookie de sessão da 012 |
+| `AI_CORE_LANGFUSE_HOST`, `_PUBLIC_KEY`, `_SECRET_KEY` | — | tudo ou nada; definidas, prevalecem sobre a console (ADR-033) |
+| `AI_CORE_LANGFUSE_CAPTURE_CONTENT` | — | `true`/`false`; definida, prevalece |
+| `AI_CORE_USAGE_TIMEZONE` | `UTC` | fuso IANA padrão do relatório de uso |
+| `AI_CORE_USAGE_RETENTION_DAYS` | `400` | inteiro ≥ 30 |
+| `AI_CORE_GOOGLE_*`, `AI_CORE_GOOGLE_LOGIN`, `AI_CORE_BOOTSTRAP_ADMIN_*`, `AI_CORE_IDENTITY_SECRET_<REF>` | — | lidas pelas portas de segredo da 012 (ADR-020) |
+
+Erros que param o boot: identidade com `AI_CORE_OIDC_ISSUER`; identidade sem `AI_CORE_PUBLIC_URL` ou sem o arquivo de
+clientes; `persistent` com identidade sem chave mestra; chave mestra malformada; grupo do Langfuse incompleto; fuso
+desconhecido.

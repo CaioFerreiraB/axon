@@ -570,6 +570,76 @@ atualização inteira e nenhuma chave ficava em cache (research R24). Nenhum sea
 
 ---
 
+## Fase 9 (2026-10-14): superfície de administração e sobreposições
+
+**Escopo**: US9 e US10 ([research.md](research.md) R25–R32). Caminhos relativos a `ai-core/packages/core/`. Nada em
+`ai_core/http/` nem `ai_core/bootstrap/` (passadas da 008 e da 011).
+
+## Phase 15: User Story 9 — Administração por grupo, com token da plataforma ou chave (Priority: P2)
+
+**Independent Test**: token da console de admin e chave de admin passam na superfície `admin`; token do chat é não
+autenticado ali; não admin é 404 (pela 008, depois)
+
+### Tests for User Story 9
+
+- [ ] T068 [P] [US9] `tests/assistants/contract/test_surfaces.py` (marca `us9`): `authenticate` nas três superfícies —
+  `public` só OIDC com audiência `ai-core`; `private` só chave; `admin` chave (prefixo `aic_`) ou OIDC com audiência
+  `ai-core-admin`; audiência trocada → `None`; `is_admin` por grupo com OIDC e com chave; `SCHEME_OF_SURFACE` antigo
+  ainda devolve o esquema das duas superfícies antigas
+- [ ] T069 [P] [US9] `tests/assistants/contract/test_oidc_verifier.py`: `JwksOidcVerifier` com `HttpJwksSource` (os casos
+  atuais, inclusive R24) e com `CallableJwksSource` (chaves de um gerador de teste); audiência conferida por chamada
+
+### Implementation for User Story 9
+
+- [ ] T070 [US9] `assistants/api.py`: `ADMIN_SURFACE`, `Surface` com `admin`, `SCHEMES_OF_SURFACE` e o
+  `SCHEME_OF_SURFACE` derivado e depreciado (docstring citando o ADR-031)
+- [ ] T071 [US9] `assistants/ports.py` (`OidcVerifier.verify(token, *, audience)`), `assistants/adapters/oidc.py`
+  (`JwksSource`, `HttpJwksSource` com o cache atual, `CallableJwksSource`; `JwksOidcVerifier(issuer, source, clock,
+  algorithms)`), `assistants/adapters/memory.py` (`StaticOidcVerifier` com audiência)
+- [ ] T072 [US9] `assistants/domain/access.py` (`is_admin` só pelo grupo) e `assistants/service.py` (`AccessService` com
+  `OidcAudiences`, despacho por formato na superfície `admin`)
+- [ ] T073 [US9] Rodar T068–T069 e a suíte inteira da 003 até verde (os testes atuais de superfície continuam válidos)
+
+## Phase 16: User Story 10 — Operador libera sobreposições de Assistants de sistema (Priority: P2)
+
+**Independent Test**: com `overrides: [models]`, sobrepor `generation` muda o grant da resolução seguinte; tirar a flag
+ou mudar a seção no YAML deixa a sobreposição inativa e o YAML volta a valer
+
+### Tests for User Story 10
+
+- [ ] T074 [P] [US10] `tests/assistants/unit/test_overrides.py`: impressão digital estável e insensível à ordem dos
+  aliases; estados `active`/`inactive` com os dois motivos; efetiva de `models`; efetiva de `mcp` mantendo as entradas
+  de pack e, com `allowed_tools` ausente no YAML, enumerando as tools dos packs mais as de MCP escolhidas
+- [ ] T075 [P] [US10] `tests/assistants/unit/test_assistants_yaml.py` (acréscimo): `overrides` lido; valor desconhecido
+  vira problema do Assistant
+- [ ] T076 [P] [US10] `tests/assistants/contract/test_override_store.py` (memória × Postgres): `put` com versão; versão
+  desatualizada → `Conflict`; `delete`; histórico na mesma transação
+- [ ] T077 [P] [US10] `tests/assistants/contract/test_system_assistant_admin.py` (marca `us10`, adversarial — SC-006):
+  os cenários 1–8 da US10; não admin → `NotFound`; Assistant de usuário → `NotFound`; `declared_models()` com os
+  efetivos; a sobreposição vale na resolução seguinte sem recriar o serviço
+
+### Implementation for User Story 10
+
+- [ ] T078 [US10] `assistants/api.py`: `OverrideSection`, `ModelsOverride`, `McpOverride`, `OverrideView`,
+  `SystemAssistantView`, `OverrideHistoryEntry`, `SystemAssistantAdmin` ([data-model.md](data-model.md), Fase 9)
+- [ ] T079 [US10] `assistants/domain/definitions.py` (`overrides` no `AssistantDefinition` e no `read_config`) e
+  `assistants/domain/overrides.py` (novo) para T074–T075
+- [ ] T080 [US10] `assistants/ports.py` (`SystemOverrideStore`), `assistants/adapters/memory.py`
+  (`InMemorySystemOverrideStore`), `assistants/adapters/sql/003_system_overrides.sql` e
+  `assistants/adapters/overrides_postgres.py` para T076
+- [ ] T081 [US10] `assistants/service.py`: `AssistantsService` recebe `overrides: SystemOverrideStore`; definição
+  efetiva em `_find`, `discover` e `validate` com cache invalidado na gravação (TTL de 5 s); o seam
+  `SystemAssistantAdmin` com as validações da FR-020 e a FR-012; `declared_models()`
+- [ ] T082 [US10] Rodar T074–T077 até verde; `assistants validate` (CLI) passa a listar as sobreposições inativas e
+  inválidas com o motivo
+
+## Phase 17: Polish da Fase 9
+
+- [ ] T083 [P] Marcas `us9` e `us10` em `ai-core/pyproject.toml`; docstrings de `api.py` citando ADR-031 e ADR-032
+- [ ] T084 [P] `specs/README.md` (status da 003 na Fase 9) e `contracts/assistants-yaml.md` revisado contra o código
+- [ ] T085 Rodar `uv run pytest`, `mypy`, `ruff check packages`, `lint-imports` e as portas contra o Postgres com
+  `AI_CORE_TEST_POSTGRES_DSN`
+
 ## Dependencies & Execution Order
 
 **Fase 3**: T053 → T054 (toque na 005); T055 em paralelo. US8: T056 ∥ T057, depois T058 → T059. US6: T060, depois
