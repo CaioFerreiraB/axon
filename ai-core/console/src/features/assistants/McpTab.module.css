@@ -1,0 +1,83 @@
+.server {
+  border: 1px solid var(--borda-base);
+  border-radius: var(--raio-painel);
+  background: var(--fundo-base);
+  overflow: hidden;
+}
+.head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+}
+.title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.alias {
+  font-family: var(--fonte-mono);
+  font-size: var(--tamanho-14);
+  font-weight: 500;
+}
+.description {
+  color: var(--texto-secundario);
+  font-size: var(--tamanho-13);
+}
+.count {
+  color: var(--texto-secundario);
+  font-size: var(--tamanho-13);
+  white-space: nowrap;
+}
+.reason {
+  padding: 0 16px 16px 64px;
+  color: var(--estado-erro-texto);
+  font-size: var(--tamanho-13);
+}
+.tools {
+  width: 100%;
+  border-collapse: collapse;
+  border-top: 1px solid var(--borda-base);
+}
+.tools th {
+  height: 32px;
+  padding: 0 16px;
+  background: var(--fundo-sutil);
+  color: var(--texto-secundario);
+  font-size: var(--tamanho-12);
+  font-weight: 500;
+  text-align: left;
+}
+.tools th:first-child,
+.tools td:first-child {
+  padding-left: 64px;
+}
+.tools td {
+  height: 44px;
+  padding: 0 16px;
+  border-top: 1px solid var(--borda-base);
+}
+.toolName {
+  font-family: var(--fonte-mono);
+  font-size: var(--tamanho-13);
+}
+.missing {
+  margin-left: 8px;
+  color: var(--texto-terciario);
+  font-size: var(--tamanho-12);
+}
+.flagCell {
+  width: 140px;
+}
+.flagRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}

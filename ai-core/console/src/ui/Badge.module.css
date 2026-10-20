@@ -1,0 +1,52 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px 0 7px;
+  border-radius: var(--raio-pilula);
+  font-size: var(--tamanho-12);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.ok {
+  background: var(--estado-ok-fundo);
+  color: var(--estado-ok-texto);
+}
+.ok .dot {
+  background: var(--estado-ok-marca);
+}
+.bad {
+  background: var(--estado-erro-fundo);
+  color: var(--estado-erro-texto);
+}
+.bad .dot {
+  background: var(--estado-erro-marca);
+}
+.warn {
+  background: var(--estado-aviso-fundo);
+  color: var(--estado-aviso-texto);
+}
+.warn .dot {
+  background: var(--estado-aviso-marca);
+}
+.accent {
+  background: var(--acao-sutil);
+  color: var(--acao-texto);
+}
+.neutral {
+  background: var(--fundo-realce);
+  color: var(--texto-secundario);
+}
+.neutral .dot {
+  background: var(--texto-terciario);
+}

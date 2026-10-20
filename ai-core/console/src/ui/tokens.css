@@ -1,0 +1,135 @@
+/* Tokens da console — os do desenho aprovado no Penpot ("Fundamentos"), os mesmos das páginas da identidade (012).
+   Neutros de grafite, um azul de ação, verde/âmbar/vermelho só para estado e as séries validadas pela skill dataviz.
+   Claro por padrão; escuro pelo sistema ou pela escolha da pessoa (`data-theme` na raiz, 013 FR-019). */
+
+:root {
+  color-scheme: light;
+  --fundo-base: #ffffff;
+  --fundo-sutil: #fafafa;
+  --fundo-realce: #f4f4f5;
+  --borda-base: #e8e8ea;
+  --borda-forte: #d4d4d8;
+  --texto-primario: #18181b;
+  --texto-secundario: #5f5f66;
+  --texto-terciario: #74747c;
+  --texto-sobre-acao: #ffffff;
+  --acao-base: #2563eb;
+  --acao-hover: #1d4ed8;
+  --acao-sutil: #eff4ff;
+  --acao-texto: #1d4ed8;
+  --estado-ok-texto: #15803d;
+  --estado-ok-fundo: #ecfdf3;
+  --estado-ok-marca: #16a34a;
+  --estado-aviso-texto: #a15c07;
+  --estado-aviso-fundo: #fef7e6;
+  --estado-aviso-marca: #f59e0b;
+  --estado-erro-texto: #c42b2b;
+  --estado-erro-fundo: #fef2f2;
+  --estado-erro-marca: #dc2626;
+  --serie-1: #2a78d6;
+  --serie-2: #eb6834;
+  --serie-3: #1baf7a;
+  --serie-4: #eda100;
+  --foco: #2563eb;
+  --sombra-flutuante: 0 8px 24px -6px rgb(24 24 27 / 0.14), 0 2px 6px -2px rgb(24 24 27 / 0.08);
+  --veu: rgb(24 24 27 / 0.36);
+
+  --espaco-1: 4px;
+  --espaco-2: 8px;
+  --espaco-3: 12px;
+  --espaco-4: 16px;
+  --espaco-5: 20px;
+  --espaco-6: 24px;
+  --espaco-8: 32px;
+  --espaco-10: 40px;
+  --espaco-12: 48px;
+
+  --raio-controle: 6px;
+  --raio-painel: 8px;
+  --raio-pilula: 999px;
+
+  --tamanho-12: 0.75rem;
+  --tamanho-13: 0.8125rem;
+  --tamanho-14: 0.875rem;
+  --tamanho-16: 1rem;
+  --tamanho-24: 1.5rem;
+  --tamanho-28: 1.75rem;
+  --tamanho-48: 3rem;
+
+  --fonte:
+    "Mona Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --fonte-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+  --curva-saida: cubic-bezier(0.16, 1, 0.3, 1);
+  --barra-lateral: 240px;
+}
+
+/* O escuro: quase preto com cinzas frios. A ação mantém #2563EB (texto branco a 5,2:1); o realce de texto clareia.
+   O bloco se repete: um para a escolha explícita, outro para o sistema quando a pessoa não escolheu o claro. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --fundo-base: #0a0a0b;
+  --fundo-sutil: #111113;
+  --fundo-realce: #1a1a1d;
+  --borda-base: #26262a;
+  --borda-forte: #34343a;
+  --texto-primario: #ededef;
+  --texto-secundario: #a0a0a8;
+  --texto-terciario: #8a8a93;
+  --texto-sobre-acao: #ffffff;
+  --acao-base: #2563eb;
+  --acao-hover: #3b82f6;
+  --acao-sutil: #13213d;
+  --acao-texto: #93b4fb;
+  --estado-ok-texto: #4cc38a;
+  --estado-ok-fundo: #0f2a1c;
+  --estado-ok-marca: #3fb97a;
+  --estado-aviso-texto: #f5b544;
+  --estado-aviso-fundo: #2e2210;
+  --estado-aviso-marca: #f5a524;
+  --estado-erro-texto: #f87171;
+  --estado-erro-fundo: #2e1414;
+  --estado-erro-marca: #ef4444;
+  --serie-1: #3987e5;
+  --serie-2: #d95926;
+  --serie-3: #199e70;
+  --serie-4: #c98500;
+  --foco: #93b4fb;
+  --sombra-flutuante: 0 12px 32px -8px rgb(0 0 0 / 0.6), 0 2px 8px -2px rgb(0 0 0 / 0.5);
+  --veu: rgb(0 0 0 / 0.6);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --fundo-base: #0a0a0b;
+    --fundo-sutil: #111113;
+    --fundo-realce: #1a1a1d;
+    --borda-base: #26262a;
+    --borda-forte: #34343a;
+    --texto-primario: #ededef;
+    --texto-secundario: #a0a0a8;
+    --texto-terciario: #8a8a93;
+    --texto-sobre-acao: #ffffff;
+    --acao-base: #2563eb;
+    --acao-hover: #3b82f6;
+    --acao-sutil: #13213d;
+    --acao-texto: #93b4fb;
+    --estado-ok-texto: #4cc38a;
+    --estado-ok-fundo: #0f2a1c;
+    --estado-ok-marca: #3fb97a;
+    --estado-aviso-texto: #f5b544;
+    --estado-aviso-fundo: #2e2210;
+    --estado-aviso-marca: #f5a524;
+    --estado-erro-texto: #f87171;
+    --estado-erro-fundo: #2e1414;
+    --estado-erro-marca: #ef4444;
+    --serie-1: #3987e5;
+    --serie-2: #d95926;
+    --serie-3: #199e70;
+    --serie-4: #c98500;
+    --foco: #93b4fb;
+    --sombra-flutuante: 0 12px 32px -8px rgb(0 0 0 / 0.6), 0 2px 8px -2px rgb(0 0 0 / 0.5);
+    --veu: rgb(0 0 0 / 0.6);
+  }
+}

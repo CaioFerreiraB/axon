@@ -395,8 +395,21 @@ prefixo); versão no corpo e 409/422 com `param`. A 011 liga tudo (`bootstrap/ob
 `AI_CORE_LANGFUSE_*` (tudo ou nada) e `AI_CORE_USAGE_TIMEZONE`/`AI_CORE_USAGE_RETENTION_DAYS`, tarefas `usage.flush`
 (2 s) e `usage.purge`, ajustes lidos quando o pool abre, itens `trace:usage`/`trace:langfuse` e os modelos efetivos na
 saúde; `TEST_ADMIN_USERNAME`/`TEST_ADMIN_PASSWORD` também em `ai_core.bootstrap.profiles`. A prova sem rede é
-`tests/bootstrap/integration/test_platform_identity_admin.py`. A console (013) e a instalação com ela (002 US7) são os
-incrementos 9.3 e 9.4.
+`tests/bootstrap/integration/test_platform_identity_admin.py`.
+Incremento 9.3: a **console de administração** (spec 013, US1–US7) em `ai-core/console/` — SPA React 19 + TypeScript
+(Vite 8, React Router 8, TanStack Query, `zod`, Radix, gráficos em SVG próprio com `d3-scale`, CSS Modules sobre os
+tokens do desenho aprovado no Penpot, Mona Sans e JetBrains Mono servidas pela própria console). Entra pela 012 como
+cliente público `console` (PKCE, `nonce`, tokens só em memória; renovação pelo token de renovação) e fala só com
+`/admin/v1`; telas de uso e custo (página inicial), preços, Assistants (Modelos — a sobreposição de `models` é a seção
+inteira —, MCP e Histórico), servidores MCP, observabilidade e acesso (usuários, grupos e login), temas claro e escuro.
+Fronteira por ESLint: `fetch` só em `src/api/` e `oidc-client-ts` só em `src/auth/`. Rode a partir de `ai-core/console/`
+com `source ~/.nvm/nvm.sh && nvm use` (Node 24): `npm ci && npm run typecheck && npm run lint && npm test` (Vitest + MSW)
+e `npx playwright install chromium && npm run e2e` (Playwright + axe; o `webServer` sobe a plataforma em memória com
+`uv run python console/e2e/serve_platform.py` na porta 8765 e o `vite preview` na 4173). O nginx da instalação está em
+`deploy/nginx.conf.template` (teste de fumaça: `e2e/serve_nginx.sh` e `CONSOLE_NGINX_URL=http://127.0.0.1:8080 npx
+playwright test e2e/serving.spec.ts`); a CI é `.github/workflows/console.yml`. O e2e achou dois defeitos da 012,
+corrigidos: `Referrer-Policy: same-origin` (com `no-referrer`, o Chromium mandava `Origin: null` no formulário de login;
+R18) e a Mona Sans servida pelas páginas (R19). A instalação com a console (002 US7) é o incremento 9.4.
 
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =

@@ -41,7 +41,7 @@ Escritas de recursos versionados levam `version` no corpo (ou na query, no `DELE
 |---|---|---|
 | `GET /assistants` | — | `{"data": [AssistantView…]}` |
 | `GET /assistants/{name}` | — | `AssistantView` |
-| `PUT /assistants/{name}/models` | `{"roles": {"generation": "openrouter/openai/gpt-4.1-mini", "controller": "…"}, "version": 3}` | `AssistantView` |
+| `PUT /assistants/{name}/models` | `{"roles": {"generation": "openrouter/openai/gpt-4.1-mini", "controller": "…"}, "version": 3}` — a seção inteira (003 FR-018): papel ausente fica sem modelo | `AssistantView` |
 | `PUT /assistants/{name}/mcp` | `{"aliases": ["arquivos"], "allowed": ["arquivos.listar"], "write": [], "version": null}` | `AssistantView` |
 | `DELETE /assistants/{name}/overrides/{models\|mcp}?version=3` | — | `AssistantView` |
 | `GET /assistants/{name}/history` | — | `{"data": [{"section", "action", "payload", "version", "actor", "at"}…]}` |
@@ -57,7 +57,7 @@ Escritas de recursos versionados levam `version` no corpo (ou na query, no `DELE
           "mcp": {"aliases": ["arquivos", "agenda"], "allowed": ["arquivos.listar"], "write": []}},
  "overrides": [{"section": "models", "state": "active", "reason": null, "version": 3,
                 "updated_by": "user:ana", "updated_at": "2026-10-07T17:32:00Z",
-                "payload": {"generation": "openrouter/openai/gpt-4.1-mini"}}],
+                "payload": {"generation": "openrouter/openai/gpt-4.1-mini", "controller": "openrouter/openai/gpt-4.1-nano"}}],
  "effective": {"models": {"generation": "openrouter/openai/gpt-4.1-mini", "controller": "openrouter/openai/gpt-4.1-nano"},
                "mcp": {"aliases": ["arquivos", "agenda"], "allowed": ["arquivos.listar"], "write": []}}}
 ```

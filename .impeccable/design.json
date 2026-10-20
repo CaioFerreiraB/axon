@@ -1,0 +1,1046 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-20T12:03:15+00:00",
+  "title": "Design System: Agentic — console de administração e login",
+  "extensions": {
+    "colorMeta": {
+      "fundo-base": {
+        "role": "neutral",
+        "displayName": "Branco base",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "fundo-sutil": {
+        "role": "neutral",
+        "displayName": "Névoa",
+        "canonical": "#fafafa",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "fundo-realce": {
+        "role": "neutral",
+        "displayName": "Realce",
+        "canonical": "#f4f4f5",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#252526",
+          "#424243",
+          "#616162",
+          "#828283",
+          "#a5a5a6",
+          "#c9c9ca",
+          "#eeeeef"
+        ]
+      },
+      "borda-base": {
+        "role": "neutral",
+        "displayName": "Fio base",
+        "canonical": "#e8e8ea",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#252526",
+          "#424243",
+          "#616163",
+          "#828284",
+          "#a5a5a7",
+          "#c9c9cb",
+          "#eeeef0"
+        ]
+      },
+      "borda-forte": {
+        "role": "neutral",
+        "displayName": "Fio forte",
+        "canonical": "#d4d4d8",
+        "tonalRamp": [
+          "#0b0b0d",
+          "#252528",
+          "#424245",
+          "#616164",
+          "#828285",
+          "#a4a4a8",
+          "#c9c9cd",
+          "#eeeef2"
+        ]
+      },
+      "texto-primario": {
+        "role": "neutral",
+        "displayName": "Grafite",
+        "canonical": "#18181b",
+        "tonalRamp": [
+          "#0b0b0e",
+          "#252528",
+          "#424245",
+          "#616164",
+          "#828286",
+          "#a4a4a9",
+          "#c9c9cd",
+          "#eeeef2"
+        ]
+      },
+      "texto-secundario": {
+        "role": "neutral",
+        "displayName": "Grafite médio",
+        "canonical": "#5f5f66",
+        "tonalRamp": [
+          "#0b0b10",
+          "#24242a",
+          "#414148",
+          "#606067",
+          "#818189",
+          "#a4a4ac",
+          "#c8c8d0",
+          "#edeef6"
+        ]
+      },
+      "texto-terciario": {
+        "role": "neutral",
+        "displayName": "Grafite claro",
+        "canonical": "#74747c",
+        "tonalRamp": [
+          "#0b0a10",
+          "#24242b",
+          "#414148",
+          "#606068",
+          "#81818a",
+          "#a4a4ad",
+          "#c8c8d1",
+          "#ededf7"
+        ]
+      },
+      "texto-sobre-acao": {
+        "role": "neutral",
+        "displayName": "Branco sobre ação",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "acao-base": {
+        "role": "primary",
+        "displayName": "Azul de ação",
+        "canonical": "#2563eb",
+        "tonalRamp": [
+          "#00062a",
+          "#011b61",
+          "#06359c",
+          "#1451d8",
+          "#407af4",
+          "#75a3fd",
+          "#b0cafb",
+          "#e6efff"
+        ]
+      },
+      "acao-hover": {
+        "role": "primary",
+        "displayName": "Azul de ação (hover)",
+        "canonical": "#1d4ed8",
+        "tonalRamp": [
+          "#000036",
+          "#010578",
+          "#0326b2",
+          "#1e50da",
+          "#4579f5",
+          "#78a2fe",
+          "#b1c9fb",
+          "#e7effd"
+        ]
+      },
+      "acao-sutil": {
+        "role": "primary",
+        "displayName": "Azul sutil",
+        "canonical": "#eff4ff",
+        "tonalRamp": [
+          "#080b12",
+          "#21252d",
+          "#3e424b",
+          "#5d616a",
+          "#7e828c",
+          "#a0a5af",
+          "#c4c9d4",
+          "#eaeef9"
+        ]
+      },
+      "acao-texto": {
+        "role": "primary",
+        "displayName": "Azul de texto",
+        "canonical": "#1d4ed8",
+        "tonalRamp": [
+          "#000036",
+          "#010578",
+          "#0326b2",
+          "#1e50da",
+          "#4579f5",
+          "#78a2fe",
+          "#b1c9fb",
+          "#e7effd"
+        ]
+      },
+      "estado-ok-texto": {
+        "role": "state",
+        "displayName": "Verde ok (texto)",
+        "canonical": "#15803d",
+        "tonalRamp": [
+          "#010f04",
+          "#002e10",
+          "#075023",
+          "#1a7439",
+          "#379954",
+          "#5ebd76",
+          "#83e299",
+          "#c8ffd2"
+        ]
+      },
+      "estado-ok-fundo": {
+        "role": "state",
+        "displayName": "Verde ok (fundo)",
+        "canonical": "#ecfdf3",
+        "tonalRamp": [
+          "#040e08",
+          "#1c2821",
+          "#38463e",
+          "#57655d",
+          "#77877e",
+          "#9aaaa0",
+          "#bdcec4",
+          "#e2f3e9"
+        ]
+      },
+      "estado-ok-marca": {
+        "role": "state",
+        "displayName": "Verde ok (marca)",
+        "canonical": "#16a34a",
+        "tonalRamp": [
+          "#001003",
+          "#012e0f",
+          "#095022",
+          "#027531",
+          "#029d44",
+          "#44c167",
+          "#6de78a",
+          "#c9fed1"
+        ]
+      },
+      "estado-aviso-texto": {
+        "role": "state",
+        "displayName": "Âmbar aviso (texto)",
+        "canonical": "#a15c07",
+        "tonalRamp": [
+          "#150700",
+          "#391d02",
+          "#60370a",
+          "#8d5008",
+          "#b66f27",
+          "#dc924e",
+          "#fdb97c",
+          "#ffeada"
+        ]
+      },
+      "estado-aviso-fundo": {
+        "role": "state",
+        "displayName": "Âmbar aviso (fundo)",
+        "canonical": "#fef7e6",
+        "tonalRamp": [
+          "#0f0b02",
+          "#2a2518",
+          "#474134",
+          "#676152",
+          "#888273",
+          "#aba595",
+          "#cfc9b8",
+          "#f5eedd"
+        ]
+      },
+      "estado-aviso-marca": {
+        "role": "state",
+        "displayName": "Âmbar aviso (marca)",
+        "canonical": "#f59e0b",
+        "tonalRamp": [
+          "#130900",
+          "#361f00",
+          "#5c3905",
+          "#845615",
+          "#af741f",
+          "#df921f",
+          "#fbbb6e",
+          "#feebd7"
+        ]
+      },
+      "estado-erro-texto": {
+        "role": "state",
+        "displayName": "Vermelho erro (texto)",
+        "canonical": "#c42b2b",
+        "tonalRamp": [
+          "#1e0001",
+          "#4b0506",
+          "#80010c",
+          "#b4161d",
+          "#dd4540",
+          "#fe746a",
+          "#ffb3aa",
+          "#fee9e6"
+        ]
+      },
+      "estado-erro-fundo": {
+        "role": "state",
+        "displayName": "Vermelho erro (fundo)",
+        "canonical": "#fef2f2",
+        "tonalRamp": [
+          "#100909",
+          "#2b2323",
+          "#493f3f",
+          "#685e5e",
+          "#8a7f7f",
+          "#ada2a2",
+          "#d1c6c6",
+          "#f7ebeb"
+        ]
+      },
+      "estado-erro-marca": {
+        "role": "state",
+        "displayName": "Vermelho erro (marca)",
+        "canonical": "#dc2626",
+        "tonalRamp": [
+          "#1f0001",
+          "#4c0304",
+          "#7c1111",
+          "#b61016",
+          "#e73430",
+          "#f87a6d",
+          "#fbb5ac",
+          "#fee9e6"
+        ]
+      },
+      "serie-1": {
+        "role": "data",
+        "displayName": "Série 1, azul",
+        "canonical": "#2a78d6",
+        "tonalRamp": [
+          "#000a20",
+          "#01244e",
+          "#09417f",
+          "#055fba",
+          "#3582e1",
+          "#63a7ff",
+          "#a8ccfc",
+          "#e5f0fe"
+        ]
+      },
+      "serie-2": {
+        "role": "data",
+        "displayName": "Série 2, laranja",
+        "canonical": "#eb6834",
+        "tonalRamp": [
+          "#1a0400",
+          "#421503",
+          "#722603",
+          "#a03d12",
+          "#d5531b",
+          "#fd7845",
+          "#feb59b",
+          "#fdeae3"
+        ]
+      },
+      "serie-3": {
+        "role": "data",
+        "displayName": "Série 3, verde",
+        "canonical": "#1baf7a",
+        "tonalRamp": [
+          "#000f07",
+          "#032d1d",
+          "#104e36",
+          "#11734f",
+          "#19996b",
+          "#37c08a",
+          "#65e5ad",
+          "#c2ffdf"
+        ]
+      },
+      "serie-4": {
+        "role": "data",
+        "displayName": "Série 4, ouro",
+        "canonical": "#eda100",
+        "tonalRamp": [
+          "#120900",
+          "#332104",
+          "#593b04",
+          "#805815",
+          "#ab771e",
+          "#d9961d",
+          "#fbbc60",
+          "#fdecd4"
+        ]
+      },
+      "foco": {
+        "role": "primary",
+        "displayName": "Anel de foco",
+        "canonical": "#2563eb",
+        "tonalRamp": [
+          "#00062a",
+          "#011b61",
+          "#06359c",
+          "#1451d8",
+          "#407af4",
+          "#75a3fd",
+          "#b0cafb",
+          "#e6efff"
+        ]
+      },
+      "fundo-base-escuro": {
+        "role": "neutral",
+        "displayName": "Branco base, tema escuro",
+        "canonical": "#0a0a0b",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#252526",
+          "#424243",
+          "#616162",
+          "#828283",
+          "#a5a5a6",
+          "#c9c9ca",
+          "#eeeef0"
+        ]
+      },
+      "fundo-sutil-escuro": {
+        "role": "neutral",
+        "displayName": "Névoa, tema escuro",
+        "canonical": "#111113",
+        "tonalRamp": [
+          "#0b0b0d",
+          "#252527",
+          "#424244",
+          "#616163",
+          "#828285",
+          "#a5a5a7",
+          "#c9c9cc",
+          "#eeeef1"
+        ]
+      },
+      "fundo-realce-escuro": {
+        "role": "neutral",
+        "displayName": "Realce, tema escuro",
+        "canonical": "#1a1a1d",
+        "tonalRamp": [
+          "#0b0b0e",
+          "#252528",
+          "#424245",
+          "#616164",
+          "#828286",
+          "#a4a4a9",
+          "#c9c9cd",
+          "#eeeef2"
+        ]
+      },
+      "borda-base-escuro": {
+        "role": "neutral",
+        "displayName": "Fio base, tema escuro",
+        "canonical": "#26262a",
+        "tonalRamp": [
+          "#0b0b0e",
+          "#252529",
+          "#414146",
+          "#616165",
+          "#828287",
+          "#a4a4a9",
+          "#c8c8ce",
+          "#eeeef3"
+        ]
+      },
+      "borda-forte-escuro": {
+        "role": "neutral",
+        "displayName": "Fio forte, tema escuro",
+        "canonical": "#34343a",
+        "tonalRamp": [
+          "#0b0b0f",
+          "#24242a",
+          "#414147",
+          "#606067",
+          "#818189",
+          "#a4a4ab",
+          "#c8c8d0",
+          "#edeef5"
+        ]
+      },
+      "texto-primario-escuro": {
+        "role": "neutral",
+        "displayName": "Grafite, tema escuro",
+        "canonical": "#ededef",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#252526",
+          "#424243",
+          "#616163",
+          "#828284",
+          "#a5a5a7",
+          "#c9c9cb",
+          "#eeeef0"
+        ]
+      },
+      "texto-secundario-escuro": {
+        "role": "neutral",
+        "displayName": "Grafite médio, tema escuro",
+        "canonical": "#a0a0a8",
+        "tonalRamp": [
+          "#0b0a10",
+          "#24242b",
+          "#414148",
+          "#606068",
+          "#818189",
+          "#a4a4ac",
+          "#c8c8d0",
+          "#ededf6"
+        ]
+      },
+      "texto-terciario-escuro": {
+        "role": "neutral",
+        "displayName": "Grafite claro, tema escuro",
+        "canonical": "#8a8a93",
+        "tonalRamp": [
+          "#0b0a11",
+          "#24242b",
+          "#414149",
+          "#606069",
+          "#81818a",
+          "#a4a4ad",
+          "#c8c8d2",
+          "#ededf7"
+        ]
+      },
+      "acao-hover-escuro": {
+        "role": "primary",
+        "displayName": "Azul de ação (hover), tema escuro",
+        "canonical": "#3b82f6",
+        "tonalRamp": [
+          "#000923",
+          "#022154",
+          "#003b91",
+          "#0e59c9",
+          "#367df0",
+          "#71a5fa",
+          "#aacbfe",
+          "#e6effe"
+        ]
+      },
+      "acao-sutil-escuro": {
+        "role": "primary",
+        "displayName": "Azul sutil, tema escuro",
+        "canonical": "#13213d",
+        "tonalRamp": [
+          "#020923",
+          "#162440",
+          "#324260",
+          "#506182",
+          "#7083a5",
+          "#92a6c9",
+          "#b6caef",
+          "#e7effe"
+        ]
+      },
+      "acao-texto-escuro": {
+        "role": "primary",
+        "displayName": "Azul de texto, tema escuro",
+        "canonical": "#93b4fb",
+        "tonalRamp": [
+          "#000133",
+          "#0a1e59",
+          "#253e7b",
+          "#425e9f",
+          "#6280c4",
+          "#83a4ea",
+          "#b0c9fe",
+          "#e7effe"
+        ]
+      },
+      "estado-ok-texto-escuro": {
+        "role": "state",
+        "displayName": "Verde ok (texto), tema escuro",
+        "canonical": "#4cc38a",
+        "tonalRamp": [
+          "#000f06",
+          "#022d1a",
+          "#0c4f32",
+          "#08744a",
+          "#0e9a64",
+          "#47bf86",
+          "#70e4a9",
+          "#c5fedd"
+        ]
+      },
+      "estado-ok-fundo-escuro": {
+        "role": "state",
+        "displayName": "Verde ok (fundo), tema escuro",
+        "canonical": "#0f2a1c",
+        "tonalRamp": [
+          "#000f06",
+          "#102b1d",
+          "#2e493a",
+          "#4d6958",
+          "#6d8b79",
+          "#8fae9b",
+          "#b3d2bf",
+          "#d7f8e4"
+        ]
+      },
+      "estado-ok-marca-escuro": {
+        "role": "state",
+        "displayName": "Verde ok (marca), tema escuro",
+        "canonical": "#3fb97a",
+        "tonalRamp": [
+          "#000f05",
+          "#022e18",
+          "#0c4f2f",
+          "#077445",
+          "#0c9b5e",
+          "#46bf80",
+          "#6fe5a3",
+          "#c5ffda"
+        ]
+      },
+      "estado-aviso-texto-escuro": {
+        "role": "state",
+        "displayName": "Âmbar aviso (texto), tema escuro",
+        "canonical": "#f5b544",
+        "tonalRamp": [
+          "#120900",
+          "#322104",
+          "#583c03",
+          "#7f5913",
+          "#a9781c",
+          "#d69819",
+          "#fdbc4c",
+          "#feecd1"
+        ]
+      },
+      "estado-aviso-fundo-escuro": {
+        "role": "state",
+        "displayName": "Âmbar aviso (fundo), tema escuro",
+        "canonical": "#2e2210",
+        "tonalRamp": [
+          "#130900",
+          "#2f2311",
+          "#4d402d",
+          "#6d5f4b",
+          "#8f806b",
+          "#b2a38d",
+          "#d6c7b0",
+          "#fcecd5"
+        ]
+      },
+      "estado-aviso-marca-escuro": {
+        "role": "state",
+        "displayName": "Âmbar aviso (marca), tema escuro",
+        "canonical": "#f5a524",
+        "tonalRamp": [
+          "#130900",
+          "#352001",
+          "#5a3a08",
+          "#855604",
+          "#b17406",
+          "#db9427",
+          "#fcbb64",
+          "#feebd5"
+        ]
+      },
+      "estado-erro-texto-escuro": {
+        "role": "state",
+        "displayName": "Vermelho erro (texto), tema escuro",
+        "canonical": "#f87171",
+        "tonalRamp": [
+          "#1e0102",
+          "#4a060d",
+          "#7f0419",
+          "#ac2933",
+          "#d35053",
+          "#fc7474",
+          "#feb3af",
+          "#fde9e8"
+        ]
+      },
+      "estado-erro-fundo-escuro": {
+        "role": "state",
+        "displayName": "Vermelho erro (fundo), tema escuro",
+        "canonical": "#2e1414",
+        "tonalRamp": [
+          "#1a0404",
+          "#371c1c",
+          "#573938",
+          "#785857",
+          "#9b7977",
+          "#bf9b9a",
+          "#e4bfbd",
+          "#fee9e8"
+        ]
+      },
+      "estado-erro-marca-escuro": {
+        "role": "state",
+        "displayName": "Vermelho erro (marca), tema escuro",
+        "canonical": "#ef4444",
+        "tonalRamp": [
+          "#1e0001",
+          "#4a0508",
+          "#800310",
+          "#b31822",
+          "#e4393b",
+          "#fd746d",
+          "#feb3ac",
+          "#fee9e7"
+        ]
+      },
+      "serie-1-escuro": {
+        "role": "data",
+        "displayName": "Série 1, azul, tema escuro",
+        "canonical": "#3987e5",
+        "tonalRamp": [
+          "#000b20",
+          "#01244d",
+          "#08417e",
+          "#025fb9",
+          "#3482e0",
+          "#62a7fe",
+          "#a8ccfb",
+          "#e5f0fd"
+        ]
+      },
+      "serie-2-escuro": {
+        "role": "data",
+        "displayName": "Série 2, laranja, tema escuro",
+        "canonical": "#d95926",
+        "tonalRamp": [
+          "#1b0300",
+          "#441200",
+          "#712605",
+          "#a03e16",
+          "#d45420",
+          "#fc7949",
+          "#feb59c",
+          "#ffe9e2"
+        ]
+      },
+      "serie-3-escuro": {
+        "role": "data",
+        "displayName": "Série 3, verde, tema escuro",
+        "canonical": "#199e70",
+        "tonalRamp": [
+          "#000f07",
+          "#022d1d",
+          "#0c4e36",
+          "#087350",
+          "#0e9a6c",
+          "#47be8e",
+          "#70e3b1",
+          "#c6fee2"
+        ]
+      },
+      "serie-4-escuro": {
+        "role": "data",
+        "displayName": "Série 4, ouro, tema escuro",
+        "canonical": "#c98500",
+        "tonalRamp": [
+          "#130900",
+          "#352001",
+          "#5a3b08",
+          "#845603",
+          "#b07404",
+          "#da9526",
+          "#fcbc63",
+          "#feebd5"
+        ]
+      },
+      "foco-escuro": {
+        "role": "primary",
+        "displayName": "Anel de foco, tema escuro",
+        "canonical": "#93b4fb",
+        "tonalRamp": [
+          "#000133",
+          "#0a1e59",
+          "#253e7b",
+          "#425e9f",
+          "#6280c4",
+          "#83a4ea",
+          "#b0c9fe",
+          "#e7effe"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "A figura principal da faixa de números (custo do período); uma por tela."
+      },
+      "headline": {
+        "displayName": "Título de página",
+        "purpose": "Título da página da console e h1 do login; leva word-spacing 0.06em."
+      },
+      "stat": {
+        "displayName": "Número da faixa",
+        "purpose": "Requisições, chamadas e tokens na faixa de números."
+      },
+      "title": {
+        "displayName": "Título de painel",
+        "purpose": "Painel, seção e diálogo; leva word-spacing 0.06em."
+      },
+      "body": {
+        "displayName": "Corpo",
+        "purpose": "Texto corrente, células, navegação, campos."
+      },
+      "body-sm": {
+        "displayName": "Corpo menor",
+        "purpose": "Subtítulos, notas e metadados."
+      },
+      "label": {
+        "displayName": "Rótulo",
+        "purpose": "Rótulo de campo, rótulo da faixa de números, item do segmentado."
+      },
+      "caption": {
+        "displayName": "Legenda",
+        "purpose": "Cabeçalho de coluna, selo, eixo e legenda do gráfico, ajuda e erro de campo."
+      },
+      "mono": {
+        "displayName": "Identificador",
+        "purpose": "Só identificadores: modelos, papéis, aliases, endereços, nomes de usuário, valores do YAML."
+      }
+    },
+    "shadows": [
+      {
+        "name": "sombra-flutuante",
+        "value": "0 8px 24px -6px rgb(24 24 27 / 0.14), 0 2px 6px -2px rgb(24 24 27 / 0.08)",
+        "purpose": "Diálogo, dica do gráfico e menu de ações (tema claro)."
+      },
+      {
+        "name": "sombra-flutuante-escuro",
+        "value": "0 12px 32px -8px rgb(0 0 0 / 0.6), 0 2px 8px -2px rgb(0 0 0 / 0.5)",
+        "purpose": "Diálogo, dica e menu (tema escuro)."
+      },
+      {
+        "name": "anel-de-foco-campo",
+        "value": "0 0 0 1px var(--acao-base)",
+        "purpose": "Contorno de foco do campo, junto da borda na cor de ação; vermelho quando inválido. Não é elevação."
+      },
+      {
+        "name": "veu",
+        "value": "rgb(24 24 27 / 0.36)",
+        "purpose": "Fundo atrás do diálogo (escuro: rgb(0 0 0 / 0.6))."
+      }
+    ],
+    "motion": [
+      {
+        "name": "curva-saida",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Toda transição de estado."
+      },
+      {
+        "name": "rapido",
+        "value": "120ms",
+        "purpose": "Cor de botão, campo, item de navegação, linha de tabela, caixa de seleção."
+      },
+      {
+        "name": "medio",
+        "value": "160ms",
+        "purpose": "Interruptor e véu do diálogo."
+      },
+      {
+        "name": "entrada",
+        "value": "200ms",
+        "purpose": "Diálogo sobe 8px e aparece."
+      },
+      {
+        "name": "esqueleto",
+        "value": "1.6s ease-in-out infinite",
+        "purpose": "Pulso do esqueleto; parado com prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "login-cartao",
+        "value": "640px"
+      },
+      {
+        "name": "console-compacta",
+        "value": "1024px"
+      },
+      {
+        "name": "console-trilho",
+        "value": "1100px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Botão primário",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "A ação principal de uma área: salvar, cadastrar, novo servidor.",
+      "html": "<button class=\"ds-btn-primary\">Salvar sobreposição</button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 12px;border:1px solid transparent;border-radius:6px;background:var(--acao-base, #2563eb);color:var(--texto-sobre-acao, #ffffff);font-family:'Mona Sans',ui-sans-serif,system-ui,sans-serif;font-size:0.875rem;font-weight:500;line-height:1;cursor:pointer;transition:background-color 120ms cubic-bezier(0.16,1,0.3,1)}.ds-btn-primary:hover{background:var(--acao-hover, #1d4ed8)}.ds-btn-primary:focus-visible{outline:2px solid var(--foco, #2563eb);outline-offset:2px}.ds-btn-primary:disabled{opacity:.45;cursor:not-allowed}"
+    },
+    {
+      "name": "Botão secundário",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Ação de apoio ao lado da primária: cancelar, descartar, exportar.",
+      "html": "<button class=\"ds-btn-secondary\">Cancelar</button>",
+      "css": ".ds-btn-secondary{display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 12px;border:1px solid var(--borda-forte, #d4d4d8);border-radius:6px;background:var(--fundo-base, #ffffff);color:var(--texto-primario, #18181b);font-family:'Mona Sans',ui-sans-serif,system-ui,sans-serif;font-size:0.875rem;font-weight:500;line-height:1;cursor:pointer;transition:background-color 120ms cubic-bezier(0.16,1,0.3,1)}.ds-btn-secondary:hover{background:var(--fundo-sutil, #fafafa)}.ds-btn-secondary:focus-visible{outline:2px solid var(--foco, #2563eb);outline-offset:2px}"
+    },
+    {
+      "name": "Botão de perigo",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Ação destrutiva: revogar, desativar, remover.",
+      "html": "<button class=\"ds-btn-danger\">Revogar chave</button>",
+      "css": ".ds-btn-danger{display:inline-flex;align-items:center;height:32px;padding:0 12px;border:1px solid var(--borda-forte, #d4d4d8);border-radius:6px;background:var(--fundo-base, #ffffff);color:var(--estado-erro-texto, #c42b2b);font-family:'Mona Sans',ui-sans-serif,system-ui,sans-serif;font-size:0.875rem;font-weight:500;line-height:1;cursor:pointer}.ds-btn-danger:hover{background:var(--estado-erro-fundo, #fef2f2);border-color:var(--estado-erro-texto, #c42b2b)}.ds-btn-danger:focus-visible{outline:2px solid var(--foco, #2563eb);outline-offset:2px}"
+    },
+    {
+      "name": "Campo de modelo (identificador)",
+      "kind": "input",
+      "refersTo": "input-identificador",
+      "description": "Campo com rótulo, valor em mono e ajuda; texto livre com sugestões por datalist.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Sobreposição</span><input class=\"ds-input ds-input-mono\" list=\"ds-modelos\" value=\"openrouter/openai/gpt-4.1-mini\"><datalist id=\"ds-modelos\"><option value=\"ollama/qwen3:1.7b\"></datalist><span class=\"ds-field-help\">Igual ao YAML</span></label>",
+      "css": ".ds-field{display:flex;flex-direction:column;gap:6px;font-family:'Mona Sans',ui-sans-serif,system-ui,sans-serif}.ds-field-label{font-size:0.8125rem;font-weight:500;color:var(--texto-primario, #18181b)}.ds-field-help{font-size:0.75rem;line-height:1.4;color:var(--texto-secundario, #5f5f66)}.ds-input{width:100%;height:36px;padding:0 12px;border:1px solid var(--borda-forte, #d4d4d8);border-radius:6px;background:var(--fundo-base, #ffffff);color:var(--texto-primario, #18181b);font:inherit;font-size:0.875rem;transition:border-color 120ms cubic-bezier(0.16,1,0.3,1),box-shadow 120ms cubic-bezier(0.16,1,0.3,1)}.ds-input:hover{border-color:var(--texto-terciario, #74747c)}.ds-input:focus-visible{outline:none;border-color:var(--acao-base, #2563eb);box-shadow:0 0 0 1px var(--acao-base, #2563eb)}.ds-input-mono{font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;font-size:0.8125rem}"
+    },
+    {
+      "name": "Selo de estado",
+      "kind": "chip",
+      "refersTo": "badge-ok",
+      "description": "Estado com bolinha e texto; nunca só cor.",
+      "html": "<span class=\"ds-badge ds-badge-ok\"><span class=\"ds-dot\"></span>Disponível</span> <span class=\"ds-badge ds-badge-erro\"><span class=\"ds-dot\"></span>Indisponível</span>",
+      "css": ".ds-badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px 0 7px;border-radius:999px;font-family:'Mona Sans',ui-sans-serif,system-ui,sans-serif;font-size:0.75rem;font-weight:500;line-height:1;white-space:nowrap}.ds-dot{width:6px;height:6px;border-radius:50%}.ds-badge-ok{background:var(--estado-ok-fundo, #ecfdf3);color:var(--estado-ok-texto, #15803d)}.ds-badge-ok .ds-dot{background:var(--estado-ok-marca, #16a34a)}.ds-badge-erro{background:var(--estado-erro-fundo, #fef2f2);color:var(--estado-erro-texto, #c42b2b)}.ds-badge-erro .ds-dot{background:var(--estado-erro-marca, #dc2626)}"
+    },
+    {
+      "name": "Selo Definido na instalação",
+      "kind": "chip",
+      "refersTo": "badge-neutro",
+      "description": "Campo vindo do ambiente da instalação: somente leitura, sempre com cadeado.",
+      "html": "<span class=\"ds-badge-lock\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"3.25\" y=\"7\" width=\"9.5\" height=\"7\" rx=\"1.5\"/><path d=\"M5.5 7V5a2.5 2.5 0 0 1 5 0v2\"/></svg>Definido na instalação</span>",
+      "css": ".ds-badge-lock{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px 0 7px;border-radius:999px;background:var(--fundo-realce, #f4f4f5);color:var(--texto-secundario, #5f5f66);font-family:'Mona Sans',ui-sans-serif,system-ui,sans-serif;font-size:0.75rem;font-weight:500;line-height:1;white-space:nowrap}"
+    },
+    {
+      "name": "Navegação lateral",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Itens da barra lateral de 240px; ativo em fundo realce.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item\" aria-current=\"page\" href=\"#\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M2 13.5h12M4 11V8M8 11V3.5M12 11V6\"/></svg>Uso e custo</a><a class=\"ds-nav-item\" href=\"#\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M1.5 8.5h3l2-5 3 9 2-4h3\"/></svg>Observabilidade</a></nav>",
+      "css": ".ds-nav{display:flex;flex-direction:column;gap:2px;width:216px;padding:12px;background:var(--fundo-sutil, #fafafa);font-family:'Mona Sans',ui-sans-serif,system-ui,sans-serif}.ds-nav-item{display:flex;align-items:center;gap:10px;height:32px;padding:0 8px;border-radius:6px;color:var(--texto-secundario, #5f5f66);font-size:0.875rem;text-decoration:none;transition:background-color 120ms cubic-bezier(0.16,1,0.3,1),color 120ms cubic-bezier(0.16,1,0.3,1)}.ds-nav-item:hover,.ds-nav-item[aria-current=page]{background:var(--fundo-realce, #f4f4f5);color:var(--texto-primario, #18181b)}.ds-nav-item[aria-current=page]{font-weight:500}.ds-nav-item:focus-visible{outline:2px solid var(--foco, #2563eb);outline-offset:2px}"
+    },
+    {
+      "name": "Seletor segmentado",
+      "kind": "custom",
+      "refersTo": "segmented",
+      "description": "Período 7/30/90, agrupamento, filtros e tema.",
+      "html": "<div class=\"ds-seg\" role=\"group\"><button class=\"ds-seg-item\">7 dias</button><button class=\"ds-seg-item\" data-state=\"on\">30 dias</button><button class=\"ds-seg-item\">90 dias</button></div>",
+      "css": ".ds-seg{display:inline-flex;align-items:center;gap:2px;height:32px;padding:2px;border-radius:6px;background:var(--fundo-realce, #f4f4f5)}.ds-seg-item{height:28px;padding:0 10px;border:1px solid transparent;border-radius:5px;background:transparent;color:var(--texto-secundario, #5f5f66);font-family:'Mona Sans',ui-sans-serif,system-ui,sans-serif;font-size:0.8125rem;font-weight:500;cursor:pointer}.ds-seg-item:hover{color:var(--texto-primario, #18181b)}.ds-seg-item[data-state=on]{background:var(--fundo-base, #ffffff);border-color:var(--borda-base, #e8e8ea);color:var(--texto-primario, #18181b)}.ds-seg-item:focus-visible{outline:2px solid var(--foco, #2563eb)}"
+    },
+    {
+      "name": "Tabela em painel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Tabela com fio de 1px e raio de 8px; identificador em mono, números à direita em Mona Sans.",
+      "html": "<div class=\"ds-table-wrap\"><table class=\"ds-table\"><thead><tr><th>Modelo</th><th class=\"ds-num\">Chamadas</th><th class=\"ds-num\">Custo</th></tr></thead><tbody><tr><td class=\"ds-mono\">openai/gpt-4.1-nano</td><td class=\"ds-num\">1.486</td><td class=\"ds-num\">US$ 0,88</td></tr><tr><td class=\"ds-mono\">ollama/qwen3:1.7b</td><td class=\"ds-num\">557</td><td class=\"ds-num\">—</td></tr></tbody></table></div>",
+      "css": ".ds-table-wrap{border:1px solid var(--borda-base, #e8e8ea);border-radius:8px;background:var(--fundo-base, #ffffff);overflow:hidden}.ds-table{width:100%;border-collapse:collapse;font-family:'Mona Sans',ui-sans-serif,system-ui,sans-serif;font-size:0.875rem;color:var(--texto-primario, #18181b)}.ds-table th{height:36px;padding:0 16px;background:var(--fundo-sutil, #fafafa);border-bottom:1px solid var(--borda-base, #e8e8ea);color:var(--texto-secundario, #5f5f66);font-size:0.75rem;font-weight:500;text-align:left}.ds-table td{height:48px;padding:10px 16px;border-bottom:1px solid var(--borda-base, #e8e8ea)}.ds-table tr:last-child td{border-bottom:0}.ds-table tbody tr:hover{background:var(--fundo-sutil, #fafafa)}.ds-table .ds-num{text-align:right;white-space:nowrap}.ds-mono{font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;font-size:0.8125rem;white-space:nowrap}"
+    },
+    {
+      "name": "Aviso informativo",
+      "kind": "custom",
+      "refersTo": "badge-info",
+      "description": "Faixa de aviso com ícone, título e texto; tons info, ok, aviso, erro e neutro.",
+      "html": "<div class=\"ds-notice\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"8\" r=\"6.25\"/><path d=\"M8 7.5v3.5M8 5.25v.01\"/></svg><div><p class=\"ds-notice-title\">O YAML libera a troca de modelos</p><p class=\"ds-notice-text\">A allowlist continua do deploy.</p></div></div>",
+      "css": ".ds-notice{display:flex;gap:10px;padding:12px 14px 12px 12px;border-radius:8px;background:var(--acao-sutil, #eff4ff);color:var(--acao-texto, #1d4ed8);font-family:'Mona Sans',ui-sans-serif,system-ui,sans-serif}.ds-notice svg{flex-shrink:0;margin-top:1px}.ds-notice p{margin:0}.ds-notice-title{font-size:0.875rem;font-weight:500;line-height:1.35}.ds-notice-text{font-size:0.8125rem;line-height:1.45}"
+    }
+  ],
+  "narrative": {
+    "northStar": "O padrão da categoria, bem-acabado",
+    "overview": "**Creative North Star: \"O padrão da categoria, bem-acabado\"**\n\nA console e as páginas de login são ferramentas de operador no acabamento que se espera de Vercel e Linear: neutros de grafite sobre branco (no escuro, quase preto com cinzas frios), um único azul de ação e verde, âmbar e vermelho só para estado. A convenção é o compromisso. Nada de enfeite de outro mundo, nada de painel SaaS genérico de cartões de métrica com ícone e gradiente, nada de frieza de terminal.\n\nA densidade é de ferramenta de trabalho: corpo em 14px, linhas de tabela de 48px, controles de 32px, página com 32–40px de respiro. A profundidade vem de fios de 1px e de três tons de fundo, não de sombra. A tipografia é uma sans só, Mona Sans, com JetBrains Mono restrita a identificadores. Um admin lê `openrouter/openai/gpt-4.1-mini` e sabe que é um valor literal que a plataforma aceita.\n\nO login e \"Minha conta\" (HTML do servidor, sem script) usam os mesmos valores, com celular primeiro: alvos de 44px, campo de 16px para o navegador não dar zoom e cartão com fio só a partir de 640px. A marca visível é sempre a da instalação (nome e logotipo opcionais, ou a inicial num quadrado de grafite), nunca a de um domínio.",
+    "keyCharacteristics": [
+      "Neutros de grafite, um azul de ação, três cores de estado e quatro cores de série de dados.",
+      "Mona Sans 400–700 em tudo; JetBrains Mono só em identificadores.",
+      "Fios de 1px, sem sombra; sombra só no que flutua.",
+      "Raio de 6px nos controles e de 8px nos painéis.",
+      "Temas claro e escuro com os mesmos nomes de token.",
+      "Todo estado de tela é desenhado: vazio, carregando, erro, travado, definido na instalação, acesso negado."
+    ],
+    "rules": [
+      {
+        "name": "The Cor Tem Função Rule",
+        "body": "A cor marca ação (azul) ou estado (ok, aviso, erro). Títulos, ícones de navegação, cabeçalhos e números ficam em neutro. As únicas exceções são as séries do gráfico e o logotipo de terceiros (o \"G\" do Google).",
+        "section": "colors"
+      },
+      {
+        "name": "The Estado Nunca Só Por Cor Rule",
+        "body": "Todo estado leva bolinha de 6px ou ícone junto com o texto: \"Disponível\" com bolinha, \"Definido na instalação\" com cadeado, \"Incompleto: 1 modelo sem preço\" com triângulo. Cor sozinha não carrega significado.",
+        "section": "colors"
+      },
+      {
+        "name": "The Sobreposto É Informação Rule",
+        "body": "Valor sobreposto pela console usa o azul de texto com bolinha azul. É a única leitura de estado do azul, e ele nunca entra no verde, âmbar ou vermelho.",
+        "section": "colors"
+      },
+      {
+        "name": "The Mono É Identificador Rule",
+        "body": "JetBrains Mono vai só em identificadores: referências de modelo, papéis (`generation`), aliases de MCP e de tools, endereços, nomes de usuário, valores do YAML. Números medidos (custo, tokens, contagens) e datas ficam em Mona Sans.",
+        "section": "typography"
+      },
+      {
+        "name": "The Algarismo Proporcional Rule",
+        "body": "Os números usam os algarismos proporcionais padrão da Mona Sans. Não se liga `tnum`, porque o algarismo tabular dela traz o zero cortado. O alinhamento das colunas numéricas vem do alinhamento à direita.",
+        "section": "typography"
+      },
+      {
+        "name": "The Título Com Folga Rule",
+        "body": "Todo título em 600 (`h1`–`h3`) leva `word-spacing: 0.06em`. O espaço da Mona Sans nesse peso é estreito, e sem a folga \"Custo por dia\" se lê \"Custo pordia\".",
+        "section": "typography"
+      },
+      {
+        "name": "The Identificador Inteiro Rule",
+        "body": "Um identificador mono nunca quebra no meio. Ele desce inteiro para a linha de baixo e, se ainda não couber, termina em reticências. A única quebra permitida é a de endereço (abaixo de 1100px, sob o nome do servidor), e só depois de \"/\" ou \".\".",
+        "section": "typography"
+      },
+      {
+        "name": "The Sombra Só No Que Flutua Rule",
+        "body": "Sombra existe só em camada que sai do plano e se sobrepõe ao conteúdo: diálogo, dica e menu. Nada que mora na página tem sombra. O anel de foco do campo (`0 0 0 1px` na cor de foco) é contorno, não elevação.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** usar o azul (`acao-base`) só para ação e o verde, âmbar e vermelho só para estado, sempre com bolinha de 6px ou ícone junto do texto.",
+      "**Do** pôr JetBrains Mono em identificadores (modelos, papéis, aliases, endereços, nomes de usuário, valores do YAML) e Mona Sans em todo o resto, inclusive números e datas.",
+      "**Do** dar `word-spacing: 0.06em` a todo título em 600.",
+      "**Do** desenhar contornos com fio de 1px (`borda-base` em superfície, `borda-forte` em controle) e reservar a sombra flutuante para diálogo, dica e menu.",
+      "**Do** usar 6px de raio em controle e 8px em painel, tabela, aviso e camada flutuante.",
+      "**Do** desenhar todos os estados de cada tela: vazio, carregando com esqueleto, erro com \"Tentar de novo\", travado e \"Definido na instalação\" com cadeado, acesso negado.",
+      "**Do** esconder colunas secundárias abaixo de 1100px e devolver o valor sob o nome, sem perder informação.",
+      "**Do** oferecer, em todo gráfico, dica pelo teclado e tabela equivalente para leitor de tela.",
+      "**Do** usar `datalist` em campo que aceita texto livre com sugestões (referência de modelo)."
+    ],
+    "donts": [
+      "**Don't** ligar `tnum` na Mona Sans: o algarismo tabular dela traz o zero cortado.",
+      "**Don't** quebrar identificador mono no meio. Endereço só quebra depois de \"/\" ou \".\".",
+      "**Don't** pôr sombra em painel, tabela, cartão ou faixa de números.",
+      "**Don't** usar cartões de métrica com ícone, gradiente ou cor decorativa: a faixa de números é uma tabela de uma linha, com fios.",
+      "**Don't** gerar cor de série além das quatro validadas; o excedente vira \"Outros\".",
+      "**Don't** usar `select` para referência de modelo.",
+      "**Don't** pôr marca, termo ou imagem de domínio na console ou no login; a marca é só a da instalação."
+    ]
+  }
+}

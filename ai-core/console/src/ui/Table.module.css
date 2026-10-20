@@ -1,0 +1,90 @@
+.wrap {
+  border: 1px solid var(--borda-base);
+  border-radius: var(--raio-painel);
+  background: var(--fundo-base);
+  overflow-x: auto;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--tamanho-14);
+}
+.table thead th {
+  height: 36px;
+  padding: 0 16px;
+  background: var(--fundo-sutil);
+  border-bottom: 1px solid var(--borda-base);
+  color: var(--texto-secundario);
+  font-size: var(--tamanho-12);
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+}
+.table tbody td,
+.table tfoot td,
+.table tbody th {
+  height: 48px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--borda-base);
+  vertical-align: middle;
+  text-align: left;
+  font-weight: 400;
+}
+.table tbody tr:last-child td,
+.table tbody tr:last-child th {
+  border-bottom: 0;
+}
+.table tfoot td {
+  border-top: 1px solid var(--borda-base);
+  border-bottom: 0;
+  font-weight: 500;
+}
+.table .num {
+  text-align: right;
+  white-space: nowrap;
+}
+.rowLink {
+  cursor: pointer;
+  transition: background-color 120ms var(--curva-saida);
+}
+.rowLink:hover {
+  background: var(--fundo-sutil);
+}
+.muted td,
+.muted th {
+  color: var(--texto-terciario);
+}
+.primaryText {
+  color: var(--texto-primario);
+  font-weight: 500;
+}
+.secondaryText {
+  display: block;
+  margin-top: 2px;
+  color: var(--texto-secundario);
+  font-size: var(--tamanho-13);
+}
+.mono {
+  font-family: var(--fonte-mono);
+  font-size: var(--tamanho-13);
+}
+.truncate {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.table .mono {
+  white-space: nowrap;
+}
+@media (max-width: 1100px) {
+  .table .wideOnly {
+    display: none;
+  }
+}
+.chevron {
+  width: 40px;
+  color: var(--texto-terciario);
+  text-align: right;
+}

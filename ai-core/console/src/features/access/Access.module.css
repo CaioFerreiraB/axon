@@ -1,0 +1,229 @@
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.search {
+  position: relative;
+  width: min(340px, 100%);
+}
+.searchIcon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  color: var(--texto-terciario);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.search .searchInput {
+  padding-left: 34px;
+}
+.summary {
+  margin-left: auto;
+  color: var(--texto-secundario);
+  font-size: var(--tamanho-13);
+}
+.person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--fundo-realce);
+  color: var(--texto-secundario);
+  font-size: 11px;
+  font-weight: 600;
+}
+.personName {
+  color: var(--texto-primario);
+  font-weight: 500;
+}
+.username {
+  margin-left: 6px;
+  white-space: nowrap;
+  color: var(--texto-secundario);
+  font-family: var(--fonte-mono);
+  font-size: var(--tamanho-12);
+}
+.email {
+  display: block;
+  white-space: nowrap;
+  color: var(--texto-secundario);
+  font-size: var(--tamanho-13);
+}
+.chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.stateNote {
+  display: block;
+  margin-top: 4px;
+  color: var(--texto-secundario);
+  font-size: var(--tamanho-12);
+}
+.pager {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.menu {
+  position: relative;
+  display: inline-block;
+}
+.menuList {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: 4px;
+  border: 1px solid var(--borda-base);
+  border-radius: var(--raio-painel);
+  background: var(--fundo-base);
+  box-shadow: var(--sombra-flutuante);
+}
+.menuItem {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--raio-controle);
+  background: none;
+  font-size: var(--tamanho-13);
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.menuItem:hover,
+.menuItem:focus-visible {
+  background: var(--fundo-realce);
+}
+.menuItem:disabled {
+  color: var(--texto-terciario);
+  cursor: not-allowed;
+}
+.danger {
+  color: var(--estado-erro-texto);
+}
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.groupPicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+.legend {
+  margin-bottom: 8px;
+  font-size: var(--tamanho-13);
+  font-weight: 500;
+}
+.fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.secretRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+  margin: 16px 0 0;
+  padding: 14px;
+  border-radius: var(--raio-painel);
+  background: var(--fundo-sutil);
+  font-size: var(--tamanho-13);
+}
+.facts dt {
+  color: var(--texto-secundario);
+}
+.facts dd {
+  margin: 0;
+  text-align: right;
+}
+.panel {
+  border: 1px solid var(--borda-base);
+  border-radius: var(--raio-painel);
+  background: var(--fundo-base);
+}
+.panelHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+}
+.panelHead + .panelBody {
+  border-top: 1px solid var(--borda-base);
+}
+.panelTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.panelTitle {
+  font-size: var(--tamanho-16);
+  font-weight: 600;
+}
+.panelText {
+  margin-top: 4px;
+  color: var(--texto-secundario);
+  font-size: var(--tamanho-13);
+}
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+.panelBody {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+}
+.copyRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.copyRow > :first-child {
+  flex: 1;
+  max-width: 620px;
+}
+.twoFields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 16px;
+  max-width: 840px;
+}
+.inline {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.members {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px 16px;
+}

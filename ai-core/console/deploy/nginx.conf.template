@@ -1,0 +1,74 @@
+# A console servida na mesma origem da plataforma (specs/013-core-admin-console/contracts/serving.md).
+# Renderizado pelo envsubst da imagem nginx-unprivileged (/etc/nginx/templates → conf.d) com AI_CORE_UPSTREAM, que tem
+# padrão http://ai-core:8000 na instalação (002). Os prefixos do core passam sem reescrever o caminho: o emissor e os
+# endereços são os mesmos com ou sem console, e não há CORS (008 FR-028).
+
+map $http_x_forwarded_proto $console_proto {
+    default $http_x_forwarded_proto;
+    "" $scheme;
+}
+
+# HSTS só atrás de https; com o valor vazio, o nginx não manda o cabeçalho.
+map $console_proto $console_hsts {
+    https "max-age=31536000";
+    default "";
+}
+
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+    server_tokens off;
+    client_max_body_size 1m;
+
+    # --- a SPA: arquivos com hash ficam em cache para sempre; index.html é sempre conferido ---------------------------
+    location /assets/ {
+        try_files $uri =404;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        add_header Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self'; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header Strict-Transport-Security $console_hsts always;
+    }
+
+    location / {
+        try_files $uri /index.html;
+        add_header Cache-Control "no-cache" always;
+        add_header Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self'; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header Strict-Transport-Security $console_hsts always;
+    }
+
+    # --- o core: repasse sem reescrever o caminho, com os cabeçalhos do proxy (AI_CORE_TRUSTED_PROXIES) -------------
+    proxy_http_version 1.1;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Forwarded-Proto $console_proto;
+    proxy_set_header X-Forwarded-Host $http_host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+    location /v1/ {
+        proxy_pass ${AI_CORE_UPSTREAM};
+        # Respostas em SSE chegam pedaço a pedaço.
+        proxy_buffering off;
+        proxy_read_timeout 300s;
+    }
+
+    location /private/v1/ {
+        proxy_pass ${AI_CORE_UPSTREAM};
+        proxy_buffering off;
+        proxy_read_timeout 300s;
+    }
+
+    location /admin/v1/ {
+        proxy_pass ${AI_CORE_UPSTREAM};
+    }
+
+    location /oauth2/ {
+        proxy_pass ${AI_CORE_UPSTREAM};
+    }
+
+    location /.well-known/ {
+        proxy_pass ${AI_CORE_UPSTREAM};
+    }
+}

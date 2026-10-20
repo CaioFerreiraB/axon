@@ -1,0 +1,139 @@
+.chart {
+  position: relative;
+}
+.legend {
+  display: flex;
+  max-width: 70%;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--texto-secundario);
+  font-size: var(--tamanho-12);
+}
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.hollow {
+  border: 1px solid var(--texto-terciario);
+  background: transparent;
+}
+.mono {
+  font-family: var(--fonte-mono);
+}
+.plot {
+  position: relative;
+  margin-top: 8px;
+  border-radius: 4px;
+}
+.plot:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 4px;
+}
+.svg {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+.grid {
+  stroke: var(--borda-base);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+.axis {
+  fill: var(--texto-terciario);
+  font-size: 12px;
+}
+.gap {
+  stroke: var(--fundo-base);
+  stroke-width: 2;
+}
+.hover {
+  fill: var(--fundo-realce);
+}
+.marker {
+  stroke: var(--texto-terciario);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+.markerLabel {
+  position: absolute;
+  top: 0;
+  padding: 3px 7px;
+  border: 1px solid var(--borda-base);
+  border-radius: 6px;
+  background: var(--fundo-base);
+  color: var(--texto-secundario);
+  font-size: var(--tamanho-12);
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.tooltip {
+  position: absolute;
+  z-index: 2;
+  min-width: 200px;
+  padding: 10px 12px;
+  border: 1px solid var(--borda-base);
+  border-radius: var(--raio-painel);
+  background: var(--fundo-base);
+  box-shadow: var(--sombra-flutuante);
+  font-size: var(--tamanho-12);
+  pointer-events: none;
+}
+.tooltipDay {
+  margin-bottom: 8px;
+  color: var(--texto-secundario);
+  font-weight: 500;
+}
+.tooltipRow {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+.tooltipTotal {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--borda-base);
+  font-weight: 500;
+}
+.tooltipTotal strong {
+  font-weight: 600;
+}
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  pointer-events: none;
+}
+.overlayTitle {
+  color: var(--texto-primario);
+  font-size: var(--tamanho-14);
+  font-weight: 500;
+}
+.overlayText {
+  color: var(--texto-secundario);
+  font-size: var(--tamanho-13);
+}
+.flipped {
+  transform: translateX(-100%);
+}

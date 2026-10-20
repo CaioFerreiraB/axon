@@ -143,3 +143,46 @@ claro", "Console — escuro"), o `PRODUCT.md` e o contrato de direção em `.imp
   Chromium do Playwright.
 - **Rationale**: o padrão das CIs do repositório.
 - **Alternatives considered**: —
+
+## R14 — Notas da implementação (2026-10-14)
+
+- **Decision**: o que a construção ajustou nas decisões acima, sem mudar nenhuma delas:
+  - **Lint de acessibilidade**: o `eslint-plugin-jsx-a11y` (6.10.2, a última versão) não aceita o ESLint 10 nos
+    peers; ficou de fora. A acessibilidade é provada pelo axe — `axe-core` nos testes de componente e
+    `@axe-core/playwright` no e2e, em todas as telas, nos dois temas e em 768 px.
+  - **Algarismos proporcionais**: os tabulares da Mona Sans desenham o zero cortado, que o desenho aprovado não tem;
+    as colunas numéricas ficam alinhadas à direita.
+  - **`nonce`**: a 012 exige `nonce` no `authorize` e o `oidc-client-ts` não o manda no fluxo de código; a console
+    passa um aleatório no `signinRedirect`, guardado no estado e conferido no `id_token`. O estado do redirecionamento
+    vive no `sessionStorage` só durante a ida ao login (a biblioteca usa o `localStorage` por padrão).
+  - **Sobreposição de modelos é a seção inteira** (003 FR-018): a aba Modelos manda todos os papéis preenchidos; papel
+    vazio fica sem modelo. O exemplo do `admin-api.md` da 008 mesclava a efetiva com o YAML e foi corrigido. A recusa
+    de um papel chega como `models.<papel>` (regra da 003) ou `roles.<papel>` (forma do corpo, 008) — a tela aceita os
+    dois.
+  - **Campo de modelo**: entrada com sugestões (`datalist`) dos modelos conhecidos (YAML, efetivos e preços), porque a
+    API não tem catálogo de modelos; a allowlist é conferida pela API.
+  - **E2e na porta 8765** (`CONSOLE_E2E_PORT`): a 8000 costuma estar tomada pelo encaminhamento de portas do editor. O
+    `serve_platform.py` usa o relógio do sistema — o perfil `test` tem relógio fixo, e o navegador confere `iat`/`exp`.
+  - **Nginx sem privilégio e somente leitura**: `tmpfs` em `/tmp` e em `/etc/nginx/conf.d` com o dono do processo
+    (uid 101), onde o `envsubst` da imagem renderiza o template (`e2e/serve_nginx.sh`).
+  - **Achados em outros módulos**, corrigidos nas próprias specs: a 012 mandava `Referrer-Policy: no-referrer`, e o
+    Chromium serializava a origem do POST do formulário como `null` — o login pelo navegador era recusado (012 R18); as
+    páginas da 012 declaravam a Mona Sans sem servi-la (012 R19); o código 401 do contrato da administração é o
+    `invalid_credential` já existente (008).
+  - **Revisão final (T040)**: veredito "liberar depois dos ajustes", aplicados num lote com uma rodada de confirmação.
+    Rótulos dos marcos medidos e numa faixa acima das barras, a 6 px da própria linha e sem cruzar outra. Tabela do
+    gráfico para leitor de tela num invólucro oculto (tabela ignora a altura de 1 px e criava rolagem). Busca com
+    ícone vencendo o padding do campo. `word-spacing` nos títulos em 600. Ações do cabeçalho centradas. Abaixo de
+    1100 px: tema empilhado e colunas secundárias escondidas (`wideOnly`), com o YAML e o endereço sob o nome e
+    identificadores sem quebra no meio. Servidores MCP com o endereço secundário e o detalhe somente leitura das
+    entradas do `mcp.yaml`. Falta de credencial dita como a ação do operador (`mcpReason`). `::selection` e
+    `caret-color` nas páginas da 012 e `theme-color` na console.
+  - **Sistema visual registrado** em `DESIGN.md` e `.impeccable/design.json` (T041), derivados da build. As
+    divergências pequenas que o registro achou, sem correção por ora:
+    - raio de 12 px no diálogo e no acesso negado;
+    - sombra e branco literal no polegar do interruptor;
+    - tokens da 012 com outros nomes (`--ok-texto`, `--erro-*`);
+    - alguns tamanhos literais (iniciais do avatar, eixo do gráfico);
+    - o CSS do menu flutuante repetido em Acesso e em Servidores MCP.
+- **Rationale**: manter o desenho aprovado e as decisões R1–R13 com o que as bibliotecas e os módulos de fato fazem.
+- **Alternatives considered**: —

@@ -1,0 +1,76 @@
+# CI da console de administração (spec 013, research R13). A console fala só com a API de administração (008) e o
+# protocolo da 012: mudanças nos contratos delas também disparam, e o e2e roda contra a plataforma real em memória.
+name: console
+
+on:
+  pull_request:
+    paths:
+      - "ai-core/console/**"
+      - "ai-core/packages/core/src/ai_core/http/**"
+      - "ai-core/packages/core/src/ai_core/identity/**"
+      - "specs/008-core-http-api/contracts/**"
+      - "specs/012-core-identity/contracts/**"
+      - ".github/workflows/console.yml"
+  push:
+    branches: [main]
+    paths:
+      - "ai-core/console/**"
+      - "ai-core/packages/core/src/ai_core/http/**"
+      - "ai-core/packages/core/src/ai_core/identity/**"
+      - "specs/008-core-http-api/contracts/**"
+      - "specs/012-core-identity/contracts/**"
+      - ".github/workflows/console.yml"
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: ai-core/console
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: ai-core/console/.nvmrc
+          cache: npm
+          cache-dependency-path: ai-core/console/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: ai-core/console/.nvmrc
+          cache: npm
+          cache-dependency-path: ai-core/console/package-lock.json
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Ambiente Python do core (a plataforma do e2e)
+        working-directory: ai-core
+        run: uv sync --locked
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # O webServer do playwright.config.ts sobe a plataforma (uv) e o vite preview; o nginx roda à parte.
+      - run: npx playwright test
+      - name: Nginx da instalação (contracts/serving.md)
+        run: |
+          (cd .. && uv run python console/e2e/serve_platform.py) &
+          ./e2e/serve_nginx.sh &
+          for _ in $(seq 60); do curl -sf http://127.0.0.1:8080/ >/dev/null && curl -sf http://127.0.0.1:8765/.well-known/openid-configuration >/dev/null && break; sleep 2; done
+          CONSOLE_NGINX_URL=http://127.0.0.1:8080 npx playwright test e2e/serving.spec.ts --project=claro
+      - uses: actions/upload-artifact@v5
+        if: failure()
+        with:
+          name: playwright-report
+          path: ai-core/console/playwright-report
+          retention-days: 7

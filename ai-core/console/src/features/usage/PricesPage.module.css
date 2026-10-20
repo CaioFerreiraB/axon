@@ -1,0 +1,33 @@
+.form {
+  display: grid;
+  grid-template-columns: minmax(220px, 2fr) repeat(2, minmax(120px, 1fr)) minmax(150px, 1.1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+.formActions {
+  display: flex;
+  gap: 8px;
+}
+.formNote {
+  margin-top: 14px;
+  color: var(--texto-secundario);
+  font-size: var(--tamanho-13);
+}
+.vigencia {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.by {
+  color: var(--texto-secundario);
+}
+@media (max-width: 1100px) {
+  .form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .formActions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+}

@@ -1,0 +1,32 @@
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.origin {
+  width: auto;
+  min-width: 158px;
+}
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.sectionTitle {
+  font-size: var(--tamanho-16);
+  font-weight: 600;
+}
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--tamanho-13);
+  font-weight: 500;
+  text-decoration: none;
+}
+.link:hover {
+  text-decoration: underline;
+}

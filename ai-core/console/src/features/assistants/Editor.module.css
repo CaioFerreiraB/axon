@@ -1,0 +1,145 @@
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.meta {
+  color: var(--texto-secundario);
+  font-size: var(--tamanho-13);
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 4px 4px 12px;
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio-painel);
+  background: var(--fundo-sutil);
+  font-size: var(--tamanho-13);
+}
+.roleName {
+  font-family: var(--fonte-mono);
+  font-size: var(--tamanho-14);
+  font-weight: 500;
+}
+.yaml {
+  overflow: hidden;
+  color: var(--texto-secundario);
+  font-family: var(--fonte-mono);
+  font-size: var(--tamanho-13);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.colRole {
+  width: 15%;
+}
+.colYaml {
+  width: 22%;
+}
+.colEffective {
+  width: 26%;
+}
+.yamlInline {
+  display: none;
+}
+@media (max-width: 1100px) {
+  .colRole {
+    width: 26%;
+  }
+  .colEffective {
+    width: 30%;
+  }
+  .yamlInline {
+    display: block;
+    margin-top: 6px;
+    color: var(--texto-secundario);
+    font-size: var(--tamanho-12);
+  }
+}
+/* O valor não quebra no meio: desce inteiro para a linha de baixo e, se ainda não couber, termina em reticências. */
+.yamlValue {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  font-family: var(--fonte-mono);
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  white-space: nowrap;
+}
+.cellTop td,
+.cellTop th {
+  vertical-align: top !important;
+  padding-top: 18px !important;
+  padding-bottom: 18px !important;
+}
+.overrideCell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 260px;
+}
+.inputRow {
+  display: flex;
+  gap: 8px;
+}
+.hint {
+  color: var(--texto-secundario);
+  font-size: var(--tamanho-12);
+}
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--tamanho-12);
+}
+.check::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.checkOk {
+  color: var(--estado-ok-texto);
+}
+.checkBad {
+  color: var(--estado-erro-texto);
+}
+.fieldError {
+  color: var(--estado-erro-texto);
+  font-size: var(--tamanho-12);
+}
+.locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--texto-secundario);
+  font-size: var(--tamanho-13);
+}
+.effective {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.effectiveValue {
+  max-width: 100%;
+  overflow: hidden;
+  font-family: var(--fonte-mono);
+  font-size: var(--tamanho-13);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}

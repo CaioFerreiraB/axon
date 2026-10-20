@@ -1,0 +1,28 @@
+.screen {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 24px;
+  background: var(--fundo-sutil);
+  color: var(--texto-secundario);
+}
+.box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: min(480px, 100%);
+}
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--borda-forte);
+  border-top-color: var(--texto-primario);
+  border-radius: 50%;
+  animation: spin 800ms linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

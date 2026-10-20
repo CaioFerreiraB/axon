@@ -1,0 +1,41 @@
+.screen {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 24px;
+  background: var(--fundo-sutil);
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: min(440px, 100%);
+  padding: 32px;
+  border: 1px solid var(--borda-base);
+  border-radius: 12px;
+  background: var(--fundo-base);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--tamanho-14);
+  font-weight: 600;
+}
+.title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.011em;
+}
+.text {
+  color: var(--texto-secundario);
+  font-size: var(--tamanho-14);
+  line-height: 1.55;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
