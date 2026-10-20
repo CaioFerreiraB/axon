@@ -1,6 +1,6 @@
 # Data model — 003 Assistants & Access (Fase 2)
 
-Os tipos publicados vivem em `ai_core/assistants/api.py` e são imutáveis
+Os tipos publicados vivem em `axon_ai/assistants/api.py` e são imutáveis
 (`@dataclass(frozen=True, slots=True, kw_only=True)`). `api.py` importa só a stdlib e os `api.py` de 002
 (`Composition`), 005 (`FLOW_CHAT`) e 006 (`ModelPolicy`, `ModelRef`, `ModelRole` — só value objects, [ADR-016](../../docs/adr/ADR-016-grant-carrega-politica-de-modelos.md)). Os tipos internos vivem em `domain/`
 e não saem do módulo.
@@ -235,7 +235,7 @@ ou `mcp`). Formatos das mensagens em [contracts/assistants-yaml.md](contracts/as
 
 `overrides: frozenset[OverrideSection]` (do YAML; padrão vazio) e `overridden: frozenset[OverrideSection]` (na definição
 efetiva, as seções que uma sobreposição ativa substituiu: os motivos de indisponibilidade nesses campos passam a nomear
-`override.<seção>`, R31). O serviço expõe ainda `overrides_as_operator()` (autoridade do operador) para o `ai-core
+`override.<seção>`, R31). O serviço expõe ainda `overrides_as_operator()` (autoridade do operador) para o `axon-ai
 assistants validate` listar as sobreposições inativas (T082).
 
 ### `ModelsOverride` e `McpOverride` (publicados)
@@ -262,7 +262,7 @@ assistants validate` listar as sobreposições inativas (T082).
 
 ### `OidcAudiences` (configuração do `AccessService`)
 
-`public: str` (padrão `ai-core`), `admin: str` (padrão `ai-core-admin`).
+`public: str` (padrão `axon-ai`), `admin: str` (padrão `ai-core-admin`).
 
 ### Armazenamento (schema `assistants`, migração `003_system_overrides.sql`)
 

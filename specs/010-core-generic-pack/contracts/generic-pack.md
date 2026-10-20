@@ -4,7 +4,7 @@ O pack não expõe seam Python. O que ele publica é o **entry point** e as capa
 devolvem. Este é o contrato observável: quem muda qualquer linha daqui muda o comportamento visível do pack para o
 Pack Registry (002), para Assistants (003) e para o Tool Gateway (004).
 
-Tudo abaixo é consumido pela API pública de `ai_core_contracts` (001) — nenhum tipo novo é criado.
+Tudo abaixo é consumido pela API pública de `axon_ai_contracts` (001) — nenhum tipo novo é criado.
 
 ## Identidade
 
@@ -131,7 +131,7 @@ resposta final.
 
 ### Conformidade da US2 (no core — R18)
 
-`ai-core/packages/core/tests/bootstrap/integration/test_generic_agentic_mcp.py`, perfil `test`, sem rede:
+`axon-ai/packages/core/tests/bootstrap/integration/test_generic_agentic_mcp.py`, perfil `test`, sem rede:
 
 1. a conversa pela API responde 200;
 2. o `response_format` da primeira chamada do controller tem um ramo para `generic.calculate` e outro para `demo.eco`;
@@ -140,5 +140,5 @@ resposta final.
 4. a mesma chamada recebe uma mensagem `tool` com o resultado do MCP dentro de `<tool_result>`.
 
 Opcional, com modelo real (R19): `test_generic_agentic_real.py`, parametrizado por backend — Ollama (pulado sem
-`OLLAMA_BASE_URL`) e OpenRouter (pulado sem `AI_CORE_OPENROUTER_API_KEY`) —: o código devolvido pela tool do MCP aparece
+`OLLAMA_BASE_URL`) e OpenRouter (pulado sem `AXON_OPENROUTER_API_KEY`) —: o código devolvido pela tool do MCP aparece
 na resposta.

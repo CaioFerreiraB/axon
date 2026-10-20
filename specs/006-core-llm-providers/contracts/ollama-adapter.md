@@ -1,6 +1,6 @@
 # Contrato — adapter do provider local (Ollama)
 
-Interno do módulo (`ai_core/llm/adapters/`): descreve como o contrato `LLMProvider` (001) é cumprido sobre a camada
+Interno do módulo (`axon_ai/llm/adapters/`): descreve como o contrato `LLMProvider` (001) é cumprido sobre a camada
 compatível com OpenAI do Ollama (`:11434/v1`), pelo SDK oficial em modo assíncrono ([research.md](../research.md) R4).
 `openai_compat.py` tem a parte que serve a qualquer endpoint compatível; `ollama.py` só fixa os defaults do Ollama.
 

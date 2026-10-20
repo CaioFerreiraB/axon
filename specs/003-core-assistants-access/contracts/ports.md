@@ -1,6 +1,6 @@
 # Contrato — portas secundárias da 003
 
-Internas do módulo (`ai_core/assistants/ports.py`): não são seams, e quem escolhe o adapter é a composition root (011).
+Internas do módulo (`axon_ai/assistants/ports.py`): não são seams, e quem escolhe o adapter é a composition root (011).
 Toda porta tem adapter em memória e suíte de conformidade que roda contra ele e contra o adapter real (princípio XIII).
 Nenhum tipo de biblioteca de infraestrutura aparece nas assinaturas.
 
@@ -70,8 +70,8 @@ A 011 lê e passa estes valores; os nomes de variável são decisão dela (suges
 
 | Adapter | Parâmetros |
 |---|---|
-| `YamlAssistantConfigSource` | caminho do arquivo (`AI_CORE_ASSISTANTS_FILE`, já existente) |
-| `JwksOidcVerifier` | emissor (`AI_CORE_OIDC_ISSUER`), audiência (`AI_CORE_OIDC_AUDIENCE`), URL do JWKS opcional — sem ela, descoberta em `<emissor>/.well-known/openid-configuration` —, algoritmos (default `RS256`, `ES256`), cliente httpx |
+| `YamlAssistantConfigSource` | caminho do arquivo (`AXON_ASSISTANTS_FILE`, já existente) |
+| `JwksOidcVerifier` | emissor (`AXON_OIDC_ISSUER`), audiência (`AXON_OIDC_AUDIENCE`), URL do JWKS opcional — sem ela, descoberta em `<emissor>/.well-known/openid-configuration` —, algoritmos (default `RS256`, `ES256`), cliente httpx |
 | mapeamento de claims (domínio) | claim de subject (default `sub`), claim de grupos (default `groups`), tolerância de relógio (default 60 s) |
 | `PostgresUserAssistantStore`, `PostgresApiKeyStore` | `AsyncConnectionPool` compartilhado (ADR-015); `await migrate(pool, now=clock.now())` (`adapters/postgres_schema.py`) roda no boot, e `MigrationError` para o boot nomeando o arquivo |
 
@@ -90,7 +90,7 @@ credencial — falha fechada, anunciada no relatório de boot.
 | `test_catalogs.py` | vazios, em memória | vazio devolve conjunto vazio; em memória separa globais e do dono |
 | `test_config_source.py` | YAML, memória | ver [assistants-yaml.md](assistants-yaml.md) |
 
-O Postgres roda quando `AI_CORE_TEST_POSTGRES_DSN` está definida (a CI do core a define, com um serviço Postgres); sem
+O Postgres roda quando `AXON_TEST_POSTGRES_DSN` está definida (a CI do core a define, com um serviço Postgres); sem
 ela, os casos do adapter real são pulados com motivo explícito, como o Ollama da 006.
 
 ## Fase 9 (2026-10-14)

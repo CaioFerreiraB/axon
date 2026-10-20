@@ -1,6 +1,6 @@
 # Quickstart — 008 HTTP API (Fase 1, US1)
 
-Guia de validação. Todos os comandos rodam a partir de `ai-core/`. Nesta máquina, prefixe `uv` com
+Guia de validação. Todos os comandos rodam a partir de `axon-ai/`. Nesta máquina, prefixe `uv` com
 `XDG_DATA_HOME=$HOME/.local/share` (ver CLAUDE.md).
 
 ## Pré-requisitos
@@ -65,7 +65,7 @@ tem começo, chamada de modelo, validação e fim.
 Com a composition root ainda por vir (011), o jeito de subir a app é montá-la em processo:
 
 ```python
-from ai_core.http.adapters.app import create_app
+from axon_ai.http.adapters.app import create_app
 app = create_app(engine=engine, authenticator=..., grants=..., request_ids=...)
 # uvicorn app --port 8000
 ```
@@ -77,7 +77,7 @@ curl -N http://localhost:8000/v1/chat/completions \
 ```
 
 Esperado: os pedaços chegando um a um, e `data: [DONE]` no fim. Com um Ollama de verdade atrás do Model Router, é a
-conversa ponta a ponta da Fase 1. A forma definitiva de subir o serviço (`ai-core serve`) é da 011.
+conversa ponta a ponta da Fase 1. A forma definitiva de subir o serviço (`axon serve`) é da 011.
 
 ## Compatibilidade (SC-004)
 
@@ -106,8 +106,8 @@ O SDK já está no ambiente (é o adapter da 006), o que torna esse exercício b
 
 ## Fase 2 (US2, US3, US4, US5, US7)
 
-Comandos a partir de `ai-core/`. Para a conformidade da `ConversationStore` contra Postgres, defina
-`AI_CORE_TEST_POSTGRES_DSN` como no quickstart da 003.
+Comandos a partir de `axon-ai/`. Para a conformidade da `ConversationStore` contra Postgres, defina
+`AXON_TEST_POSTGRES_DSN` como no quickstart da 003.
 
 ```bash
 uv run pytest packages/core/tests/http -v
@@ -150,17 +150,17 @@ false` com o motivo.
 
 Contratos: [admission.md](contracts/admission.md), [open-webui.md](contracts/open-webui.md), as seções "Fase 7" de
 [sse-format.md](contracts/sse-format.md), [errors.md](contracts/errors.md) e
-[chat-completions.md](contracts/chat-completions.md). A partir de `ai-core/`:
+[chat-completions.md](contracts/chat-completions.md). A partir de `axon-ai/`:
 
 ```bash
 uv run pytest packages/core/tests/http -m "us6 or us8"
 ```
 
-**Raciocínio no stream.** Com `ai-core serve` no perfil `memory` e um Ollama local, um pedido em streaming a um
+**Raciocínio no stream.** Com `axon serve` no perfil `memory` e um Ollama local, um pedido em streaming a um
 Assistant `rag_first` mostra, antes do texto, chunks com `delta.reasoning_content` ("Preparando o contexto da
 pergunta…", "Consultando os documentos…", "Escrevendo a resposta…"); nenhum deles depois do primeiro `delta.content`.
 
-**Fila.** Com `AI_CORE_MAX_EXECUTIONS=1 AI_CORE_QUEUE_SIZE=1 AI_CORE_QUEUE_WAIT_MS=30000`, três pedidos simultâneos em
+**Fila.** Com `AXON_MAX_EXECUTIONS=1 AXON_QUEUE_SIZE=1 AXON_QUEUE_WAIT_MS=30000`, três pedidos simultâneos em
 streaming: o primeiro executa, o segundo recebe "Aguardando uma vaga (posição 1 na fila)…" no início e executa depois,
 o terceiro recebe 503 `overloaded` com `Retry-After: 30`.
 
@@ -168,9 +168,9 @@ o terceiro recebe 503 `overloaded` com `Retry-After: 30`.
 `GET /v1/conversations` não muda.
 
 **Medição (R36), 2026-10-13 — com OpenRouter, por decisão do mantenedor** (o suporte ao Ollama local fica para
-depois). `ai-core serve` no perfil `memory` (Ryzen 7 7700, 16 threads, 14 GB), Assistant `conversa` (flow `chat`,
+depois). `axon serve` no perfil `memory` (Ryzen 7 7700, 16 threads, 14 GB), Assistant `conversa` (flow `chat`,
 `ai-generic`), geração `openrouter/~z-ai/glm-flash-latest`, pergunta curta, streaming, `x-ai-core-store: false`, 3
-rodadas por caso, `AI_CORE_MAX_EXECUTIONS=4`:
+rodadas por caso, `AXON_MAX_EXECUTIONS=4`:
 
 | Simultâneas | Primeiro texto (p50 / máx) | Total (p50 / máx) |
 |---|---|---|
@@ -182,7 +182,7 @@ Com o modelo remoto, a concorrência não degrada nada: a plataforma não é o g
 raciocínio sai em 0,01–0,02 s (SC-003). Os defaults ficam nos provisórios **2 / 8 / 60 s** — o que limita execuções é
 o modelo local, e a medição com o Ollama no hardware alvo os confirma ou troca quando o suporte vier.
 
-**Fila de verdade**, mesmo servidor com `AI_CORE_MAX_EXECUTIONS=1 AI_CORE_QUEUE_SIZE=1 AI_CORE_QUEUE_WAIT_MS=30000`,
+**Fila de verdade**, mesmo servidor com `AXON_MAX_EXECUTIONS=1 AXON_QUEUE_SIZE=1 AXON_QUEUE_WAIT_MS=30000`,
 três pedidos simultâneos: o 1º executou (primeiro texto em 2,1 s); o 2º recebeu "Aguardando uma vaga (posição 1 na
 fila)…" em 0,01 s, ganhou a vaga em 3,35 s e terminou em 7,1 s; o 3º recebeu 503 `overloaded` com `Retry-After: 30`.
 

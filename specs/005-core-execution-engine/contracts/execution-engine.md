@@ -1,13 +1,13 @@
 # Contrato — seam Execution Engine (005)
 
 Dono: spec 005. Consumidores: 008 (traduz em SSE), 011 (monta), 003 (valida nomes de flow), 009 (harness, Fase 6).
-Publicado em `ai_core/graph/api.py`. **Mudar qualquer assinatura abaixo exige ADR** (princípio II) — e é justamente o
+Publicado em `axon_ai/graph/api.py`. **Mudar qualquer assinatura abaixo exige ADR** (princípio II) — e é justamente o
 que precisa sobreviver a uma reescrita completa do grafo (SC-001).
 
 ## Superfície
 
 ```python
-from ai_core.graph.api import (
+from axon_ai.graph.api import (
     ExecutionEngine, ExecutionEvent, ExecutionGrant, ExecutionIssue, ExecutionRequest,
     FinalEvent, ProgressEvent, TokenEvent,
     ExecutionError, ExecutionRequestInvalid, UnknownFlow,
@@ -46,7 +46,7 @@ async for event in events:
 | O motor fala com packs só por Pack Hooks e com modelos só pelo Model Router | FR-002 | conformidade + import-linter |
 | `flows()` lista os nomes disponíveis; na Fase 1, `{"chat"}`; com o gateway da 004, também `agentic` (Fase 3) e `rag_first` (Fase 5) | US5 cen. 1 | conformidade do registro |
 | `flow_roles()["rag_first"] == ("generation",)`: o `controller` é opcional e, declarado, é resolvido antes do primeiro evento | FR-007a, ADR-019 | conformidade do registro |
-| `RagSettings(candidates=20, passages=5, min_score=None)`, do operador pela 011 (`AI_CORE_RAG_*`); sem limiar, só a ausência de resultado escala | FR-007, R44 | `test_graph_api.py`, `test_rag_first_flow.py` |
+| `RagSettings(candidates=20, passages=5, min_score=None)`, do operador pela 011 (`AXON_RAG_*`); sem limiar, só a ausência de resultado escala | FR-007, R44 | `test_graph_api.py`, `test_rag_first_flow.py` |
 | Fechar o iterador no meio cancela a execução sem erro | edge case "cliente desconecta" | conformidade do seam |
 | Nenhum tipo de framework de grafo aparece na superfície | ADR-011, SC-001 | import-linter + revisão da superfície |
 

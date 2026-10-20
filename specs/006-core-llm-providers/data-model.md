@@ -1,7 +1,7 @@
 # Data model — 006 LLM Providers (Fase 1)
 
 Todos os tipos publicados são imutáveis (`@dataclass(frozen=True, slots=True, kw_only=True)`) e vivem em
-`ai_core/llm/api.py`, exceto onde indicado. Nenhum deles carrega tipo de SDK, de HTTP ou de outro módulo do core.
+`axon_ai/llm/api.py`, exceto onde indicado. Nenhum deles carrega tipo de SDK, de HTTP ou de outro módulo do core.
 
 ## Value objects publicados
 
@@ -197,8 +197,8 @@ class SecretResolver(Protocol):
 
 | Provider | `name` | URL base | Credencial | Particularidade |
 |---|---|---|---|---|
-| `OpenAIProvider` | `openai` | `https://api.openai.com/v1` | `AI_CORE_OPENAI_API_KEY` | — |
-| `OpenRouterProvider` | `openrouter` | `https://openrouter.ai/api/v1` | `AI_CORE_OPENROUTER_API_KEY` | `require_parameters` com formato; sondagem aceita a base da variante (R22) |
+| `OpenAIProvider` | `openai` | `https://api.openai.com/v1` | `AXON_OPENAI_API_KEY` | — |
+| `OpenRouterProvider` | `openrouter` | `https://openrouter.ai/api/v1` | `AXON_OPENROUTER_API_KEY` | `require_parameters` com formato; sondagem aceita a base da variante (R22) |
 
 Estado de um remoto, fixado na construção: **com credencial** (chamadas normais) ou **sem credencial** (toda chamada e
 toda sondagem relatam a falta, sem rede). Não há transição em processo: trocar a credencial é reiniciar.
@@ -210,7 +210,7 @@ toda sondagem relatam a falta, sem rede). Não há transição em processo: troc
 | `reason` | Quando |
 |---|---|
 | "o papel 'controller' exige response_format com esquema (json_schema)…" | guarda do R17 |
-| "sem credencial: defina AI_CORE_OPENAI_API_KEY" (ou `…OPENROUTER…`) | remoto sem credencial (R21) |
+| "sem credencial: defina AXON_OPENAI_API_KEY" (ou `…OPENROUTER…`) | remoto sem credencial (R21) |
 | "erro 400 do provider: …" / "erro 404 do provider: …" | recusa da restrição pelo provider (R19) |
 
 ## Modos de falha — acréscimos

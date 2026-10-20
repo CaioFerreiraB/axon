@@ -27,7 +27,7 @@ class ConfigSource(Protocol):
     def load(self) -> Settings: ...
 ```
 
-Adapters: `EnvConfigSource` (variáveis `AI_CORE_*`) e `InMemoryConfigSource` (testes).
+Adapters: `EnvConfigSource` (variáveis `AXON_*`) e `InMemoryConfigSource` (testes).
 
 ## Perfil (`profiles.py`)
 
@@ -148,12 +148,12 @@ assistants:
 
 | Campo | Variável | Default | Regra |
 |---|---|---|---|
-| `mcp_file` | `AI_CORE_MCP_FILE` | `None` | caminho do arquivo do operador (formato da 007) |
-| `mcp_discovery_ttl` | `AI_CORE_MCP_DISCOVERY_TTL` | `300.0` | segundos, `> 0` |
-| `tool_timeout_ms` | `AI_CORE_TOOL_TIMEOUT_MS` | `30000` | inteiro, 1 000–300 000 |
-| `tool_max_response_bytes` | `AI_CORE_TOOL_MAX_RESPONSE_BYTES` | `16384` | inteiro, 1 024–1 048 576 |
+| `mcp_file` | `AXON_MCP_FILE` | `None` | caminho do arquivo do operador (formato da 007) |
+| `mcp_discovery_ttl` | `AXON_MCP_DISCOVERY_TTL` | `300.0` | segundos, `> 0` |
+| `tool_timeout_ms` | `AXON_TOOL_TIMEOUT_MS` | `30000` | inteiro, 1 000–300 000 |
+| `tool_max_response_bytes` | `AXON_TOOL_MAX_RESPONSE_BYTES` | `16384` | inteiro, 1 024–1 048 576 |
 
-Fora da regra → `ConfigurationError` nomeando a variável. Credenciais de MCP (`AI_CORE_MCP_SECRET_<REF>`) não passam por
+Fora da regra → `ConfigurationError` nomeando a variável. Credenciais de MCP (`AXON_MCP_SECRET_<REF>`) não passam por
 `Settings` (R27).
 
 ### Portas exigidas — acréscimos
@@ -193,8 +193,17 @@ Fora da regra → `ConfigurationError` nomeando a variável. Credenciais de MCP 
 |---|---|
 | `mcp.yaml` ilegível ou malformado | o boot para na etapa `configuration`, nomeando o arquivo |
 | Entrada do `mcp.yaml` com problema | etapa `mcp_registry` degradada, nomeando alias e motivo; o servidor fica indisponível e o resto sobe |
-| Referência de credencial de servidor global sem `AI_CORE_MCP_SECRET_<REF>` | etapa `mcp_registry` degradada, nomeando alias e referência — nunca valor |
+| Referência de credencial de servidor global sem `AXON_MCP_SECRET_<REF>` | etapa `mcp_registry` degradada, nomeando alias e referência — nunca valor |
 | Entrada `stdio` num perfil sem transporte `stdio` (`memory`) | servidor indisponível na descoberta ("transporte 'stdio' não configurado") |
 | Migração de `mcp` ou `capabilities` quebrada | o boot para na etapa `adapters`, nomeando o schema |
 | Servidor MCP global fora do ar | nada no boot; item `mcp:<alias>` não saudável, saúde `degraded` (200) |
 | Banco fora do ar depois do boot | item `database` crítico, saúde `down` (503); requisições com 503 `storage_unavailable` (008) |
+
+## Fase 9, incremento 9.5 (2026-10-20): identidade Axon (US7)
+
+Nenhuma entidade nova nem campo novo. Mudam só nomes e defaults:
+
+- **Settings**: lidas de `AXON_*` (`PREFIX = "AXON_"`); `display_name` tem default `"Axon"`. A carga recusa o ambiente
+  com algum `AI_CORE_*` (`LEGACY_PREFIX`), antes de construir a `Settings` (research R48).
+- **Pool** do `persistent`: nome `axon`.
+- **Credenciais do perfil `test`**: as mesmas, exportadas por `axon_ai.bootstrap.profiles`.

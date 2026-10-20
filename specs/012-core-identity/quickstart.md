@@ -1,6 +1,6 @@
 # Quickstart — validação da 012 Identity
 
-Roteiro de validação; o código e as tarefas ficam em `tasks.md`. Comandos a partir de `ai-core/`, com
+Roteiro de validação; o código e as tarefas ficam em `tasks.md`. Comandos a partir de `axon-ai/`, com
 `XDG_DATA_HOME=$HOME/.local/share`.
 
 ## 1. Suítes do módulo
@@ -16,8 +16,8 @@ authlib como RP ([contracts/oidc.md](contracts/oidc.md)) passam; os contratos de
 ## 2. Portas contra o Postgres real
 
 ```bash
-docker run -d --rm --name ai-core-pg -e POSTGRES_PASSWORD=pg -p 55432:5432 postgres:17
-AI_CORE_TEST_POSTGRES_DSN=postgresql://postgres:pg@localhost:55432/postgres uv run pytest packages/core/tests/identity
+docker run -d --rm --name axon-ai-pg -e POSTGRES_PASSWORD=pg -p 55432:5432 postgres:17
+AXON_TEST_POSTGRES_DSN=postgresql://postgres:pg@localhost:55432/postgres uv run pytest packages/core/tests/identity
 ```
 
 Esperado: as suítes de `AccountStore`, `GrantStore`, `SigningKeyStore` e `IdentitySettingsStore` passam contra o

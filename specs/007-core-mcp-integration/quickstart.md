@@ -1,6 +1,6 @@
 # Quickstart — 007 MCP Integration (Fase 3)
 
-Roteiro de validação do módulo. Comandos a partir de `ai-core/`, com `XDG_DATA_HOME=$HOME/.local/share` nesta máquina.
+Roteiro de validação do módulo. Comandos a partir de `axon-ai/`, com `XDG_DATA_HOME=$HOME/.local/share` nesta máquina.
 O encaixe na plataforma em execução (rotas da 008, boot da 011, catálogo da 003) é das passadas delas; aqui o módulo é
 validado pelos próprios seams.
 
@@ -8,14 +8,14 @@ validado pelos próprios seams.
 
 ```bash
 uv sync                                                       # traz o SDK de MCP (mcp>=2.2,<3)
-docker run -d --rm --name ai-core-pg -e POSTGRES_PASSWORD=pg -p 55432:5432 postgres:17   # para o adapter Postgres
+docker run -d --rm --name axon-ai-pg -e POSTGRES_PASSWORD=pg -p 55432:5432 postgres:17   # para o adapter Postgres
 ```
 
 ## Suítes
 
 ```bash
 uv run pytest packages/core/tests/mcp -v                                         # memória, SDK local, stdio
-AI_CORE_TEST_POSTGRES_DSN=postgresql://postgres:pg@localhost:55432/postgres \
+AXON_TEST_POSTGRES_DSN=postgresql://postgres:pg@localhost:55432/postgres \
   uv run pytest packages/core/tests/mcp -v                                       # + Postgres
 uv run mypy && uv run ruff check packages && uv run lint-imports
 ```
@@ -40,7 +40,7 @@ Com um servidor MCP qualquer escutando em `http://127.0.0.1:9000/mcp` (por exemp
 
 ```python
 # num REPL com `uv run python`, montando o serviço com os adapters reais e a exceção de host interno
-from ai_core.mcp import api
+from axon_ai.mcp import api
 # 1. create_global(alias="local", endpoint="http://127.0.0.1:9000/mcp", policy.allowed_tools=[...])
 # 2. check("local") → ServerHealth com as tools anunciadas
 # 3. client_for(grant com mcp_aliases={"local"}).discover(["local"]) → as tools da allowlist

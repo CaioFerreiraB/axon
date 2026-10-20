@@ -1,6 +1,6 @@
 # Contrato — `identity.yaml` (clientes do operador)
 
-Lido uma vez no boot pela 011 (`AI_CORE_IDENTITY_CLIENTS_FILE`), somente leitura para a plataforma. Erro de formato
+Lido uma vez no boot pela 011 (`AXON_IDENTITY_CLIENTS_FILE`), somente leitura para a plataforma. Erro de formato
 para o boot com mensagem que nomeia o campo (FR-005).
 
 ```yaml
@@ -8,7 +8,7 @@ version: 1
 clients:
   open-webui:
     type: confidential            # confidential | public
-    secret: open_webui            # referência → AI_CORE_IDENTITY_SECRET_OPEN_WEBUI (só confidential)
+    secret: open_webui            # referência → AXON_IDENTITY_SECRET_OPEN_WEBUI (só confidential)
     audience: ai-core             # aud do token de acesso
     redirect_uris:
       - http://localhost:3000/oauth/oidc/callback
@@ -27,8 +27,8 @@ clients:
 |---|---|
 | chave do cliente | `[a-z0-9][a-z0-9_-]{0,63}`; é o `client_id` |
 | `type` | obrigatório |
-| `secret` | obrigatório em `confidential`, proibido em `public`; gramática de referência `[a-z0-9_]{1,64}` → `AI_CORE_IDENTITY_SECRET_<REF em maiúsculas>`; variável ausente deixa o cliente indisponível (o boot segue, ADR-020) |
-| `audience` | obrigatório; `ai-core` e `ai-core-admin` são os que a 003 aceita hoje |
+| `secret` | obrigatório em `confidential`, proibido em `public`; gramática de referência `[a-z0-9_]{1,64}` → `AXON_IDENTITY_SECRET_<REF em maiúsculas>`; variável ausente deixa o cliente indisponível (o boot segue, ADR-020) |
+| `audience` | obrigatório; `axon-ai` e `ai-core-admin` são os que a 003 aceita hoje |
 | `redirect_uris` | 1+ URIs absolutas; `http` só para `localhost`/`127.0.0.1` ou nome sem ponto (rede interna do compose) |
 | `post_logout_redirect_uris` | 0+ URIs, mesmas regras |
 

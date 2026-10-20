@@ -1,10 +1,10 @@
-# Contrato — portas secundárias da 002 (`ai_core/packs/ports.py`)
+# Contrato — portas secundárias da 002 (`axon_ai/packs/ports.py`)
 
 Portas internas do módulo (não são seams). Cada uma tem adapter em memória e suíte de conformidade que roda contra ele e
 contra o adapter real (princípio XIII).
 
 ```python
-# ai_core/packs/ports.py
+# axon_ai/packs/ports.py
 from __future__ import annotations
 
 @dataclass(frozen=True, slots=True, kw_only=True)

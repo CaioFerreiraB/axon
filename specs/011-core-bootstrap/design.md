@@ -10,19 +10,19 @@
 ## Localização
 
 ```text
-ai-core/packages/core/src/ai_core/bootstrap/
+axon-ai/packages/core/src/axon_ai/bootstrap/
 ├── settings.py     # configuração do operador: packs.yaml, assistants.yaml, perfil, ambiente
 ├── profiles.py     # perfis de adapter: porta → adapter (memory, persistent, test)
 ├── wiring.py       # constrói serviços e adapters e injeta seams; único import de service.py/adapters/ de outros módulos
 ├── lifecycle.py    # ordem de boot e de encerramento, falha fechada por etapa
 ├── health.py       # health agregado
-└── cli.py          # raiz do comando `ai-core`; registra os subcomandos contribuídos pelos módulos
+└── cli.py          # raiz do comando `axon`; registra os subcomandos contribuídos pelos módulos
 ```
 
 ```toml
-# ai-core/packages/core/pyproject.toml
+# axon-ai/packages/core/pyproject.toml
 [project.scripts]
-ai-core = "ai_core.bootstrap.cli:main"
+axon = "axon_ai.bootstrap.cli:main"
 ```
 
 ## Ordem de boot
@@ -58,7 +58,7 @@ sequenceDiagram
 
 ### Fase 9 ([ADR-030](../../docs/adr/ADR-030-a-plataforma-e-o-provedor-de-identidade.md) a [ADR-034](../../docs/adr/ADR-034-trace-com-destinos-e-conteudo-opcional.md))
 
-`configuration` (inclui `AI_CORE_MASTER_KEY`, identidade e Langfuse; emissor único) → `adapters` (+ migrações de
+`configuration` (inclui `AXON_MASTER_KEY`, identidade e Langfuse; emissor único) → `adapters` (+ migrações de
 `identity` e `observability`) → **`identity`** (crítica quando ligada: chave de assinatura, admin inicial, grupo de
 administração protegido) → `packs` → `mcp_registry` → `engine` (Trace Sink com os destinos) → `assistants` (com o
 `SystemOverrideStore` e o `JwksSource` em processo) → `api` (`create_app` com as rotas de administração e
@@ -113,7 +113,7 @@ seams recebidos aqui (ADR-012).
 | `UpstreamOidc` (012) | Google | Google | Google simulado |
 | `UsageStore`, `PriceStore`, `DestinationSettingsStore` (009, Fase 9) | memória | Postgres | memória |
 | `LangfuseTransport` (009) | OTLP/HTTP, se configurado | OTLP/HTTP, se configurado | Langfuse simulado (troca de porta) |
-| `SecretCipher` (009, 012) | chave mestra efêmera | `AI_CORE_MASTER_KEY` (obrigatória quando há o que cifrar) | chave fixa |
+| `SecretCipher` (009, 012) | chave mestra efêmera | `AXON_MASTER_KEY` (obrigatória quando há o que cifrar) | chave fixa |
 
 Um único adapter atende todas as portas de mesmo papel (`Clock`, `SecretResolver`): os `Protocol` são estruturais, então
 uma implementação satisfaz a porta declarada por cada módulo.
@@ -121,14 +121,14 @@ uma implementação satisfaz a porta declarada por cada módulo.
 ## Linha de comando
 
 ```bash
-ai-core serve                  # boot completo + API
-ai-core packs list             # 002 — adapters/cli.py do módulo
-ai-core packs check            # 002 — roda no build da imagem (ADR-009)
-ai-core assistants validate    # 003 — adapters/cli.py do módulo
-ai-core eval run               # 009 — harness em processo; único caminho que fixa a data de referência (008 FR-012)
-ai-core health                 # 011 — saúde agregada
-ai-core users create|list|disable|enable|password|groups   # 012 — Fase 9
-ai-core identity keys rotate [--force]                     # 012 — Fase 9
+axon serve                  # boot completo + API
+axon packs list             # 002 — adapters/cli.py do módulo
+axon packs check            # 002 — roda no build da imagem (ADR-009)
+axon assistants validate    # 003 — adapters/cli.py do módulo
+axon eval run               # 009 — harness em processo; único caminho que fixa a data de referência (008 FR-012)
+axon health                 # 011 — saúde agregada
+axon users create|list|disable|enable|password|groups   # 012 — Fase 9
+axon identity keys rotate [--force]                     # 012 — Fase 9
 ```
 
 Cada módulo contribui seus subcomandos pelo próprio `adapters/cli.py`; a 011 só os registra. Subcomandos de validação
@@ -147,15 +147,15 @@ executam o boot até a etapa necessária (sem abrir a API) e saem com código n�
 Fase 9: os modelos do item "Providers e modelos" passam a ser os **efetivos** dos Assistants (com sobreposições), por
 consulta ao serviço da 003, e não mais a tupla lida do YAML no boot.
 
-Exposto em `GET /private/v1/health` (008) e em `ai-core health`. A 008 declara a porta `HealthProvider`; a 011 entrega o
+Exposto em `GET /private/v1/health` (008) e em `axon health`. A 008 declara a porta `HealthProvider`; a 011 entrega o
 agregador como adapter dessa porta ao montar a app — assim a 008 não importa a 011.
 
 ## Portas e adapters
 
 | Porta | Tipo | Adapters por fase | Teste |
 |---|---|---|---|
-| `ConfigSource` | secundária | arquivos montados (`packs.yaml`, `assistants.yaml`; Fase 9: `identity.yaml`) + variáveis de ambiente (Fase 9: `AI_CORE_PUBLIC_URL`, `AI_CORE_IDENTITY_*`, `AI_CORE_MASTER_KEY`, `AI_CORE_GOOGLE_*`, `AI_CORE_BOOTSTRAP_ADMIN_*`, `AI_CORE_TRUSTED_PROXIES`, `AI_CORE_COOKIE_SECURE`, `AI_CORE_LANGFUSE_*`, `AI_CORE_USAGE_*`) | configuração em memória |
-| Pontos de entrada (`ai-core`, `serve`) | primária (processo) | CLI | teste ponta a ponta no perfil `test` |
+| `ConfigSource` | secundária | arquivos montados (`packs.yaml`, `assistants.yaml`; Fase 9: `identity.yaml`) + variáveis de ambiente (Fase 9: `AXON_PUBLIC_URL`, `AXON_IDENTITY_*`, `AXON_MASTER_KEY`, `AXON_GOOGLE_*`, `AXON_BOOTSTRAP_ADMIN_*`, `AXON_TRUSTED_PROXIES`, `AXON_COOKIE_SECURE`, `AXON_LANGFUSE_*`, `AXON_USAGE_*`) | configuração em memória |
+| Pontos de entrada (`axon-ai`, `serve`) | primária (processo) | CLI | teste ponta a ponta no perfil `test` |
 
 ## Fronteira verificada
 
@@ -164,10 +164,17 @@ agregador como adapter dessa porta ao montar a app — assim a 008 não importa 
 [[tool.importlinter.contracts]]
 name = "só a composition root importa service/adapters de outros módulos"
 type = "forbidden"
-source_modules = ["ai_core.packs", "ai_core.assistants", "ai_core.capabilities", "ai_core.graph",
-                  "ai_core.llm", "ai_core.mcp", "ai_core.http", "ai_core.observability", "ai_core.eval"]
-forbidden_modules = ["ai_core.bootstrap"]
+source_modules = ["axon_ai.packs", "axon_ai.assistants", "axon_ai.capabilities", "axon_ai.graph",
+                  "axon_ai.llm", "axon_ai.mcp", "axon_ai.http", "axon_ai.observability", "axon_ai.eval"]
+forbidden_modules = ["axon_ai.bootstrap"]
 ```
 
 A regra inversa (um módulo não importa `service.py`/`adapters/` de outro) é um contrato por módulo, gerado a partir da
 lista de módulos; a forma exata fica para o plano.
+
+## Identidade Axon (Fase 9, incremento 9.5; ADR-037, ADR-038)
+
+A 011 é dona do nome da distribuição (`axon-ai`, import `axon_ai`, workspace `axon-ai/`), do comando (`axon`, com
+`--version`) e do prefixo do ambiente (`AXON_`). A carga da configuração recusa qualquer `AI_CORE_*` com o nome novo de
+cada variável (corte seco com diagnóstico, ADR-037 item 3). O nome exibido padrão é "Axon" (ADR-038). Nada muda nas
+portas, nos perfis nem na ordem do boot.

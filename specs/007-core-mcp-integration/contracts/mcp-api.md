@@ -1,4 +1,4 @@
-# Contrato — seams da 007 (`ai_core.mcp.api`)
+# Contrato — seams da 007 (`axon_ai.mcp.api`)
 
 Três seams como `Protocol`, implementados por `McpService`. Value objects e regras em [data-model.md](../data-model.md).
 

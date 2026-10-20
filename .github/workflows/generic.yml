@@ -1,28 +1,28 @@
 # CI de ai-generic (spec 010: FR-001, FR-003, FR-004, SC-001).
-# Fica na raiz enquanto ai-core/ é subpasta deste repositório.
+# Fica na raiz enquanto axon-ai/ é subpasta deste repositório.
 name: generic
 
 on:
   pull_request:
     paths:
-      - "ai-core/packages/generic/**"
-      - "ai-core/packages/contracts/**"
-      - "ai-core/pyproject.toml"
-      - "ai-core/uv.lock"
+      - "axon-ai/packages/generic/**"
+      - "axon-ai/packages/contracts/**"
+      - "axon-ai/pyproject.toml"
+      - "axon-ai/uv.lock"
       - ".github/workflows/generic.yml"
   push:
     branches: [main]
     paths:
-      - "ai-core/packages/generic/**"
-      - "ai-core/packages/contracts/**"
-      - "ai-core/pyproject.toml"
-      - "ai-core/uv.lock"
+      - "axon-ai/packages/generic/**"
+      - "axon-ai/packages/contracts/**"
+      - "axon-ai/pyproject.toml"
+      - "axon-ai/uv.lock"
       - ".github/workflows/generic.yml"
   workflow_dispatch:
 
 defaults:
   run:
-    working-directory: ai-core
+    working-directory: axon-ai
 
 jobs:
   lint:

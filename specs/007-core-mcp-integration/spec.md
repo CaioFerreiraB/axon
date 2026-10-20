@@ -11,7 +11,7 @@
 ## Module Boundary *(mandatory)*
 
 - **Módulo**: MCP Integration — registro de servidores MCP (globais e de usuário), resolução server-side de endpoint e credencial, e cliente MCP com políticas de segurança e de rede.
-- **Repositório / distribuição**: `ai-core` → `ai_core/mcp/`.
+- **Repositório / distribuição**: `axon-ai` → `axon_ai/mcp/`.
 - **Consome (seams)**: contrato `MCPClient` e `ToolSpec` — 001; Principal e Execution Grant — 003.
 - **Expõe (seams)**: **MCP Registry** (CRUD por escopo, aliases, políticas) — consumido por 003 (validação de aliases) e 008 (endpoints); **cliente MCP restrito** a aliases autorizados — consumido por 004.
 - **Depende de infraestrutura (via portas)**: armazenamento do registry, segredos (credenciais dos servidores), transporte MCP, resolução de nomes (DNS).

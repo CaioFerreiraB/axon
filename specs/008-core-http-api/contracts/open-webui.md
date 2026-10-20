@@ -14,7 +14,7 @@ partir do código da nova versão.
 | Lado | O que acontece |
 |---|---|
 | Open WebUI | login pelo provedor OIDC (`OPENID_PROVIDER_URL`, `OAUTH_CLIENT_ID`/`SECRET`); a conexão usa `auth_type: system_oauth`, que manda `Authorization: Bearer <access token do usuário>` e o renova a menos de 5 minutos de expirar |
-| Plataforma (003) | verifica o access token JWT: emissor, audiência, chaves (`AI_CORE_OIDC_JWKS_URL`), subject e grupos; token expirado ou de outro emissor → 401 |
+| Plataforma (003) | verifica o access token JWT: emissor, audiência, chaves (`AXON_OIDC_JWKS_URL`), subject e grupos; token expirado ou de outro emissor → 401 |
 | Lista de modelos | o Open WebUI busca `/v1/models` com o token de cada usuário e guarda em cache por usuário; com `BYPASS_MODEL_ACCESS_CONTROL=true`, mostra exatamente essa lista |
 
 Requisito do provedor: access token **JWT** com `aud` contendo a audiência da plataforma e as claims de subject e de

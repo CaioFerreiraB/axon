@@ -2,7 +2,7 @@
 
 É este arquivo que o `ai-scouting` (Fase 4) e qualquer pack futuro copiam. Cada linha tem um verificador automático.
 
-## `ai-core/packages/generic/pyproject.toml`
+## `axon-ai/packages/generic/pyproject.toml`
 
 ```toml
 [project]
@@ -11,13 +11,13 @@ version = "0.1.0"
 description = "Pack de referência e de uso geral da plataforma Agentic AI."
 readme = "README.md"
 requires-python = ">=3.12"                        # piso dos contratos, não o do core (research R3)
-dependencies = ["ai-core-contracts>=0.1,<0.2"]    # faixa derivada da contract_version (ADR-014)
+dependencies = ["axon-ai-contracts>=0.1,<0.2"]    # faixa derivada da contract_version (ADR-014)
 
 [project.entry-points."ai_core.packs"]
 generic = "ai_generic.pack:GenericPack"
 
 [tool.uv.sources]
-ai-core-contracts = { workspace = true }          # commit local enquanto mora no workspace (research R2)
+axon-ai-contracts = { workspace = true }          # commit local enquanto mora no workspace (research R2)
 
 [build-system]
 requires = ["uv_build>=0.12,<0.13"]
@@ -28,11 +28,11 @@ build-backend = "uv_build"
 |---|---|
 | `dependencies` com a faixa derivada | etapa de distribuição de `assert_pack_conforms` (001 FR-018): sem faixa → `distribution.range_too_wide`; `@ referência` → `distribution.direct_reference`; ausente → `distribution.missing_requirement` |
 | nome do entry point igual a `GenericPack.name` | carga do Pack Runtime (002 FR-017): divergência → `error` com `entry point '<x>' aponta para classe com name '<y>'` |
-| dependência só dos contratos | job de ambiente limpo: a resolução tem exatamente `ai-core-contracts`, `typing-extensions`, `ai-generic` |
+| dependência só dos contratos | job de ambiente limpo: a resolução tem exatamente `axon-ai-contracts`, `typing-extensions`, `ai-generic` |
 | `requires-python = ">=3.12"` | a suíte do pack roda no ambiente limpo em 3.12 |
 | `py.typed` no pacote | `mypy --strict` da raiz, com `packages/generic/src` em `files` |
 
-## Mudanças na raiz do workspace (`ai-core/pyproject.toml`)
+## Mudanças na raiz do workspace (`axon-ai/pyproject.toml`)
 
 | Chave | Mudança | Por quê |
 |---|---|---|
@@ -51,12 +51,12 @@ build-backend = "uv_build"
 name = "o pack genérico não importa o core"
 type = "forbidden"
 source_modules = ["ai_generic"]
-forbidden_modules = ["ai_core"]
+forbidden_modules = ["axon_ai"]
 
 [[tool.importlinter.contracts]]
 name = "o core não importa o pack genérico"
 type = "forbidden"
-source_modules = ["ai_core"]
+source_modules = ["axon_ai"]
 forbidden_modules = ["ai_generic"]
 
 [[tool.importlinter.contracts]]
@@ -71,8 +71,8 @@ imports da suíte de conformidade (`check_imports`) verifica o mesmo do lado do 
 
 ## CI (research R10)
 
-`.github/workflows/generic.yml`, `working-directory: ai-core`, gatilhos em `ai-core/packages/generic/**`,
-`ai-core/packages/contracts/**`, `ai-core/pyproject.toml`, `ai-core/uv.lock` e no próprio workflow, mais
+`.github/workflows/generic.yml`, `working-directory: axon-ai`, gatilhos em `axon-ai/packages/generic/**`,
+`axon-ai/packages/contracts/**`, `axon-ai/pyproject.toml`, `axon-ai/uv.lock` e no próprio workflow, mais
 `workflow_dispatch`:
 
 | Job | Comandos |
@@ -82,5 +82,5 @@ imports da suíte de conformidade (`check_imports`) verifica o mesmo do lado do 
 | `clean-env` | venv 3.12 com apenas `packages/contracts`, `packages/generic` e `pytest`; conferir a resolução (três distribuições) e rodar `pytest packages/generic/tests` |
 | `boundaries` | `uv sync --locked`; `uv run lint-imports` |
 
-`core.yml` ganha `ai-core/packages/generic/**` nos gatilhos de `pull_request` e `push`, porque o job `test` dele passa
+`core.yml` ganha `axon-ai/packages/generic/**` nos gatilhos de `pull_request` e `push`, porque o job `test` dele passa
 a carregar o pack.

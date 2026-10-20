@@ -1,6 +1,6 @@
 # Contrato — arquivo do operador `mcp.yaml` (clarificações 1 e 2; research R3, R10)
 
-Montado na imagem e lido uma vez no boot; o caminho vem de `AI_CORE_MCP_FILE` (escolhido pela 011). É a **única**
+Montado na imagem e lido uma vez no boot; o caminho vem de `AXON_MCP_FILE` (escolhido pela 011). É a **única**
 origem de servidores `stdio` e da allowlist de hosts internos. Mudar o arquivo exige restart.
 
 ```yaml
@@ -9,7 +9,7 @@ servers:
     transport: http                             # http | sse | stdio
     endpoint: http://mcp-financeiro:8080/mcp
     description: Saldos e extratos
-    auth: { type: bearer, credential: financeiro_token }   # → AI_CORE_MCP_SECRET_FINANCEIRO_TOKEN
+    auth: { type: bearer, credential: financeiro_token }   # → AXON_MCP_SECRET_FINANCEIRO_TOKEN
     user_access: false                          # liberado para Assistants de usuário? padrão false
     enabled: true
     policy:
@@ -23,7 +23,7 @@ servers:
     command: /usr/local/bin/mcp-arquivos        # executado sem shell
     args: ["--raiz", "/dados"]
     env: { LOG_LEVEL: info }                    # valores literais — não são segredo
-    secrets: { TOKEN: arquivos_token }          # variável do filho → AI_CORE_MCP_SECRET_ARQUIVOS_TOKEN
+    secrets: { TOKEN: arquivos_token }          # variável do filho → AXON_MCP_SECRET_ARQUIVOS_TOKEN
     policy:
       allowed_tools: [ler, listar]
 

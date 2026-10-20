@@ -1,12 +1,12 @@
 # Quickstart — 004 Capability Gateway (Fase 3)
 
-Roteiro de validação do módulo, a partir de `ai-core/`, com `XDG_DATA_HOME=$HOME/.local/share` nesta máquina. O flow
+Roteiro de validação do módulo, a partir de `axon-ai/`, com `XDG_DATA_HOME=$HOME/.local/share` nesta máquina. O flow
 `agentic` (005), as tools de pack pela 002 e a montagem na 011 são das passadas delas; aqui o módulo é validado pelos
 próprios seams, com packs falsos e o cliente MCP real da 007.
 
 ```bash
 uv run pytest packages/core/tests/capabilities -v
-AI_CORE_TEST_POSTGRES_DSN=postgresql://postgres:pg@localhost:55432/postgres \
+AXON_TEST_POSTGRES_DSN=postgresql://postgres:pg@localhost:55432/postgres \
   uv run pytest packages/core/tests/capabilities -v          # + auditoria no Postgres
 uv run mypy && uv run ruff check packages && uv run lint-imports
 ```

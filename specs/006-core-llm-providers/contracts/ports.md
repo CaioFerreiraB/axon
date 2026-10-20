@@ -1,6 +1,6 @@
 # Contrato — portas secundárias da 006
 
-Internas do módulo (`ai_core/llm/ports.py`): não são seams e nenhum outro módulo as importa. Quem escolhe o adapter de
+Internas do módulo (`axon_ai/llm/ports.py`): não são seams e nenhum outro módulo as importa. Quem escolhe o adapter de
 cada uma é a composition root (011). Cada porta tem adapter simulado e suíte de conformidade que roda contra ele e
 contra o adapter real (princípio XIII).
 
@@ -80,7 +80,7 @@ class SecretResolver(Protocol):
 ```
 
 - Quem chama são os adapters remotos ([remote-adapters.md](remote-adapters.md)), uma vez, na construção, com um dos dois
-  nomes fixos: `AI_CORE_OPENAI_API_KEY` e `AI_CORE_OPENROUTER_API_KEY`. Nenhum nome vem de entrada
+  nomes fixos: `AXON_OPENAI_API_KEY` e `AXON_OPENROUTER_API_KEY`. Nenhum nome vem de entrada
   ([research.md](../research.md) R21).
 - Adapters: `EnvSecretResolver(environ=None)` (ambiente do processo; perfis `memory` e `persistent`) e
   `InMemorySecretResolver(values=None)` (perfil `test` e suítes), em `adapters/secrets.py`. A 011 escolhe qual, pela

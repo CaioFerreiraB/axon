@@ -5,18 +5,18 @@ name: console
 on:
   pull_request:
     paths:
-      - "ai-core/console/**"
-      - "ai-core/packages/core/src/ai_core/http/**"
-      - "ai-core/packages/core/src/ai_core/identity/**"
+      - "axon-ai/console/**"
+      - "axon-ai/packages/core/src/axon_ai/http/**"
+      - "axon-ai/packages/core/src/axon_ai/identity/**"
       - "specs/008-core-http-api/contracts/**"
       - "specs/012-core-identity/contracts/**"
       - ".github/workflows/console.yml"
   push:
     branches: [main]
     paths:
-      - "ai-core/console/**"
-      - "ai-core/packages/core/src/ai_core/http/**"
-      - "ai-core/packages/core/src/ai_core/identity/**"
+      - "axon-ai/console/**"
+      - "axon-ai/packages/core/src/axon_ai/http/**"
+      - "axon-ai/packages/core/src/axon_ai/identity/**"
       - "specs/008-core-http-api/contracts/**"
       - "specs/012-core-identity/contracts/**"
       - ".github/workflows/console.yml"
@@ -24,7 +24,7 @@ on:
 
 defaults:
   run:
-    working-directory: ai-core/console
+    working-directory: axon-ai/console
 
 jobs:
   check:
@@ -33,9 +33,9 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version-file: ai-core/console/.nvmrc
+          node-version-file: axon-ai/console/.nvmrc
           cache: npm
-          cache-dependency-path: ai-core/console/package-lock.json
+          cache-dependency-path: axon-ai/console/package-lock.json
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
@@ -49,14 +49,14 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version-file: ai-core/console/.nvmrc
+          node-version-file: axon-ai/console/.nvmrc
           cache: npm
-          cache-dependency-path: ai-core/console/package-lock.json
+          cache-dependency-path: axon-ai/console/package-lock.json
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
       - name: Ambiente Python do core (a plataforma do e2e)
-        working-directory: ai-core
+        working-directory: axon-ai
         run: uv sync --locked
       - run: npm ci
       - run: npx playwright install --with-deps chromium
@@ -72,5 +72,5 @@ jobs:
         if: failure()
         with:
           name: playwright-report
-          path: ai-core/console/playwright-report
+          path: axon-ai/console/playwright-report
           retention-days: 7

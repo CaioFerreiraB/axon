@@ -11,7 +11,7 @@
 ## Module Boundary *(mandatory)*
 
 - **Módulo**: LLM Providers — implementações de provider e o roteador que resolve provider + modelo por papel, aplicando a allowlist do Assistant.
-- **Repositório / distribuição**: `ai-core` → `ai_core/llm/` (providers em `adapters/`).
+- **Repositório / distribuição**: `axon-ai` → `axon_ai/llm/` (providers em `adapters/`).
 - **Consome (seams)**: contrato `LLMProvider` — 001; Trace Sink — 009. A política de modelos chega pronta, como `ModelPolicy` deste módulo: montada pela 011 na Fase 1 e pela 003, dentro do Execution Grant, a partir da Fase 2 ([ADR-016](../../docs/adr/ADR-016-grant-carrega-politica-de-modelos.md)).
 - **Expõe (seams)**: **Model Router** (`for_execution(política, requisição)` → `for_role(papel) → cliente de modelo`, mais a verificação de saúde) — consumido por 005 e, para saúde e montagem, pela composition root (011).
 - **Depende de infraestrutura (via portas)**: provedores de modelo, local e remotos (adapters de `LLMProvider`); segredos (credenciais dos providers remotos).
@@ -32,7 +32,7 @@
 ### Session 2026-10-02
 
 - Q: Quais identificadores de modelo contam como "roteamento automático" e onde a recusa acontece? → A: No provider `openrouter`, todo modelo do namespace `openrouter/…` (o `openrouter/auto` e qualquer roteador futuro; também os modelos "stealth" temporários, opacos e sem SLA) é recusado na construção do `ModelRef`, com mensagem que pede modelo explícito. Sufixos de variante do próprio modelo (`:free`, `:nitro`, `:floor`) são aceitos. Como toda referência a modelo passa pelo `ModelRef`, a regra vale de uma vez na declaração do Assistant, na escolha de modelo pela requisição e na saúde, sem editar a 003.
-- Q: O que acontece quando a credencial do OpenAI ou do OpenRouter não está configurada no ambiente? → A: A credencial vem de uma variável por provider (`AI_CORE_OPENAI_API_KEY`, `AI_CORE_OPENROUTER_API_KEY`), lida por uma porta de segredos cujo adapter a 011 escolhe. O provider é registrado mesmo sem ela: a saúde relata indisponível com o motivo "sem credencial" e o nome da variável, e toda chamada falha antes de qualquer acesso à rede com erro explícito que nomeia provider, modelo e variável. O boot não falha, e nem a 003 nem os seams mudam.
+- Q: O que acontece quando a credencial do OpenAI ou do OpenRouter não está configurada no ambiente? → A: A credencial vem de uma variável por provider (`AXON_OPENAI_API_KEY`, `AXON_OPENROUTER_API_KEY`), lida por uma porta de segredos cujo adapter a 011 escolhe. O provider é registrado mesmo sem ela: a saúde relata indisponível com o motivo "sem credencial" e o nome da variável, e toda chamada falha antes de qualquer acesso à rede com erro explícito que nomeia provider, modelo e variável. O boot não falha, e nem a 003 nem os seams mudam.
 - Q: Como o roteador garante que o papel `controller` sempre recebe a restrição de formato, e o que acontece quando o provider ou o modelo não consegue cumpri-la? → A: Em três camadas. (1) O roteador recusa, antes da rede, chamada do papel `controller` sem `response_format`. (2) Cada adapter envia a forma mais rígida do provider: `strict: true` no `json_schema` e, no OpenRouter, `provider.require_parameters: true`, para só ir a upstream que suporte a restrição. (3) A recusa do provider (modelo sem suporte, esquema fora do modo estrito) vira erro explícito que nomeia provider e modelo, sem reenviar sem restrição. Consequência aceita: com o esquema atual do motor (`anyOf` na raiz, que o modo estrito da OpenAI recusa), OpenAI como controller do `agentic` falha explicitamente até a 005 ajustar o esquema; Ollama e OpenRouter funcionam.
 
 ### Session 2026-10-07
@@ -179,5 +179,5 @@ Cada chamada informa ao trace provider, modelo, papel, tokens de entrada e saíd
 
 - O provider local usa a camada compatível com OpenAI do Ollama, pelo SDK oficial da OpenAI em modo assíncrono, o que deixa sua implementação quase idêntica à do provider OpenAI. O SDK só aparece em `adapters/`.
 - A escolha final de modelos (Qwen3 1.7B vs Gemma 4 E2B) é decidida por medição na spec 105/009, não aqui.
-- Credenciais de providers externos vêm de uma variável por provider (`AI_CORE_OPENAI_API_KEY`, `AI_CORE_OPENROUTER_API_KEY`), por uma porta de segredos cujo adapter é escolhido pela composition root (011); um secret store do operador é outro adapter da mesma porta.
+- Credenciais de providers externos vêm de uma variável por provider (`AXON_OPENAI_API_KEY`, `AXON_OPENROUTER_API_KEY`), por uma porta de segredos cujo adapter é escolhido pela composition root (011); um secret store do operador é outro adapter da mesma porta.
 - Um provider simulado, também adapter de `LLMProvider`, atende o perfil de teste da 011.

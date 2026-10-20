@@ -1,6 +1,6 @@
 # Contrato — seams de uso, preços e destinos (Fase 9)
 
-Em `ai_core/observability/api.py`. Consumidos pela 008 (superfície de administração), que traduz HTTP e decide quem é
+Em `axon_ai/observability/api.py`. Consumidos pela 008 (superfície de administração), que traduz HTTP e decide quem é
 admin — estes seams não conhecem Principal (ADR-031). Value objects em [data-model.md](../data-model.md) (Fase 9).
 
 ```python

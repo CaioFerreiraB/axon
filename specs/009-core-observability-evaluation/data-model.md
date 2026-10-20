@@ -1,7 +1,7 @@
 # Data Model — 009 Trace por requisição, Fase 1
 
 Tudo aqui é value object congelado do `api.py` do módulo, exceto onde indicado. `JSONValue` vem de
-`ai_core_contracts` (001).
+`axon_ai_contracts` (001).
 
 ## Eventos (o que os emissores mandam)
 
@@ -182,7 +182,7 @@ Candidatos e reordenados nunca levam texto.
 
 Emitido só quando alguma lista tem trecho. Registro `type == "retrieval"`.
 
-## Contrato 001 — `ai_core_contracts.eval` (ADR-027)
+## Contrato 001 — `axon_ai_contracts.eval` (ADR-027)
 
 | Tipo | Campos |
 |---|---|
@@ -200,7 +200,7 @@ Emitido só quando alguma lista tem trecho. Registro `type == "retrieval"`.
 `eval_metrics(composition) -> Sequence[PackEvalMetric]`, com `PackEvalMetric(pack: str, metric: EvalMetric)`, na ordem
 da composição; coletado uma vez na carga (hook que levanta ou devolve tipo errado → pack em erro, como os outros).
 
-## Harness (`ai_core/eval/api.py`)
+## Harness (`axon_ai/eval/api.py`)
 
 | Tipo | Campos | Regra |
 |---|---|---|
@@ -215,7 +215,7 @@ da composição; coletado uma vez na carga (hook que levanta ou devolve tipo err
 | `Comparison` | `deltas: tuple[MetricDelta, ...]`, `missing: tuple[str, ...]` | `regressed` = alguma delta regrediu |
 | `GoldenSetError`, `EvalInputError` | exceções | arquivo do conjunto inutilizável; rodada que não pode começar (Assistant, trace sem leitura, relatório ilegível) → saída 2 |
 
-### Portas (`ai_core/eval/ports.py`)
+### Portas (`axon_ai/eval/ports.py`)
 
 | Porta | Métodos |
 |---|---|

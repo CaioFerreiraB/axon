@@ -11,7 +11,7 @@
 ## Module Boundary *(mandatory)*
 
 - **Módulo**: Execution Engine — orquestra uma execução: ordena as chamadas aos serviços do core e aos hooks de pack segundo um flow nomeado, e emite um fluxo de eventos. **Esta spec é desenhada para ser reescrita.**
-- **Repositório / distribuição**: `ai-core` → `ai_core/graph/` (seam em `api.py`, políticas em `domain/`, framework de grafo e estado interno em `adapters/`).
+- **Repositório / distribuição**: `axon-ai` → `axon_ai/graph/` (seam em `api.py`, políticas em `domain/`, framework de grafo e estado interno em `adapters/`).
 - **Consome (seams)**: Turn View e PackRoutine — 001; Pack Hooks — 002; Execution Grant — 003 (nas Fases 1 e 2, pela forma que este módulo publicava como `Protocol`; a partir da Fase 3, o value object da 003, que o motor entrega à 004); Capability Catalog e Tool Gateway — 004; Model Router — 006; Trace Sink — 009.
 - **Expõe (seams)**: **Execution Engine** — `run(grant, requisição) → fluxo de eventos` — consumido por 008 e 009; **nomes de flow** (`chat`, `agentic`, `rag_first`) — consumidos como dado por 003 (validação) e por manifests de pack.
 - **Depende de infraestrutura (via portas)**: relógio (data de referência) e, quando houver retomada de execução, armazenamento de checkpoint (FR-014). O framework de grafo é adapter interno.
@@ -42,7 +42,7 @@
 
 ### Session 2026-10-09
 
-- Q: Onde ficam os números do `rag_first` (limiar do portão, candidatos, trechos levados à geração) e qual o default do limiar antes da calibração da 105? → A: Configuração do operador, por variáveis `AI_CORE_RAG_*` — limiar, candidatos e trechos —, com defaults 20 candidatos, 5 trechos e **sem limiar**: até a 105 calibrar, o portão só escala quando não há resultado depois dos filtros. Um limiar provisório pode ser configurado pelo operador; nenhum é fixado no código (princípio X).
+- Q: Onde ficam os números do `rag_first` (limiar do portão, candidatos, trechos levados à geração) e qual o default do limiar antes da calibração da 105? → A: Configuração do operador, por variáveis `AXON_RAG_*` — limiar, candidatos e trechos —, com defaults 20 candidatos, 5 trechos e **sem limiar**: até a 105 calibrar, o portão só escala quando não há resultado depois dos filtros. Um limiar provisório pode ser configurado pelo operador; nenhum é fixado no código (princípio X).
 - Q: Quando o portão escala, o que o motor faz se o Assistant não declara o papel `controller`? → A: Escala para o loop agêntico só se o Assistant declara `controller`; sem ele, gera **sem trechos** — o caminho em que o prompt do pack diz que nenhum documento foi encontrado — e registra um `notice` de cobertura insuficiente. O `rag_first` exige só o papel `generation` (ADR-019).
 
 ## User Scenarios & Testing *(mandatory)*
@@ -162,7 +162,7 @@ Quando o catálogo inclui a rotina de um pack, o controller pode invocá-la como
 - **FR-005**: No flow `agentic`, o controller DEVE emitir exatamente uma ação estruturada por iteração, sob restrição de formato de saída.
 - **FR-006**: Toda execução DEVE ter contador de iterações e respeitar o limite do grant; ao atingi-lo, DEVE seguir para a geração e registrar o truncamento. Sem limite declarado no grant, o limite é **3** — constante do motor, não configurável pelo operador.
 - **FR-006a**: No flow `agentic`, falha da chamada ao modelo do `controller` depois do primeiro evento NÃO DEVE encerrar a execução nem ser repetida: o motor DEVE seguir para a geração com o que acumulou e registrar o erro, nomeando provider e modelo.
-- **FR-007**: No flow `rag_first`, o portão de cobertura DEVE ser determinístico: melhor score abaixo de limiar configurável ou nenhum resultado após filtros → escalar; caso contrário → gerar. Limiar, número de candidatos pedidos aos retrievers e número de trechos levados à geração DEVEM ser configuração do operador (`AI_CORE_RAG_*`), com defaults 20 candidatos, 5 trechos e sem limiar — sem limiar, só a ausência de resultado escala (clarificação de 2026-10-09).
+- **FR-007**: No flow `rag_first`, o portão de cobertura DEVE ser determinístico: melhor score abaixo de limiar configurável ou nenhum resultado após filtros → escalar; caso contrário → gerar. Limiar, número de candidatos pedidos aos retrievers e número de trechos levados à geração DEVEM ser configuração do operador (`AXON_RAG_*`), com defaults 20 candidatos, 5 trechos e sem limiar — sem limiar, só a ausência de resultado escala (clarificação de 2026-10-09).
 - **FR-007a**: Quando o portão escala, o motor DEVE ir para o loop agêntico só se o grant tem o papel `controller`; sem ele, DEVE gerar sem trechos e registrar um `notice` de cobertura insuficiente. Os papéis exigidos pelo `rag_first` são só `generation` (`flow_roles`, ADR-019).
 - **FR-008**: O motor DEVE repassar de forma opaca aos retrievers de um pack os filtros de recuperação que esse pack publicou.
 - **FR-009**: Mensagens, chamadas de tool, resultados de tool e erros DEVEM acumular sem perda entre iterações e ramos.
@@ -190,7 +190,7 @@ Quando o catálogo inclui a rotina de um pack, o controller pode invocá-la como
 
 ### Measurable Outcomes
 
-- **SC-001**: Uma reescrita completa da orquestração (topologias novas ou troca do framework de grafo) é concluída alterando apenas esta spec e `ai_core/graph/`; as suítes de conformidade de 002, 004, 006, 008 e dos packs passam sem modificação.
+- **SC-001**: Uma reescrita completa da orquestração (topologias novas ou troca do framework de grafo) é concluída alterando apenas esta spec e `axon_ai/graph/`; as suítes de conformidade de 002, 004, 006, 008 e dos packs passam sem modificação.
 - **SC-002**: 0 execuções ultrapassam o limite de iterações do grant (teste de propriedade com controllers adversariais).
 - **SC-003**: No caminho coberto do `rag_first`, 100% das respostas usam exatamente uma chamada de modelo.
 - **SC-004**: Em requisições com streaming, o usuário recebe o primeiro sinal (progresso ou token) em até 2 segundos após o envio, no hardware alvo.

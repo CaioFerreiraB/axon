@@ -11,7 +11,7 @@
 ## Module Boundary *(mandatory)*
 
 - **Módulo**: Observability & Evaluation — trace estruturado de cada execução e harness genérico que roda conjuntos dourados fornecidos por packs.
-- **Repositório / distribuição**: `ai-core` → `ai_core/observability/` (Trace Sink e consulta de trace) e `ai_core/eval/` (harness).
+- **Repositório / distribuição**: `axon-ai` → `axon_ai/observability/` (Trace Sink e consulta de trace) e `axon_ai/eval/` (harness).
 - **Consome (seams)**: Execution Engine (eventos) — 005, pelo harness; `Chunk` — 001.
 - **Expõe (seams)**: **Trace Sink** (porta de emissão de dados de trace por requisição) — consumido por 004, 005 e 006; **Trace** (consulta por identificador de requisição) — consumido por 008 e pelo operador; **Eval Harness** com o **formato de conjunto dourado** — consumidos pelo CI e por packs (ex.: 105); **Usage Report** (uso e custo por dia, modelo e Assistant), **Price Book** (preços com vigência) e **Trace Destinations** (Langfuse, captura de conteúdo, estado dos destinos) — consumidos pela 008, superfície de administração (Fase 9).
 - **Depende de infraestrutura (via portas)**: backend de trace (exporter), destinos adicionais do trace (projeção de uso, Langfuse — rede), armazenamento de uso, preços e ajustes dos destinos, cifra com a chave mestra da instalação, segredos de instalação, relógio, armazenamento de linhas de base, juiz LLM (só offline).
@@ -37,7 +37,7 @@
 - Q: As métricas de geração julgadas por modelo (fidelidade ao trecho e cobertura da resposta de referência) entram já nesta fase? → A: Sim. O operador escolhe o modelo juiz na configuração da rodada — fora de qualquer Assistant, roteado pelo Model Router —; cada julgamento é repetido 3 vezes e reportado com média e variância; nunca barra o CI sozinho; sem juiz configurado, essas métricas aparecem como ausentes.
 - Q: No benchmark de modelos, como entram RAM e CPU, que são do servidor do modelo e não do processo do harness? → A: O harness mede o que observa — tempo até o primeiro token, tokens/s, latência, confiabilidade de tool calling (ações válidas do controller) e fidelidade —; RAM e CPU entram como anotação do operador no relatório (campo livre por modelo), sem medição automática.
 - Q: De onde o juiz tira o texto dos trechos entregues à geração, que precisa ler para julgar a fidelidade, se o evento de recuperação foi decidido sem texto? → A: O evento de recuperação passa a levar o texto **só dos trechos entregues** à geração — o que o modelo viu —, cortado em 2.000 caracteres e redigido como todo texto livre do trace; candidatos e reordenados continuam sem texto. Revê em parte a resposta da primeira pergunta desta sessão (decidido durante a implementação).
-- Q: As rodadas de avaliação (`ai-core eval run`, inclusive o modelo juiz) entram no uso e custo? → A: Entram, marcadas com a origem "avaliação"; o relatório mostra só a produção por padrão e permite incluir a avaliação ou ver só ela.
+- Q: As rodadas de avaliação (`axon eval run`, inclusive o modelo juiz) entram no uso e custo? → A: Entram, marcadas com a origem "avaliação"; o relatório mostra só a produção por padrão e permite incluir a avaliação ou ver só ela.
 
 ## User Scenarios & Testing *(mandatory)*
 

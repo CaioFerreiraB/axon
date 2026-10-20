@@ -1,4 +1,4 @@
-# CI de ai-core (módulos do core, specs 002–011). Fica na raiz enquanto ai-core/ é subpasta deste repositório.
+# CI de axon-ai (módulos do core, specs 002–011). Fica na raiz enquanto axon-ai/ é subpasta deste repositório.
 # `packages/generic/**` também dispara: o pack genérico é dependência de desenvolvimento do workspace e o teste de
 # integração da carga por entry point roda aqui (spec 010, research R8).
 name: core
@@ -6,26 +6,26 @@ name: core
 on:
   pull_request:
     paths:
-      - "ai-core/packages/core/**"
-      - "ai-core/packages/contracts/**"
-      - "ai-core/packages/generic/**"
-      - "ai-core/pyproject.toml"
-      - "ai-core/uv.lock"
+      - "axon-ai/packages/core/**"
+      - "axon-ai/packages/contracts/**"
+      - "axon-ai/packages/generic/**"
+      - "axon-ai/pyproject.toml"
+      - "axon-ai/uv.lock"
       - ".github/workflows/core.yml"
   push:
     branches: [main]
     paths:
-      - "ai-core/packages/core/**"
-      - "ai-core/packages/contracts/**"
-      - "ai-core/packages/generic/**"
-      - "ai-core/pyproject.toml"
-      - "ai-core/uv.lock"
+      - "axon-ai/packages/core/**"
+      - "axon-ai/packages/contracts/**"
+      - "axon-ai/packages/generic/**"
+      - "axon-ai/pyproject.toml"
+      - "axon-ai/uv.lock"
       - ".github/workflows/core.yml"
   workflow_dispatch:
 
 defaults:
   run:
-    working-directory: ai-core
+    working-directory: axon-ai
 
 jobs:
   lint:
@@ -54,7 +54,7 @@ jobs:
         options: >-
           --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
     env:
-      AI_CORE_TEST_POSTGRES_DSN: postgresql://postgres:pg@localhost:5432/postgres
+      AXON_TEST_POSTGRES_DSN: postgresql://postgres:pg@localhost:5432/postgres
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v6

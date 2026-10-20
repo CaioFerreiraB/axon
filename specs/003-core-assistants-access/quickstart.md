@@ -1,6 +1,6 @@
 # Quickstart — 003 Assistants & Access (Fase 2, US1–US7)
 
-Guia de validação. Comandos a partir de `ai-core/`, com `XDG_DATA_HOME=$HOME/.local/share` nesta máquina. Esta passada
+Guia de validação. Comandos a partir de `axon-ai/`, com `XDG_DATA_HOME=$HOME/.local/share` nesta máquina. Esta passada
 entrega o módulo e seus adapters; a conversa por HTTP com autenticação real depende das passadas da 008 e da 011
 ([research.md](research.md) R2), e o roteiro dela fica nos quickstarts dessas specs.
 
@@ -13,8 +13,8 @@ uv sync                      # traz pyjwt[crypto], httpx, psycopg[binary] e psyc
 Para a conformidade contra o Postgres real (opcional localmente, obrigatória na CI):
 
 ```bash
-docker run -d --rm --name ai-core-pg -e POSTGRES_PASSWORD=pg -p 5432:5432 postgres:17
-export AI_CORE_TEST_POSTGRES_DSN=postgresql://postgres:pg@localhost:5432/postgres
+docker run -d --rm --name axon-ai-pg -e POSTGRES_PASSWORD=pg -p 5432:5432 postgres:17
+export AXON_TEST_POSTGRES_DSN=postgresql://postgres:pg@localhost:5432/postgres
 ```
 
 ## Verificação completa
@@ -26,7 +26,7 @@ uv run ruff check packages
 uv run lint-imports          # jwt, httpx, psycopg e yaml só em assistants/adapters; 003 só vê api.py dos outros
 ```
 
-Sem `AI_CORE_TEST_POSTGRES_DSN`, os casos do adapter Postgres aparecem como *skipped* com o motivo.
+Sem `AXON_TEST_POSTGRES_DSN`, os casos do adapter Postgres aparecem como *skipped* com o motivo.
 
 ## Cenários
 
@@ -152,8 +152,8 @@ assistants:
     models: { generation: ollama/qwen3:1.7b, allow: ["ollama/*"] }
 YAML
 printf 'packs:\n  generic:\n    enabled: true\n' > /tmp/packs.yaml
-AI_CORE_PROFILE=test AI_CORE_PACKS_FILE=/tmp/packs.yaml AI_CORE_ASSISTANTS_FILE=/tmp/assistants.yaml \
-  uv run ai-core assistants validate; echo $?
+AXON_PROFILE=test AXON_PACKS_FILE=/tmp/packs.yaml AXON_ASSISTANTS_FILE=/tmp/assistants.yaml \
+  uv run axon assistants validate; echo $?
 ```
 
 Esperado: código 1 e a linha de `sem-controller` dizendo `models: o flow 'agentic' exige o papel 'controller', que o

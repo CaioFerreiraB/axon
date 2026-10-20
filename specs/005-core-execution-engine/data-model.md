@@ -1,6 +1,6 @@
 # Data model — 005 Execution Engine (Fase 1)
 
-Tudo que é publicado vive em `ai_core/graph/api.py` e é imutável
+Tudo que é publicado vive em `axon_ai/graph/api.py` e é imutável
 (`@dataclass(frozen=True, slots=True, kw_only=True)`). Nenhum tipo de framework de grafo, de HTTP ou de estado interno
 aparece aqui — é o que o ADR-011 e o SC-001 exigem.
 
@@ -122,7 +122,7 @@ assinatura de `run` não muda.
 
 ### `ExecutionGrant` — agora o da 003
 
-`ai_core.graph.api.ExecutionGrant` é o `ExecutionGrant` de `ai_core.assistants.api`, reexportado. O motor lê dele:
+`axon_ai.graph.api.ExecutionGrant` é o `ExecutionGrant` de `axon_ai.assistants.api`, reexportado. O motor lê dele:
 
 | Campo (003) | Uso no motor |
 |---|---|
@@ -279,7 +279,7 @@ exatamente quando `passages == 0`.
 | 002 | `PackHooks.reranker(composition, pack) -> Reranker \| None` |
 | 004 | renderização `[documento — seção, p. N · id: <chunk_id>]`; `ToolSession.fence_chunks(name, chunks) -> FencedToolResult` |
 | 009 | evento `CoverageGate` |
-| 011 | `AI_CORE_RAG_CANDIDATES`, `AI_CORE_RAG_PASSAGES`, `AI_CORE_RAG_MIN_SCORE` → `RagSettings` |
+| 011 | `AXON_RAG_CANDIDATES`, `AXON_RAG_PASSAGES`, `AXON_RAG_MIN_SCORE` → `RagSettings` |
 
 ## Desfecho de etapa ([ADR-028](../../docs/adr/ADR-028-o-motor-publica-o-desfecho-de-cada-etapa.md)) — 2026-10-13
 

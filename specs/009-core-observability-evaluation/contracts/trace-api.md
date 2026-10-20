@@ -1,10 +1,10 @@
-# Contrato — seams Trace Sink e Trace (`ai_core.observability.api`)
+# Contrato — seams Trace Sink e Trace (`axon_ai.observability.api`)
 
 Superfície pública do módulo. Mudar qualquer linha daqui é mudar um seam: exige ADR e atualização das specs
 consumidoras (004, 005, 006, 008, 011) — **com uma exceção**: acrescentar um tipo de evento, sob as condições do
 [ADR-017](../../../docs/adr/ADR-017-trace-sink-cresce-por-eventos-aditivos.md) (nenhum evento ou campo existente muda;
 o evento nunca carrega argumentos, conteúdo, prompt ou credencial; a spec emissora declara o toque e atualiza esta
-pasta). Só importa stdlib e `ai_core_contracts`.
+pasta). Só importa stdlib e `axon_ai_contracts`.
 
 ## Nomes públicos
 

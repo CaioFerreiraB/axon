@@ -1,6 +1,6 @@
 # Quickstart — validar o `ai-generic` (Fase 1, US1)
 
-Roteiro executável que prova a US1 inteira. Todos os comandos rodam a partir de `ai-core/`. Nesta máquina, use
+Roteiro executável que prova a US1 inteira. Todos os comandos rodam a partir de `axon-ai/`. Nesta máquina, use
 `XDG_DATA_HOME=$HOME/.local/share` no `uv` (ver CLAUDE.md).
 
 ## 1. Workspace reconhece a distribuição nova
@@ -21,7 +21,7 @@ uv run pytest packages/generic/tests -q
 
 **Esperado**: tudo verde, incluindo `test_conformance.py`, que roda `assert_pack_conforms` com as nove etapas — forma,
 identidade, manifest, catálogo, `prepare_context`, validators, imports e distribuição. Se a faixa de
-`ai-core-contracts` no `pyproject.toml` do pack estiver errada, esta é a etapa que falha, com
+`axon-ai-contracts` no `pyproject.toml` do pack estiver errada, esta é a etapa que falha, com
 `distribution.range_too_wide` ou `distribution.direct_reference`
 ([contracts/packaging.md](contracts/packaging.md)).
 
@@ -54,7 +54,7 @@ da 002 não aparecem: elas só existem dentro de `tmp_path`).
 ```bash
 uv run python - <<'PY'
 import asyncio
-from ai_core_contracts.testing import pack_context, tool_invocation
+from axon_ai_contracts.testing import pack_context, tool_invocation
 from ai_generic.pack import GenericPack
 
 [tool] = GenericPack().tools(pack_context("generic"))
@@ -81,7 +81,7 @@ uv pip freeze --python "$tmp/venv/bin/python"
 rm -rf "$tmp"
 ```
 
-**Esperado**: o `freeze` lista exatamente `ai-core-contracts`, `ai-generic` e `typing-extensions` — nada do core — e a
+**Esperado**: o `freeze` lista exatamente `axon-ai-contracts`, `ai-generic` e `typing-extensions` — nada do core — e a
 suíte do pack passa em Python 3.12, sem `pytest-asyncio` ([research.md](research.md) R3, R4).
 
 ## 6. Fronteiras, tipos e formatação
@@ -107,7 +107,7 @@ uv run pytest
 
 # Fase 3 (2026-10-07): US2 — Assistant genérico com MCP no flow `agentic`
 
-Mesmos pré-requisitos (a partir de `ai-core/`, com `XDG_DATA_HOME=$HOME/.local/share` nesta máquina). Nenhuma
+Mesmos pré-requisitos (a partir de `axon-ai/`, com `XDG_DATA_HOME=$HOME/.local/share` nesta máquina). Nenhuma
 dependência nova. Decisões em [research.md](research.md) R13–R21; contrato em
 [contracts/generic-pack.md](contracts/generic-pack.md), "Fase 3".
 
@@ -164,8 +164,8 @@ assistants:
 ```
 
 ```bash
-AI_CORE_PACKS_FILE=<packs.yaml com generic habilitado> AI_CORE_ASSISTANTS_FILE=<acima> AI_CORE_MCP_FILE=<acima> \
-  uv run ai-core assistants validate
+AXON_PACKS_FILE=<packs.yaml com generic habilitado> AXON_ASSISTANTS_FILE=<acima> AXON_MCP_FILE=<acima> \
+  uv run axon assistants validate
 ```
 
 **Esperado**: `geral … ok`. Sem a linha `controller`, `geral` aparece indisponível com "o flow 'agentic' exige o papel
@@ -178,7 +178,7 @@ para um pack sem flow preferido — o MCP fica declarado, mas nenhuma tool é ch
 ```bash
 OLLAMA_BASE_URL=http://localhost:11434/v1 OLLAMA_MODEL=qwen3:1.7b \
   uv run pytest packages/core/tests/bootstrap/integration/test_generic_agentic_real.py -k ollama -v
-AI_CORE_OPENROUTER_API_KEY=… OPENROUTER_MODEL=~z-ai/glm-flash-latest \
+AXON_OPENROUTER_API_KEY=… OPENROUTER_MODEL=~z-ai/glm-flash-latest \
   uv run pytest packages/core/tests/bootstrap/integration/test_generic_agentic_real.py -k openrouter -v
 ```
 

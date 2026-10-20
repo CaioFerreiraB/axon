@@ -15,7 +15,7 @@ interface. ADR-029, ADR-031, ADR-032, ADR-033, ADR-034.
 
 - **Módulo**: Admin Console — interface gráfica de administração da plataforma, opcional na instalação e restrita ao
   grupo de administração.
-- **Repositório / distribuição**: `ai-core` → `ai-core/console/` (aplicação web com toolchain próprio, fora do
+- **Repositório / distribuição**: `axon-ai` → `axon-ai/console/` (aplicação web com toolchain próprio, fora do
   workspace Python); a imagem é montada pela instalação (002).
 - **Consome (seams)**: API HTTP — 008 (superfície de administração `/admin/v1`, contrato `admin-api.md`); protocolo
   OIDC — 012 (cliente público `console`).

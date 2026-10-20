@@ -5,11 +5,11 @@ Referências: [pack-runtime-api.md](contracts/pack-runtime-api.md), [ports.md](c
 
 ## Pré-requisitos
 
-- Workspace `ai-core/` sincronizado (`uv sync`), com `ai-core-contracts` 0.1.0 (spec 001)
+- Workspace `axon-ai/` sincronizado (`uv sync`), com `axon-ai-contracts` 0.1.0 (spec 001)
 - Nesta máquina: `export XDG_DATA_HOME=$HOME/.local/share`
 
 ```bash
-cd ai-core
+cd axon-ai
 uv sync
 ```
 
@@ -21,7 +21,7 @@ uv run mypy
 uv run ruff check packages/core && uv run lint-imports
 ```
 
-**Esperado**: tudo verde; `lint-imports` mantém os contratos novos (camadas de `ai_core.packs`, contratos sem `ai_core`).
+**Esperado**: tudo verde; `lint-imports` mantém os contratos novos (camadas de `axon_ai.packs`, contratos sem `axon_ai`).
 
 ## 2. Portas (conformidade)
 
@@ -54,7 +54,7 @@ uv run pytest packages/core/tests/packs/unit/test_packs_failure_matrix.py -v
 
 | Defeito | Mensagem começa com |
 |---|---|
-| `contract_version = "0.2"` | `requer ai-core-contracts>=0.2, instalado 0.1.0` |
+| `contract_version = "0.2"` | `requer axon-ai-contracts>=0.2, instalado 0.1.0` |
 | manifest com nome diferente | `manifest inválido:` |
 | exceção no construtor | `falha ao instanciar:` |
 | exceção em `tools()` | `hook tools levantou` |
@@ -101,7 +101,7 @@ uv run pytest packages/core/tests/packs/integration/test_packs_cli.py -v
 
 Esperado: `list` mostra nome, versão, versão de contrato e status de cada pack e sai com 0; `check` sai com 1 e nomeia a
 incompatibilidade quando há um pack incompatível instalado, mesmo desabilitado, e com 0 quando todos estão bons;
-`packs.yaml` malformado sai com 2 ([contracts/cli.md](contracts/cli.md)). Rodar os comandos pela raiz `ai-core` depende
+`packs.yaml` malformado sai com 2 ([contracts/cli.md](contracts/cli.md)). Rodar os comandos pela raiz `axon` depende
 do registro pela 011 (US4).
 
 ## 8. Build da instalação (US5, Fase 4)

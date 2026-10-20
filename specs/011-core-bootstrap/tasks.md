@@ -530,3 +530,97 @@ T030, mesmo `cli.py`). Polish por último.
 - Fase 3 (Phases 12–18 acima): etapa de registry MCP (007) e gateway (004) entram na lista, sem mudar a sequência;
   a porta de checkpoint (005) ficou adiada até haver retomada
 - Depois da Fase 3 da 011: rotas de MCP e `finish_reason` por gravidade (008); papel `controller` na validação (003)
+
+---
+
+## Passada de 2026-10-20: identidade Axon — US7 ([ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md), [ADR-038](../../docs/adr/ADR-038-marca-da-plataforma-e-marca-da-instalacao.md); research R46–R53)
+
+**Goal**: distribuição `axon-ai` 0.7.0rc1, workspace `axon-ai/`, import `axon_ai` em todos os módulos, comando `axon`
+com `--version`, prefixo `AXON_` com a recusa de `AI_CORE_*`, nome padrão "Axon", pool `axon`; CI e console verdes.
+
+**Independent Test**: [quickstart.md, "Fase 9, incremento 9.5"](quickstart.md) — `axon --version`, `serve` com
+`AXON_*`, recusa com `AI_CORE_PROFILE`, `import ai_core` falha; suítes do workspace e da console verdes.
+
+> A T064 acima (release `0.6.0`) não será executada: a linha 0.6.0 terminou no rc6 com o nome antigo, e o próximo
+> release é `v0.7.0-rc1`, depois da passada da 013 (ADR-037, item 4).
+
+### Setup (renome mecânico — bloqueia o resto)
+
+- [X] T065 [US7] Linha de base antes do renome: `git grep -cw agentic -- . ':!ai-scouting' ':!agentic-deploy'` (contagem
+  a preservar, R47) e a lista dos literais `"ai-core"` em `ai-core/packages/core/src` (R47: só `prog`, a versão e o pool
+  são da 011)
+- [X] T066 [US7] `git mv ai-core axon-ai` e `git mv axon-ai/packages/core/src/ai_core axon-ai/packages/core/src/axon_ai`
+  (R46); apagar `__pycache__` e `.venv` velhos do workspace movido se o `uv` reclamar
+- [X] T067 [US7] Aplicar o script do R47 (`rename011.py` no scratchpad) a: `axon-ai/**` (arquivos de texto versionados,
+  menos `uv.lock`, `package-lock.json`, `node_modules/`, `*/CHANGELOG.md`), `.github/workflows/*.yml`, os documentos vivos
+  das specs 001–010, 012 e 013 (`spec.md`, `design.md`, `data-model.md`, `quickstart.md`, `contracts/**`),
+  `specs/README.md`, `PRODUCT.md` e `.impeccable/surfaces/ai-core-console.md` — nunca `research.md`, `plan.md`,
+  `tasks.md`, `checklists/`, `docs/`, `specs/1xx-*`, `CLAUDE.md`, `.specify/`, submódulos nem os documentos da 011 (já
+  escritos nesta passada)
+- [X] T068 [US7] À mão (R46, R47): `axon-ai/packages/core/pyproject.toml` com `name = "axon-ai"`, `version = "0.7.0rc1"`,
+  `description = "Runtime genérico da plataforma Axon (monolito modular; specs 002–009, 011, 012)."` e o script `axon`;
+  `axon-ai/pyproject.toml` (comentário da raiz e contratos do import-linter com `axon_ai`);
+  `axon-ai/packages/core/src/axon_ai/__init__.py` ("axon-ai: runtime genérico da plataforma Axon, …"); `uv lock` em
+  `axon-ai/`
+- [X] T069 [US7] Revisar os resíduos: `git grep -nE "ai_core|ai-core|AI_CORE" -- . ':!ai-scouting' ':!agentic-deploy'`
+  fora dos caminhos de histórico — cada um tem de ser protegido do R47 (de outra passada) ou da recusa; e `git grep -n
+  "axon_ai\.packs\|audiência.*axon\|axon-ai:8000\|axon-ai-admin"` sem ocorrência indevida; contagem do `agentic` igual à
+  da T065
+
+### Tests (antes de T073–T075)
+
+- [X] T070 [P] [US7] `axon-ai/packages/core/tests/bootstrap/unit/test_settings_legacy.py` (R53): `EnvConfigSource` com
+  `AI_CORE_PROFILE`; com `AI_CORE_FOO` (desconhecida) → linha `AI_CORE_FOO → AXON_FOO`; com `AI_CORE_PROFILE=""`
+  (vazia); com `AI_CORE_PROFILE` e `AXON_PROFILE` juntas; com duas antigas, linhas em ordem; nenhum valor na mensagem;
+  `AI_COREX`, `MY_AI_CORE_URL` e `AI_SCOUTING_INDEX` aceitas (US7 cen. 3, 4; casos de borda)
+- [X] T071 [P] [US7] `axon-ai/packages/core/tests/bootstrap/contract/test_cli_commands.py` (R53): `main(["--version"])`
+  imprime `axon-ai <importlib.metadata.version("axon-ai")>` e sai com 0 (`SystemExit`) sem ler configuração; um
+  subcomando (`health`) com `AI_CORE_PROFILE` no ambiente sai com 1 e a linha `AI_CORE_PROFILE → AXON_PROFILE`; a ajuda
+  começa com `usage: axon`; sem metadados (`importlib.metadata.version` simulado levantando
+  `PackageNotFoundError`), `axon-ai desconhecida` (US7 cen. 1, 3, 7; caso de borda)
+- [X] T072 [P] [US7] `axon-ai/packages/core/tests/bootstrap/unit/test_core_old_name_absent.py` (o nome `test_no_old_name.py` colide com o
+  teste da 001 na coleta do pytest):
+  `importlib.util.find_spec("ai_core") is None` (FR-022); nome padrão "Axon" em
+  `tests/bootstrap/unit/test_settings_phase9.py` e no `me` de `tests/bootstrap/integration/test_platform_identity_admin.py`
+  (US7 cen. 5); o pool do `persistent` criado (fechado) com `name == "axon"` em
+  `tests/bootstrap/unit/test_profiles.py` (FR-027)
+
+### Implementation
+
+- [X] T073 [US7] `axon-ai/packages/core/src/axon_ai/bootstrap/settings.py` (R48, R50): `PREFIX = "AXON_"` (vem da
+  T067), `LEGACY_PREFIX: Final = "AI_CORE_"`, a recusa no início de `EnvConfigSource.load()` com a mensagem do
+  contracts/configuration.md, `DEFAULT_DISPLAY_NAME = "Axon"`; mensagem da `AXON_DEV_API_KEY` citando `axon keys`
+- [X] T074 [US7] `axon-ai/packages/core/src/axon_ai/bootstrap/cli.py` (R49): `prog="axon"`, `description="Axon — linha
+  de comando do operador"`, `--version` com `axon-ai {_core_version()}`, `_core_version()` lendo `"axon-ai"`; ajuda do
+  `--profile` com `AXON_PROFILE`
+- [X] T075 [US7] `axon-ai/packages/core/src/axon_ai/bootstrap/profiles.py` (R50): `name="axon"` no pool
+
+### Integration e verificação
+
+- [X] T076 [US7] CI e console (R52): conferir `.github/workflows/*.yml` (filtros `axon-ai/**`, `working-directory`,
+  `AXON_TEST_POSTGRES_DSN`, `uv run axon …`) e `axon-ai/console/` (`AXON_UPSTREAM` no `vite.config.ts`,
+  `playwright.config.ts`, `e2e/serve_nginx.sh` e `deploy/nginx.conf.template`; imports do `e2e/serve_platform.py`)
+- [X] T077 [US7] Suítes (a partir de `axon-ai/`): `uv sync && uv run pytest && uv run mypy && uv run ruff check packages
+  && uv run lint-imports`; `uv run python packages/contracts/tools/check_clean_env.py`; contratos em Python 3.12;
+  conformidade Postgres com `AXON_TEST_POSTGRES_DSN`; `axon-generic` (ainda `ai-generic`) em ambiente limpo; a console
+  (`npm ci && npm run typecheck && npm run lint && npm test`) e o e2e (`npm run e2e`)
+- [X] T078 [US7] Quickstart da US7 à mão: `axon --version`, `serve` + saúde, recusa com `AI_CORE_PROFILE`, `import
+  ai_core` ausente
+- [X] T079 [P] [US7] `specs/README.md` (linha da 011 com a US7, diagrama `axon-ai`) e `docs/roadmap.md` (andamento do
+  9.5: 011 feita)
+
+### Dependencies (US7)
+
+T065 → T066 → T067 → T068 → T069 (bloqueiam o resto). Testes T070 ∥ T071 ∥ T072, depois T073 → T074 → T075 (T074
+depende do `settings` da T073 para a recusa). T076 depois de T069. T077 depois de tudo; T078 depois de T077; T079 em
+paralelo com T077.
+
+### Notas da execução (US7)
+
+- A substituição alcançou os testes do corte seco da 001, que usam de propósito `ai-core-contracts`
+  (`tests/unit/test_distribution_check.py`, `tests/boundary/test_no_old_name.py`); foram restaurados como estavam.
+- Também corrigidos à mão: o grupo `ai_core.packs` no `entry_points.txt` sintético do `packs_testkit.py` e nos exemplos
+  de `entry_points(group=…)` da 002 e da 010; os nomes da instalação na 002 (`contracts/installation.md` inteiro, o
+  serviço `ai-core` do compose, `/opt/ai-core`, a imagem de exemplo), que mudam na passada dela; o `contracts.yml`, cuja
+  linha de base é uma tag com a pasta `ai-core/` (procura `axon-ai/`, depois `ai-core/`).
+- `ruff format` e Prettier redistribuíram uma linha em `observability/service.py` e duas na console (nomes mais curtos).

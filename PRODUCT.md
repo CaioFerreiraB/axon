@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-SPA React + TypeScript (Vite) em `ai-core/console/`, servida por um contêiner estático opcional na mesma origem da
+SPA React + TypeScript (Vite) em `axon-ai/console/`, servida por um contêiner estático opcional na mesma origem da
 plataforma (spec 013, ADR-029). A página de login e "Minha conta" são HTML renderizado pelo módulo de identidade do
 core, sem script (spec 012). Escolha do mantenedor em 2026-10-13.
 
@@ -22,7 +22,7 @@ core, sem script (spec 012). Escolha do mantenedor em 2026-10-13.
 
 ## Product Purpose
 
-Axon, plataforma de agentes de IA modular: um núcleo genérico (`ai-core`) que orquestra Assistants — configurações que
+Axon, plataforma de agentes de IA modular: um núcleo genérico (`axon-ai`) que orquestra Assistants — configurações que
 amarram flow, packs de capacidade, servidores MCP, modelos por papel, limites e ACL — e packs de domínio que trazem o
 conhecimento. A console de administração existe para que o operador aplique, sem deploy, o que o deploy permitir:
 modelos e MCPs de cada Assistant, contas e grupos, login Google, Langfuse, e acompanhe uso e custo por modelo e por

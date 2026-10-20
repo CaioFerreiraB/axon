@@ -5,7 +5,7 @@
 ## Localização
 
 ```text
-ai-core/packages/generic/
+axon-ai/packages/generic/
 ├── pyproject.toml       # distribuição ai-generic; entry point ai_core.packs
 └── src/ai_generic/
     ├── pack.py
@@ -21,10 +21,10 @@ Pack de referência, com o mesmo formato de um pack externo: `pyproject.toml` pr
 ```toml
 [project]
 name = "ai-generic"
-dependencies = ["ai-core-contracts>=0.1,<0.2"]      # faixa derivada da contract_version (ADR-014)
+dependencies = ["axon-ai-contracts>=0.1,<0.2"]      # faixa derivada da contract_version (ADR-014)
 
 [tool.uv.sources]
-ai-core-contracts = { workspace = true }            # resolve no commit local enquanto mora no workspace
+axon-ai-contracts = { workspace = true }            # resolve no commit local enquanto mora no workspace
 
 [project.entry-points."ai_core.packs"]
 generic = "ai_generic.pack:GenericPack"

@@ -15,7 +15,7 @@ Envelope da API: `{"error": {"message": "...", "type": "...", "code": "...", "pa
 | 404 | `not_found` | não admin; recurso inexistente |
 | 409 | `version_conflict` | `version` desatualizada (corpo traz `current_version`) |
 | 409 | `installation_defined` | campo definido pela instalação (`param` = campo) |
-| 409 | `master_key_missing` | gravar segredo sem `AI_CORE_MASTER_KEY` |
+| 409 | `master_key_missing` | gravar segredo sem `AXON_MASTER_KEY` |
 | 409 | `protected_group` | apagar o grupo de administração, ou deixá-lo sem admin ativo |
 | 409 | `google_not_configured` | ligar o Google sem cliente na instalação |
 | 422 | `invalid_field` | validação (`param` = campo, `message` = motivo devolvido pelo módulo dono) |
@@ -32,7 +32,7 @@ Escritas de recursos versionados levam `version` no corpo (ou na query, no `DELE
  "instance": {"name": "Agentic", "logo_url": "/oauth2/assets/logo"}}
 ```
 
-`logo_url` é `null` sem logotipo. O nome vem de `AI_CORE_DISPLAY_NAME` (011); a console usa os dois na barra lateral
+`logo_url` é `null` sem logotipo. O nome vem de `AXON_DISPLAY_NAME` (011); a console usa os dois na barra lateral
 (013 FR-020).
 
 ## Assistants de sistema (003, `SystemAssistantAdmin`)
@@ -80,7 +80,7 @@ Escritas de recursos versionados levam `version` no corpo (ou na query, no `DELE
  "days": [{"day": "2026-09-14", "requests": 61, "rows": [ … ]}]}
 ```
 
-Valores monetários como string decimal. `tz` padrão: `AI_CORE_USAGE_TIMEZONE`. `by` padrão `model`; `origin` padrão
+Valores monetários como string decimal. `tz` padrão: `AXON_USAGE_TIMEZONE`. `by` padrão `model`; `origin` padrão
 `production`; período padrão: últimos 30 dias no fuso. `requests` de cada dia são as requisições distintas do dia
 (ADR-036): por modelo, somar as linhas contaria duas vezes a requisição que usa dois modelos.
 

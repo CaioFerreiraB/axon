@@ -1,6 +1,6 @@
 # Quickstart — validação da 013 Admin Console
 
-Comandos a partir de `ai-core/console/`, com `source ~/.nvm/nvm.sh && nvm use` (Node 24) e, para o e2e,
+Comandos a partir de `axon-ai/console/`, com `source ~/.nvm/nvm.sh && nvm use` (Node 24) e, para o e2e,
 `XDG_DATA_HOME=$HOME/.local/share` (uv).
 
 ## 1. Checagens estáticas e unidades
@@ -36,7 +36,7 @@ das sete user stories, o axe sem violações nos dois temas (SC-005) e as captur
 ## 3. Desenvolvimento local
 
 ```bash
-# outro terminal, a partir de ai-core/: uv run ai-core serve (perfil memory com identidade)
+# outro terminal, a partir de axon-ai/: uv run axon serve (perfil memory com identidade)
 npm run dev
 ```
 

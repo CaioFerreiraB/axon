@@ -109,5 +109,5 @@ configuration → adapters → packs → mcp_registry → engine → assistants 
 16. `engine.flows() == {"chat", "agentic"}` nos três perfis;
 17. com a raiz do logging em `DEBUG`, o nível efetivo dos loggers `mcp.*` é `INFO` depois do boot;
 18. Assistant que referencia alias MCP inexistente fica indisponível na validação (a 003 consultou o registry real).
-19. servidor global com `credential` sem `AI_CORE_MCP_SECRET_<REF>` → `mcp_registry` degradada nomeando alias e
-    referência; com outra variável `AI_CORE_MCP_SECRET_*` definida, o valor dela não aparece no relatório.
+19. servidor global com `credential` sem `AXON_MCP_SECRET_<REF>` → `mcp_registry` degradada nomeando alias e
+    referência; com outra variável `AXON_MCP_SECRET_*` definida, o valor dela não aparece no relatório.

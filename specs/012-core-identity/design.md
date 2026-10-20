@@ -7,7 +7,7 @@
 ## Localização
 
 ```text
-ai-core/packages/core/src/ai_core/identity/
+axon-ai/packages/core/src/axon_ai/identity/
 ├── api.py        # seams: AccountAdmin, LoginSettings, PublicKeySet; value objects Account, Group,
 │                 # AccountDraft, LoginSettingsView (valor + origem), PublicKey; erros
 ├── domain/       # puro: validação do pedido de autorização, PKCE, regras de código e de renovação,
@@ -27,7 +27,7 @@ ai-core/packages/core/src/ai_core/identity/
     ├── cipher.py            # SecretCipher (AES-GCM, subchave HKDF "ai-core/identity/v1")
     ├── google.py            # UpstreamOidc do Google (descoberta, troca de código, verificação do id_token)
     ├── clients_yaml.py      # ClientSource (identity.yaml do operador)
-    ├── secrets_env.py       # IdentitySecrets (nomes fixos e AI_CORE_IDENTITY_SECRET_<REF>)
+    ├── secrets_env.py       # IdentitySecrets (nomes fixos e AXON_IDENTITY_SECRET_<REF>)
     └── cli.py               # `users create|list|disable|enable|password|groups`, `identity keys rotate`
 ```
 
@@ -35,7 +35,7 @@ O `api.py` não importa o resto do módulo. A 008 importa só ele; a 011 importa
 
 ## Protocolo
 
-Base = `AI_CORE_PUBLIC_URL`, que é também o emissor (`iss`).
+Base = `AXON_PUBLIC_URL`, que é também o emissor (`iss`).
 
 | Endpoint | Regras |
 |---|---|
@@ -56,7 +56,7 @@ introspecção.
 
 ## Tokens
 
-- **Acesso:** JWT RS256 com `kid`, 10 min. Claims: `iss`, `aud` (do cliente: `ai-core` para o Open WebUI,
+- **Acesso:** JWT RS256 com `kid`, 10 min. Claims: `iss`, `aud` (do cliente: `axon-ai` para o Open WebUI,
   `ai-core-admin` para a console — ADR-031), `sub` (id estável da conta), `preferred_username`, `groups`, `azp`,
   `scope`, `iat`, `exp`. A 003 usa `preferred_username` como subject (`user:<nome>`), como na Fase 7.
 - **Identidade:** acrescenta `nonce`, `auth_time`, `amr` (`pwd` ou `google`), `email`, `email_verified`, `name`.
@@ -76,15 +76,15 @@ introspecção.
 
 ## Google
 
-- Variáveis: `AI_CORE_GOOGLE_CLIENT_ID`, `AI_CORE_GOOGLE_CLIENT_SECRET` e, opcional, `AI_CORE_GOOGLE_HOSTED_DOMAIN`, pela
+- Variáveis: `AXON_GOOGLE_CLIENT_ID`, `AXON_GOOGLE_CLIENT_SECRET` e, opcional, `AXON_GOOGLE_HOSTED_DOMAIN`, pela
   porta `IdentitySecrets` (nomes fixos, ADR-020).
-- Ajuste de runtime `google_enabled` (seam Login Settings); `AI_CORE_GOOGLE_LOGIN=on|off` na instalação prevalece
+- Ajuste de runtime `google_enabled` (seam Login Settings); `AXON_GOOGLE_LOGIN=on|off` na instalação prevalece
   (ADR-033).
-- Endereço de retorno a registrar no Google: `{AI_CORE_PUBLIC_URL}/oauth2/google/callback` (a administração o mostra).
+- Endereço de retorno a registrar no Google: `{AXON_PUBLIC_URL}/oauth2/google/callback` (a administração o mostra).
 
 ## Sessão, CSRF e página
 
-- Cookie `__Host-aic_session` (ou `aic_session` sem HTTPS, `AI_CORE_COOKIE_SECURE=false` em desenvolvimento), httpOnly,
+- Cookie `__Host-aic_session` (ou `aic_session` sem HTTPS, `AXON_COOKIE_SECURE=false` em desenvolvimento), httpOnly,
   `SameSite=Lax`, só `Max-Age` — nunca `Expires`, porque o relógio fixo do perfil `test` o tornaria vencido —, id trocado
   no login.
 - CSRF: token sincronizador guardado no pedido de autorização pendente, mais conferência de `Origin`.
@@ -96,17 +96,17 @@ introspecção.
 
 - RSA-2048, RS256 (obrigatório no OIDC; aceito pelo `JwksOidcVerifier` da 003 e pelo Open WebUI).
 - Gerada no primeiro boot com identidade ligada; privada cifrada com `SecretCipher` (AES-GCM, subchave HKDF de
-  `AI_CORE_MASTER_KEY`); estados ativa → em retirada → retirada; o JWKS publica ativa e em retirada por pelo menos o TTL
+  `AXON_MASTER_KEY`); estados ativa → em retirada → retirada; o JWKS publica ativa e em retirada por pelo menos o TTL
   do token de acesso mais a tolerância de relógio da 003.
-- `ai-core identity keys rotate` (normal) e `--force` (chave mestra perdida: descarta as chaves e encerra as sessões).
+- `axon identity keys rotate` (normal) e `--force` (chave mestra perdida: descarta as chaves e encerra as sessões).
 
-## Clientes (`identity.yaml`, `AI_CORE_IDENTITY_CLIENTS_FILE`)
+## Clientes (`identity.yaml`, `AXON_IDENTITY_CLIENTS_FILE`)
 
 ```yaml
 clients:
   open-webui:
     type: confidential
-    secret: open_webui            # → AI_CORE_IDENTITY_SECRET_OPEN_WEBUI
+    secret: open_webui            # → AXON_IDENTITY_SECRET_OPEN_WEBUI
     audience: ai-core
     redirect_uris: [http://localhost:3000/oauth/oidc/callback]
     post_logout_redirect_uris: [http://localhost:3000/auth]
@@ -119,15 +119,15 @@ clients:
 
 ## Admin inicial
 
-- `ai-core users create <nome> --email … --group <admin> [--password-stdin]` (sem a opção, pede a senha sem eco).
-- `AI_CORE_BOOTSTRAP_ADMIN_USERNAME`, `_EMAIL` e `_PASSWORD_FILE`: aplicadas só com zero contas; havendo contas, aviso.
+- `axon users create <nome> --email … --group <admin> [--password-stdin]` (sem a opção, pede a senha sem eco).
+- `AXON_BOOTSTRAP_ADMIN_USERNAME`, `_EMAIL` e `_PASSWORD_FILE`: aplicadas só com zero contas; havendo contas, aviso.
 
 ## Configuração (lida pela 011)
 
-`AI_CORE_DISPLAY_NAME` (nome da instalação; padrão neutro provisório "Agentic"), `AI_CORE_LOGO_FILE` (opcional,
-SVG ou PNG montado), `AI_CORE_PUBLIC_URL`, `AI_CORE_IDENTITY_ENABLED`, `AI_CORE_IDENTITY_CLIENTS_FILE`, `AI_CORE_IDENTITY_SECRET_<REF>`,
-`AI_CORE_MASTER_KEY`, `AI_CORE_GOOGLE_*`, `AI_CORE_BOOTSTRAP_ADMIN_*`, `AI_CORE_TRUSTED_PROXIES`,
-`AI_CORE_COOKIE_SECURE`. Identidade ligada junto com `AI_CORE_OIDC_ISSUER` é erro de configuração (ADR-030).
+`AXON_DISPLAY_NAME` (nome da instalação; padrão neutro provisório "Agentic"), `AXON_LOGO_FILE` (opcional,
+SVG ou PNG montado), `AXON_PUBLIC_URL`, `AXON_IDENTITY_ENABLED`, `AXON_IDENTITY_CLIENTS_FILE`, `AXON_IDENTITY_SECRET_<REF>`,
+`AXON_MASTER_KEY`, `AXON_GOOGLE_*`, `AXON_BOOTSTRAP_ADMIN_*`, `AXON_TRUSTED_PROXIES`,
+`AXON_COOKIE_SECURE`. Identidade ligada junto com `AXON_OIDC_ISSUER` é erro de configuração (ADR-030).
 
 ## Persistência
 

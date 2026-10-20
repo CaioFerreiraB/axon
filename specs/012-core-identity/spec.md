@@ -13,7 +13,7 @@ plataforma emite os tokens que o Open WebUI repassa e que a console usa; ADR-030
 
 - **Módulo**: Identity — mantém as contas e os grupos da instalação, autentica pessoas (senha ou Google) e emite os
   tokens OIDC da plataforma.
-- **Repositório / distribuição**: `ai-core` → `ai_core/identity/`. Os endpoints do protocolo e a página de login são o
+- **Repositório / distribuição**: `axon-ai` → `axon_ai/identity/`. Os endpoints do protocolo e a página de login são o
   adapter primário HTTP do módulo (`adapters/`), montado pela composition root (011) no mesmo app da 008; os
   subcomandos `users` e `identity` ficam em `adapters/cli.py`, registrados pela 011.
 - **Consome (seams)**: nenhum. O nome do grupo de administração chega como configuração, pela composition root (011),

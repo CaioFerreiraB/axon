@@ -1,12 +1,12 @@
 # Contrato — seam Model Router (006)
 
 Dono: spec 006. Consumidores: 005 (executa), 011 (monta e verifica saúde), 003 e 008 a partir da Fase 2.
-Publicado em `ai_core/llm/api.py`. **Mudar qualquer assinatura abaixo exige ADR** (princípio II).
+Publicado em `axon_ai/llm/api.py`. **Mudar qualquer assinatura abaixo exige ADR** (princípio II).
 
 ## Superfície
 
 ```python
-from ai_core.llm.api import (
+from axon_ai.llm.api import (
     BoundModel, ModelHealth, ModelPolicy, ModelRef, ModelRole, ModelRouter, ModelRouting, ProviderStatus,
     ModelCallFailed, ModelNotAllowed, ModelRoutingError, RoleNotConfigured, UnknownProvider,
 )
@@ -93,7 +93,7 @@ Assinaturas inalteradas ([research.md](../research.md) R16, R17). Regras novas:
 | Chamada do papel `controller` sem `response_format` de esquema (`json_schema` com `schema`) levanta `ModelCallFailed` antes do provider, e emite um `ModelCall` com `finish_reason="error"` | FR-005, US4 cen. 3, SC-003 | conformidade do seam |
 | A restrição chega ao provider na forma mais rígida dele (`strict: true`; no OpenRouter, `require_parameters`) | FR-005, US4 cen. 1 | [remote-adapters.md](remote-adapters.md) |
 | Recusa da restrição pelo provider vira `ModelCallFailed` com provider e modelo; nenhuma segunda chamada | FR-005, US4 cen. 2 | idem |
-| Provider remoto sem credencial: `check` → `available=False`, "sem credencial: defina AI_CORE_…"; chamada → `ModelCallFailed` antes da rede | FR-011 | conformidade do seam + [remote-adapters.md](remote-adapters.md) |
+| Provider remoto sem credencial: `check` → `available=False`, "sem credencial: defina AXON_…"; chamada → `ModelCallFailed` antes da rede | FR-011 | conformidade do seam + [remote-adapters.md](remote-adapters.md) |
 | Papéis da mesma política em providers diferentes resolvem cada um para o seu, com um `ModelCall` por papel no provider certo | US2 cen. 1 | conformidade do seam |
 | `allow: ["ollama/*"]` e papel em `openai/…` → `ModelNotAllowed` | US5 cen. 1 | conformidade do seam |
 

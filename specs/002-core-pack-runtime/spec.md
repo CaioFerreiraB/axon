@@ -11,7 +11,7 @@
 ## Module Boundary *(mandatory)*
 
 - **Módulo**: Pack Runtime — descobre, valida, habilita e compõe packs, e executa seus hooks com isolamento.
-- **Repositório / distribuição**: `ai-core` → `packages/core/src/ai_core/packs/` (subcomandos `packs` em `adapters/cli.py`; a raiz do comando `ai-core` é da spec 011); template do repositório de instalação.
+- **Repositório / distribuição**: `axon-ai` → `packages/core/src/axon_ai/packs/` (subcomandos `packs` em `adapters/cli.py`; a raiz do comando `axon` é da spec 011); template do repositório de instalação.
 - **Consome (seams)**: Contrato de pack e Turn View — 001.
 - **Expõe (seams)**: **Pack Registry** (packs habilitados, status, capacidades por pack) — consumido por 003, 004, 008; **Pack Hooks** (prompts, preparação de contexto, rerank, validators, rotinas, com isolamento de fatia) — consumido por 005; **Pack Toolset** (tools nativas e retrievers de uma composição, com namespace `<pack>.<nome>`) — consumido por 004, a partir da Fase 3.
 - **Depende de infraestrutura (via portas)**: fonte dos packs instalados (descoberta) e configuração do operador (habilitação e configuração por pack).
@@ -32,7 +32,7 @@
 ### Session 2026-10-07
 
 - Q: Onde mora o template de instalação da US5? → A: Num repositório próprio e privado, `CaioFerreiraB/agentic-deploy` (ADR-009), ligado no `agentic-app` como submódulo `agentic-deploy/`, como o `ai-scouting` (ADR-021).
-- Q: De onde vem o core dentro da imagem da instalação? → A: De um estágio do próprio Dockerfile da instalação, que instala `ai-core-contracts`, `ai-core` e `ai-generic` a partir de uma tag do `agentic-app`; por cima dele, um estágio instala os packs do build-arg e roda `ai-core packs check`. Não há imagem do core publicada em registry por enquanto (ADR-022).
+- Q: De onde vem o core dentro da imagem da instalação? → A: De um estágio do próprio Dockerfile da instalação, que instala `axon-ai-contracts`, `axon-ai` e `ai-generic` a partir de uma tag do `agentic-app`; por cima dele, um estágio instala os packs do build-arg e roda `axon packs check`. Não há imagem do core publicada em registry por enquanto (ADR-022).
 - Q: Como a instalação fixa a versão do core? → A: Pela tag de release `v0.1.0` do `agentic-app` (core e `ai-generic` lançados juntos — ADR-004), criada nesta passada.
 - Q: Como o build da instalação é verificado na Fase 4? → A: Por um script local (build com a chave SSH do operador) e pela CI do `agentic-deploy`, com deploy keys só de leitura do `agentic-app` e do `ai-scouting`; o *Independent Test* (pack compatível builda, incompatível falha) roda a cada push.
 - Q: Como o Pack Hooks entrega ao motor os validators que filtram o streaming? → A: `open_answer_stream(composition, view, slices)` abre um filtro que encadeia as sessões dos validators com `open_stream` que formam o prefixo da sequência de validators da composição; `finish()` devolve cauda, resposta filtrada e as execuções; `validate(..., streamed=…)` reaproveita essas execuções e roda só os validators restantes, sobre a resposta filtrada (ADR-024).
@@ -69,7 +69,7 @@ Pack com contrato incompatível, manifest inválido ou exceção na instanciaç�
 
 **Acceptance Scenarios**:
 
-1. **Given** um pack que exige contratos `>=0.2` com 0.1 instalado, **When** o core inicia, **Then** o pack fica `error` com "requer ai-core-contracts>=0.2, instalado 0.1.0" (a versão instalada completa) e o boot conclui.
+1. **Given** um pack que exige contratos `>=0.2` com 0.1 instalado, **When** o core inicia, **Then** o pack fica `error` com "requer axon-ai-contracts>=0.2, instalado 0.1.0" (a versão instalada completa) e o boot conclui.
 2. **Given** um pack que lança exceção ao ser instanciado, **When** o core inicia, **Then** o pack fica `error` com a causa e os demais packs carregam normalmente.
 3. **Given** um Assistant que referencia um pack em erro, **When** alguém tenta usá-lo, **Then** a indisponibilidade é explícita e nomeia o pack — nunca uma resposta silenciosamente degradada.
 

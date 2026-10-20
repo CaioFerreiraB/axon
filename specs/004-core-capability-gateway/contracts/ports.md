@@ -1,8 +1,8 @@
-# Contrato — portas secundárias da 004 (`ai_core.capabilities.ports`)
+# Contrato — portas secundárias da 004 (`axon_ai.capabilities.ports`)
 
 | Porta | Motivo | Em memória | Real | Conformidade |
 |---|---|---|---|---|
-| `AuditLog` | banco | lista de registros | `audit_postgres.py`, schema `capabilities` (ADR-015) | `contract/test_audit_log.py`, com Postgres por `AI_CORE_TEST_POSTGRES_DSN` |
+| `AuditLog` | banco | lista de registros | `audit_postgres.py`, schema `capabilities` (ADR-015) | `contract/test_audit_log.py`, com Postgres por `AXON_TEST_POSTGRES_DSN` |
 | `PackToolSource` | troca prevista: a forma que a 004 exige da 002 até a passada dela (002 US3 cen. 1) | `StaticPackTools` (tools e retrievers dados) | o `PackRuntime` da 002, quando o expuser | `contract/test_pack_tool_source.py` — roda contra o real na passada da 002 |
 | `Clock` | tempo (ADR-013) | relógio fixo da 005 | relógio do sistema da 005 | — (o mesmo relógio da 011) |
 

@@ -1,4 +1,4 @@
-# Contrato — portas secundárias do módulo de trace (`ai_core.observability.ports`)
+# Contrato — portas secundárias do módulo de trace (`axon_ai.observability.ports`)
 
 Três portas. Cada uma tem adapter em memória e suíte de conformidade que roda contra os dois adapters (princípio
 XIII). Portas secundárias **não** são seams: são internas do módulo e só a composition root (011) escolhe adapter.

@@ -1,12 +1,12 @@
 # Quickstart — 005 Execution Engine (Fase 1, US1)
 
-Guia de validação. Todos os comandos rodam a partir de `ai-core/`. Nesta máquina, prefixe `uv` com
+Guia de validação. Todos os comandos rodam a partir de `axon-ai/`. Nesta máquina, prefixe `uv` com
 `XDG_DATA_HOME=$HOME/.local/share` (ver CLAUDE.md).
 
 ## Pré-requisitos
 
 ```bash
-uv sync                      # traz langgraph>=1.2,<2 (nova dependência da distribuição ai-core)
+uv sync                      # traz langgraph>=1.2,<2 (nova dependência da distribuição axon-ai)
 ```
 
 Nada mais: a suíte **não** fala com rede nem exige Ollama — só o modelo é simulado, e packs, hooks e grafo são os de
@@ -151,7 +151,7 @@ O `grant` é o `ExecutionGrant` da 003 — o mesmo que a 008 já passa.
 
 ## Fase 5 — flow `rag_first` (US3, US4)
 
-Dentro de `ai-core/`:
+Dentro de `axon-ai/`:
 
 ```bash
 uv run pytest packages/core/tests/graph packages/core/tests/capabilities packages/core/tests/packs packages/core/tests/bootstrap
@@ -161,6 +161,6 @@ uv run mypy && uv run ruff check packages && uv run lint-imports
 Esperado: o portão por tabela; o `rag_first` com retriever e reranker simulados — uma chamada de modelo no caminho
 coberto (SC-003), escalada para o loop com `controller`, geração sem trechos e `notice` sem `controller`, erro sem
 geração quando a recuperação falha, `generation_context` com os trechos que couberam no teto; a renderização de
-recuperação com `· id: <chunk_id>` (ADR-026); o hook de rerank por pack (002); as variáveis `AI_CORE_RAG_*` (011).
+recuperação com `· id: <chunk_id>` (ADR-026); o hook de rerank por pack (002); as variáveis `AXON_RAG_*` (011).
 
 Com o pack `scouting` e o corpus real, a verificação ponta a ponta é a da US5 da 101 (quickstart dela, §9–10).

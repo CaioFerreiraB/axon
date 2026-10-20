@@ -1,4 +1,4 @@
-# Contrato — seams da 012 (`ai_core/identity/api.py`)
+# Contrato — seams da 012 (`axon_ai/identity/api.py`)
 
 Value objects e erros em [data-model.md](../data-model.md). Todas as operações são `async`. O ator é o subject de quem
 pede (`user:<nome>`; `cli` pela linha de comando; `bootstrap` no admin inicial); a 008 o tira do Principal já
@@ -41,7 +41,7 @@ class LoginSettings(Protocol):
     async def set_google(self, enabled: bool, *, actor: str, version: int) -> LoginSettingsView: ...
 ```
 
-- Variável `AI_CORE_GOOGLE_LOGIN` definida → `set_google` levanta `InstallationDefined("google_enabled")` (ADR-033).
+- Variável `AXON_GOOGLE_LOGIN` definida → `set_google` levanta `InstallationDefined("google_enabled")` (ADR-033).
 - Ligar sem cliente Google na instalação → `GoogleNotConfigured`.
 - Padrão: ligado quando o cliente Google está configurado e nada mais diz o contrário.
 

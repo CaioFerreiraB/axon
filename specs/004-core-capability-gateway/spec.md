@@ -11,9 +11,9 @@
 ## Module Boundary *(mandatory)*
 
 - **Módulo**: Capability Gateway — monta o catálogo de uma execução e executa tools com todas as proteções. Concentra aqui a lógica que a arch-v1 descrevia dentro dos nós `load_capabilities` e `execute_tool`, para que o grafo fique fino.
-- **Repositório / distribuição**: `ai-core` → `ai_core/capabilities/` (catálogo, despacho, fencing, política de escrita e auditoria; o antigo `ai_core/security/` vira `domain/` deste módulo).
+- **Repositório / distribuição**: `axon-ai` → `axon_ai/capabilities/` (catálogo, despacho, fencing, política de escrita e auditoria; o antigo `axon_ai/security/` vira `domain/` deste módulo).
 - **Consome (seams)**: Contrato de pack (ToolSpec, ToolResult, Retriever) — 001; Pack Registry — 002; Execution Grant — 003; MCP Registry e cliente MCP restrito — 007; Trace Sink — 009.
-- **Expõe (seams)**: **Capability Catalog** (catálogo por execução, com namespace, já filtrado) e **Tool Gateway** (`execute(chamada) → resultado delimitado`) — consumidos por 005, servidos por uma sessão por execução; **consulta de auditoria** — consumida pelo comando `ai-core audit` que a 011 registra.
+- **Expõe (seams)**: **Capability Catalog** (catálogo por execução, com namespace, já filtrado) e **Tool Gateway** (`execute(chamada) → resultado delimitado`) — consumidos por 005, servidos por uma sessão por execução; **consulta de auditoria** — consumida pelo comando `axon audit` que a 011 registra.
 - **Depende de infraestrutura (via portas)**: registro de auditoria persistente.
 - **Não conhece**: flows, prompts do controller, qual modelo decide a chamada, qualquer domínio.
 - **Substituição**: preservar a semântica "capacidade não declarada não existe" e a forma de Catalog/Gateway; políticas internas podem evoluir.
@@ -27,7 +27,7 @@
 - Q: Um retriever de pack entra no catálogo quando as coleções que ele declara não estão todas no grant do Assistant? → A: Não. Entra só se **todas** as coleções que declara estão no grant; retriever que não declara coleção nenhuma segue as demais regras do catálogo. O modelo não escolhe coleção (a tool de recuperação só aceita `query` e `top_k`), então a restrição é a existência do retriever na execução; chamada a um retriever fora disso é "tool inexistente" e fica registrada no trace.
 - Q: Onde ficam o prazo e o limite de tamanho das tools nativas e de recuperação, já que as de MCP têm política por servidor na 007? → A: No padrão do gateway, configurado pelo operador na instalação, valendo para tools nativas e de recuperação; nas de MCP vale o mais restritivo entre o padrão do gateway e a política do servidor. Nenhum contrato muda, e o pack não amplia o próprio limite.
 - Q: O registro de auditoria de uma tool de escrita guarda o conteúdo do resultado, ou só o desfecho? → A: Guarda os argumentos inteiros e o resultado como o modelo o recebeu — já delimitado e cortado no limite do gateway —, mais o status (sucesso, erro, prazo). É o que permite investigar uma escrita indevida pelo que o modelo viu, e o corte impede volume grande.
-- Q: Como o operador consulta a auditoria de tools de escrita nesta fase? → A: Pelo comando `ai-core audit`, com filtros por Principal, Assistant, tool e período — a função do comando é deste módulo, e o registro na raiz é da 011. Nenhuma rota de rede nesta fase: a superfície privada pode ganhar uma quando houver painel.
+- Q: Como o operador consulta a auditoria de tools de escrita nesta fase? → A: Pelo comando `axon audit`, com filtros por Principal, Assistant, tool e período — a função do comando é deste módulo, e o registro na raiz é da 011. Nenhuma rota de rede nesta fase: a superfície privada pode ganhar uma quando houver painel.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -91,7 +91,7 @@ Tools que mutam estado externo ficam indisponíveis em Assistants públicos por 
 
 1. **Given** um Assistant público e um MCP com tool de escrita, **When** o catálogo é montado, **Then** a tool não aparece.
 2. **Given** um Assistant privado que declara a tool como de escrita, **When** ela é executada, **Then** existe registro de auditoria com Principal e argumentos.
-3. **Given** registros de auditoria de vários Principals e Assistants, **When** o operador roda `ai-core audit` filtrando por Principal, Assistant, tool ou período, **Then** vê só os registros que casam, do mais recente para o mais antigo.
+3. **Given** registros de auditoria de vários Principals e Assistants, **When** o operador roda `axon audit` filtrando por Principal, Assistant, tool ou período, **Then** vê só os registros que casam, do mais recente para o mais antigo.
 
 ---
 
@@ -150,7 +150,7 @@ O catálogo entregue ao modelo de controle tem tamanho limitado por configuraç�
 - **FR-012**: Recuperações DEVEM ser restritas às coleções do grant: um retriever só entra no catálogo se todas as coleções que declara estão no grant; retriever sem coleção declarada segue as demais regras do catálogo (o contrato 0.1 exige ao menos uma coleção por retriever; a regra vale se isso mudar).
 - **FR-013**: O número de tools entregues ao controller DEVE ser limitado por configuração. *(US6, P3 — entra quando houver caso de uso; fora da Fase 3.)*
 - **FR-014**: Cada chamada DEVE emitir, pelo Trace Sink (009), dados de trace: tool, tipo, latência, status, tamanho e truncamento.
-- **FR-015**: A auditoria DEVE ser consultável pelo comando `ai-core audit`, com filtros por Principal, Assistant, tool e período; nenhuma superfície de rede expõe a auditoria nesta fase.
+- **FR-015**: A auditoria DEVE ser consultável pelo comando `axon audit`, com filtros por Principal, Assistant, tool e período; nenhuma superfície de rede expõe a auditoria nesta fase.
 
 ### Key Entities
 

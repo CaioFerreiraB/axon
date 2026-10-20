@@ -5,7 +5,7 @@
 ## Localização
 
 ```text
-ai-core/packages/core/src/ai_core/assistants/
+axon-ai/packages/core/src/axon_ai/assistants/
 ├── api.py        # seams: Authenticator, GrantResolver, AssistantDirectory;
 │                 # value objects Principal, ExecutionGrant, ModelPolicy, Limits
 ├── domain/       # ACL, resolução do grant (interseção com as restrições da requisição), 404-não-403,
@@ -21,7 +21,7 @@ ai-core/packages/core/src/ai_core/assistants/
     └── cli.py                   # subcomando `assistants validate`
 ```
 
-A autenticação, antes em `ai_core/auth/`, passa a morar neste pacote (ADR-012). O `api.py` não importa o resto do
+A autenticação, antes em `axon_ai/auth/`, passa a morar neste pacote (ADR-012). O `api.py` não importa o resto do
 módulo, e por isso 004, 005, 006, 007 e 008 podem importar `Principal` e `ExecutionGrant` sem ciclo.
 
 ## Assistants (arch-v1 §12)
@@ -111,12 +111,12 @@ Superfícies são poucas e estáveis; assistants crescem. Por isso a variável d
 - `Surface = "public" | "private" | "admin"`; `SCHEME_OF_SURFACE` vira `SCHEMES_OF_SURFACE: Mapping[Surface,
   frozenset[Scheme]]` = `{public: {oidc}, private: {api_key}, admin: {oidc, api_key}}`. Na administração, `parse_key()`
   com o prefixo `aic_` → caminho de chave; senão, OIDC.
-- Audiência por superfície: `public` aceita a do chat (`ai-core`), `admin` a da console (`ai-core-admin`); a 011 as
+- Audiência por superfície: `public` aceita a do chat (`axon-ai`), `admin` a da console (`ai-core-admin`); a 011 as
   configura a partir dos clientes da 012.
 - `is_admin(principal, admin_group)` = `admin_group in principal.groups`, sem olhar o esquema.
 - O `JwksOidcVerifier` mantém a lógica e ganha uma fonte de chaves plugável (`JwksSource`): HTTP (descoberta ou
-  `AI_CORE_OIDC_JWKS_URL`, como hoje) ou uma função em processo — o seam `PublicKeySet` da 012, injetado pela 011, sem
-  chamada HTTP da plataforma para si mesma. Um único emissor: identidade ligada com `AI_CORE_OIDC_ISSUER` é erro de
+  `AXON_OIDC_JWKS_URL`, como hoje) ou uma função em processo — o seam `PublicKeySet` da 012, injetado pela 011, sem
+  chamada HTTP da plataforma para si mesma. Um único emissor: identidade ligada com `AXON_OIDC_ISSUER` é erro de
   configuração (validado pela 011).
 - Com a 012, o subject vem de `preferred_username` (`OidcClaims(subject_claim="preferred_username", groups_claim="groups")`),
   como com o Keycloak na Fase 7.

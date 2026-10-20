@@ -1,6 +1,6 @@
 # Quickstart — validar o trace por requisição (Fase 1, US1)
 
-Comandos a partir de `ai-core/`. Nesta máquina, use `XDG_DATA_HOME=$HOME/.local/share` no `uv` (ver CLAUDE.md).
+Comandos a partir de `axon-ai/`. Nesta máquina, use `XDG_DATA_HOME=$HOME/.local/share` no `uv` (ver CLAUDE.md).
 
 ## 1. Suíte do módulo
 
@@ -17,9 +17,9 @@ uv run pytest packages/core/tests/observability -q
 uv run python - <<'PY'
 from datetime import UTC, datetime
 
-from ai_core.observability.adapters.memory import FixedClock, InMemoryTraceBackend
-from ai_core.observability.api import ExecutionFinished, ExecutionStarted, ModelCall
-from ai_core.observability.service import TraceService
+from axon_ai.observability.adapters.memory import FixedClock, InMemoryTraceBackend
+from axon_ai.observability.api import ExecutionFinished, ExecutionStarted, ModelCall
+from axon_ai.observability.service import TraceService
 
 backend = InMemoryTraceBackend()
 service = TraceService(exporter=backend, reader=backend, clock=FixedClock(datetime(2026, 9, 17, 14, tzinfo=UTC)))
@@ -45,9 +45,9 @@ PY
 uv run python - <<'PY'
 from datetime import UTC, datetime
 
-from ai_core.observability.adapters.memory import FixedClock, InMemoryTraceBackend
-from ai_core.observability.api import ExecutionError
-from ai_core.observability.service import TraceService
+from axon_ai.observability.adapters.memory import FixedClock, InMemoryTraceBackend
+from axon_ai.observability.api import ExecutionError
+from axon_ai.observability.service import TraceService
 
 backend = InMemoryTraceBackend()
 service = TraceService(exporter=backend, reader=backend, clock=FixedClock(datetime.now(UTC)))
@@ -69,9 +69,9 @@ PY
 uv run python - <<'PY'
 from datetime import UTC, datetime
 
-from ai_core.observability.adapters.memory import FixedClock
-from ai_core.observability.api import ExecutionFinished
-from ai_core.observability.service import TraceService
+from axon_ai.observability.adapters.memory import FixedClock
+from axon_ai.observability.api import ExecutionFinished
+from axon_ai.observability.service import TraceService
 
 
 class Broken:
@@ -88,7 +88,7 @@ except Exception as error:
 PY
 ```
 
-**Esperado**: `descartados: 1` (mais um aviso no logger `ai_core.observability`) e, na consulta,
+**Esperado**: `descartados: 1` (mais um aviso no logger `axon_ai.observability`) e, na consulta,
 `TraceQueryUnavailable` nomeando o backend — o perfil não tem leitura (FR-011, [research.md](research.md) R5, R8).
 
 ## 5. Arquivo JSONL e rotação por dia
@@ -100,10 +100,10 @@ import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from ai_core.observability.adapters.jsonl import JsonlTraceBackend
-from ai_core.observability.adapters.memory import FixedClock
-from ai_core.observability.api import ExecutionFinished
-from ai_core.observability.service import TraceService
+from axon_ai.observability.adapters.jsonl import JsonlTraceBackend
+from axon_ai.observability.adapters.memory import FixedClock
+from axon_ai.observability.api import ExecutionFinished
+from axon_ai.observability.service import TraceService
 
 directory = Path(sys.argv[1])
 backend = JsonlTraceBackend(directory)
@@ -144,7 +144,7 @@ uv run pytest
 
 # Fase 6 — harness de avaliação (US2, US3, US4)
 
-Dentro de `ai-core/`:
+Dentro de `axon-ai/`:
 
 ```bash
 uv run pytest packages/core/tests/eval packages/core/tests/observability packages/core/tests/packs packages/core/tests/graph packages/contracts/tests
@@ -159,9 +159,9 @@ barrada (saída 1), o juiz simulado com média e variância (contracts/eval-harn
 Com uma instalação real (o `agentic-deploy` com o índice ingerido e um modelo de geração):
 
 ```bash
-ai-core eval run --golden golden.yaml --assistant scouting --judge openrouter/<modelo> --report base.json
-ai-core eval run --golden golden.yaml --assistant scouting --baseline base.json   # 0: sem regressão
-ai-core eval compare a.json b.json                                                # benchmark lado a lado
+axon eval run --golden golden.yaml --assistant scouting --judge openrouter/<modelo> --report base.json
+axon eval run --golden golden.yaml --assistant scouting --baseline base.json   # 0: sem regressão
+axon eval compare a.json b.json                                                # benchmark lado a lado
 ```
 
 O conjunto dourado do domínio e a calibração são da 105.

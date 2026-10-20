@@ -7,7 +7,7 @@
 ## Localização
 
 ```text
-ai-core/console/                 # fora de packages/: o workspace do uv casa packages/* e exigiria pyproject.toml
+axon-ai/console/                 # fora de packages/: o workspace do uv casa packages/* e exigiria pyproject.toml
 ├── .nvmrc                       # 24 (Active LTS)
 ├── package.json                 # engines node >= 22.12
 ├── vite.config.ts  tsconfig.json  eslint.config.js  index.html
@@ -64,7 +64,7 @@ Estágio `console-build` no `agentic-deploy/Dockerfile` (`node:24-bookworm-slim`
   emissor e os endereços são os mesmos com ou sem console, e não há CORS;
 - CSP `default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`; HSTS sob HTTPS.
 
-Com console, `AI_CORE_PUBLIC_URL` é a origem da console.
+Com console, `AXON_PUBLIC_URL` é a origem da console.
 
 ## Fluxo de design
 

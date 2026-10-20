@@ -2,12 +2,12 @@
 
 Dono: spec 003. Consumidores: 008 (autenticação, resolução, descoberta, CRUD, administração de chaves), 005 (lê o grant
 pelo `Protocol` dela), 004, 006 e 007 (recebem o grant a partir da Fase 3), 011 (constrói, valida no boot, registra a
-CLI). Publicado em `ai_core/assistants/api.py`. **Mudar qualquer assinatura abaixo exige ADR** (princípio II).
+CLI). Publicado em `axon_ai/assistants/api.py`. **Mudar qualquer assinatura abaixo exige ADR** (princípio II).
 
 ## Superfície
 
 ```python
-from ai_core.assistants.api import (
+from axon_ai.assistants.api import (
     # seams
     Authenticator, GrantResolver, AssistantDirectory, ApiKeyAdmin,
     # value objects

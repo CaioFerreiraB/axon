@@ -19,7 +19,7 @@ Dependências permitidas: `PackHooks` (002), `CapabilityCatalog`/`ToolGateway` (
 ## Localização [ADR-012]
 
 ```text
-ai-core/packages/core/src/ai_core/graph/
+axon-ai/packages/core/src/axon_ai/graph/
 ├── api.py          # seam ExecutionEngine; ExecutionRequest, ExecutionEvent; nomes de flow
 ├── domain/         # políticas puras — sobrevivem a qualquer reescrita do grafo
 │   ├── gate.py         # portão de cobertura do rag_first
@@ -197,7 +197,7 @@ Portão **determinístico**: score do melhor chunk abaixo de um limiar, ou nenhu
 
 > Atualizado em 2026-10-09 (clarificações da Fase 5; [research.md](research.md) R36–R44): a escalada para o loop só
 > acontece se o Assistant tem `controller`; sem ele, a geração roda sem trechos com um `notice`. Recuperação que falha
-> encerra sem gerar. Limiar, candidatos e trechos são configuração do operador (`AI_CORE_RAG_*`), sem limiar por
+> encerra sem gerar. Limiar, candidatos e trechos são configuração do operador (`AXON_RAG_*`), sem limiar por
 > default. Os trechos chegam à geração cercados, como passo de tool, no formato do ADR-026 (com `· id:`).
 
 ### Escape hatch: rotina de pack [ADR-011]

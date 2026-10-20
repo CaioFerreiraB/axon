@@ -13,9 +13,9 @@ autenticação (401/503 storage) → corpo e cabeçalho (400) → conversa (404/
 
 | Variável | Faixa | Provisório |
 |---|---|---|
-| `AI_CORE_MAX_EXECUTIONS` | 1–64 | 2 |
-| `AI_CORE_QUEUE_SIZE` | 0–1000 (0 = sem fila) | 8 |
-| `AI_CORE_QUEUE_WAIT_MS` | 1–600 000 | 60 000 |
+| `AXON_MAX_EXECUTIONS` | 1–64 | 2 |
+| `AXON_QUEUE_SIZE` | 0–1000 (0 = sem fila) | 8 |
+| `AXON_QUEUE_WAIT_MS` | 1–600 000 | 60 000 |
 
 Os provisórios são medidos no hardware alvo na implementação e fixados com os números no quickstart. Sem `admission`
 em `create_app`, não há limite.

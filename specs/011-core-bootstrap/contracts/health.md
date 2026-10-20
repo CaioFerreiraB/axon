@@ -1,7 +1,7 @@
 # Contrato — saúde agregada (Fase 2, US5; research R16; clarificação 2)
 
 `bootstrap/health.py` implementa a porta `HealthProvider` da 008. Consumida por `GET /private/v1/health` e por
-`ai-core health`.
+`axon health`.
 
 | Item | Crítico | Quando aparece não saudável |
 |---|---|---|

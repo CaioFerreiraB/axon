@@ -1,6 +1,6 @@
 # Contrato — rotas de MCP (Fase 3; US4, US5; research R26–R29)
 
-Sobre o seam `McpRegistry` da 007 (`ai_core.mcp.api`), injetado em `create_app(mcp=…)` pela 011. Sem registry, as rotas
+Sobre o seam `McpRegistry` da 007 (`axon_ai.mcp.api`), injetado em `create_app(mcp=…)` pela 011. Sem registry, as rotas
 não existem (404).
 
 ## Do usuário — superfície pública (FR-006)
@@ -49,7 +49,7 @@ POST /private/v1/mcp
 | `transport` | sim | `http` ou `sse` — `stdio` só no arquivo do operador (007 FR-013) |
 | `endpoint` | sim | URL; de usuário sempre `https` |
 | `description` | não | texto |
-| `auth` | não | `{type: none \| bearer, credential: <ref>}`; só global; a referência vira `AI_CORE_MCP_SECRET_<REF>` |
+| `auth` | não | `{type: none \| bearer, credential: <ref>}`; só global; a referência vira `AXON_MCP_SECRET_<REF>` |
 | `enabled` | não | default `true` |
 | `user_access` | não | só global; default `false` |
 | `policy` | sim | `allowed_tools` obrigatória e não vazia; `write_tools` ⊆ `allowed_tools`; prazos e tamanhos da 007 |

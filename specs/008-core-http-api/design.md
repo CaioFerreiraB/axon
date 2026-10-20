@@ -5,7 +5,7 @@
 ## Localização
 
 ```text
-ai-core/packages/core/src/ai_core/http/
+axon-ai/packages/core/src/axon_ai/http/
 ├── ports.py          # ConversationStore, HealthProvider, Clock
 ├── service.py        # histórico de conversa (domínio da aplicação, não do motor)
 └── adapters/         # a camada HTTP inteira é adapter primário
@@ -19,7 +19,7 @@ ai-core/packages/core/src/ai_core/http/
     └── conversations_postgres.py  # ConversationStore — Fase 2
 ```
 
-O pacote era `ai_core/api/`; virou `ai_core/http/` para não colidir com a convenção `api.py` (ADR-012). Este módulo
+O pacote era `axon_ai/api/`; virou `axon_ai/http/` para não colidir com a convenção `api.py` (ADR-012). Este módulo
 não tem `api.py`: seu seam é a própria API HTTP, consumida por clientes externos.
 
 ## Duas superfícies

@@ -1,10 +1,10 @@
-# Contrato — seams Pack Registry e Pack Hooks (`ai_core/packs/api.py`)
+# Contrato — seams Pack Registry e Pack Hooks (`axon_ai/packs/api.py`)
 
 Único ponto pelo qual outros módulos (003, 004, 005, 008, 011) usam a 002. `api.py` só importa stdlib e a API pública de
-`ai_core_contracts`. Campos e regras: [data-model.md](../data-model.md).
+`axon_ai_contracts`. Campos e regras: [data-model.md](../data-model.md).
 
 ```python
-# ai_core/packs/api.py
+# axon_ai/packs/api.py
 from __future__ import annotations
 
 class PackStatus(StrEnum):
@@ -94,7 +94,7 @@ class PackToolset(Protocol):
 @dataclass(frozen=True, slots=True, kw_only=True)
 class PackEvalMetric:
     pack: str
-    metric: EvalMetric                 # ai_core_contracts.eval (contratos 0.1.2)
+    metric: EvalMetric                 # axon_ai_contracts.eval (contratos 0.1.2)
 
 class PackEvalMetrics(Protocol):
     def eval_metrics(self, composition: Composition) -> Sequence[PackEvalMetric]: ...
@@ -120,7 +120,7 @@ ordem da composição revalidada, sem chamar o pack.
 
 ## Suítes de conformidade do seam
 
-`ai-core/packages/core/tests/packs/contract/`: `test_packs_registry_seam.py`, `test_packs_hooks_seam.py` e
+`axon-ai/packages/core/tests/packs/contract/`: `test_packs_registry_seam.py`, `test_packs_hooks_seam.py` e
 `test_packs_toolset_seam.py` (Fase 3), contra o `service` montado com adapters em memória. Toda linha da tabela acima
 tem um teste. A suíte da porta que a 004 declarou (`tests/capabilities/contract/test_pack_tool_source.py`) roda também
 contra o `PackRuntime` (R20).

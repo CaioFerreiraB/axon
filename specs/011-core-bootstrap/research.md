@@ -673,3 +673,145 @@ passada da 002 (instalação), que fixa `CORE_REF`.
 **Rationale**: o padrão já usado pela identidade (R13, R37), sem chamada de rede nem armazenamento novo.
 
 **Alternatives considered**: abrir o pool de serviço na linha de comando (contra o R13).
+
+---
+
+## Passada de 2026-10-20: identidade Axon ([ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md), [ADR-038](../../docs/adr/ADR-038-marca-da-plataforma-e-marca-da-instalacao.md); US7)
+
+Decisões pré-aprovadas pelos ADRs (nomes, corte seco, versão, ordem das passadas, nome padrão); o que segue é como elas
+chegam à composição e ao workspace, sem re-pesquisa. Os R anteriores ficam como foram executados (ADR-037, item 6); os
+nomes antigos neles se leem pela tabela do ADR-037.
+
+### R46 — Distribuição, pasta, import e versão
+
+- **Decision**: `git mv ai-core axon-ai` (o workspace inteiro: contratos, core, generic, console) e `git mv
+  packages/core/src/ai_core packages/core/src/axon_ai`. `packages/core/pyproject.toml`: `name = "axon-ai"`,
+  `version = "0.7.0rc1"`, `description = "Runtime genérico da plataforma Axon (monolito modular; specs 002–009, 011,
+  012)."`, script `axon = "axon_ai.bootstrap.cli:main"`, pacote `axon_ai` no build. O `__init__.py` diz `axon-ai:
+  runtime genérico da plataforma Axon`. As pastas `packages/core`, `packages/contracts` e `packages/generic` ficam. O
+  `uv.lock` é regenerado (`uv lock`), não editado.
+- **Rationale** (ADR-037, itens 2 e 4): no código, `ai-core` vira `axon-ai`; a linha 0.6.0 termina no rc6 com o nome
+  antigo, então o primeiro release com o nome novo é `0.7.0rc1`. Um pacote só: o import muda em todos os módulos de uma
+  vez, e a 011, dona da distribuição, é quem muda.
+- **Alternatives**: uma passada por módulo para o import (impossível: um pacote Python não tem duas raízes);
+  `0.6.0rc7` (misturaria os dois nomes na mesma linha de versões).
+
+### R47 — Substituição mecânica e o que ela protege
+
+- **Decision**: um script no scratchpad (não versionado) aplica, do padrão mais específico ao mais geral:
+  1. `x-ai-core-optional` → `x-axon-optional` (marcador interno da 006, que nunca vai ao provider; a 006 não tem passada
+     própria);
+  2. **comando**: `ai-core` seguido de um subcomando (`serve`, `packs`, `assistants`, `keys`, `health`, `eval`, `audit`,
+     `users`, `groups`, `identity`, `--version`, `--help`, `--profile`), o `[project.scripts]` e as frases "comando/raiz
+     `ai-core`" → `axon`;
+  3. `ai_core` → `axon_ai`; `AI_CORE` → `AXON`; o restante de `ai-core` → `axon-ai`.
+
+  Antes, troca por marcadores (e devolve depois) o que é das passadas de outros módulos: `x-ai-core-*` e `x_ai_core`
+  (008); os rótulos `ai-core/identity/…` e `ai-core/observability/v1` (012, 009); as audiências — `ai-core-admin` em
+  qualquer lugar, `"ai-core"`/`'ai-core'` entre aspas em `.py` e `.md`, e `ai-core` depois de `audience`, `aud` ou
+  "audiência(s)" (003); o grupo de entry point `ai_core.packs` (`entry-points."ai_core.packs"`, `PACKS_GROUP` e as
+  frases "grupo/entry point `ai_core.packs`") (002); `http://ai-core:` e `/etc/ai-core`/`/run/secrets/ai-core`, que são
+  da instalação (002); e todo `AI_CORE_…` seguido de `→` (o texto que documenta a recusa). Os literais entre aspas que
+  são da 011 — `prog`, a versão lida dos metadados, o nome do pool — são trocados à mão (R49, R50), assim como o título
+  do OpenAPI (008), o realm (012) e o `service.name` (009) ficam com as passadas deles.
+
+  Escopo: `axon-ai/**` (código, testes, configuração, console, menos `uv.lock`, `node_modules`, `CHANGELOG.md` e
+  binários), `.github/workflows/*.yml`, os documentos vivos das specs 001–013 (`spec.md`, `design.md`,
+  `data-model.md`, `quickstart.md`, `contracts/**`), `specs/README.md`, `PRODUCT.md` e
+  `.impeccable/surfaces/ai-core-console.md` (caminhos). Fora: `research.md`, `plan.md`, `tasks.md`, `checklists/`,
+  `docs/adr/`, `docs/archive/`, `docs/relatorio-estilo-arquitetural.md` (relatório datado), `.impeccable/mocks/`,
+  as specs `1xx` (passada da 101), `CLAUDE.md`, `.specify/templates/overrides/` e o `README.md` da raiz (fechamento),
+  os submódulos. A spec da 011 e os documentos dela já são escritos com os nomes novos nesta passada.
+  Depois: `git grep` dos resíduos, revisão de cada um (o que sobra é protegido ou histórico) e `git grep -w agentic`
+  com a contagem de antes (o flow intacto).
+- **Rationale** (ADR-037, itens 6 e 7): a passada que renomeia uma distribuição atualiza mecanicamente quem a consome;
+  os identificadores com comportamento (credencial, dado selado, protocolo) mudam com testes na passada do dono. O
+  plano do renome (Etapa 2, "Mecânica") já previa script, ordem dos padrões e a regra de contexto do comando.
+- **Alternatives**: `sed` global sem proteção (trocaria audiências e rótulos HKDF para `axon-ai`, que nem é o nome
+  final deles); renomear também os identificadores dos outros módulos aqui (atropela as passadas e os testes deles).
+
+### R48 — Prefixo `AXON_` e recusa de `AI_CORE_*`
+
+- **Decision**: `settings.PREFIX = "AXON_"`; os adapters de segredo leem `AXON_MCP_SECRET_<REF>` (007),
+  `AXON_OPENAI_API_KEY`/`AXON_OPENROUTER_API_KEY` (006) e `AXON_IDENTITY_SECRET_<REF>`, `AXON_GOOGLE_*`,
+  `AXON_BOOTSTRAP_ADMIN_*` (012) — a troca é a substituição mecânica (R47). A recusa fica em
+  `EnvConfigSource.load()`, antes de ler qualquer valor: `LEGACY_PREFIX = "AI_CORE_"`; os nomes do ambiente com esse
+  prefixo, ordenados, viram um `ConfigurationError`:
+
+  ```text
+  variáveis com o nome antigo da plataforma (ADR-037); renomeie:
+    AI_CORE_MCP_SECRET_FINANCEIRO_TOKEN → AXON_MCP_SECRET_FINANCEIRO_TOKEN
+    AI_CORE_PROFILE → AXON_PROFILE
+  ```
+
+  Sem valor, nem o tamanho. A etapa `configuration` falha com essa mensagem (boot e `serve`), e a CLI sai com 1, como
+  em qualquer erro de configuração (contracts/cli.md). As suítes leem `AXON_TEST_POSTGRES_DSN`.
+- **Rationale** (ADR-037, item 3): corte seco com diagnóstico; um `.env` antigo ignorado em silêncio subiria um
+  `persistent` como `memory`, sem banco e sem identidade. A regra pelo prefixo (não por lista) pega também os nomes de
+  outros módulos e os que nunca existiram. A carga da configuração é o único ponto por onde todo boot e todo comando
+  passam, e vem antes de qualquer adapter de segredo.
+- **Alternatives**: aceitar os dois prefixos por um tempo (rejeitado no ADR-037); só avisar (o boot seguiria com a
+  configuração errada); recusar só as variáveis conhecidas (o `AI_CORE_MCP_SECRET_<REF>` antigo escaparia, e o servidor
+  MCP ficaria sem credencial com um erro que não diz por quê).
+
+### R49 — Comando `axon` e `--version`
+
+- **Decision**: `argparse.ArgumentParser(prog="axon", description="Axon — linha de comando do operador")`, com
+  `--version` (`action="version"`, `version=f"axon-ai {_core_version()}"`); `_core_version()` lê
+  `importlib.metadata.version("axon-ai")` e devolve `desconhecida` sem metadados. A ação de versão do `argparse` sai com
+  0 antes de qualquer subcomando, então nada de configuração é carregado. A ajuda de `--profile` cita `AXON_PROFILE`.
+- **Rationale** (ADR-037, item 2): o que o operador digita fica curto; a versão é da distribuição, então leva o nome
+  dela. `_core_version()` já existia (o relatório do `eval run` a usa) e só muda de nome lido.
+- **Alternatives**: subcomando `axon version` (mais um comando a registrar, sem ganho); `axon <versão>` sem o nome da
+  distribuição (esconde qual pacote está instalado).
+
+### R50 — Nome padrão e pool
+
+- **Decision**: `DEFAULT_DISPLAY_NAME = "Axon"` em `bootstrap/settings.py`; `AsyncConnectionPool(..., name="axon")` em
+  `bootstrap/profiles.py`. Os defaults próprios da 008 (`InstanceBranding.name`) e da 012 (`pages.DEFAULT_NAME`), que só
+  valem quando montados sem a 011, mudam nas passadas deles, com o lockup e o `instance.custom`.
+- **Rationale** (ADR-038, item 1; ADR-037, item 2): o nome padrão é configuração da 011; o pool é infraestrutura que a
+  011 monta. O que se desenha com o nome (lockup, atribuição) é da 012 e da 013.
+- **Alternatives**: trocar aqui também os defaults da 008 e da 012 (internals de outros módulos, contra o princípio II).
+
+### R51 — Documentos vivos, specs 004–007 e o que fica para depois
+
+- **Decision**: a substituição do R47 alcança os documentos vivos de 001–013 onde citam o core, o comando, o prefixo ou
+  os caminhos (`axon-ai/packages/core/src/axon_ai/...`). As specs 004–007 não ganham US: só os nomes. `specs/README.md`:
+  a coluna de caminhos (`axon_ai/...`), o diagrama (`axon-ai`, workspace `axon-ai`) e a linha da 011.
+  `docs/roadmap.md`: a linha de andamento do incremento 9.5. `CLAUDE.md`, os overrides de template e o `README.md` da
+  raiz ficam para o fechamento do renome (plano, "Fechamento"); até lá, os caminhos do `CLAUDE.md` se leem pela tabela
+  do ADR-037.
+- **Rationale** (ADR-037, item 6): documentos vivos passam aos nomes novos na passada que torna o antigo errado; o
+  histórico fica. As specs `1xx` citam o core pela tag `v0.3.0`, ainda com o nome antigo, até a passada da 101.
+- **Alternatives**: deixar os caminhos antigos nas specs até cada passada (as specs de 004–007 ficariam erradas para
+  sempre, porque não têm passada própria).
+
+### R52 — CI e console
+
+- **Decision**: `.github/workflows/*.yml`: filtros de caminho `axon-ai/**`, `working-directory: axon-ai` e
+  `axon-ai/console`, `AXON_TEST_POSTGRES_DSN`, `uv run axon …`. A console muda só pelo que a 011 renomeia: a pasta
+  (`axon-ai/console/`), os imports `axon_ai` do `e2e/serve_platform.py`, a variável `AXON_UPSTREAM` do proxy de
+  desenvolvimento, do Playwright e do `nginx.conf.template` (prefixo do ADR-037; a instalação a passa na passada dela)
+  e os textos que nomeiam variáveis `AXON_*` ao operador. O pacote npm, o "Agentic" da barra lateral e do acesso negado
+  e os tokens ficam com a passada da 013.
+- **Rationale** (ADR-037, item 7): a CI fica verde a cada passada; a console é consumidora do nome do workspace e das
+  variáveis, não dona deles.
+- **Alternatives**: deixar `AI_CORE_UPSTREAM` até a 013 (o prefixo antigo sobreviveria num lugar que o operador
+  configura, sem a recusa do boot para apontá-lo).
+
+### R53 — Testes da US7
+
+- **Decision**:
+  - `tests/bootstrap/unit/test_settings_legacy.py`: um `AI_CORE_*` (conhecido, desconhecido, vazio, com a nova também
+    definida) → `ConfigurationError` com `AI_CORE_X → AXON_X` por linha, ordenado, sem o valor; `AI_COREX`,
+    `MY_AI_CORE_URL` e `AI_SCOUTING_INDEX` não são recusados (US7 cen. 3, 4; casos de borda).
+  - `tests/bootstrap/contract/test_cli_commands.py`: `--version` imprime `axon-ai ` + a versão de
+    `importlib.metadata` e sai com 0 sem configuração (cen. 1); um subcomando com `AI_CORE_PROFILE` no ambiente sai com
+    1 e a linha da recusa (cen. 3); `prog` `axon` na ajuda (cen. 7).
+  - O nome padrão "Axon" nos testes de settings e no `me` da prova ponta a ponta (cen. 5); as suítes existentes com o
+    prefixo novo cobrem o cen. 2 e o cen. 6.
+  - `tests/bootstrap/unit/test_core_old_name_absent.py`: `importlib.util.find_spec("ai_core")` é `None` (FR-022), como a 001 fez
+    para os contratos.
+- **Rationale**: cada cenário da US7 com um teste; o resto é a suíte existente com os nomes novos.
+- **Alternatives**: —

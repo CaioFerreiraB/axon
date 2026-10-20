@@ -401,3 +401,88 @@ ai-core/packages/core/src/ai_core/bootstrap/
 ├── health.py        # trace:usage, trace:langfuse, identity; modelos efetivos (R41)
 └── cli.py           # users …, identity keys rotate (R42)
 ```
+
+---
+
+## Passada de 2026-10-20: identidade Axon (US7; [ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md), [ADR-038](../../docs/adr/ADR-038-marca-da-plataforma-e-marca-da-instalacao.md))
+
+> As seções acima são os planos das passadas anteriores e ficam como foram executadas (ADR-037, item 6); os nomes
+> antigos nelas se leem pela tabela do ADR-037. Esta seção é o plano da US7.
+
+**Insumos lidos**: [spec.md](spec.md) (US7, FR-022–FR-027, SC-008, clarificações de 2026-10-20), [design.md](design.md),
+ADR-037, ADR-038, constituição 1.3.1, a passada da 001 (contratos `axon-ai-contracts` 0.2.0, já no workspace).
+Research: R46–R53.
+
+### Summary
+
+A distribuição do core passa a `axon-ai` **0.7.0rc1**, com o workspace em `axon-ai/` e o import `axon_ai` em todos os
+módulos (R46), por uma substituição mecânica que protege os identificadores das passadas de outros módulos (R47). A 011
+muda o que é dela: o prefixo `AXON_` com a recusa fechada de qualquer `AI_CORE_*` (R48), o comando `axon` com
+`--version` (R49), o nome padrão "Axon" e o pool `axon` (R50). Documentos vivos de 001–013 (004–007 só nos nomes), CI e
+console acompanham (R51, R52). Sem tag: `v0.7.0-rc1` sai depois da 013.
+
+### Technical Context (deltas)
+
+- **Language/Version**: sem mudança (Python 3.14 no workspace; contratos `>=3.12`; console em Node 24).
+- **Primary Dependencies**: sem mudança.
+- **Storage**: sem mudança de schema; só o nome do pool (`axon`).
+- **Testing**: as suítes existentes com os nomes novos; testes novos da recusa, do `--version`, do nome padrão e do
+  módulo antigo ausente (R53).
+- **Scale/Scope**: ~470 arquivos tocados pela substituição mecânica (core, generic, contratos, console, workflows,
+  documentos vivos); comportamento novo só em `bootstrap/settings.py` e `bootstrap/cli.py`.
+- Nenhum `NEEDS CLARIFICATION`.
+
+### Constitution Check (US7)
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| I. Núcleo agnóstico de domínio | ✅ | Axon é a marca da plataforma, não de um domínio (ADR-038, Consequências) |
+| II. Módulos substituíveis por seams | ✅ | O nome do pacote muda por ADR (ADR-037), em todos os módulos de uma vez e só de forma mecânica; os identificadores com comportamento de cada módulo ficam com a passada dele (R47) |
+| VII. Falha fechada e explícita | ✅ | Variável `AI_CORE_*` recusa a configuração antes da primeira etapa, com o nome novo de cada uma e sem o valor (R48) |
+| XII. Simplicidade deliberada | ✅ | Sem alias nem módulo de compatibilidade; a recusa é uma regra de prefixo, sem lista (R48) |
+| XIII. Portas e adapters | ✅ | Layout hexagonal sem mudança; os contratos do import-linter só trocam a raiz (`axon_ai`) |
+| Stack | ✅ | Constituição 1.3.1 já cita `axon-ai`, `axon_ai` e o comando `axon` |
+
+**Module boundary gate**: o comportamento novo fica em `axon_ai/bootstrap/**` e `tests/bootstrap/**`. Nos outros
+módulos, só a substituição mecânica que o ADR-037 (item 7) atribui a esta passada — import, prefixo de ambiente e
+caminhos —, sem mudar nenhum seam nem comportamento; os identificadores deles com comportamento (audiências, prefixo da
+chave, cabeçalhos, rótulos HKDF, grupo de entry point) ficam intactos para as passadas dos donos. **Ports & adapters
+gate**: sem mudança. **Resultado**: PASS (antes e depois do design).
+
+### Project Structure (deltas)
+
+```text
+axon-ai/                                  # era ai-core/ (git mv)
+├── pyproject.toml                        # workspace; import-linter com root_packages axon_ai, axon_ai_contracts, ai_generic
+├── uv.lock                               # regenerado
+├── console/                              # só a pasta, os imports do e2e e AXON_UPSTREAM (R52)
+└── packages/
+    ├── contracts/                        # 001 (passada anterior)
+    ├── generic/                          # 010 (nome na passada dela)
+    └── core/
+        ├── pyproject.toml                # name axon-ai, 0.7.0rc1, script axon
+        ├── src/axon_ai/                  # era src/ai_core/ (git mv)
+        │   └── bootstrap/
+        │       ├── settings.py           # PREFIX AXON_, LEGACY_PREFIX e a recusa (R48), DEFAULT_DISPLAY_NAME "Axon"
+        │       ├── cli.py                # prog axon, --version (R49)
+        │       └── profiles.py           # pool "axon"
+        └── tests/bootstrap/
+            ├── unit/test_settings_legacy.py   # novo (R53)
+            ├── unit/test_core_old_name_absent.py  # novo (R53)
+            └── contract/test_cli_commands.py  # --version, recusa, prog
+```
+
+### Seam Notes for Consumers (US7)
+
+| Consumidor | O que muda para ele |
+|---|---|
+| 002–009, 012 (módulos do core) | Import `axon_ai` e prefixo `AXON_` (mecânico, nesta passada); nenhum seam muda de forma |
+| 010 (`ai-generic`) | Nada no código (não importa o core); o nome `axon-generic` é da 010 |
+| 013 (console) | A pasta, os imports do e2e e `AXON_UPSTREAM`; o resto da marca é da 013 |
+| 101 (`ai-scouting`) | Nada até a passada da 101: depende do core pela tag `v0.3.0`; passa a `axon_ai` pela `v0.7.0-rc1` |
+| Instalação (`agentic-deploy`) | Nada até a passada dela: `CORE_REF` aponta uma tag antiga |
+| Suíte de pack externo | `from axon_ai.bootstrap.profiles import TEST_API_KEY, …` e `platform(profile="test")` de `axon_ai.bootstrap.wiring` |
+
+### Complexity Tracking (US7)
+
+Nenhuma linha nova: a recusa é uma checagem de prefixo na carga da configuração, sem caminho paralelo.

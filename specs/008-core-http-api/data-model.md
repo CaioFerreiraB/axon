@@ -93,7 +93,7 @@ Todo chunk repete `id`, `object`, `created` e `model`.
 
 # Fase 2 (2026-09-30)
 
-Os tipos de Principal, grant e erros de acesso agora são da 003 (`ai_core.assistants.api`, research R13). Os tipos
+Os tipos de Principal, grant e erros de acesso agora são da 003 (`axon_ai.assistants.api`, research R13). Os tipos
 abaixo são desta spec: os de armazenamento em `ports.py`, os de formato em `domain/`.
 
 ## Conversa (US7)
@@ -174,9 +174,9 @@ no escopo de usuário, ganha `~` se vier sem. `server_json(McpServer)`, `summary
 
 | Campo | Tipo | Regra |
 |---|---|---|
-| `max_executions` | `int` | 1–64 (`AI_CORE_MAX_EXECUTIONS`; provisório 2) |
-| `queue_size` | `int` | 0–1000; 0 = sem fila (`AI_CORE_QUEUE_SIZE`; provisório 8) |
-| `max_wait` | `timedelta` | 1 ms–600 s (`AI_CORE_QUEUE_WAIT_MS`; provisório 60 s); para não esperar, `queue_size = 0` |
+| `max_executions` | `int` | 1–64 (`AXON_MAX_EXECUTIONS`; provisório 2) |
+| `queue_size` | `int` | 0–1000; 0 = sem fila (`AXON_QUEUE_SIZE`; provisório 8) |
+| `max_wait` | `timedelta` | 1 ms–600 s (`AXON_QUEUE_WAIT_MS`; provisório 60 s); para não esperar, `queue_size = 0` |
 
 `decide(running, queued, limits)` → `"run"` se `running < max_executions`; `"queue"` se `queued < queue_size`; senão
 `"reject"`. `retry_after(limits)` → `max(1, ceil(max_wait em segundos))`.

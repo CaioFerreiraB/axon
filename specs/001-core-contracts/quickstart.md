@@ -10,10 +10,10 @@ Referências: [python-api.md](contracts/python-api.md), [compatibility.md](contr
 - `git` (o repositório foi inicializado em 2026-09-15; tags `contracts-v*` só a partir da Fase 4)
 - Rede para resolver `typing_extensions` e as ferramentas de dev na primeira sincronização
 
-Todos os comandos rodam a partir de `ai-core/`, salvo indicação.
+Todos os comandos rodam a partir de `axon-ai/`, salvo indicação.
 
 ```bash
-cd ai-core
+cd axon-ai
 uv sync                                  # workspace + grupo dev; Python 3.14 via .python-version
 ```
 
@@ -145,7 +145,7 @@ só enquanto o HEAD estiver na mesma série compatível da tag; numa série nova
 
 ## 8. CI
 
-`.github/workflows/contracts.yml` (na raiz enquanto `ai-core/` for subpasta) executa as seções 1–4 e 6, em matriz
+`.github/workflows/contracts.yml` (na raiz enquanto `axon-ai/` for subpasta) executa as seções 1–4 e 6, em matriz
 3.12/3.13/3.14 onde há testes, e a seção 7 com a regra da tag. Um PR que muda a superfície pública sem o bump exigido
 falha antes do merge.
 
@@ -153,13 +153,13 @@ falha antes do merge.
 
 ```bash
 uv run python -c "import axon_ai_contracts as c; print(c.__version__)"
-uv run python -c "import ai_core_contracts" 2>&1 | tail -1
+uv run python -c "import axon_ai_contracts" 2>&1 | tail -1
 uv run python -c "from axon_ai_contracts import check_compatibility as c; print(c('0.1', installed='0.2.0').message)"
-uv run python -c "from axon_ai_contracts.testing import check_contracts_requirement as r; print([i.code for i in r(['ai-core-contracts>=0.1,<0.2'], '0.2')])"
+uv run python -c "from axon_ai_contracts.testing import check_contracts_requirement as r; print([i.code for i in r(['axon-ai-contracts>=0.1,<0.2'], '0.2')])"
 uv run pytest packages/contracts/tests/surface packages/contracts/tests/boundary -v
 ```
 
-**Esperado**: `0.2.0`; `ModuleNotFoundError: No module named 'ai_core_contracts'` (corte seco, cenário 1); `requer
+**Esperado**: `0.2.0`; `ModuleNotFoundError: No module named 'axon_ai_contracts'` (corte seco, cenário 1); `requer
 axon-ai-contracts<0.2, instalado 0.2.0` (cenário 2); `['distribution.missing_requirement']` (cenário 3); e os testes de
 superfície e de fronteira passam, inclusive o do renome (cenário 4).
 
@@ -167,14 +167,14 @@ Contra a última tag, como no CI (`contracts.yml`, job `surface`):
 
 ```bash
 git worktree add "$tmp/base" contracts-v0.1.2   # a última tag; a 0.1.3 não foi marcada
-uv run --isolated --no-project --with "$tmp/base/ai-core/packages/contracts" python packages/contracts/tools/api_surface.py \
-  dump --package ai_core_contracts --output "$tmp/old.json"
+uv run --isolated --no-project --with "$tmp/base/axon-ai/packages/contracts" python packages/contracts/tools/api_surface.py \
+  dump --package axon_ai_contracts --output "$tmp/old.json"
 uv run python packages/contracts/tools/api_surface.py dump --output "$tmp/new.json"
 uv run python packages/contracts/tools/api_surface.py diff "$tmp/old.json" "$tmp/new.json" --old-version 0.1.2 --new-version 0.2.0
 git worktree remove "$tmp/base"
 ```
 
-**Esperado**: três linhas — `[breaking] axon_ai_contracts: distribuição renomeada: ai-core-contracts (ai_core_contracts) →
+**Esperado**: três linhas — `[breaking] axon_ai_contracts: distribuição renomeada: axon-ai-contracts (axon_ai_contracts) →
 axon-ai-contracts (axon_ai_contracts)`, `[additive] axon_ai_contracts.ChatUsage['cost']: chave nova opcional` (0.1.3) e
 `[breaking] axon_ai_contracts.testing.check_imports: parâmetros alterados` (default de `forbidden`) —, `bump exigido:
 minor; declarado: minor` e saída 0; com `--new-version 0.1.4`,

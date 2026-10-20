@@ -80,6 +80,9 @@ mantenedor antes das passadas da 012 e da 013. As specs 004–007 e 102–106 mu
 011 e da 101.
 Andamento: **001 feita** (2026-10-20) — `axon-ai-contracts` 0.2.0, import `axon_ai_contracts`, consumidores do
 workspace atualizados; ainda sem tag.
+**011 feita** (2026-10-20) — distribuição `axon-ai` 0.7.0rc1, workspace `axon-ai/`, import `axon_ai` em todos os
+módulos, comando `axon` (com `--version`), prefixo `AXON_` com a recusa de `AI_CORE_*`, nome padrão "Axon"; specs 004–007
+só nos nomes; ainda sem tag.
 
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 

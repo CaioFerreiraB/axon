@@ -1,17 +1,17 @@
 # Contrato — comandos de linha de comando da 003
 
-Implementados em `ai_core/assistants/adapters/cli.py` como funções — `validate_command`, `keys_create_command`,
+Implementados em `axon_ai/assistants/adapters/cli.py` como funções — `validate_command`, `keys_create_command`,
 `keys_list_command` e `keys_revoke_command`, assíncronas, e `validate_config_error`, síncrona — que recebem o serviço
-já montado, os argumentos e a saída, e devolvem o código de saída. **Quem os registra** na raiz `ai-core` é a
+já montado, os argumentos e a saída, e devolvem o código de saída. **Quem os registra** na raiz `axon` é a
 composition root (011 US4): o framework de linha de comando é decisão dela ([research.md](../research.md) R14). Rodam
 com a mesma configuração e os mesmos adapters do servidor, sem abrir a API (011 FR-010, FR-011).
 
-## `ai-core assistants validate`
+## `axon assistants validate`
 
 Valida todos os Assistants contra packs, flows, MCPs, coleções e modelos (FR-011).
 
 ```text
-$ ai-core assistants validate
+$ axon assistants validate
 geral        system  ok
 interno      system  indisponível  packs: pack 'financeiro' não está habilitado
 ~meu-rag     user    ok            (dono user:ana)
@@ -27,23 +27,23 @@ interno      system  indisponível  packs: pack 'financeiro' não está habilita
 Assistants de usuário aparecem com as referências conferidas; a conformidade com a política depende dos grupos do
 Principal e só é verificável na resolução (R14).
 
-## `ai-core keys create --subject <user:…|svc:…> [--group <g>]... [--label <texto>]`
+## `axon keys create --subject <user:…|svc:…> [--group <g>]... [--label <texto>]`
 
 Emite uma chave com a autoridade do operador. A chave em claro aparece **uma vez**, na saída padrão, sozinha na última
 linha — para que um script possa capturá-la —, e nunca em log.
 
 ```text
-$ ai-core keys create --subject user:caio --group operadores --label "notebook"
+$ axon keys create --subject user:caio --group operadores --label "notebook"
 key_id: 3f9a1c2e7b604d18
 subject: user:caio  groups: operadores
 aic_3f9a1c2e7b604d18_Jd8…
 ```
 
-## `ai-core keys list`
+## `axon keys list`
 
 Lista `key_id`, subject, grupos, rótulo, emissão e revogação. Nunca mostra hash nem chave.
 
-## `ai-core keys revoke <key_id>`
+## `axon keys revoke <key_id>`
 
 Revoga; a próxima requisição com a chave é recusada. `key_id` inexistente sai com código 1 e mensagem explícita.
 

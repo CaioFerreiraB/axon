@@ -5,7 +5,7 @@
 ## Localização
 
 ```text
-ai-core/packages/core/src/ai_core/mcp/
+axon-ai/packages/core/src/axon_ai/mcp/
 ├── api.py        # seams MCP Registry e cliente restrito ao grant; McpServer, SecurityPolicy
 ├── domain/       # regras de escopo e dono, stdio só global, filtro por allowlist, marca de escrita,
 │                 # política SSRF (IP resolvido permitido?) — puro
@@ -90,4 +90,4 @@ arch-v1 lista `stdio` como transporte e permite `scope: user`. Combinados, isso 
 | `DnsResolver` | secundária | resolvedor do sistema | resolvedor fixo com vetores de SSRF |
 | `DiscoveryCache` | secundária | memória, TTL | relógio fixo |
 
-Consome por seam: Principal e Execution Grant (003), via `ai_core.assistants.api`.
+Consome por seam: Principal e Execution Grant (003), via `axon_ai.assistants.api`.

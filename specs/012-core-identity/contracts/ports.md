@@ -15,7 +15,7 @@ contra ele e contra o real.
 | `SecretCipher` | `seal(bytes) -> bytes`, `open(bytes) -> bytes` | AES-GCM + HKDF (`ai-core/identity/v1`) | o real com chave fixa | ida e volta; chave errada falha |
 | `UpstreamOidc` | `authorization_url(state, nonce, verifier)`, `exchange(code, verifier) -> GoogleIdentity` | Google (`httpx` + `pyjwt`) | provedor simulado programável | `email_verified`, `hd`, `nonce` |
 | `ClientSource` | `load() -> tuple[Client, ...]` | `identity.yaml` | lista | erros nomeando o campo |
-| `IdentitySecrets` | `client_secret(ref)`, `google()`, `bootstrap_admin()` | ambiente (`AI_CORE_IDENTITY_SECRET_<REF>`, `AI_CORE_GOOGLE_*`, `AI_CORE_BOOTSTRAP_ADMIN_*`) | dicionário | nomes fixos; nada de nome arbitrário (ADR-020) |
+| `IdentitySecrets` | `client_secret(ref)`, `google()`, `bootstrap_admin()` | ambiente (`AXON_IDENTITY_SECRET_<REF>`, `AXON_GOOGLE_*`, `AXON_BOOTSTRAP_ADMIN_*`) | dicionário | nomes fixos; nada de nome arbitrário (ADR-020) |
 | `Clock` | `now()` | relógio do sistema (o da 011) | relógio fixo | — |
 | `TokenGenerator` | `token(nbytes)`, `uuid()`, `password()` | `secrets` | sequência determinística | formato |
 

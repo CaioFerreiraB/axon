@@ -24,7 +24,7 @@ em toda Turn View de uma execução.
 ## O perfil `test` é parte da distribuição
 
 ```python
-from ai_core.bootstrap.wiring import platform
+from axon_ai.bootstrap.wiring import platform
 
 plataforma = platform(profile="test")          # packs, motor, trace, app — tudo em memória
 ```
@@ -77,8 +77,8 @@ engano que sai caro e que uma linha impede.
 | `pack_source` | entry points | entry points | entry points |
 | `request_ids` | aleatório | aleatório | sequencial (`req-N`) |
 | `conversation_ids` | aleatório | aleatório | sequencial (`t-N`) |
-| `database` | — | pool Postgres (`AI_CORE_DATABASE_URL`), aberto no ciclo de vida da app | — |
-| `api_keys` | memória + `AI_CORE_DEV_API_KEY` | Postgres (003) | memória + `TEST_API_KEY` |
+| `database` | — | pool Postgres (`AXON_DATABASE_URL`), aberto no ciclo de vida da app | — |
+| `api_keys` | memória + `AXON_DEV_API_KEY` | Postgres (003) | memória + `TEST_API_KEY` |
 | `oidc` | JWKS se configurado; senão recusa | JWKS se configurado; senão recusa | estático com `TEST_OIDC_TOKEN` |
 | `user_assistants` | memória | Postgres (003) | memória |
 | `conversations` | memória | Postgres (008) | memória |
@@ -86,12 +86,12 @@ engano que sai caro e que uma linha impede.
 As fábricas recebem a configuração e as partes já construídas (`database` antes das de armazenamento). O autenticador
 anônimo sai dos perfis.
 
-**Credenciais do perfil `test`** (exportadas por `ai_core.bootstrap.profiles`): `TEST_SUBJECT = "user:test"`,
+**Credenciais do perfil `test`** (exportadas por `axon_ai.bootstrap.profiles`): `TEST_SUBJECT = "user:test"`,
 `TEST_OIDC_TOKEN`, `TEST_API_KEY` (no grupo `TEST_ADMIN_GROUP = "admin"`). A suíte de um pack externo envia
 `Authorization: Bearer <TEST_OIDC_TOKEN>` em `/v1` ou `Bearer <TEST_API_KEY>` em `/private/v1`.
 
-**Regras novas**: nenhum perfil aceita requisição sem credencial (FR-015); `persistent` sem `AI_CORE_DATABASE_URL` é
-configuração inválida; `AI_CORE_DEV_API_KEY` no `persistent` é recusada; o relatório de boot avisa quando o `memory`
+**Regras novas**: nenhum perfil aceita requisição sem credencial (FR-015); `persistent` sem `AXON_DATABASE_URL` é
+configuração inválida; `AXON_DEV_API_KEY` no `persistent` é recusada; o relatório de boot avisa quando o `memory`
 não tem chave de desenvolvimento nem OIDC.
 
 Conformidade (`tests/bootstrap/unit/test_profiles.py`): os três perfis atendem todas as portas exigidas; as fábricas do
@@ -107,7 +107,7 @@ rede.
 | `mcp_store` | 007 | memória | Postgres (schema `mcp`) | memória |
 | `mcp_dns` | 007 | DNS do sistema | DNS do sistema | resolvedor fixo, vazio |
 | `mcp_transports` | 007 | `http`, `sse` (política de rede da 007, com `mcp_dns`) | `http`, `sse`, `stdio` | `http`, `sse`, `stdio`: um transporte programado, sem servidores |
-| `mcp_secrets` | 007 | ambiente (`AI_CORE_MCP_SECRET_<REF>`) | ambiente | memória, vazio |
+| `mcp_secrets` | 007 | ambiente (`AXON_MCP_SECRET_<REF>`) | ambiente | memória, vazio |
 | `mcp_cache` | 007 | memória, com TTL | memória, com TTL | memória, com TTL |
 | `audit` | 004 | memória | Postgres (schema `capabilities`) | memória |
 
@@ -117,7 +117,7 @@ ponta a ponta sem configuração extra — o controller responde direto.
 ### Trocas de porta
 
 ```python
-from ai_core.bootstrap.wiring import platform
+from axon_ai.bootstrap.wiring import platform
 
 plataforma = platform(
     profile="test",

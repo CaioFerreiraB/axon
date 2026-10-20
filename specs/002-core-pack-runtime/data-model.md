@@ -3,7 +3,7 @@
 **Plano**: [plan.md](plan.md) · **Decisões**: [research.md](research.md) · **Assinaturas**: [contracts/](contracts/)
 
 Value objects são `dataclass(frozen=True, slots=True, kw_only=True)`, como na 001. Tipos da 001 (`TurnView`,
-`PackContext`, `ValidatorContext`, `ValidationResult`, `JSONValue`...) vêm da API pública de `ai_core_contracts`.
+`PackContext`, `ValidatorContext`, `ValidationResult`, `JSONValue`...) vêm da API pública de `axon_ai_contracts`.
 
 ## Portas secundárias (`ports.py`)
 
@@ -134,7 +134,7 @@ Toda mensagem começa pela etapa, para o operador achar a causa em menos de 1 mi
 | duplicado | `nome duplicado: 'x' registrado por dist-a e dist-b` |
 | import | `falha ao importar: ModuleNotFoundError: No module named 'numpy'` |
 | identidade | `entry point 'x' aponta para classe com name 'y'` · `classe sem atributo de classe 'contract_version'` |
-| contrato | `requer ai-core-contracts>=0.2, instalado 0.1.0` (mensagem de `check_compatibility`) |
+| contrato | `requer axon-ai-contracts>=0.2, instalado 0.1.0` (mensagem de `check_compatibility`) |
 | instância | `falha ao instanciar: RuntimeError: ...` |
 | manifest | `manifest inválido: manifest.name 'z' difere do nome do pack 'x'` |
 | configuração | `configuração inválida em 'collection': 42 is not of type 'string'` |

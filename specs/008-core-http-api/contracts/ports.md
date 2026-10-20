@@ -1,6 +1,6 @@
 # Contrato — portas secundárias da 008 (Fase 1)
 
-Internas do módulo (`ai_core/http/ports.py`): não são seams, e quem escolhe o adapter é a composition root (011).
+Internas do módulo (`axon_ai/http/ports.py`): não são seams, e quem escolhe o adapter é a composition root (011).
 Três delas descrevem o que este módulo **exige** da 003 — declará-las aqui é o que permite à 003 chegar na Fase 2 sem
 que nenhuma rota mude ([research.md](../research.md) R1, R2).
 
@@ -85,7 +85,7 @@ declará-las agora seria porta sem consumidor (princípio XIII, [research.md](..
 ## Fase 2 (2026-09-30) — portas que saem e que entram
 
 **Saem** (research R13): `Principal`, `Authenticator`, `GrantResolver` e `AssistantNotFound`. A API passa a importá-los de
-`ai_core.assistants.api`, com `AssistantDirectory`, `ApiKeyAdmin` e os erros da 003. O `AnonymousAuthenticator` de
+`axon_ai.assistants.api`, com `AssistantDirectory`, `ApiKeyAdmin` e os erros da 003. O `AnonymousAuthenticator` de
 desenvolvimento continua aqui, agora produzindo o `Principal` da 003 (`user:anonymous`, esquema da superfície).
 
 **Entram**:

@@ -1,4 +1,4 @@
-# Contrato — portas secundárias da 007 (`ai_core.mcp.ports`)
+# Contrato — portas secundárias da 007 (`axon_ai.mcp.ports`)
 
 Cada porta existe por I/O, não-determinismo ou troca prevista (princípio XIII). Todas têm adapter em memória em
 `adapters/memory.py` — na distribuição, para que o perfil `test` da 011 e a suíte de um pack montem a plataforma sem
@@ -6,11 +6,11 @@ rede — e uma suíte de conformidade que roda contra ele e contra o adapter rea
 
 | Porta | Motivo | Em memória | Real | Conformidade |
 |---|---|---|---|---|
-| `McpServerStore` | banco | dicionário por `(owner, alias)` | `registry_postgres.py`, schema `mcp` (ADR-015) | `contract/test_store.py`, com Postgres por `AI_CORE_TEST_POSTGRES_DSN` |
+| `McpServerStore` | banco | dicionário por `(owner, alias)` | `registry_postgres.py`, schema `mcp` (ADR-015) | `contract/test_store.py`, com Postgres por `AXON_TEST_POSTGRES_DSN` |
 | `McpConfigSource` | arquivo | configuração já carregada | `config_yaml.py` (`mcp.yaml`) | `contract/test_mcp_config_source.py` |
 | `McpTransport` | rede e processo | servidores programados (tools, resultados, falhas, atraso) | `transport_http.py` (`http`, `sse`), `transport_stdio.py` | `contract/test_transport.py` contra o servidor MCP do SDK em `127.0.0.1` e um servidor `stdio` em script |
 | `DnsResolver` | rede (DNS) | mapa nome → IPs | `dns_system.py` (`getaddrinfo`) | `contract/test_dns.py` |
-| `SecretResolver` | segredos | dicionário | `secrets_env.py` (`AI_CORE_MCP_SECRET_<REF>`) | `contract/test_secrets.py` |
+| `SecretResolver` | segredos | dicionário | `secrets_env.py` (`AXON_MCP_SECRET_<REF>`) | `contract/test_secrets.py` |
 | `DiscoveryCache` | estado com TTL | dicionário + `Clock` | — (memória é o real nesta fase) | `contract/test_cache.py` com relógio fixo |
 | `Clock` | tempo (ADR-013) | relógio fixo da 005 | relógio do sistema da 005 | — (o mesmo relógio da 011) |
 
@@ -62,5 +62,5 @@ são uma exceção do módulo (`TransportFailure(reason)`) cuja mensagem nunca c
 | `McpTransport` (`http`/`sse`) | toda conexão passa pela política de rede, com o IP fixado; `localhost` sem a exceção de hosts internos é bloqueado | idem, `contract/test_guarded_backend.py` e `integration/test_ssrf.py` |
 | `McpTransport` (`stdio`) | executa o comando do arquivo sem shell, com `env` e `secrets` no ambiente do filho | `test_transport.py` |
 | `DnsResolver` | IP literal devolve ele mesmo; nome inexistente devolve vazio, não exceção | `test_dns.py` |
-| `SecretResolver` | lê só `AI_CORE_MCP_SECRET_<REF>`; referência fora da gramática devolve `None`; `AI_CORE_DATABASE_URL` nunca é alcançável | `test_secrets.py` |
+| `SecretResolver` | lê só `AXON_MCP_SECRET_<REF>`; referência fora da gramática devolve `None`; `AXON_DATABASE_URL` nunca é alcançável | `test_secrets.py` |
 | `DiscoveryCache` | entrada vence no TTL do relógio; chave com versão diferente não acerta | `test_cache.py` |

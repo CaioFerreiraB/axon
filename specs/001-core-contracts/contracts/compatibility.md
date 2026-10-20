@@ -96,7 +96,7 @@ anotação conta como mudança de tipo.
 | Mudança | Classe |
 |---|---|
 | Símbolo exportado removido ou renomeado | breaking |
-| Distribuição ou raiz do import renomeada (ex.: `ai-core-contracts`/`ai_core_contracts` → `axon-ai-contracts`/`axon_ai_contracts`, ADR-037) | breaking — **uma** mudança só; os símbolos são comparados pelo nome relativo à raiz (§9) e o renome não conta como remoção sem depreciação (§8) |
+| Distribuição ou raiz do import renomeada (ex.: `axon-ai-contracts`/`axon_ai_contracts` → `axon-ai-contracts`/`axon_ai_contracts`, ADR-037) | breaking — **uma** mudança só; os símbolos são comparados pelo nome relativo à raiz (§9) e o renome não conta como remoção sem depreciação (§8) |
 | Símbolo exportado novo | aditiva |
 | Tipo do símbolo mudou (ex.: dataclass → Protocol) | breaking |
 | Campo de dataclass removido, renomeado, com tipo ou default alterado, ou que perdeu o default | breaking |
@@ -148,7 +148,7 @@ aplica" e passa; a quebra, nesse caso, já foi validada pelo bump (§7).
 JSON com chaves ordenadas: `{"distribution": "axon-ai-contracts", "package": "axon_ai_contracts", "version": "...",
 "modules": {"axon_ai_contracts": {...}, "axon_ai_contracts.testing": {...}}}`. `distribution` sai dos metadados
 instalados do `package` introspectado (`dump --package`, default `axon_ai_contracts`); o CI passa o pacote que a tag
-tinha (`ai_core_contracts` até `contracts-v0.1.2`, a última marcada da série 0.1). Com a raiz
+tinha (`axon_ai_contracts` até `contracts-v0.1.2`, a última marcada da série 0.1). Com a raiz
 renomeada, os textos da linha de base que a citam (anotações, `repr` de aliases e defaults) passam à raiz nova, por palavra
 inteira, antes da comparação. A comparação (§7) usa o nome do módulo **relativo** a `package`
 (raiz e `.testing`), e os símbolos aparecem no relatório com o nome do HEAD; cada símbolo tem `kind` (`dataclass`, `protocol`, `class`, `typeddict`,

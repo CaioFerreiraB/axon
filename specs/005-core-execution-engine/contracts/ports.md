@@ -1,6 +1,6 @@
 # Contrato — portas secundárias da 005
 
-Interna do módulo (`ai_core/graph/ports.py`): não é seam e nenhum outro módulo a importa. Quem escolhe o adapter é a
+Interna do módulo (`axon_ai/graph/ports.py`): não é seam e nenhum outro módulo a importa. Quem escolhe o adapter é a
 composition root (011).
 
 ## `Clock` — data de referência e cronômetro

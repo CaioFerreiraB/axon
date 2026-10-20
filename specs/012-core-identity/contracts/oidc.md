@@ -1,6 +1,6 @@
 # Contrato — protocolo OIDC da plataforma
 
-Base pública = `AI_CORE_PUBLIC_URL` (sem barra final), que é o `iss`. Subconjunto fechado (FR-004): só
+Base pública = `AXON_PUBLIC_URL` (sem barra final), que é o `iss`. Subconjunto fechado (FR-004): só
 `response_type=code`; nada de implícito, híbrido, registro dinâmico, consentimento, `client_credentials`, device flow,
 introspecção.
 
@@ -27,7 +27,7 @@ introspecção.
 ```
 
 "Base do pedido" = esquema e host pelos quais a descoberta chegou (research R8); cabeçalhos `X-Forwarded-*` só de
-`AI_CORE_TRUSTED_PROXIES`.
+`AXON_TRUSTED_PROXIES`.
 
 ## `GET /oauth2/authorize`
 
@@ -78,7 +78,7 @@ Erros no formato RFC 6749 (`invalid_request`, `invalid_client` 401, `invalid_gra
  "iat": 1791945600, "exp": 1791946200}
 ```
 
-`aud` é a `audience` do cliente (`ai-core` para o Open WebUI, `ai-core-admin` para a console — ADR-031).
+`aud` é a `audience` do cliente (`axon-ai` para o Open WebUI, `ai-core-admin` para a console — ADR-031).
 
 ### Token de identidade
 
@@ -92,7 +92,7 @@ Acrescenta `nonce`, `auth_time`, `amr`, `email`, `email_verified` (sempre `true`
 
 ## `GET /oauth2/assets/identity.<hash>.css` · `GET /oauth2/assets/logo`
 
-CSS das páginas e o logotipo da instalação (`AI_CORE_LOGO_FILE`, SVG ou PNG; sem ele, `404` e a página mostra só o
+CSS das páginas e o logotipo da instalação (`AXON_LOGO_FILE`, SVG ou PNG; sem ele, `404` e a página mostra só o
 nome). `Cache-Control: public, max-age=31536000, immutable` no CSS com hash; `max-age=3600` no logotipo; SVG servido
 com `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'` para não executar script embutido.
 

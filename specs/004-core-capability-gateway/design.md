@@ -5,7 +5,7 @@
 ## Localização
 
 ```text
-ai-core/packages/core/src/ai_core/capabilities/
+axon-ai/packages/core/src/axon_ai/capabilities/
 ├── api.py        # seams Capability Catalog e Tool Gateway; ToolCall, FencedToolResult
 ├── domain/       # puro
 │   ├── catalog.py       # união, namespacing, filtros do grant (ex-lógica do nó load_capabilities)
@@ -19,7 +19,7 @@ ai-core/packages/core/src/ai_core/capabilities/
     └── audit_postgres.py   # AuditLog — Fase 3
 ```
 
-O antigo `ai_core/security/` vira `domain/` deste módulo (ADR-012). O motor (spec 005) mantém os passos
+O antigo `axon_ai/security/` vira `domain/` deste módulo (ADR-012). O motor (spec 005) mantém os passos
 `load_capabilities` e `execute_tool` apenas como chamadas finas a este módulo.
 
 ## Montagem do catálogo (arch-v1 §8 `load_capabilities`)

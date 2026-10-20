@@ -29,10 +29,10 @@ class AuditLog(Protocol):
 Postgres: schema `capabilities`, tabela `audit` (ADR-015); `arguments` em `jsonb`; índices por `started_at`, `principal`,
 `assistant` e `tool`. Datas como parâmetro, nunca `now()`.
 
-## O comando `ai-core audit` (registrado pela 011)
+## O comando `axon audit` (registrado pela 011)
 
 ```text
-ai-core audit [--principal P] [--assistant A] [--tool T] [--since ISO] [--until ISO] [--limit N]
+axon audit [--principal P] [--assistant A] [--tool T] [--since ISO] [--until ISO] [--limit N]
 ```
 
 Uma linha por registro, do mais recente para o mais antigo: instante de início, status, Principal, Assistant, tool, e os

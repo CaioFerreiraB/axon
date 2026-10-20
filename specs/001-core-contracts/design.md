@@ -6,7 +6,7 @@
 ## Localização
 
 ```text
-ai-core/packages/contracts/src/axon_ai_contracts/
+axon-ai/packages/contracts/src/axon_ai_contracts/
 ├── pack.py          # AgentPack, PackManifest, PackContext, PackRoutine
 ├── tools.py         # ToolSpec, ToolResult
 ├── view.py          # TurnView                                   [ADR-011 — substitui state.py]
@@ -19,7 +19,7 @@ ai-core/packages/contracts/src/axon_ai_contracts/
 
 Sem dependências além da stdlib e de `typing_extensions`. É o que evita um pack externo arrastar FastAPI, LangGraph e Qdrant como dependência transitiva.
 
-> **[ADR-011]** arch-v1 listava `state.py # AgentState` aqui. `AgentState` usa reducers do LangGraph e passa a existir só em `ai_core/graph/state.py` (spec 005).
+> **[ADR-011]** arch-v1 listava `state.py # AgentState` aqui. `AgentState` usa reducers do LangGraph e passa a existir só em `axon_ai/graph/state.py` (spec 005).
 
 ## AgentPack
 
@@ -198,8 +198,8 @@ class ValidationResult:
 
 | Distribuição | Repositório | Versão | Tag de exemplo |
 |---|---|---|---|
-| `axon-ai-contracts` | `ai-core` | própria | `contracts-v0.1.0` |
-| `ai-core` e `ai-generic` | `ai-core` | única, lançados juntos | `v0.3.1` |
+| `axon-ai-contracts` | `axon-ai` | própria | `contracts-v0.1.0` |
+| `axon-ai` e `ai-generic` | `axon-ai` | única, lançados juntos | `v0.3.1` |
 | `ai-scouting` e demais packs | próprio | própria | `v0.1.4` |
 
 | Regra | |
@@ -213,15 +213,15 @@ class ValidationResult:
 ## Fronteiras verificadas
 
 ```toml
-# ai-core/pyproject.toml
+# axon-ai/pyproject.toml
 [tool.importlinter]
-root_packages = ["axon_ai_contracts", "ai_core", "ai_generic"]
+root_packages = ["axon_ai_contracts", "axon_ai", "ai_generic"]
 
 [[tool.importlinter.contracts]]
 name = "contratos não importam o resto do projeto"
 type = "forbidden"
 source_modules = ["axon_ai_contracts"]
-forbidden_modules = ["ai_core", "ai_generic"]
+forbidden_modules = ["axon_ai", "ai_generic"]
 
 [[tool.importlinter.contracts]]
 name = "contratos não dependem de frameworks do runtime"    # [ADR-011]
@@ -232,10 +232,10 @@ forbidden_modules = ["langgraph", "langchain", "fastapi", "qdrant_client", "sqla
 [[tool.importlinter.contracts]]
 name = "core e pack genérico não se importam"
 type = "independence"
-modules = ["ai_core", "ai_generic"]
+modules = ["axon_ai", "ai_generic"]
 ```
 
-Cada pack externo roda a mesma verificação no próprio CI, proibindo `ai_core`.
+Cada pack externo roda a mesma verificação no próprio CI, proibindo `axon_ai`.
 
 ## Portas e adapters **[ADR-012]**
 

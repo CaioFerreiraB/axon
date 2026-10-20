@@ -2,7 +2,7 @@
 
 Desenho aprovado no Penpot, página "Login e conta" (celular primeiro; desktop; tema escuro por `prefers-color-scheme`).
 HTML servido pelo módulo, sem script, CSS próprio (`/oauth2/assets/identity.<hash>.css`), nome e logotipo da instalação
-(`AI_CORE_DISPLAY_NAME`, `AI_CORE_LOGO_FILE` servido em `/oauth2/assets/logo`; FR-023). Toda página tem `lang="pt-BR"`, rótulos ligados aos campos,
+(`AXON_DISPLAY_NAME`, `AXON_LOGO_FILE` servido em `/oauth2/assets/logo`; FR-023). Toda página tem `lang="pt-BR"`, rótulos ligados aos campos,
 foco visível e atende WCAG 2.2 AA.
 
 ## Login — `GET /oauth2/authorize` (sem sessão) e `POST /oauth2/login`

@@ -5,7 +5,7 @@
 ## Localização
 
 ```text
-ai-core/packages/core/src/ai_core/llm/
+axon-ai/packages/core/src/axon_ai/llm/
 ├── api.py           # seam Model Router; BoundModel, ModelRole
 ├── domain/          # resolução por papel, allowlist do grant, rejeição de roteamento automático — puro
 ├── ports.py         # SecretResolver

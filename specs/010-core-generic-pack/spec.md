@@ -11,7 +11,7 @@
 ## Module Boundary *(mandatory)*
 
 - **Módulo**: `ai-generic` — pack de uso geral e pack de referência: primeiro consumidor real dos contratos e fixture dos testes de carregamento de pack.
-- **Repositório / distribuição**: `ai-core` → `packages/generic` (distribuição própria, descoberta por entry point como um pack externo).
+- **Repositório / distribuição**: `axon-ai` → `packages/generic` (distribuição própria, descoberta por entry point como um pack externo).
 - **Consome (seams)**: Contrato de pack — 001. Nada mais.
 - **Expõe (seams)**: o pack `generic` (via entry point) — consumido por 002 (testes de carga) e por Assistants.
 - **Depende de infraestrutura (via portas)**: nenhuma na v1. Se uma tool nativa fizer I/O, o cliente fica num adapter interno do pack, instanciado pelo `pack.py`.
@@ -24,7 +24,7 @@
 ### Session 2026-09-17
 
 - Q: Quais capacidades o pack oferece na v1 (Fase 1)? → A: `system_prompt` de uso geral, uma tool nativa determinística (sem I/O) e um validator determinístico — três hooks de catálogo mais o `manifest()`, exercitados pela suíte de conformidade e pela carga real da 002. Sem `prepare_context`, sem retriever e sem reranker na v1; como não há I/O, o pack não declara porta secundária.
-- Q: Como o pack declara a dependência de `ai-core-contracts`? → A: Pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014), com `[tool.uv.sources] ai-core-contracts = { workspace = true }` para resolver no commit local enquanto o pack mora no workspace — o mesmo que um pack externo declara. Supera a redação "sem faixa semver" da FR-004 e a linha correspondente do `design.md`, que precedem o ADR-014 e a etapa 9 da suíte de conformidade.
+- Q: Como o pack declara a dependência de `axon-ai-contracts`? → A: Pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014), com `[tool.uv.sources] axon-ai-contracts = { workspace = true }` para resolver no commit local enquanto o pack mora no workspace — o mesmo que um pack externo declara. Supera a redação "sem faixa semver" da FR-004 e a linha correspondente do `design.md`, que precedem o ADR-014 e a etapa 9 da suíte de conformidade.
 - Q: O que o manifest declara na v1, além de nome e versão? → A: Nada — sem flow preferido, sem schema de configuração, sem dependências de pack e sem coleções exigidas. O Assistant escolhe o flow; a preferência por flow agêntico só faz sentido na Fase 3, quando esse flow existir (US2).
 - Q: Onde vive o teste que prova a descoberta e a carga do pack real por entry point? → A: Nos testes de integração do core (o pack entra como dependência de desenvolvimento do workspace e é carregado pelo mecanismo de entry point, sem caso especial), enquanto a suíte de conformidade roda nos testes do próprio pack, sem tocar no core. O pack continua sem conhecer o core: a verificação de fronteiras cobre o código, não as dependências de teste.
 - Q: Em que pasta do workspace mora a distribuição do pack? → A: Ao lado das outras distribuições do workspace, no mesmo padrão de pasta já usado por contratos e core — sem mudança na declaração de membros do workspace. Supera a linha de localização do `design.md`, escrita antes de o workspace existir. A fronteira com o core continua a ser provada pela verificação de imports, não pela posição da pasta.

@@ -1,12 +1,12 @@
 # Quickstart — 006 LLM Providers (Fase 1, US1)
 
-Guia de validação. Todos os comandos rodam a partir de `ai-core/`. Nesta máquina, prefixe `uv` com
+Guia de validação. Todos os comandos rodam a partir de `axon-ai/`. Nesta máquina, prefixe `uv` com
 `XDG_DATA_HOME=$HOME/.local/share` (ver CLAUDE.md).
 
 ## Pré-requisitos
 
 ```bash
-uv sync                      # traz openai>=3.15,<4 (nova dependência da distribuição ai-core)
+uv sync                      # traz openai>=3.15,<4 (nova dependência da distribuição axon-ai)
 ```
 
 Nada mais: a suíte padrão **não** fala com rede — o adapter do Ollama é exercitado com transporte HTTP falso
@@ -110,7 +110,7 @@ Mesmos pré-requisitos: nenhuma dependência nova, e a suíte padrão continua s
 
 ```bash
 uv run pytest packages/core/tests/llm/unit/test_llm_api.py -k automatico -v
-uv run ai-core assistants validate            # com um Assistant que declara controller: openrouter/auto
+uv run axon assistants validate            # com um Assistant que declara controller: openrouter/auto
 ```
 
 Esperado: `openrouter/auto`, `openrouter/openrouter/auto` e `openrouter/AUTO` recusados com "é roteamento automático
@@ -133,11 +133,11 @@ provider vira `ModelCallFailed` com uma única requisição.
 
 ```bash
 uv run pytest packages/core/tests/llm -k credencial -v
-env -u AI_CORE_OPENAI_API_KEY uv run ai-core health   # com um Assistant de sistema em openai/gpt-4o-mini
+env -u AXON_OPENAI_API_KEY uv run axon health   # com um Assistant de sistema em openai/gpt-4o-mini
 ```
 
 Esperado: a plataforma sobe; o item `model:openai/gpt-4o-mini` aparece indisponível com "sem credencial: defina
-AI_CORE_OPENAI_API_KEY"; nenhuma requisição sai para a rede; o valor de uma credencial nunca aparece na saída.
+AXON_OPENAI_API_KEY"; nenhuma requisição sai para a rede; o valor de uma credencial nunca aparece na saída.
 
 ## US2 e US5 — papéis em providers diferentes e allowlist
 
@@ -153,9 +153,9 @@ tem a chamada de controller no `openrouter` e a de geração no `ollama`; `allow
 ## Com os providers reais (opcional, pago)
 
 ```bash
-AI_CORE_OPENROUTER_API_KEY=… OPENROUTER_MODEL=~z-ai/glm-flash-latest \
+AXON_OPENROUTER_API_KEY=… OPENROUTER_MODEL=~z-ai/glm-flash-latest \
   uv run pytest packages/core/tests/llm/integration/test_remote_real.py -v
-AI_CORE_OPENAI_API_KEY=… OPENAI_MODEL=gpt-4o-mini \
+AXON_OPENAI_API_KEY=… OPENAI_MODEL=gpt-4o-mini \
   uv run pytest packages/core/tests/llm/integration/test_remote_real.py -k openai -v
 ```
 

@@ -11,7 +11,7 @@
 ## Module Boundary *(mandatory)*
 
 - **Módulo**: HTTP API — superfícies pública, privada e de administração, compatibilidade com o formato OpenAI, tradução de eventos do motor para SSE e histórico de conversa.
-- **Repositório / distribuição**: `ai-core` → `ai_core/http/` (antes `ai_core/api/`; renomeado para não colidir com a convenção `api.py` do ADR-012).
+- **Repositório / distribuição**: `axon-ai` → `axon_ai/http/` (antes `axon_ai/api/`; renomeado para não colidir com a convenção `api.py` do ADR-012).
 - **Consome (seams)**: autenticação, Principal, Execution Grant, Assistant Directory, API Key Admin e, na Fase 9, System Assistant Admin — 003, pelo `api.py` dela a partir da Fase 2 (na Fase 1, pelas formas que este módulo publicava como `Protocol`); Execution Engine (eventos) — 005; Pack Registry (introspecção) — 002; MCP Registry (CRUD e saúde) — 007, a partir da Fase 3; Model Router (verificação de saúde de modelo, "testar modelo") — 006, na Fase 9; Trace (identificador de requisição) e, na Fase 9, Usage Report, Price Book e Trace Destinations — 009; Account Admin e Login Settings — 012, na Fase 9.
 - **Expõe (seams)**: **API HTTP** — `/v1` (OIDC), `/private/v1` (chave de API) e `/admin/v1` (token da console ou chave de API, grupo de administração — Fase 9) — consumida por clientes externos (Open WebUI, console 013, scripts). É o adapter primário da plataforma; não expõe seam Python.
 - **Depende de infraestrutura (via portas)**: armazenamento das conversas; relógio (expiração de conversas); saúde agregada da plataforma (porta própria, implementada pela composition root, 011). O framework HTTP é o próprio adapter.

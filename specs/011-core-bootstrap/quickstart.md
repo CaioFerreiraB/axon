@@ -1,11 +1,11 @@
 # Quickstart — 011 Bootstrap (Fase 1, US1–US3)
 
-Guia de validação. Comandos a partir de `ai-core/`, com `XDG_DATA_HOME=$HOME/.local/share` nesta máquina.
+Guia de validação. Comandos a partir de `axon-ai/`, com `XDG_DATA_HOME=$HOME/.local/share` nesta máquina.
 
 ## Pré-requisitos
 
 ```bash
-uv sync                      # traz uvicorn e instala o comando `ai-core`
+uv sync                      # traz uvicorn e instala o comando `axon`
 ```
 
 ## Verificação completa
@@ -77,9 +77,9 @@ YAML
 ollama serve &
 ollama pull qwen3:1.7b
 
-AI_CORE_PACKS_FILE=/tmp/packs.yaml \
-AI_CORE_ASSISTANTS_FILE=/tmp/assistants.yaml \
-uv run ai-core serve
+AXON_PACKS_FILE=/tmp/packs.yaml \
+AXON_ASSISTANTS_FILE=/tmp/assistants.yaml \
+uv run axon serve
 ```
 
 Em outro terminal:
@@ -94,13 +94,13 @@ Esperado: o relatório de boot no terminal do servidor, com as cinco etapas; e o
 um, com `data: [DONE]` no fim. **É a conversa ponta a ponta da Fase 1** — HTTP, motor, pack de referência e modelo
 local.
 
-Com `AI_CORE_TRACE_DIR=/tmp/trace`, cada requisição vira registros no arquivo do dia: execução iniciada, chamada de
+Com `AXON_TRACE_DIR=/tmp/trace`, cada requisição vira registros no arquivo do dia: execução iniciada, chamada de
 modelo com tokens e duração, validação e fim.
 
 ## Montando a plataforma numa suíte
 
 ```python
-from ai_core.bootstrap.wiring import platform
+from axon_ai.bootstrap.wiring import platform
 
 plataforma = platform(profile="test")
 cliente = TestClient(plataforma.app)
@@ -114,28 +114,28 @@ cliente = TestClient(plataforma.app)
 
 ```bash
 uv run pytest packages/core/tests/bootstrap -v                     # perfis, saúde, CLI, plataforma no test
-AI_CORE_TEST_POSTGRES_DSN=postgresql://postgres:pg@localhost:55432/postgres \
+AXON_TEST_POSTGRES_DSN=postgresql://postgres:pg@localhost:55432/postgres \
   uv run pytest packages/core/tests/bootstrap -k persistent -v     # perfil persistente contra Postgres
 ```
 
 Esperado: os três perfis atendem todas as portas; sem credencial, 401 em qualquer perfil; no `test`, as credenciais
-exportadas conversam; no `persistent`, o boot migra `assistants` e `http`, uma chave emitida por `ai-core keys create`
+exportadas conversam; no `persistent`, o boot migra `assistants` e `http`, uma chave emitida por `axon keys create`
 autentica na API e uma conversa sobrevive a uma plataforma nova sobre o mesmo banco; banco inacessível para o boot
 nomeando `database` sem imprimir a URL; a saúde é `degraded` (200) com um modelo fora do ar e `down` (503) com o banco
-fora; `ai-core --help` lista todos os subcomandos ([contracts/cli.md](contracts/cli.md)).
+fora; `axon --help` lista todos os subcomandos ([contracts/cli.md](contracts/cli.md)).
 
 Manual, com Postgres local e Ollama:
 
 ```bash
-export AI_CORE_PROFILE=persistent AI_CORE_DATABASE_URL=postgresql://postgres:pg@localhost:55432/postgres
-export AI_CORE_PACKS_FILE=packs.yaml AI_CORE_ASSISTANTS_FILE=assistants.yaml
-uv run ai-core keys create --subject user:caio --group operadores   # a chave sai na última linha
-uv run ai-core serve
+export AXON_PROFILE=persistent AXON_DATABASE_URL=postgresql://postgres:pg@localhost:55432/postgres
+export AXON_PACKS_FILE=packs.yaml AXON_ASSISTANTS_FILE=assistants.yaml
+uv run axon keys create --subject user:caio --group operadores   # a chave sai na última linha
+uv run axon serve
 ```
 
 ## Fase 3 (registry MCP, gateway de tools e `agentic`)
 
-Sem dependência nova. A partir de `ai-core/`, com `XDG_DATA_HOME=$HOME/.local/share`.
+Sem dependência nova. A partir de `axon-ai/`, com `XDG_DATA_HOME=$HOME/.local/share`.
 
 ### Ordem de boot, arquivo do operador e `agentic` nos perfis
 
@@ -161,13 +161,13 @@ da requisição tem `controller_decision` e `tool_call`.
 ### Perfil persistente com Postgres
 
 ```bash
-docker run -d --rm --name ai-core-pg -e POSTGRES_PASSWORD=pg -p 55432:5432 postgres:17
-AI_CORE_TEST_POSTGRES_DSN=postgresql://postgres:pg@localhost:55432/postgres \
+docker run -d --rm --name axon-ai-pg -e POSTGRES_PASSWORD=pg -p 55432:5432 postgres:17
+AXON_TEST_POSTGRES_DSN=postgresql://postgres:pg@localhost:55432/postgres \
   uv run pytest packages/core/tests/bootstrap -k "persistent" -v
 ```
 
 Esperado: as migrações de `mcp` e `capabilities` rodam no boot; um servidor criado pelo registry sobrevive a um novo
-boot; `ai-core audit` lista o registro de uma tool de escrita.
+boot; `axon audit` lista o registro de uma tool de escrita.
 
 ### Subindo com um servidor MCP de verdade (manual)
 
@@ -183,8 +183,29 @@ servers:
 network:
   internal_hosts: [localhost]
 YAML
-AI_CORE_MCP_FILE=/tmp/mcp.yaml AI_CORE_DEV_API_KEY=aic_0123456789abcdef_dev uv run ai-core serve
+AXON_MCP_FILE=/tmp/mcp.yaml AXON_DEV_API_KEY=aic_0123456789abcdef_dev uv run axon serve
 curl -s -H "Authorization: Bearer aic_0123456789abcdef_dev" localhost:8000/private/v1/health | jq .
 ```
 
 Esperado: um item `mcp:<alias>` por servidor do arquivo; servidor fora do ar deixa a saúde `degraded` (200).
+
+---
+
+## Fase 9, incremento 9.5 (2026-10-20): identidade Axon (US7)
+
+A partir de `axon-ai/`, com o `XDG_DATA_HOME=$HOME/.local/share` desta máquina:
+
+```bash
+uv sync
+uv run axon --version                                     # axon-ai 0.7.0rc1
+AXON_PROFILE=memory AXON_DEV_API_KEY=aic_0123456789abcdef_dev uv run axon serve &
+curl -s -H "Authorization: Bearer aic_0123456789abcdef_dev" localhost:8000/private/v1/health | jq .status
+kill %1
+AI_CORE_PROFILE=memory uv run axon health; echo "código $?"  # recusa: AI_CORE_PROFILE → AXON_PROFILE; código 1
+uv run python -c "import ai_core" 2>&1 | tail -1          # ModuleNotFoundError: corte seco
+```
+
+Esperado: a versão nova; a saúde `ok` com o prefixo novo; a recusa com a linha da variável e o código 1; o módulo antigo
+ausente. A suíte inteira (`uv run pytest && uv run mypy && uv run ruff check packages && uv run lint-imports`), a
+conformidade Postgres com `AXON_TEST_POSTGRES_DSN` e a console (`npm run typecheck && npm run lint && npm test`, a partir
+de `axon-ai/console/`) passam com os nomes novos. A chave `aic_…` muda de prefixo na passada da 003.

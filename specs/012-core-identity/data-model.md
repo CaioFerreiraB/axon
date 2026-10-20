@@ -57,7 +57,7 @@ Value objects publicados em `api.py` (marcados **seam**) e registros internos da
 | `google_enabled` | `bool` | valor efetivo |
 | `google_source` | `"installation" \| "runtime" \| "default"` | ADR-033 |
 | `google_configured` | `bool` | cliente Google presente na instalação |
-| `google_redirect_uri` | `str` | `{AI_CORE_PUBLIC_URL}/oauth2/google/callback` |
+| `google_redirect_uri` | `str` | `{AXON_PUBLIC_URL}/oauth2/google/callback` |
 | `google_client_id` | `str \| None` | público; nunca o segredo |
 | `google_hosted_domain` | `str \| None` | |
 | `version` | `int` | para `If-Match` na 008 |

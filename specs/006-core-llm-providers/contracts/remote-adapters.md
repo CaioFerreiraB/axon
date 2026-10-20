@@ -1,6 +1,6 @@
 # Contrato — adapters dos providers remotos (OpenAI e OpenRouter)
 
-Interno do módulo (`ai_core/llm/adapters/`), Fase 3. Os dois cumprem a porta `ModelProvider` ([ports.md](ports.md))
+Interno do módulo (`axon_ai/llm/adapters/`), Fase 3. Os dois cumprem a porta `ModelProvider` ([ports.md](ports.md))
 sobre a mesma camada compatível do Ollama ([ollama-adapter.md](ollama-adapter.md)): tradução de mensagens, streaming,
 mapeamento de erro e timeouts são os de lá. Este contrato descreve só o que muda. Decisões em
 [research.md](../research.md) R18–R22.
@@ -16,8 +16,8 @@ OpenRouterProvider(secrets=secrets)                # name="openrouter", https://
 
 | Provider | Credencial lida | Na falta |
 |---|---|---|
-| `OpenAIProvider` | `AI_CORE_OPENAI_API_KEY` | registrado; "sem credencial: defina AI_CORE_OPENAI_API_KEY" |
-| `OpenRouterProvider` | `AI_CORE_OPENROUTER_API_KEY` | registrado; "sem credencial: defina AI_CORE_OPENROUTER_API_KEY" |
+| `OpenAIProvider` | `AXON_OPENAI_API_KEY` | registrado; "sem credencial: defina AXON_OPENAI_API_KEY" |
+| `OpenRouterProvider` | `AXON_OPENROUTER_API_KEY` | registrado; "sem credencial: defina AXON_OPENROUTER_API_KEY" |
 
 - A credencial é resolvida **uma vez, na construção**. Vazia ou só espaços conta como ausente.
 - Chave e URL base vão sempre explícitas ao SDK: as leituras implícitas dele (`OPENAI_API_KEY`, `OPENAI_BASE_URL`) nunca
@@ -28,8 +28,8 @@ OpenRouterProvider(secrets=secrets)                # name="openrouter", https://
 
 | Operação | Comportamento |
 |---|---|
-| `chat(…)`, com ou sem streaming | `ModelCallFailed(provider, model, reason="sem credencial: defina AI_CORE_…")` **antes** de qualquer requisição HTTP |
-| `probe(model)` | `ProbeResult(available=False, detail="sem credencial: defina AI_CORE_…")`, sem rede |
+| `chat(…)`, com ou sem streaming | `ModelCallFailed(provider, model, reason="sem credencial: defina AXON_…")` **antes** de qualquer requisição HTTP |
+| `probe(model)` | `ProbeResult(available=False, detail="sem credencial: defina AXON_…")`, sem rede |
 
 ## Restrição de formato (FR-005, camada 2)
 
@@ -77,7 +77,7 @@ Nunca levanta, nunca gera tokens. A lista truncada vale também para o Ollama (l
 
 ## Integração com os providers reais (opcional)
 
-Marcada e pulada sem `AI_CORE_OPENROUTER_API_KEY` (e `AI_CORE_OPENAI_API_KEY`, para o caso da OpenAI). Cobre o
+Marcada e pulada sem `AXON_OPENROUTER_API_KEY` (e `AXON_OPENAI_API_KEY`, para o caso da OpenAI). Cobre o
 *Independent Test* da US4 — o controller com um esquema de ação recebe resposta parseável segundo o esquema — e a
 sondagem com modelo presente e ausente. Faz chamadas pagas: nunca roda por default ([quickstart.md](../quickstart.md)).
 

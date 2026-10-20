@@ -1,4 +1,4 @@
-# Contrato — seams da 004 (`ai_core.capabilities.api`)
+# Contrato — seams da 004 (`axon_ai.capabilities.api`)
 
 Value objects e regras em [data-model.md](../data-model.md).
 

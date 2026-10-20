@@ -5,7 +5,7 @@
 ## Localização
 
 ```text
-ai-core/packages/core/src/ai_core/packs/
+axon-ai/packages/core/src/axon_ai/packs/
 ├── api.py            # seams Pack Registry e Pack Hooks; Composition; status de pack
 ├── domain/           # compat de contract_version, namespacing, ordem, isolamento de fatia,
 │                     # detecção de ciclo de dependência, validação de pack declarativo — puro
@@ -15,7 +15,7 @@ ai-core/packages/core/src/ai_core/packs/
     ├── entry_points.py   # PackSource: entry_points(group="ai_core.packs")
     ├── declarative.py    # PackSource: packs declarativos (YAML/banco)
     ├── config_yaml.py    # PackConfigSource: packs.yaml
-    └── cli.py            # subcomandos `packs list | check` (a raiz `ai-core` é da spec 011)
+    └── cli.py            # subcomandos `packs list | check` (a raiz `axon` é da spec 011)
 ```
 
 ## Os quatro níveis de extensão
@@ -36,7 +36,7 @@ ai-core/packages/core/src/ai_core/packs/
 [project]
 name = "ai-scouting"
 version = "0.1.4"
-dependencies = ["ai-core-contracts>=0.1,<0.2"]   # nunca ai-core
+dependencies = ["axon-ai-contracts>=0.1,<0.2"]   # nunca axon-ai
 
 [project.entry-points."ai_core.packs"]
 scouting = "ai_scouting.pack:ScoutingPack"
@@ -82,20 +82,20 @@ GET /private/v1/packs
   {"name": "scouting",  "version": "0.1.4", "contract": "0.1", "status": "enabled"},
   {"name": "generic",   "version": "0.3.1", "contract": "0.1", "status": "enabled"},
   {"name": "financial", "version": "0.3.0", "contract": "0.2", "status": "error",
-   "error": "requer ai-core-contracts>=0.2, instalado 0.1"}
+   "error": "requer axon-ai-contracts>=0.2, instalado 0.1"}
 ]
 ```
 
 ## CLI do operador
 
 ```bash
-ai-core packs list             # o que está instalado e habilitado
-ai-core packs check            # valida compatibilidade sem subir o servidor
-ai-core assistants validate    # (spec 003) todo assistant referencia pack/MCP/coleção/flow que existe
+axon packs list             # o que está instalado e habilitado
+axon packs check            # valida compatibilidade sem subir o servidor
+axon assistants validate    # (spec 003) todo assistant referencia pack/MCP/coleção/flow que existe
 ```
 
 `packs check` roda no build da imagem: incompatibilidade falha o build, não a produção. Os subcomandos `packs` moram
-em `adapters/cli.py` deste módulo; a raiz `ai-core` que os registra é da spec 011.
+em `adapters/cli.py` deste módulo; a raiz `axon` que os registra é da spec 011.
 
 ## Composição
 
@@ -165,14 +165,14 @@ minha-instalacao/
 
 ```dockerfile
 FROM ghcr.io/caio/ai-core:0.3.1
-# a imagem do core já traz ai-core-contracts e ai-generic
+# a imagem do core já traz axon-ai-contracts e ai-generic
 
 ARG PACKS="\
   ai-scouting@git+https://github.com/caio/ai-scouting@v0.1.4 \
 "
 
 RUN uv pip install --system ${PACKS} \
- && ai-core packs check          # falha o build se houver incompatibilidade
+ && axon packs check          # falha o build se houver incompatibilidade
 ```
 
 ```yaml
@@ -198,23 +198,23 @@ Adicionar um pack novo é acrescentar uma linha e rebuildar. Nenhum loader custo
 
 ### Fase 9: com ou sem console, sem Keycloak ([ADR-029](../../docs/adr/ADR-029-console-de-administracao-propria.md), [ADR-030](../../docs/adr/ADR-030-a-plataforma-e-o-provedor-de-identidade.md), [ADR-033](../../docs/adr/ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md))
 
-- **Dockerfile:** estágios novos `console-build` (`node:24-bookworm-slim`, copia `ai-core/console` do estágio `core`,
+- **Dockerfile:** estágios novos `console-build` (`node:24-bookworm-slim`, copia `axon-ai/console` do estágio `core`,
   `npm ci && npm run build`) e `console` (`nginx-unprivileged`, sistema de arquivos somente leitura, `nginx.conf`
   da 013). A console sai da mesma tag `CORE_REF` da plataforma.
 - **Compose:** `postgres` (volume próprio) entra em toda instalação, com ou sem interface, e o `ai-core` passa a
-  `AI_CORE_PROFILE=persistent` (clarificação de 2026-10-13). Perfil `webui` = Open WebUI apontado para a plataforma
-  (`OPENID_PROVIDER_URL={AI_CORE_PUBLIC_URL}/.well-known/openid-configuration`, cliente confidencial `open-webui`); o
+  `AXON_PROFILE=persistent` (clarificação de 2026-10-13). Perfil `webui` = Open WebUI apontado para a plataforma
+  (`OPENID_PROVIDER_URL={AXON_PUBLIC_URL}/.well-known/openid-configuration`, cliente confidencial `open-webui`); o
   serviço `keycloak`, o volume `keycloak-data` e `config/keycloak/` saem. A sessão do Open WebUI (`JWT_EXPIRES_IN`) fica
   um pouco abaixo dos 30 dias da sessão do provedor (012, clarificação de 2026-10-13), como era 8 h contra 10 h. Perfil novo `console` = o serviço da console,
-  publicado na porta da instalação; com ele, `AI_CORE_PUBLIC_URL` é a origem da console.
+  publicado na porta da instalação; com ele, `AXON_PUBLIC_URL` é a origem da console.
 - **Configuração:** `config/identity.yaml` (clientes `open-webui` e `console`, endereços exatos); `.env.example`
-  dividido em seções "sem console" (com `AI_CORE_LANGFUSE_*`) e "com console" (sem elas), mais `AI_CORE_MASTER_KEY`,
-  `AI_CORE_BOOTSTRAP_ADMIN_*`, `AI_CORE_GOOGLE_*`, `AI_CORE_IDENTITY_SECRET_OPEN_WEBUI`, `AI_CORE_USAGE_TIMEZONE`;
+  dividido em seções "sem console" (com `AXON_LANGFUSE_*`) e "com console" (sem elas), mais `AXON_MASTER_KEY`,
+  `AXON_BOOTSTRAP_ADMIN_*`, `AXON_GOOGLE_*`, `AXON_IDENTITY_SECRET_OPEN_WEBUI`, `AXON_USAGE_TIMEZONE`;
   `assistants.yaml` de exemplo com `overrides` num Assistant.
 - **Provas:** `scripts/check-webui.py` entra pelo formulário da plataforma (no lugar do Keycloak); `scripts/check-console`
   (Playwright ou biblioteca padrão) entra com o admin inicial e grava uma sobreposição de modelo.
 - **Migração da Fase 7:** contas do Open WebUI ligadas ao `sub` do Keycloak — `OAUTH_MERGE_ACCOUNTS_BY_EMAIL=true` ou
-  volume novo do Open WebUI; as pessoas são cadastradas na plataforma (`ai-core users create`).
+  volume novo do Open WebUI; as pessoas são cadastradas na plataforma (`axon users create`).
 - Detalhes (parâmetros do Open WebUI v0.12, nomes de perfil) ficam para o research do plano, na sequência das R36–R41.
 
 ## Portas e adapters **[ADR-012]**

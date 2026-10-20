@@ -1,6 +1,6 @@
 # Contrato — `assistants.yaml` (configuração de acesso do operador)
 
-Arquivo versionado do operador, apontado por `AI_CORE_ASSISTANTS_FILE` (variável da 011). Nasceu na 011 (research R4
+Arquivo versionado do operador, apontado por `AXON_ASSISTANTS_FILE` (variável da 011). Nasceu na 011 (research R4
 dela) e passa a ser desta spec: formato, validação e mensagens de erro são daqui; quem escolhe o arquivo é a
 composition root. Lido pela porta `AssistantConfigSource` (adapter `adapters/assistants_yaml.py`), uma vez, no boot.
 Nomes de domínio abaixo são ilustrativos.
