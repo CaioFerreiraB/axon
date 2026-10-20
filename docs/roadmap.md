@@ -86,6 +86,9 @@ só nos nomes; ainda sem tag.
 **010 feita** (2026-10-20) — `axon-generic` 0.2.0, import `axon_generic`; consumidores do workspace (dependência de
 desenvolvimento, import-linter, suíte do core, CI) e documentos vivos atualizados; o grupo `ai_core.packs` fica para a
 002; ainda sem tag.
+**002 feita** (2026-10-20) — o Pack Runtime descobre packs só pelo grupo `axon.packs` (pack só no grupo antigo,
+habilitado, fica `error: não instalado`); `axon-generic`, o pack de teste dos contratos e as distribuições falsas no grupo
+novo; a instalação (US7) fica para depois da 101.
 
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 

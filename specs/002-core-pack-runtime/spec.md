@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: Tradução de arch-v1 §10 (níveis de extensão), §11 (packs declarativos, code packs, composição), §13 (registro, descoberta, fail-closed, introspecção, CLI), §14 (deployment), §6 (isolamento de fatias); ADR-003, ADR-009, ADR-011, ADR-012. Fase 9 (2026-10-13): instalação com ou sem a console e sem Keycloak — ADR-029, ADR-030, ADR-033.
+**Input**: Tradução de arch-v1 §10 (níveis de extensão), §11 (packs declarativos, code packs, composição), §13 (registro, descoberta, fail-closed, introspecção, CLI), §14 (deployment), §6 (isolamento de fatias); ADR-003, ADR-009, ADR-011, ADR-012. Fase 9 (2026-10-13): instalação com ou sem a console e sem Keycloak — ADR-029, ADR-030, ADR-033. Fase 9, incremento 9.5 (2026-10-20): identidade Axon — ADR-037.
 
 ## Module Boundary *(mandatory)*
 
@@ -17,7 +17,7 @@
 - **Depende de infraestrutura (via portas)**: fonte dos packs instalados (descoberta) e configuração do operador (habilitação e configuração por pack).
 - **Não conhece**: flows e nós do grafo, HTTP, Assistants (recebe apenas a lista ordenada de packs a compor), a ordem de boot da plataforma (spec 011), qualquer domínio.
 - **Substituição**: preservar Pack Registry e Pack Hooks; o mecanismo de descoberta (entry points) pode mudar sem afetar consumidores.
-- **Insumo técnico**: [design.md](design.md); [ADR-003](../../docs/adr/ADR-003-mcp-usuario-pack-operador.md), [ADR-009](../../docs/adr/ADR-009-deploy-docker-build-arg.md), [ADR-011](../../docs/adr/ADR-011-contratos-independentes-do-motor.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-022](../../docs/adr/ADR-022-instalacao-constroi-o-core-num-estagio-proprio.md), [ADR-029](../../docs/adr/ADR-029-console-de-administracao-propria.md), [ADR-030](../../docs/adr/ADR-030-a-plataforma-e-o-provedor-de-identidade.md), [ADR-033](../../docs/adr/ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md).
+- **Insumo técnico**: [design.md](design.md); [ADR-003](../../docs/adr/ADR-003-mcp-usuario-pack-operador.md), [ADR-009](../../docs/adr/ADR-009-deploy-docker-build-arg.md), [ADR-011](../../docs/adr/ADR-011-contratos-independentes-do-motor.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-022](../../docs/adr/ADR-022-instalacao-constroi-o-core-num-estagio-proprio.md), [ADR-029](../../docs/adr/ADR-029-console-de-administracao-propria.md), [ADR-030](../../docs/adr/ADR-030-a-plataforma-e-o-provedor-de-identidade.md), [ADR-033](../../docs/adr/ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md), [ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md) (nomes).
 
 ## Clarifications
 
@@ -40,6 +40,13 @@
 ### Session 2026-10-13
 
 - Q: A instalação padrão, sem console e sem Open WebUI (só a API com chave), também passa a trazer o Postgres? → A: Sim. Toda instalação de referência usa o perfil `persistent` com Postgres, com ou sem interface: chaves, Assistants de usuário, conversas, uso e sobreposições sobrevivem a um restart, e a API de administração funciona igual sem tela.
+
+### Session 2026-10-20
+
+- Q: Por qual grupo de entry point o Pack Runtime descobre os packs depois do renome da plataforma? → A: `axon.packs` (era `ai_core.packs`; ADR-037, item 2). O grupo é o seam pelo qual todo pack de código se anuncia (FR-001), e o nome segue a regra da operação: curto, `axon`. O nome do entry point continua igual ao `name` do pack (FR-017), e os nomes de pack não mudam (`generic`, `scouting`).
+- Q: O que acontece com um pack que ainda se anuncia só no grupo antigo? → A: Corte seco (ADR-037, item 3): o Pack Runtime não o descobre. Se ele está habilitado em `packs.yaml`, aparece como `error: não instalado`, a regra que já existe para pack habilitado e ausente — o boot conclui e `axon packs check` sai com código não zero. Não há diagnóstico próprio para o grupo antigo: a única concessão de diagnóstico do ADR-037 é a recusa das variáveis de ambiente antigas (011 e 101), e procurar no grupo antigo seria código de compatibilidade sem usuário.
+- Q: Quem acompanha a troca do grupo nesta passada? → A: Os packs do workspace e quem os simula, de forma mecânica (ADR-037, item 7): o pack de referência `axon-generic` (sem versão nova: a `0.2.0` ainda não saiu em tag), o pack de teste dos contratos e o exemplo do README dos contratos, as distribuições falsas da suíte do core e os documentos vivos da 002 e da 010. O pack de domínio troca o grupo na passada da 101, junto com a dependência da tag nova do core; até lá ele continua preso à tag antiga, e os dois não se encontram no mesmo ambiente. A instalação (US7) muda na passada dela.
+- Q: Os subcomandos de packs mudam? → A: Não nesta passada: `axon packs list` e `axon packs check` já existem sob a raiz `axon` desde a passada da 011; a saída e os códigos de saída são os mesmos.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -169,6 +176,24 @@ entra pelo login da plataforma; depois subir com a console e entrar nela com o a
 
 ---
 
+### User Story 8 - Identidade Axon: packs descobertos pelo grupo da plataforma (Priority: P2)
+
+A plataforma passa a se chamar Axon (ADR-037). Quem escreve um pack anuncia-o no grupo de registro `axon.packs`, e o operador instala, habilita e inspeciona packs como antes, pelo comando `axon packs`. Um pack que ainda se anuncia só no grupo antigo não é encontrado; se o operador o habilitou, ele aparece em erro como não instalado, e o build da instalação falha na validação, em vez de subir sem ele em silêncio.
+
+**Why this priority**: O grupo de registro é a porta pela qual todo pack de código chega ao core; o pack de domínio (101) e a instalação dependem do nome novo. P2 porque nenhum comportamento muda, só o nome do grupo.
+
+**Independent Test**: No workspace, `axon packs list` mostra o pack de referência `generic` descoberto pelo grupo `axon.packs`; numa suíte com distribuições falsas, um pack anunciado em `axon.packs` carrega, e o mesmo pack anunciado só em `ai_core.packs` e habilitado fica `error: não instalado`.
+
+**Acceptance Scenarios**:
+
+1. **Given** um pack instalado que se anuncia no grupo `axon.packs`, **When** o core inicia, **Then** ele é descoberto e carregado como antes, com o nome do entry point.
+2. **Given** um pack instalado que se anuncia só no grupo `ai_core.packs` e está habilitado na configuração, **When** o core inicia, **Then** o pack não é descoberto, aparece como `error: não instalado`, e o boot conclui com os demais packs.
+3. **Given** o mesmo pack do cenário 2, **When** o operador roda `axon packs check`, **Then** o comando sai com código não zero e nomeia o pack.
+4. **Given** um pack que se anuncia só no grupo antigo e não está habilitado, **When** o operador roda `axon packs list`, **Then** ele não aparece na lista.
+5. **Given** o workspace com o pack de referência, **When** o core inicia, **Then** `generic` é descoberto pelo grupo `axon.packs`, da distribuição `axon-generic`, com as mesmas capacidades.
+
+---
+
 ### Edge Cases
 
 - Dois packs instalados com o mesmo nome: nenhum dos dois carrega; erro nomeia o conflito.
@@ -181,6 +206,8 @@ entra pelo login da plataforma; depois subir com a console e entrar nela com o a
 - Validator que lança exceção durante a execução: a resposta não é entregue sem validação; a execução termina com erro explícito.
 - Instalação que vinha da Fase 7 com Keycloak: as contas do Open WebUI estavam ligadas ao identificador do Keycloak; a migração documentada religa pelo e-mail ou recomeça o volume do Open WebUI, e as pessoas são cadastradas na plataforma.
 - Instalação com console sem chave mestra: a plataforma não sobe (011), e a documentação da instalação mostra como gerar a chave.
+- Pack que se anuncia nos dois grupos (antigo e novo): só o anúncio em `axon.packs` conta; o do grupo antigo é ignorado, como qualquer outro grupo de terceiros.
+- Distribuição de pack antiga que fica no ambiente depois da troca: invisível para o core; recriar o ambiente a remove.
 
 ## Requirements *(mandatory)*
 
@@ -209,6 +236,11 @@ entra pelo login da plataforma; depois subir com a console e entrar nela com o a
 - **FR-021**: O template DEVE trazer exemplos de configuração para os dois casos — com e sem console —, com a chave mestra, o admin inicial, os clientes da identidade, as credenciais do Google (sempre na instalação) e as do Langfuse (na instalação só no caso sem console), sem nenhum valor real de segredo.
 - **FR-022**: A prova da instalação DEVE cobrir o login pela plataforma no Open WebUI (substituindo a prova pelo Keycloak) e, com a console, a entrada do admin inicial e uma sobreposição de modelo.
 
+- **FR-023**: O sistema DEVE descobrir os packs de código pelo grupo de registro `axon.packs` (FR-001; ADR-037), e só por ele.
+- **FR-024**: Um pack anunciado só no grupo antigo (`ai_core.packs`) NÃO DEVE ser descoberto nem carregado; habilitado na configuração, DEVE ficar `error` com "não instalado", como qualquer pack habilitado e ausente, sem diagnóstico próprio do grupo antigo (corte seco, ADR-037, item 3).
+- **FR-025**: Os packs do workspace e as distribuições falsas das suítes DEVEM se anunciar em `axon.packs` na mesma passada, para a CI ficar verde (ADR-037, item 7).
+
+
 ### Key Entities
 
 - **Pack Registry Entry**: nome (igual ao do entry point), versão, versão de contrato, origem (code/declarativo), status, erro, capacidades.
@@ -227,10 +259,12 @@ entra pelo login da plataforma; depois subir com a console e entrar nela com o a
 - **SC-005**: Nenhuma combinação de packs válidos produz uma composição não executável (verificado por teste de composição com todos os pares de packs de teste).
 - **SC-006**: Passar da instalação sem console para a com console é trocar um parâmetro da instalação, sem editar código nem arquivos do core.
 - **SC-007**: Nenhuma instalação de referência da Fase 9 traz o Keycloak, e a prova da instalação passa com o login da plataforma.
+- **SC-008**: Depois da passada da US8, zero ocorrências do grupo `ai_core.packs` no código, nos testes, na configuração e nos documentos vivos do workspace e das specs do core (fora do histórico do ADR-037, item 6, das specs `1xx`, do contrato da instalação, do `CLAUDE.md` e dos testes e textos que nomeiam o grupo antigo de propósito), e as suítes do workspace passam.
 
 ## Assumptions
 
-- Packs de código são distribuições Python com entry point no grupo `ai_core.packs` (constituição, "Stack").
+- Packs de código são distribuições Python com entry point no grupo `axon.packs` (constituição, "Stack"; ADR-037).
+- US8 (ADR-037): até a passada da 101, o pack de domínio continua no grupo antigo e preso à tag antiga do core; até a passada da instalação, a imagem constrói o core de uma tag antiga. Nenhum dos dois encontra o core do HEAD antes das passadas deles.
 - Packs declarativos vivem em arquivo de configuração ou banco e dispensam rebuild; se também dispensam restart (recarregamento em execução) é decidido quando a US6 (P3) entrar — code packs e `packs.yaml` são lidos só no boot (FR-003).
 - A superfície HTTP de introspecção pertence à spec 008; esta spec fornece o Pack Registry que ela consulta.
 - A ordem de composição é sempre a declarada pelo Assistant (spec 003); o pack não escolhe sua posição.

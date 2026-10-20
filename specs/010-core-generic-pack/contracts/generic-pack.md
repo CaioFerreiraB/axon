@@ -9,7 +9,7 @@ Tudo abaixo é consumido pela API pública de `axon_ai_contracts` (001) — nenh
 ## Identidade
 
 ```toml
-[project.entry-points."ai_core.packs"]
+[project.entry-points."axon.packs"]
 generic = "axon_generic.pack:GenericPack"
 ```
 

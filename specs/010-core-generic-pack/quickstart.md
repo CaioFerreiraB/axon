@@ -41,7 +41,7 @@ Inspeção manual equivalente, útil para depurar:
 ```bash
 uv run python - <<'PY'
 from importlib.metadata import entry_points
-for ep in entry_points(group="ai_core.packs"):
+for ep in entry_points(group="axon.packs"):
     print(ep.name, "->", ep.value, "|", ep.dist.name, ep.dist.version)
 PY
 ```
@@ -226,7 +226,7 @@ uv run pytest packages/core/tests/packs/integration/test_packs_generic_entry_poi
 
 **Esperado**: verde. O registry mostra `generic`, distribuição `axon-generic`, versão `0.2.0`, `contract_version` `0.2`;
 o Assistant genérico da US2 responde como antes. A inspeção manual do §3 imprime
-`generic -> axon_generic.pack:GenericPack | axon-generic 0.2.0` (o grupo ainda é `ai_core.packs`, R23).
+`generic -> axon_generic.pack:GenericPack | axon-generic 0.2.0` (o grupo é `axon.packs` desde a passada da 002).
 
 ## 16. Fronteiras e resíduos (cenário 4, SC-003)
 

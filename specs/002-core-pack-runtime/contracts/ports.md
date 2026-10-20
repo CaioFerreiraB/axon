@@ -31,7 +31,7 @@ class PackConfigSource(Protocol):
 | Porta | Adapter | Arquivo | Fase |
 |---|---|---|---|
 | `PackSource` | em memória (lista de classes) | `adapters/memory.py` | 1 (testes, perfil `test`) |
-| `PackSource` | entry points `ai_core.packs` | `adapters/entry_points.py` | 1 |
+| `PackSource` | entry points `axon.packs` (era `ai_core.packs`; R51) | `adapters/entry_points.py` | 1 |
 | `PackSource` | declarativo | `adapters/declarative.py` | P3 (US6) |
 | `PackConfigSource` | em memória (mapeamento) | `adapters/memory.py` | 1 |
 | `PackConfigSource` | `packs.yaml` | `adapters/config_yaml.py` | 1 |

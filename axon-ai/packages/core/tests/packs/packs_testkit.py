@@ -11,6 +11,7 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from axon_ai.packs.adapters.entry_points import PACKS_GROUP
 from axon_ai_contracts import (
     JSONValue,
     PackBase,
@@ -120,6 +121,7 @@ class FakeDistributions:
         version: str = "0.1.0",
         entry_points: Mapping[str, str],
         modules: Mapping[str, str] | None = None,
+        group: str = PACKS_GROUP,
     ) -> None:
         for module, source in (modules or {}).items():
             (self.root / f"{module}.py").write_text(textwrap.dedent(source), encoding="utf-8")
@@ -129,7 +131,7 @@ class FakeDistributions:
         (info / "METADATA").write_text(
             f"Metadata-Version: 2.1\nName: {distribution}\nVersion: {version}\n", encoding="utf-8"
         )
-        lines = ["[ai_core.packs]", *(f"{name} = {target}" for name, target in entry_points.items())]
+        lines = [f"[{group}]", *(f"{name} = {target}" for name, target in entry_points.items())]
         (info / "entry_points.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
         importlib.invalidate_caches()
 

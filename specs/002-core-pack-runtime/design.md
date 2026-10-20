@@ -12,7 +12,7 @@ axon-ai/packages/core/src/axon_ai/packs/
 ├── ports.py          # PackSource, PackConfigSource
 ├── service.py        # registry (carga fail-closed), composição, execução de hooks com recorte da Turn View
 └── adapters/
-    ├── entry_points.py   # PackSource: entry_points(group="ai_core.packs")
+    ├── entry_points.py   # PackSource: entry_points(group="axon.packs")
     ├── declarative.py    # PackSource: packs declarativos (YAML/banco)
     ├── config_yaml.py    # PackConfigSource: packs.yaml
     └── cli.py            # subcomandos `packs list | check` (a raiz `axon` é da spec 011)
@@ -38,7 +38,7 @@ name = "ai-scouting"
 version = "0.1.4"
 dependencies = ["axon-ai-contracts>=0.1,<0.2"]   # nunca axon-ai
 
-[project.entry-points."ai_core.packs"]
+[project.entry-points."axon.packs"]
 scouting = "ai_scouting.pack:ScoutingPack"
 ```
 

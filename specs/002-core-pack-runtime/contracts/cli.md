@@ -18,7 +18,7 @@ status e, se em erro, a mensagem (US4 cen. 1). Campo ausente aparece como `-`.
 ```text
 $ axon packs list
 financeiro  1.2.0  0.2  error     requer axon-ai-contracts>=0.2,<0.3, instalado 0.1.0
-generic     0.1.0  0.1  enabled
+generic     0.2.0  0.2  enabled
 scouting    -      -    error     não instalado
 ```
 

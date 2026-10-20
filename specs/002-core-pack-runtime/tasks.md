@@ -469,3 +469,65 @@ A 005 US1 pode começar quando a US3 desta lista estiver pronta; a 011 depende d
 - Commit após cada tarefa ou grupo lógico
 - Fora de escopo: US3 cenário 1, US5, US6 e `reranker`/`routine` do Pack Hooks; da US4, o registro na raiz `ai-core`
   (011) e a introspecção HTTP (008)
+
+---
+
+## Passada de 2026-10-20: identidade Axon — US8 ([ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md); research R51–R55)
+
+**Goal**: o Pack Runtime descobre packs só pelo grupo `axon.packs`; pack só no grupo antigo, habilitado, fica
+`error: não instalado`; os packs do workspace e as distribuições falsas das suítes no grupo novo; suítes verdes.
+
+**Independent Test**: [quickstart.md, "Fase 9, incremento 9.5"](quickstart.md) — teste do grupo (cenários 1–4) e o
+`generic` listado pelo grupo novo (cenário 5).
+
+### Tests (antes da T088)
+
+- [X] T085 [US8] `axon-ai/packages/core/tests/packs/packs_testkit.py` (R53): `FakeDistributions.add(..., group: str =
+  PACKS_GROUP)`, com `PACKS_GROUP` importado de `axon_ai.packs.adapters.entry_points`, escrevendo `[<group>]` no
+  `entry_points.txt` sintético
+- [X] T086 [US8] `axon-ai/packages/core/tests/packs/integration/test_packs_entry_point_group.py` (R54), com
+  `FakeDistributions` e `PackRuntime(EntryPointPackSource(), InMemoryPackConfigSource(...))`:
+  `PACKS_GROUP == "axon.packs"`; pack bom em `axon.packs` e habilitado → `enabled` (cen. 1); o mesmo só em
+  `ai_core.packs` e habilitado → `error` com `"não instalado"`, e um segundo pack bom em `axon.packs` carrega (cen. 2);
+  `check_command` sobre esse registry → 1 e a saída nomeia o pack (cen. 3); só em `ai_core.packs` e não habilitado →
+  ausente de `entries()` (cen. 4). Rodar e ver falhar antes da T087
+
+### Implementation
+
+- [X] T087 [US8] `axon-ai/packages/core/src/axon_ai/packs/adapters/entry_points.py` (R51): `PACKS_GROUP = "axon.packs"`
+  e a docstring de `EntryPointPackSource` com o grupo novo
+- [X] T088 [P] [US8] Quem se anuncia no grupo (R53): `[project.entry-points."axon.packs"]` em
+  `axon-ai/packages/generic/pyproject.toml` e em
+  `axon-ai/packages/contracts/tests/fixtures/contract_test_pack/pyproject.toml`; o grupo novo na docstring de
+  `axon-ai/packages/generic/src/axon_generic/__init__.py`, no `axon-ai/packages/generic/README.md` e no exemplo de
+  `axon-ai/packages/contracts/README.md`; `uv sync` em `axon-ai/` (reinstala os editáveis com o `entry_points.txt` novo)
+- [X] T089 [P] [US8] Documentos vivos da 010 (R55): `[project.entry-points."axon.packs"]` em
+  `specs/010-core-generic-pack/{design.md,contracts/generic-pack.md,contracts/packaging.md}`, o grupo na árvore do
+  `design.md`, na tabela do `data-model.md` e no §3 do `quickstart.md`; a nota de `contracts/packaging.md` e a frase do
+  §15 do `quickstart.md` passam a "o grupo é `axon.packs` desde a passada da 002"
+
+### Integration e verificação
+
+- [X] T090 [US8] Suítes (a partir de `axon-ai/`): `uv run pytest && uv run mypy && uv run ruff check packages && uv run
+  ruff format --check packages && uv run lint-imports`; o ambiente limpo do pack em 3.12 (010 quickstart §5) e
+  `uv run python packages/contracts/tools/check_clean_env.py`
+- [X] T091 [US8] Quickstart da US8 à mão e resíduos (R55, SC-008): os `entry_points` dos dois grupos e
+  `axon packs list`; `git grep -nw "ai_core\.packs"` fora do histórico, das `1xx`, de `contracts/installation.md` e do
+  `CLAUDE.md` só mostra o teste do corte seco e os textos que nomeiam o grupo antigo de propósito; nenhuma palavra
+  `agentic` removida (`git diff --word-diff=porcelain -U0 | grep '^-' | grep -cw agentic` = 0)
+- [X] T092 [P] [US8] `specs/README.md` (linha da 002 com a US8) e `docs/roadmap.md` (andamento do 9.5: 002 feita, a
+  instalação depois da 101)
+
+### Dependencies (US8)
+
+T085 → T086 (vê falhar) → T087 → T088 ∥ T089 → T090 → T091; T092 em paralelo com a T090.
+
+### Notas da execução (US8)
+
+- A T086 falhou como esperado antes da T087 (4 de 5 casos; o que passou usava o grupo padrão do kit, ainda o antigo).
+- O `uv sync` reinstalou o `axon-generic` editável com o `entry_points.txt` novo; depois dele, o grupo `axon.packs` tem
+  só `generic` e o `ai_core.packs` está vazio no workspace.
+- O exemplo do `contracts/cli.md` ainda mostrava `generic 0.1.0 0.1`; passou à versão atual (`0.2.0`, `0.2`).
+- Suítes: workspace 3119 passed, 167 skipped (os 5 testes novos); mypy sem erro; ruff limpo (um travessão na docstring
+  do teste novo virou "1 a 4", RUF002); import-linter 69 kept; ambiente limpo 3.12 com `generic` em `axon.packs` e 65
+  testes do pack; `check_clean_env.py` verde; `axon packs list` com o `generic` habilitado: `generic 0.2.0 0.2 enabled`.

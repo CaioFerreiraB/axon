@@ -13,7 +13,7 @@ readme = "README.md"
 requires-python = ">=3.12"                        # piso dos contratos, não o do core (research R3)
 dependencies = ["axon-ai-contracts>=0.2,<0.3"]    # faixa derivada da contract_version (ADR-014)
 
-[project.entry-points."ai_core.packs"]
+[project.entry-points."axon.packs"]
 generic = "axon_generic.pack:GenericPack"
 
 [tool.uv.sources]
@@ -25,8 +25,8 @@ build-backend = "uv_build"
 ```
 
 > Passada de 2026-10-20 (US3, ADR-037; research R22, R23): distribuição `axon-generic` 0.2.0, pacote `axon_generic`.
-> O grupo `ai_core.packs` é o que o Pack Runtime (002) procura e passa a `axon.packs` na passada dela, junto com o do
-> Pack Runtime; o nome do entry point (`generic`) não muda.
+> O grupo é `axon.packs` desde a passada da 002 (US8, research R51–R53 dela), junto com o do Pack Runtime; o nome do
+> entry point (`generic`) não muda.
 
 | Linha | Verificador |
 |---|---|

@@ -5,7 +5,7 @@ description = "Pack de teste dos contratos: prova o pack sem o core (SC-001) e c
 requires-python = ">=3.12"
 dependencies = ["axon-ai-contracts>=0.2,<0.3"]
 
-[project.entry-points."ai_core.packs"]
+[project.entry-points."axon.packs"]
 contract_test = "contract_test_pack.pack:ContractTestPack"
 
 [build-system]

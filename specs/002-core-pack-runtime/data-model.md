@@ -11,7 +11,7 @@ Value objects são `dataclass(frozen=True, slots=True, kw_only=True)`, como na 0
 
 | Campo | Tipo | Regras |
 |---|---|---|
-| `name` | `str` | nome do entry point no grupo `ai_core.packs` |
+| `name` | `str` | nome do entry point no grupo `axon.packs` (só nele: anúncio no grupo antigo não é descoberto — R52) |
 | `distribution` | `str` | distribuição que registra o entry point |
 | `version` | `str` | versão da distribuição |
 | `load` | `Callable[[], object]` | importa e devolve o objeto apontado pelo entry point (a classe do pack); pode levantar |

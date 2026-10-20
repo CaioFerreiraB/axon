@@ -124,3 +124,43 @@ docker compose up --build        # com .env copiado de .env.example
 **Esperado**: o serviço sobe com `read_only`, ouvindo em `:8000`; `GET /private/v1/health` com a chave de
 desenvolvimento do `.env` responde.
 
+
+---
+
+## Fase 9, incremento 9.5 (2026-10-20): US8 — grupo `axon.packs`
+
+A partir de `axon-ai/`, com `XDG_DATA_HOME=$HOME/.local/share` nesta máquina. Decisões em [research.md](research.md)
+R51–R55.
+
+### Descoberta pelo grupo novo e corte seco (cenários 1 a 4)
+
+```bash
+uv run pytest packages/core/tests/packs/integration/test_packs_entry_point_group.py -v
+```
+
+**Esperado**: verde — o pack anunciado em `axon.packs` carrega; anunciado só em `ai_core.packs` e habilitado, fica
+`error: não instalado` e `packs check` sai com 1 nomeando-o; não habilitado, não aparece.
+
+### O pack de referência no grupo novo (cenário 5)
+
+```bash
+uv run python - <<'PY'
+from importlib.metadata import entry_points
+print([(ep.name, ep.value, ep.dist.name) for ep in entry_points(group="axon.packs")])
+print([ep.name for ep in entry_points(group="ai_core.packs")])
+PY
+AXON_PROFILE=memory AXON_PACKS_FILE=<packs.yaml com generic habilitado> uv run axon packs list
+```
+
+**Esperado**: `[('generic', 'axon_generic.pack:GenericPack', 'axon-generic')]` e `[]` (nenhum pack do workspace no
+grupo antigo); a lista mostra `generic  0.2.0  0.2  enabled`.
+
+### Resíduos (SC-008)
+
+```bash
+cd .. && git grep -nw "ai_core\.packs" -- . ':!ai-scouting' ':!agentic-deploy' ':!specs/1*' ':!**/research.md' \
+  ':!**/plan.md' ':!**/tasks.md' ':!docs' ':!CLAUDE.md' ':!specs/002-core-pack-runtime/contracts/installation.md'
+```
+
+**Esperado**: só o teste do corte seco e os textos que nomeiam o grupo antigo de propósito (a US8, as clarificações de
+2026-10-20 e os FR-024 e SC-008 da 002, as notas da 010); nenhum `pyproject.toml` nem código de produção.

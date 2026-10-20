@@ -7,11 +7,11 @@ from collections.abc import Sequence
 
 from axon_ai.packs.ports import DiscoveredPack
 
-PACKS_GROUP = "ai_core.packs"
+PACKS_GROUP = "axon.packs"
 
 
 class EntryPointPackSource:
-    """Lista os entry points do grupo `ai_core.packs`, sem importar os packs (o import acontece em `load()`)."""
+    """Lista os entry points do grupo `axon.packs`, sem importar os packs (o import acontece em `load()`)."""
 
     def __init__(self, group: str = PACKS_GROUP) -> None:
         self._group = group

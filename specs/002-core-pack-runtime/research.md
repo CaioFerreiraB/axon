@@ -657,3 +657,76 @@ também o alvo `console`.
 **Rationale**: ADR-022.
 
 **Alternatives considered**: —
+
+## Passada de 2026-10-20: identidade Axon ([ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md); US8)
+
+Decisões pré-aprovadas pelo ADR-037 (nomes, corte seco, ordem das passadas); o que segue é como elas chegam ao Pack
+Runtime e aos packs do workspace, sem re-pesquisa. Os R anteriores ficam como foram executados (ADR-037, item 6); os
+nomes antigos neles se leem pela tabela do ADR-037. A instalação (US7) tem passada própria, depois da 101.
+
+### R51 — O grupo `axon.packs`
+
+- **Decision**: `PACKS_GROUP = "axon.packs"` em `axon_ai/packs/adapters/entry_points.py` (a docstring de
+  `EntryPointPackSource` cita o grupo novo). Nada mais muda no Pack Runtime: o nome do entry point continua igual ao
+  `name` do pack (FR-017), o logger já é `axon_ai.packs` (passada da 011) e os subcomandos já são `axon packs list|check`.
+- **Rationale** (ADR-037, item 2): o grupo é o que o autor de pack digita no `pyproject.toml`; na operação, o nome fica
+  curto, `axon`. É identificador com comportamento da 002, por isso ficou fora da substituição mecânica da 011 (011 R47).
+- **Alternatives**: `axon_ai.packs` (o nome do import do core; o ADR fixa `axon.packs`, e o grupo não é módulo
+  importável); manter `ai_core.packs` (dois vocabulários para sempre, o que o ADR-037 rejeita).
+
+### R52 — Corte seco, sem diagnóstico do grupo antigo
+
+- **Decision**: o `EntryPointPackSource` lê só `axon.packs`. Um pack anunciado só em `ai_core.packs` não entra na
+  descoberta; habilitado em `packs.yaml`, cai na regra que já existe em `PackRuntime.load()` (`error: não instalado`), e
+  `axon packs check` sai com 1 (`check_command` conta os packs em `error`). Nenhuma consulta ao grupo antigo, nenhuma
+  mensagem própria.
+- **Rationale** (ADR-037, item 3): corte seco; a única concessão de diagnóstico é a recusa das variáveis antigas no boot
+  (011) e no pack (101). A falha já é fechada e visível — o pack habilitado aparece em erro na introspecção, e o build
+  da instalação para no `packs check` (FR-013) —, então um aviso a mais seria código de compatibilidade sem usuário.
+- **Alternatives**: procurar o nome do pack ausente no grupo antigo e dizer "anunciado em `ai_core.packs`; use
+  `axon.packs`" (útil só para quem tem pack antigo, e não há); descobrir nos dois grupos por uma janela (contraria o
+  corte seco).
+
+### R53 — Quem se anuncia no grupo (mecânico)
+
+- **Decision**: troca de `ai_core.packs` por `axon.packs`, à mão, em: `axon-ai/packages/generic/pyproject.toml`
+  (`[project.entry-points."axon.packs"]`), a docstring de `axon_generic/__init__.py` e o `README.md` do pack;
+  `axon-ai/packages/contracts/tests/fixtures/contract_test_pack/pyproject.toml` e o exemplo de
+  `axon-ai/packages/contracts/README.md`; o `entry_points.txt` sintético de `FakeDistributions.add` em
+  `axon-ai/packages/core/tests/packs/packs_testkit.py`, que ganha o parâmetro `group: str = PACKS_GROUP` (o teste do
+  R54 escreve uma distribuição no grupo antigo). O `axon-generic` continua `0.2.0`: a versão ainda não saiu em tag, e
+  nenhum consumidor externo o instala. O `uv.lock` não muda (entry points não entram no lock). O job `frozen-pack` da CI
+  dos contratos usa o pack de teste da tag antiga, que não é carregado pelo core; nada a fazer.
+- **Rationale** (ADR-037, item 7): a passada que muda um seam atualiza quem o usa no workspace, para a CI ficar verde —
+  sem a troca no pack de referência, a carga real por entry point (010 SC-002) quebra.
+- **Alternatives**: bump do `axon-generic` para `0.2.1` (a `0.2.0` ainda não existe fora do workspace; a tag
+  `v0.7.0-rc1` sai com o grupo novo); deixar o pack de teste dos contratos no grupo antigo (o core não o carrega, mas
+  ele é o exemplo que a 001 mostra a um autor de pack).
+
+### R54 — Testes
+
+- **Decision**: `axon-ai/packages/core/tests/packs/integration/test_packs_entry_point_group.py`, com
+  `FakeDistributions`: `PACKS_GROUP == "axon.packs"`; um pack bom anunciado em `axon.packs` e habilitado fica `enabled`
+  (US8 cen. 1); o mesmo pack anunciado só em `ai_core.packs` e habilitado fica `error` com `"não instalado"`, e o boot
+  carrega os demais (cen. 2); `check_command` sobre esse registry devolve 1 e a saída nomeia o pack (cen. 3); anunciado
+  só no grupo antigo e não habilitado, ele não aparece em `entries()` (cen. 4). O cenário 5 é a carga real que já existe
+  (`test_packs_generic_entry_point.py`), que só passa com o `axon-generic` no grupo novo.
+- **Rationale**: FR-023 e FR-024 precisam de um verificador que não dependa do nome escrito no texto; o kit de
+  distribuições falsas já é o meio da suíte para testar descoberta sem instalar nada.
+- **Alternatives**: teste unitário só da constante (não prova que o grupo antigo fica de fora).
+
+### R55 — Documentos vivos e verificação
+
+- **Decision**: o grupo novo em `specs/002-core-pack-runtime/{design.md,data-model.md,contracts/ports.md}` (no
+  `design.md`, só a parte do Pack Runtime: a árvore e o exemplo de `pyproject.toml`; o exemplo segue com
+  `ai_scouting`, que é nome da 101) e um roteiro "Fase 9, incremento 9.5" no `quickstart.md`; na 010,
+  `design.md`, `data-model.md`, `quickstart.md` (§3 e §15) e `contracts/{generic-pack.md,packaging.md}` (a nota do grupo
+  passa a "desde a passada da 002"). Ficam: as specs `1xx`, `contracts/installation.md` e o resto do `design.md` sobre
+  a instalação (passada da instalação), `CLAUDE.md` e o histórico. Verificação, a partir de `axon-ai/`: `uv run pytest
+  && uv run mypy && uv run ruff check packages && uv run ruff format --check packages && uv run lint-imports`; na raiz,
+  `git grep -nw "ai_core\.packs"` fora desses caminhos só mostra o teste do corte
+  seco e os textos que nomeiam o grupo antigo de propósito; nenhuma palavra `agentic` sai (`--word-diff`).
+- **Rationale** (ADR-037, item 6): documentos vivos passam ao nome novo; o histórico não se reescreve. Muitas
+  ocorrências de `ai_core.packs` nos `plan.md`/`research.md`/`tasks.md` de outras specs são o **módulo** antigo
+  (`ai_core.packs.api`), não o grupo, e são histórico.
+- **Alternatives**: nenhuma.

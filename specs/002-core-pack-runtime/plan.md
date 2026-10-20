@@ -285,3 +285,63 @@ agentic-deploy/
 ├── scripts/check-console.py   # novo
 └── README.md                  # modos, migração da Fase 7, Google, Langfuse
 ```
+
+## Passada de 2026-10-20: identidade Axon (US8; [ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md))
+
+> As seções acima são os planos das passadas anteriores e ficam como foram executadas (ADR-037, item 6); os nomes
+> antigos nelas se leem pela tabela do ADR-037. Esta seção é o plano da US8; a instalação (US7) tem passada própria.
+
+**Insumos lidos**: [spec.md](spec.md) (US8, FR-023–FR-025, SC-008, clarificações de 2026-10-20), [design.md](design.md),
+ADR-037, constituição 1.3.1 (já cita `axon.packs`), as passadas da 011 (import `axon_ai`, comando `axon`) e da 010
+(`axon-generic` 0.2.0). Research: R51–R55. **Sem divergência do `design.md`** além do nome do grupo, sem ADR novo; o seam
+que muda (o grupo de registro) é o que o ADR-037 decide.
+
+**Summary**: o Pack Runtime passa a descobrir os packs pelo grupo `axon.packs` (R51), em corte seco: pack só no grupo
+antigo não é descoberto e, habilitado, fica `error: não instalado` pela regra que já existe (R52). Os packs do workspace
+e as distribuições falsas das suítes passam ao grupo novo (R53); um teste novo prova os dois lados (R54).
+
+**Technical Context**: sem mudança de linguagem, dependência, storage ou lock. Uma constante de produção
+(`PACKS_GROUP`), quatro arquivos de configuração e documentação de pack, o kit de teste e um teste novo. Nenhum `NEEDS
+CLARIFICATION`.
+
+**Constitution Check (US8)**
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| II. Módulos substituíveis por seams | ✅ | O grupo é o seam de descoberta; muda por ADR (ADR-037), no módulo dono, com os consumidores do workspace na mesma passada (R53) |
+| VII. Falha fechada e explícita | ✅ | Pack habilitado e não encontrado fica `error: não instalado`; `packs check` sai com 1; o build da instalação para (R52) |
+| XII. Simplicidade deliberada | ✅ | Sem consulta ao grupo antigo nem janela de compatibilidade (R52) |
+| XIII. Portas e adapters | ✅ | A mudança fica no adapter `EntryPointPackSource`; a porta `PackSource` não muda |
+| Stack | ✅ | A constituição 1.3.1 já diz "entry point `axon.packs`" |
+
+**Module boundary gate**: `axon_ai/packs/adapters/entry_points.py` e `tests/packs/**`. Fora do módulo, só quem se
+anuncia no grupo (pack de referência, pack de teste e README dos contratos) e documentos vivos (R53, R55); nenhuma linha
+de outro módulo do core. **Ports & adapters gate**: só o adapter muda. **Resultado**: PASS.
+
+**Project Structure (US8)**
+
+```text
+axon-ai/packages/
+├── core/
+│   ├── src/axon_ai/packs/adapters/entry_points.py   # PACKS_GROUP = "axon.packs" (R51)
+│   └── tests/packs/
+│       ├── packs_testkit.py                         # FakeDistributions.add(..., group=PACKS_GROUP) (R53)
+│       └── integration/test_packs_entry_point_group.py   # novo (R54)
+├── generic/{pyproject.toml,README.md,src/axon_generic/__init__.py}   # grupo axon.packs (R53)
+└── contracts/{README.md,tests/fixtures/contract_test_pack/pyproject.toml}   # grupo axon.packs (R53)
+```
+
+**Seam Notes for Consumers (US8)**
+
+| Consumidor | O que muda para ele |
+|---|---|
+| Autor de pack | `[project.entry-points."axon.packs"]` no `pyproject.toml`; pack só no grupo antigo não é encontrado |
+| 010 (`axon-generic`) | O grupo no `pyproject.toml`, nesta passada; versão igual (R53) |
+| 011 | Nada: monta `EntryPointPackSource()` com o grupo padrão |
+| 101 (`ai-scouting`) | Troca o grupo na passada dela, junto com a tag nova do core |
+| Instalação | Nada até a passada dela: o estágio `core` instala uma tag antiga, com o grupo antigo de ponta a ponta |
+
+**Complexity Tracking (US8)**: nenhuma linha nova.
+
+**Constitution Check — pós-design (US8)**: reavaliado com [contracts/ports.md](contracts/ports.md),
+[data-model.md](data-model.md) e [quickstart.md](quickstart.md) ("Fase 9, incremento 9.5"): **PASS**.

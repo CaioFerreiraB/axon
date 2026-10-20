@@ -7,7 +7,7 @@ concretos que cada instância carrega e as regras de validação que os testes v
 
 | Campo | Onde | Valor |
 |---|---|---|
-| nome do entry point | `pyproject.toml`, grupo `ai_core.packs` | `generic` |
+| nome do entry point | `pyproject.toml`, grupo `axon.packs` | `generic` |
 | alvo do entry point | `pyproject.toml` | `axon_generic.pack:GenericPack` |
 | `GenericPack.name` | atributo de classe | `"generic"` (igual ao entry point, senão a 002 marca `error`) |
 | `GenericPack.contract_version` | atributo de classe | `"0.2"` (faixa `>=0.2,<0.3`; passada de 2026-10-20 da 001) |

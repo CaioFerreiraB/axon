@@ -11,7 +11,7 @@ que dependa só destes contratos não arrasta runtime, HTTP, framework de grafo 
 [project]
 dependencies = ["axon-ai-contracts>=0.2,<0.3"]   # nunca axon-ai
 
-[project.entry-points."ai_core.packs"]
+[project.entry-points."axon.packs"]
 meu_pack = "meu_pack.pack:MeuPack"
 ```
 

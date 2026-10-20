@@ -6,7 +6,7 @@
 
 ```text
 axon-ai/packages/generic/
-├── pyproject.toml       # distribuição axon-generic; entry point ai_core.packs
+├── pyproject.toml       # distribuição axon-generic; entry point axon.packs
 └── src/axon_generic/
     ├── pack.py
     ├── tools/
@@ -26,7 +26,7 @@ dependencies = ["axon-ai-contracts>=0.2,<0.3"]      # faixa derivada da contract
 [tool.uv.sources]
 axon-ai-contracts = { workspace = true }            # resolve no commit local enquanto mora no workspace
 
-[project.entry-points."ai_core.packs"]
+[project.entry-points."axon.packs"]
 generic = "axon_generic.pack:GenericPack"
 ```
 
