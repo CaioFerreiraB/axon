@@ -2,7 +2,8 @@
 
 HTML montado aqui mesmo, sem motor de templates: toda substituição passa por `html.escape`, e só trechos marcados como
 `Safe` entram crus — e todos eles são montados neste arquivo. Nenhum script: a CSP é `script-src 'none'` (por isso o
-botão de mostrar a senha do desenho não existe aqui). Desenho aprovado no Penpot, página "Login e conta".
+botão de mostrar a senha do desenho não existe aqui). Desenho aprovado no Penpot, página "Login e conta"; a marca segue
+o ADR-038 (lockup Axon sem marca da instalação; com ela, "com Axon" no rodapé do cartão).
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ from urllib.parse import urlencode
 from axon_ai.identity.api import Account
 from axon_ai.identity.domain.outcomes import AccountPage, ErrorPage, LoginForm, PasswordForm
 
-DEFAULT_NAME = "Agentic"
+DEFAULT_NAME = "Axon"
 
 
 class Safe(str):
@@ -35,10 +36,12 @@ def join(*parts: object) -> Safe:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Brand:
-    """Nome e logotipo da instalação (FR-023); sem nome, o neutro da plataforma."""
+    """Nome e logotipo da instalação (FR-023). `custom` diz se ela tem marca própria — nome diferente de "Axon" ou
+    logotipo: então a marca dela ocupa o lugar principal e o Axon vai ao rodapé; senão, o lockup Axon (ADR-038)."""
 
     name: str = DEFAULT_NAME
     has_logo: bool = False
+    custom: bool = False
     stylesheet: str = "/oauth2/assets/identity.css"
 
 
@@ -73,7 +76,24 @@ _SIGN_OUT_ICON = Safe(
 )
 
 
+_LOCKUP = Safe(
+    '<span class="brand brand-axon"><picture>'
+    '<source media="(prefers-color-scheme: dark)" srcset="/oauth2/assets/axon-lockup-dark.svg">'
+    '<img class="lockup" src="/oauth2/assets/axon-lockup-light.svg" alt="Axon" width="106" height="32">'
+    "</picture></span>"
+)
+_ATTRIBUTION = Safe(
+    '<p class="attribution"><picture>'
+    '<source media="(prefers-color-scheme: dark)" srcset="/oauth2/assets/axon-symbol.svg">'
+    '<img src="/oauth2/assets/axon-symbol-light.svg" alt="" width="16" height="16">'
+    "</picture><span>com Axon</span></p>"
+)
+_FAVICON = Safe('<link rel="icon" type="image/svg+xml" href="/oauth2/assets/favicon.svg">\n')
+
+
 def _brand(brand: Brand) -> Safe:
+    if not brand.custom:
+        return _LOCKUP
     if brand.has_logo:
         mark = Safe('<img class="mark-image" src="/oauth2/assets/logo" alt="" width="28" height="28">')
     else:
@@ -158,7 +178,9 @@ def _document(title: str, brand: Brand, body: Safe, *, wide: bool = False) -> st
         Safe('<!doctype html>\n<html lang="pt-BR">\n<head>\n<meta charset="utf-8">\n'),
         Safe('<meta name="viewport" content="width=device-width, initial-scale=1">\n'),
         Safe('<meta name="color-scheme" content="light dark">\n'),
-        Safe('<meta name="robots" content="noindex">\n<title>'),
+        Safe('<meta name="robots" content="noindex">\n'),
+        _FAVICON,
+        Safe("<title>"),
         title,
         Safe(" · "),
         brand.name,
@@ -168,6 +190,7 @@ def _document(title: str, brand: Brand, body: Safe, *, wide: bool = False) -> st
         Safe(" shell-wide" if wide else ""),
         Safe('">\n<div class="card">\n'),
         body,
+        Safe("\n" + _ATTRIBUTION) if brand.custom else Safe(""),
         Safe("\n</div>\n</main>\n</body>\n</html>\n"),
     )
 

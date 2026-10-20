@@ -128,7 +128,7 @@ async def test_cookie_de_sessao_seguro(started: Harness, http: httpx.AsyncClient
     response = await _attempt(http, fields, "ana", PASSWORD)
     cookie = response.headers["set-cookie"]
     name, _, attributes = cookie.partition(";")
-    assert name.startswith("__Host-aic_session=")
+    assert name.startswith("__Host-axon_session=")
     parts = {item.strip().split("=")[0].lower() for item in attributes.split(";")}
     assert {"max-age", "path", "secure", "httponly", "samesite"} <= parts
     assert "domain" not in parts and "expires" not in parts
@@ -142,7 +142,7 @@ async def test_cookie_sem_secure_em_desenvolvimento(started: Harness) -> None:
         fields = await _form(http)
         response = await _attempt(http, fields, "ana", PASSWORD)
     cookie = response.headers["set-cookie"]
-    assert cookie.startswith("aic_session=") and "Secure" not in cookie
+    assert cookie.startswith("axon_session=") and "Secure" not in cookie
 
 
 # --- Bloqueio por tentativas (US5) -----------------------------------------------------------------------------------
@@ -201,3 +201,19 @@ async def test_x_forwarded_for_so_de_proxy_confiavel(started: Harness, trusted: 
         )
     # com proxy confiável, a origem é o IP real e a Ana entra; sem ele, todos parecem o proxy e ficam bloqueados
     assert response.status_code == (303 if trusted else 401)
+
+
+@pytest.mark.us8
+async def test_o_cookie_com_o_nome_antigo_nao_abre_sessao(started: Harness, http: httpx.AsyncClient) -> None:
+    """US8 cen. 5 (ADR-037, corte seco): o mesmo token no cookie `aic_session` não é lido."""
+    await started.add_account("ana")
+    fields = await _form(http)
+    response = await _attempt(http, fields, "ana", PASSWORD)
+    name, _, rest = response.headers["set-cookie"].partition("=")
+    token = rest.split(";", 1)[0]
+    assert name == "__Host-axon_session"
+    http.cookies.clear()
+    antiga = await http.get("/oauth2/account", headers={"Cookie": f"__Host-aic_session={token}"})
+    assert "Minha conta" not in antiga.text
+    nova = await http.get("/oauth2/account", headers={"Cookie": f"__Host-axon_session={token}"})
+    assert "Minha conta" in nova.text

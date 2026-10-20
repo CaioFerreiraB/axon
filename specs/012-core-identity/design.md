@@ -24,7 +24,7 @@ axon-ai/packages/core/src/axon_ai/identity/
     ├── sql/                 # 001_accounts.sql, 002_grants.sql, 003_signing_keys.sql, 004_settings.sql
     ├── passwords.py         # PasswordHasher (argon2id; fallback scrypt — research)
     ├── signing.py           # TokenSigner (RS256, pyjwt[crypto]) e geração de chaves
-    ├── cipher.py            # SecretCipher (AES-GCM, subchave HKDF "ai-core/identity/v1")
+    ├── cipher.py            # SecretCipher (AES-GCM, subchave HKDF "axon-ai/identity/v1")
     ├── google.py            # UpstreamOidc do Google (descoberta, troca de código, verificação do id_token)
     ├── clients_yaml.py      # ClientSource (identity.yaml do operador)
     ├── secrets_env.py       # IdentitySecrets (nomes fixos e AXON_IDENTITY_SECRET_<REF>)
@@ -84,7 +84,7 @@ introspecção.
 
 ## Sessão, CSRF e página
 
-- Cookie `__Host-aic_session` (ou `aic_session` sem HTTPS, `AXON_COOKIE_SECURE=false` em desenvolvimento), httpOnly,
+- Cookie `__Host-axon_session` (ou `axon_session` sem HTTPS, `AXON_COOKIE_SECURE=false` em desenvolvimento), httpOnly,
   `SameSite=Lax`, só `Max-Age` — nunca `Expires`, porque o relógio fixo do perfil `test` o tornaria vencido —, id trocado
   no login.
 - CSRF: token sincronizador guardado no pedido de autorização pendente, mais conferência de `Origin`.
@@ -124,7 +124,7 @@ clients:
 
 ## Configuração (lida pela 011)
 
-`AXON_DISPLAY_NAME` (nome da instalação; padrão neutro provisório "Agentic"), `AXON_LOGO_FILE` (opcional,
+`AXON_DISPLAY_NAME` (nome da instalação; padrão "Axon", ADR-038 — sem nome nem logotipo próprios, o lockup Axon), `AXON_LOGO_FILE` (opcional,
 SVG ou PNG montado), `AXON_PUBLIC_URL`, `AXON_IDENTITY_ENABLED`, `AXON_IDENTITY_CLIENTS_FILE`, `AXON_IDENTITY_SECRET_<REF>`,
 `AXON_MASTER_KEY`, `AXON_GOOGLE_*`, `AXON_BOOTSTRAP_ADMIN_*`, `AXON_TRUSTED_PROXIES`,
 `AXON_COOKIE_SECURE`. Identidade ligada junto com `AXON_OIDC_ISSUER` é erro de configuração (ADR-030).

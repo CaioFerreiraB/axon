@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 
-_CSRF_CONTEXT = "ai-core/identity/csrf:"
+_CSRF_CONTEXT = "axon-ai/identity/csrf:"
 
 
 def digest(secret: str) -> str:

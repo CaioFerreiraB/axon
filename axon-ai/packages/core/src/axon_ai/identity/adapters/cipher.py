@@ -1,6 +1,6 @@
 """`SecretCipher` real: AES-GCM com subchave HKDF-SHA256 da chave mestra (ADR-033; research R7).
 
-A subchave é própria da 012 (`info="ai-core/identity/v1"`): nenhum outro módulo abre o que este selou, mesmo com a
+A subchave é própria da 012 (`info="axon-ai/identity/v1"`): nenhum outro módulo abre o que este selou, mesmo com a
 mesma chave mestra. O selo é `versão (1 byte) ‖ nonce (12 bytes) ‖ texto cifrado + tag`, com a versão como dado
 associado; um nonce aleatório por gravação.
 """
@@ -17,7 +17,7 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 from axon_ai.identity.ports import SealError
 
-INFO: Final = b"ai-core/identity/v1"
+INFO: Final = b"axon-ai/identity/v1"
 _VERSION: Final = b"\x01"
 _NONCE: Final = 12
 

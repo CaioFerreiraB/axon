@@ -1,6 +1,6 @@
-/* Páginas do provedor de identidade (spec 012, contracts/pages.md). Tokens do desenho aprovado no Penpot (página
-   "Login e conta"), os mesmos da console (013): neutros de grafite, um azul de ação, estados em verde e vermelho, fios
-   de 1px, raio 6 e 8. Celular primeiro; tema escuro por prefers-color-scheme. Sem script. */
+/* Páginas do provedor de identidade (spec 012, contracts/pages.md). Tokens do DESIGN.md (ADR-038), os mesmos da
+   console (013): neutros frios da marca Axon e o axon-night no escuro, um azul de ação, estados em verde e vermelho,
+   fios de 1px, raio 6 e 8. Celular primeiro; tema escuro por prefers-color-scheme. Sem script. */
 
 @font-face {
   font-family: "Mona Sans";
@@ -37,13 +37,13 @@
 :root {
   color-scheme: light dark;
   --fundo-base: #ffffff;
-  --fundo-sutil: #fafafa;
-  --fundo-realce: #f4f4f5;
-  --borda-base: #e8e8ea;
-  --borda-forte: #d4d4d8;
-  --texto-primario: #18181b;
-  --texto-secundario: #5f5f66;
-  --texto-terciario: #74747c;
+  --fundo-sutil: #f8fafc;
+  --fundo-realce: #f1f5f9;
+  --borda-base: #e5e7eb;
+  --borda-forte: #d1d5db;
+  --texto-primario: #111827;
+  --texto-secundario: #556070;
+  --texto-terciario: #666d7c;
   --texto-sobre-acao: #ffffff;
   --acao-base: #2563eb;
   --acao-hover: #1d4ed8;
@@ -63,18 +63,18 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --fundo-base: #0a0a0b;
-    --fundo-sutil: #111113;
-    --fundo-realce: #1a1a1d;
-    --borda-base: #26262a;
-    --borda-forte: #34343a;
-    --texto-primario: #ededef;
-    --texto-secundario: #a0a0a8;
-    --texto-terciario: #8a8a93;
+    --fundo-base: #0b0f19;
+    --fundo-sutil: #111724;
+    --fundo-realce: #1a2130;
+    --borda-base: #242b3a;
+    --borda-forte: #353d4f;
+    --texto-primario: #f1f3f7;
+    --texto-secundario: #a3abbb;
+    --texto-terciario: #8c94a6;
     --acao-base: #2563eb;
-    --acao-hover: #3b82f6;
+    --acao-hover: #3882f6;
     --acao-texto: #93b4fb;
-    --acao-sutil: #13213d;
+    --acao-sutil: #14223f;
     --ok-texto: #4cc38a;
     --ok-fundo: #0f2a1c;
     --erro-texto: #f87171;
@@ -149,6 +149,32 @@ body {
 
 .mark-image {
   object-fit: contain;
+}
+
+/* Lockup Axon no lugar principal, sem marca da instalação (ADR-038): 32px de altura dão o símbolo de 28px e a altura
+   de x de 14px do DESIGN.md. */
+.lockup {
+  display: block;
+  width: auto;
+  height: 2rem;
+}
+
+/* "com Axon" no rodapé do cartão, quando a marca da instalação ocupa o lugar principal. */
+.attribution {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  margin: 1.75rem 0 0;
+  color: var(--texto-terciario);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.attribution img {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
 }
 
 .brand-name {

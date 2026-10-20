@@ -12,7 +12,7 @@ contra ele e contra o real.
 | `LoginAttempts` | `blocked(keys, now)`, `fail(keys, now)`, `reset(keys)` | memória (processo único) | o mesmo | janelas com relógio fixo |
 | `PasswordHasher` | `hash`, `verify`, `needs_rehash`, `dummy_verify` | argon2id | hash rápido determinístico | verificação, re-hash, tempo do fictício |
 | `TokenSigner` | `sign(claims, key)`, `generate_key() -> (kid, public_jwk, private_pem)`, `verify(token, jwks)` | `pyjwt[crypto]` + `cryptography` | o real com chave pequena de teste | ida e volta; `kid`; recusa de alg |
-| `SecretCipher` | `seal(bytes) -> bytes`, `open(bytes) -> bytes` | AES-GCM + HKDF (`ai-core/identity/v1`) | o real com chave fixa | ida e volta; chave errada falha |
+| `SecretCipher` | `seal(bytes) -> bytes`, `open(bytes) -> bytes` | AES-GCM + HKDF (`axon-ai/identity/v1`; era `ai-core/…`, ADR-037) | o real com chave fixa | ida e volta; chave errada falha |
 | `UpstreamOidc` | `authorization_url(state, nonce, verifier)`, `exchange(code, verifier) -> GoogleIdentity` | Google (`httpx` + `pyjwt`) | provedor simulado programável | `email_verified`, `hd`, `nonce` |
 | `ClientSource` | `load() -> tuple[Client, ...]` | `identity.yaml` | lista | erros nomeando o campo |
 | `IdentitySecrets` | `client_secret(ref)`, `google()`, `bootstrap_admin()` | ambiente (`AXON_IDENTITY_SECRET_<REF>`, `AXON_GOOGLE_*`, `AXON_BOOTSTRAP_ADMIN_*`) | dicionário | nomes fixos; nada de nome arbitrário (ADR-020) |

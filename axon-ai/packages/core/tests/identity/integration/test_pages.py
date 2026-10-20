@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 import httpx
+import pytest
 from identity_testkit import OPEN_WEBUI, Harness, app_for, authorize_params, browser
 
 from axon_ai.identity.adapters.http import IdentityHttpSettings
@@ -21,7 +23,7 @@ async def test_pagina_de_login_acessivel_e_neutra(http: httpx.AsyncClient) -> No
     assert '<label for="identifier">Usuário ou e-mail</label>' in page
     assert 'id="identifier" name="identifier" type="text" autocomplete="username"' in page
     assert 'id="password" name="password" type="password" autocomplete="current-password"' in page
-    assert "<title>Entrar · Agentic</title>" in page and 'class="brand-name">Agentic<' in page
+    assert "<title>Entrar · Axon</title>" in page and 'class="lockup"' in page
     assert "Esqueceu a senha? Peça a um administrador para redefinir." in page
     assert "<script" not in page and "style=" not in page
     assert "Entrar com Google" not in page
@@ -78,10 +80,11 @@ async def test_nome_e_logotipo_da_instalacao_com_escape(started: Harness) -> Non
     assert served.headers["cache-control"] == "public, max-age=3600"
 
 
-async def test_sem_logotipo_e_404_e_a_marca_e_a_inicial(http: httpx.AsyncClient) -> None:
-    assert (await http.get("/oauth2/assets/logo")).status_code == 404
-    page = (await _login_page(http)).text
-    assert '<span class="mark" aria-hidden="true">A</span>' in page
+async def test_sem_logotipo_e_404_e_o_nome_proprio_tem_a_inicial(started: Harness) -> None:
+    async with browser(app_for(started, IdentityHttpSettings(display_name="Instituto Exemplo"))) as http:
+        assert (await http.get("/oauth2/assets/logo")).status_code == 404
+        page = (await _login_page(http)).text
+    assert '<span class="mark" aria-hidden="true">I</span>' in page and "<span>com Axon</span>" in page
 
 
 async def test_identificador_digitado_volta_escapado(started: Harness, http: httpx.AsyncClient) -> None:
@@ -93,3 +96,37 @@ async def test_identificador_digitado_volta_escapado(started: Harness, http: htt
     )
     assert response.status_code == 401
     assert "<script>x" not in response.text and "&quot;&gt;&lt;script&gt;" in response.text
+
+
+# --- Identidade Axon (US8; FR-023, ADR-038; research R20, R21) -------------------------------------------------------
+
+BRAND_KIT = Path(__file__).resolve().parents[6] / "brand-kit" / "svg"
+BRAND_ASSETS = (
+    "axon-lockup-light.svg",
+    "axon-lockup-dark.svg",
+    "axon-symbol.svg",
+    "axon-symbol-light.svg",
+    "favicon.svg",
+)
+
+
+@pytest.mark.us8
+@pytest.mark.parametrize("name", BRAND_ASSETS)
+async def test_os_svg_da_marca_sao_servidos_iguais_ao_brand_kit(http: httpx.AsyncClient, name: str) -> None:
+    served = await http.get(f"/oauth2/assets/{name}")
+    assert served.status_code == 200 and served.headers["content-type"] == "image/svg+xml"
+    assert served.headers["content-security-policy"] == "default-src 'none'; style-src 'unsafe-inline'"
+    assert served.headers["cache-control"] == "public, max-age=604800"
+    assert served.content == (BRAND_KIT / name).read_bytes()
+
+
+@pytest.mark.us8
+async def test_svg_desconhecido_e_404(http: httpx.AsyncClient) -> None:
+    assert (await http.get("/oauth2/assets/axon-lockup-mono.svg")).status_code == 404
+
+
+@pytest.mark.us8
+async def test_a_pagina_aponta_o_favicon_e_o_lockup(http: httpx.AsyncClient) -> None:
+    page = (await _login_page(http)).text
+    assert '<link rel="icon" type="image/svg+xml" href="/oauth2/assets/favicon.svg">' in page
+    assert 'src="/oauth2/assets/axon-lockup-light.svg"' in page

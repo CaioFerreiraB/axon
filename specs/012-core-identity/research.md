@@ -223,3 +223,129 @@ cria o grupo antes de cadastrar quem entra nele), e `ai-core identity keys rotat
 - **Rationale**: o CSS do desenho aprovado declarava a Mona Sans sem servi-la, e as páginas caíam na fonte do sistema;
   servir da própria origem mantém a CSP sem terceiros e o visual igual ao da console.
 - **Alternatives considered**: fonte do sistema (diverge do desenho); Google Fonts (terceiro, privacidade, CSP).
+
+---
+
+# Passada de 2026-10-20: identidade Axon ([ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md), [ADR-038](../../docs/adr/ADR-038-marca-da-plataforma-e-marca-da-instalacao.md); US8)
+
+Decisões pré-aprovadas pelos ADRs e pelo `DESIGN.md` (seção "Brand" e tokens, remapeados em 2026-10-20 com o desenho
+aprovado no Penpot); o que segue é como elas chegam às páginas e aos identificadores do provedor, sem re-pesquisa. Os R
+anteriores ficam como foram executados (ADR-037, item 6).
+
+## R20 — A marca nas páginas
+
+**Decision**: `pages.Brand` ganha `custom: bool` (o `http.py` o calcula como `name != DEFAULT_NAME or has_logo`, a mesma
+regra do `instance.custom` da 008), e `DEFAULT_NAME = "Axon"`. `_brand(brand)`:
+
+- **sem marca própria** (`custom` falso): o lockup no lugar principal —
+  `<span class="brand brand-axon"><picture><source media="(prefers-color-scheme: dark)"
+  srcset="/oauth2/assets/axon-lockup-dark.svg"><img class="lockup" src="/oauth2/assets/axon-lockup-light.svg" alt="Axon"
+  width="106" height="32"></picture></span>`. Com 32px de altura, o símbolo mede 28px e a altura de x do wordmark, 14px
+  (`DESIGN.md`, "Brand"; `viewBox` 435 × 132). Nenhuma atribuição.
+- **com marca própria**: o que já existe (logotipo ou a inicial em quadrado, e o nome) no lugar principal, e no fim do
+  cartão a atribuição `<p class="attribution"><picture><source media="(prefers-color-scheme: dark)"
+  srcset="/oauth2/assets/axon-symbol.svg"><img src="/oauth2/assets/axon-symbol-light.svg" alt="" width="16"
+  height="16"></picture><span>com Axon</span></p>` — o símbolo é decorativo, e o texto diz a marca.
+
+O `<head>` de toda página ganha `<link rel="icon" type="image/svg+xml" href="/oauth2/assets/favicon.svg">`. O título
+continua `<página> · <nome>`. A atribuição entra pelo `_document`, depois do corpo, para valer em todas as páginas.
+
+**Rationale** (ADR-038, itens 1 a 3): o lockup substitui a inicial em quadrado só quando o lugar principal é do Axon; a
+marca da organização continua em primeiro plano quando existe. `<picture>` com `prefers-color-scheme` troca a versão do
+símbolo pelo tema sem script, que a CSP proíbe (`script-src 'none'`), e cabe em `img-src 'self'`. Imagens externas, em
+vez de SVG embutido, evitam ids repetidos de degradê e máscara entre o lockup e a atribuição (ADR-038, Consequências).
+
+**Alternatives considered**: SVG embutido no HTML com `currentColor` (perde o degradê, que é parte da marca); um só
+arquivo com `@media` interno no SVG (funciona como `<img>`, mas o `brand-kit` já tem as duas versões aprovadas, e o
+`<picture>` não exige editar o vetor); manter a inicial em quadrado como marca padrão (o ADR-038 a substitui pelo lockup).
+
+## R21 — Os assets da marca
+
+**Decision**: cópias exatas de `brand-kit/svg/{axon-lockup-light,axon-lockup-dark,axon-symbol,axon-symbol-light,favicon}.svg`
+em `axon_ai/identity/adapters/assets/brand/`, carregadas na construção do router como as fontes e servidas em
+`GET /oauth2/assets/<nome>.svg` com `image/svg+xml`, `Cache-Control: public, max-age=604800` e a CSP de SVG que o logotipo
+da instalação já usa (`default-src 'none'; style-src 'unsafe-inline'`). Um teste confere que cada cópia é idêntica ao
+arquivo do `brand-kit` (o `brand-kit` é a fonte; o pacote, a distribuição).
+
+**Rationale** (ADR-038, item 6: "os arquivos ficam em `brand-kit/svg/` e entram nos assets da console e da 012"): a
+distribuição Python não lê fora do pacote, e o teste de igualdade impede que as cópias se desviem.
+
+**Alternatives considered**: link simbólico (não sobrevive à distribuição); gerar os SVG na construção (o vetor é
+desenho aprovado, não código).
+
+## R22 — Os tokens de cor
+
+**Decision**: em `assets/identity.css`, os valores do `DESIGN.md` nos nomes de token que a página já usa:
+
+| Token | Claro | Escuro |
+|---|---|---|
+| `--fundo-base` | `#ffffff` | `#0b0f19` |
+| `--fundo-sutil` | `#f8fafc` | `#111724` |
+| `--fundo-realce` | `#f1f5f9` | `#1a2130` |
+| `--borda-base` | `#e5e7eb` | `#242b3a` |
+| `--borda-forte` | `#d1d5db` | `#353d4f` |
+| `--texto-primario` | `#111827` | `#f1f3f7` |
+| `--texto-secundario` | `#556070` | `#a3abbb` |
+| `--texto-terciario` | `#666d7c` | `#8c94a6` |
+| `--acao-hover` | `#1d4ed8` | `#3882f6` |
+| `--acao-sutil` | `#eff4ff` | `#14223f` |
+
+Azul de ação, texto de ação, estados e foco não mudam. O comentário do topo passa a "neutros frios da marca Axon". Um
+teste lê os dois blocos de tokens do CSS e confere o contraste AA dos pares de texto usados (primário, secundário e
+terciário sobre fundo base e sutil; texto de ação sobre base; branco sobre o azul de ação; ok e erro sobre os próprios
+fundos; foco sobre base e sutil), medidos em 2026-10-20 entre 4,76:1 e 17,7:1.
+
+**Rationale** (ADR-038, item 4): os neutros passam do zinco à família fria da marca, com o mesmo azul de ação, e os
+valores são iguais aos da console (`tokens.css`, na passada da 013). **Pendência conhecida, registrada pelo mantenedor
+para a passada da 013**: o hover do botão primário no escuro (`#3882f6`, o `axon-blue` que o ADR-038 põe ali) dá 3,69:1
+com texto branco, abaixo de 4,5:1. Já era assim antes (`#3b82f6`, 3,68:1). Fica como está aqui, para os dois CSS
+continuarem iguais; a decisão sai na 013 e vale para os dois, e o teste de contraste não inclui esse par até lá.
+
+**Alternatives considered**: resolver o hover agora só nas páginas (os dois CSS divergiriam, contra o ADR-038).
+
+## R23 — Cookie e realm
+
+**Decision**: `IdentityHttpSettings.cookie_name` → `"__Host-axon_session"` (seguro) ou `"axon_session"`; o desafio do
+endpoint de token → `'Basic realm="axon"'`. O cookie antigo não é lido: o nome procurado é só o novo.
+
+**Rationale** (ADR-037, item 2; corte seco).
+
+**Alternatives considered**: ler os dois nomes por uma janela (sem usuário a preservar).
+
+## R24 — Rótulos da subchave e do CSRF
+
+**Decision**: `cipher.INFO = b"axon-ai/identity/v1"` e `digest._CSRF_CONTEXT = "axon-ai/identity/csrf:"`. A mensagem de
+`IdentityStartError` quando a chave não abre passa a "a chave de assinatura não abre com AXON_MASTER_KEY (chave mestra
+trocada, ou selada antes do renome — ADR-037); restaure a chave mestra ou rode `axon identity keys rotate --force`
+(encerra todas as sessões)". Nenhuma migração.
+
+**Rationale** (ADR-037, itens 2 e 3; ADR-033): a rotação forçada da CLI não abre a chave antiga (não passa pelo
+`start()`), então ela recupera o ambiente; a mensagem diz as duas causas possíveis para o operador não procurar uma chave
+mestra que não mudou (princípio VII).
+
+**Alternatives considered**: migração que abre com o rótulo antigo e sela com o novo (mantém o rótulo antigo no código);
+apagar as chaves no boot (encerraria sessões sem pedido do operador).
+
+## R25 — Consumidores
+
+**Decision**: `IdentityHttpSettings.display_name` usa o `DEFAULT_NAME` novo (a 011 já passa `"Axon"` por
+`AXON_DISPLAY_NAME`). Testes: `test_pages.py` (título, lockup, atribuição, favicon), `test_login_uniform.py`,
+`test_google.py` e `test_protocol.py` (cookie), `tests/bootstrap/integration/test_platform_identity.py` (cookie) e os de
+cifra e CSRF. O e2e da console (`console/e2e/`) entra pelas páginas com seletores de campo e botão, sem depender da marca
+nem do cookie — roda para provar. Documentos vivos: `contracts/pages.md`, `contracts/oidc.md`, `contracts/ports.md`,
+`design.md`, `data-model.md`, `quickstart.md`.
+
+**Rationale** (ADR-037, item 7).
+
+**Alternatives considered**: nenhuma.
+
+## R26 — Verificação visual
+
+**Decision**: além das suítes, capturas do login com e sem marca da instalação, em 390 e 1440 px, nos temas claro e
+escuro, pelo Playwright do MCP (no `serve` do perfil `memory` com identidade), e o favicon a 16px; o contraste AA pelo
+teste da R22. A comparação com o Penpot fica para quando o arquivo estiver conectado nesta sessão (não estava em
+2026-10-20); o `DESIGN.md` registra o desenho aprovado.
+
+**Rationale**: o plano do renome pede capturas comparadas ao desenho; a parte que não depende do Penpot roda aqui.
+
+**Alternatives considered**: teste de regressão visual automatizado (sem linha de base aprovada para as páginas novas).

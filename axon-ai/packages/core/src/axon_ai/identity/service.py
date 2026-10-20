@@ -297,8 +297,9 @@ class IdentityService:
             pem = self._cipher.open(active.private_sealed)
         except SealError:
             raise IdentityStartError(
-                "a chave de assinatura não abre com AXON_MASTER_KEY; restaure a chave mestra ou rode "
-                "`axon identity keys rotate --force` (encerra todas as sessões)"
+                "a chave de assinatura não abre com AXON_MASTER_KEY (chave mestra trocada, ou selada antes do renome "
+                "— ADR-037); restaure a chave mestra ou rode `axon identity keys rotate --force` (encerra todas as "
+                "sessões)"
             ) from None
         self._signing = (active.kid, pem)
         self._jwks = MappingProxyType(key_rules.jwks(keys))

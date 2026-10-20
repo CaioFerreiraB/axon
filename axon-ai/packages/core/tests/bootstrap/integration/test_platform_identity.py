@@ -105,7 +105,7 @@ async def test_marca_e_logotipo_da_instalacao_nas_paginas(tmp_path: Path) -> Non
         )
         assert "Tropa Azul" in page.text and "/oauth2/assets/logo" in page.text
         assert (await client.get("/oauth2/assets/logo")).headers["content-type"] == "image/svg+xml"
-        assert "aic_session" in (await _login_cookie(client))
+        assert "axon_session" in (await _login_cookie(client))
 
 
 async def _login_cookie(client: httpx.AsyncClient) -> str:

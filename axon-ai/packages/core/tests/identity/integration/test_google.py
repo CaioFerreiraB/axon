@@ -56,7 +56,7 @@ async def test_conta_cadastrada_entra_e_e_vinculada(google_parts: Harness, http_
     state = await _to_google(google_parts, http_google)
     response = await _callback(google_parts, http_google, state, sub="google-ana", email="ANA@exemplo.org")
     assert response.status_code == 303 and response.headers["location"].startswith(OPEN_WEBUI_CALLBACK)
-    assert "__Host-aic_session" in response.headers["set-cookie"]
+    assert "__Host-axon_session" in response.headers["set-cookie"]
     record = await google_parts.accounts.by_username("ana")
     assert record.google_sub == "google-ana" and record.account.google_linked
     tokens = await http_google.post(

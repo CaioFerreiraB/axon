@@ -41,3 +41,31 @@ schema `identity`; o código é de uso único mesmo com duas trocas concorrentes
 
 Fica para a passada da 002 (instalação sem Keycloak), depois do encaixe na 011 e na 003: entrar pelo formulário da
 plataforma como `ana` e `bia` e comparar as listas de modelos (o `check-webui.py` reescrito).
+
+---
+
+## Fase 9, incremento 9.5 (2026-10-20): US8 — as páginas com a marca Axon
+
+A partir de `axon-ai/`, com `XDG_DATA_HOME=$HOME/.local/share` nesta máquina. Decisões em [research.md](research.md)
+R20–R26.
+
+```bash
+uv run pytest packages/core/tests/identity -m us8 -v
+uv run pytest packages/core/tests/identity packages/core/tests/bootstrap/integration/test_platform_identity.py -q
+```
+
+**Esperado**: verde — sem marca própria, o lockup e nenhuma atribuição; com nome ou logotipo, a marca da instalação e
+"com Axon"; o favicon em toda página; os SVG servidos iguais aos do `brand-kit`; os pares de texto em AA nos dois temas;
+cookie `axon_session`, realm `axon`, rótulos `axon-ai/identity/…`; chave selada com o rótulo antigo para o boot com a
+orientação de `rotate --force`.
+
+À mão, com a identidade ligada no `memory` (ver o quickstart da 011, "identidade"):
+
+```bash
+AXON_PROFILE=memory AXON_IDENTITY_ENABLED=true AXON_PUBLIC_URL=http://localhost:8000 AXON_COOKIE_SECURE=false \
+  AXON_MASTER_KEY=… AXON_IDENTITY_CLIENTS_FILE=… uv run axon serve &
+```
+
+Abrir `/oauth2/authorize?…` de um cliente (por exemplo, pela console) e conferir o lockup Axon e o favicon na aba; com
+`AXON_DISPLAY_NAME="Instituto Exemplo"`, o nome no lugar principal e "com Axon" no rodapé. Capturas em 390 e 1440 px, claro
+e escuro (R26).

@@ -41,6 +41,9 @@ FORM_LIMIT: Final = 16 * 1024
 
 STYLESHEET: Final = Path(__file__).parent / "assets" / "identity.css"
 FONTS: Final = Path(__file__).parent / "assets" / "fonts"
+BRAND: Final = Path(__file__).parent / "assets" / "brand"
+"""Símbolo, lockup e favicon Axon: cópias de `brand-kit/svg/` (ADR-038; research R21)."""
+_SVG_CSP: Final = "default-src 'none'; style-src 'unsafe-inline'"
 """Mona Sans (SIL OFL 1.1, `fonts/OFL.txt`), a fonte do desenho aprovado, servida pela própria página: sem terceiros."""
 
 type Network = ipaddress.IPv4Network | ipaddress.IPv6Network
@@ -65,7 +68,7 @@ class IdentityHttpSettings:
     @property
     def cookie_name(self) -> str:
         """`__Host-` exige `Secure`, `Path=/` e nenhum `Domain`; em `http` de desenvolvimento, sem o prefixo (R5)."""
-        return "__Host-aic_session" if self.cookie_secure else "aic_session"
+        return "__Host-axon_session" if self.cookie_secure else "axon_session"
 
 
 _COMMON_HEADERS: Final = {
@@ -82,10 +85,13 @@ class _Http:
         self.settings = settings
         self.css = STYLESHEET.read_bytes()
         self.fonts = {path.name: path.read_bytes() for path in FONTS.glob("*.woff2")}
+        self.brand_assets = {path.name: path.read_bytes() for path in BRAND.glob("*.svg")}
         self.css_name = f"identity.{hashlib.sha256(self.css).hexdigest()[:12]}.css"
+        name = settings.display_name.strip() or pages.DEFAULT_NAME
         self.brand = pages.Brand(
-            name=settings.display_name.strip() or pages.DEFAULT_NAME,
+            name=name,
             has_logo=settings.logo is not None,
+            custom=name != pages.DEFAULT_NAME or settings.logo is not None,
             stylesheet=f"/oauth2/assets/{self.css_name}",
         )
         public = urlsplit(service.config.public_url)
@@ -182,7 +188,7 @@ class _Http:
     def token(self, result: TokenResponse) -> JSONResponse:
         response = self.json(result.body, status=result.status)
         if result.status == 401:
-            response.headers["WWW-Authenticate"] = 'Basic realm="ai-core"'
+            response.headers["WWW-Authenticate"] = 'Basic realm="axon"'
         return response
 
 
@@ -370,11 +376,21 @@ def router(service: IdentityService, settings: IdentityHttpSettings | None = Non
                 media_type="font/woff2",
                 headers={**_COMMON_HEADERS, "Cache-Control": "public, max-age=604800"},
             )
+        if name in http.brand_assets:
+            return Response(
+                http.brand_assets[name],
+                media_type="image/svg+xml",
+                headers={
+                    **_COMMON_HEADERS,
+                    "Cache-Control": "public, max-age=604800",
+                    "Content-Security-Policy": _SVG_CSP,
+                },
+            )
         if name == "logo" and http.settings.logo is not None:
             content, media_type = http.settings.logo
             headers: dict[str, Any] = {**_COMMON_HEADERS, "Cache-Control": "public, max-age=3600"}
             # SVG não executa script embutido (contracts/oidc.md).
-            headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'"
+            headers["Content-Security-Policy"] = _SVG_CSP
             return Response(content, media_type=media_type, headers=headers)
         return Response(status_code=404, headers={**_COMMON_HEADERS, "Cache-Control": "no-store"})
 

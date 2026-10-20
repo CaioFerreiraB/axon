@@ -5,6 +5,17 @@ HTML servido pelo módulo, sem script, CSS próprio (`/oauth2/assets/identity.<h
 (`AXON_DISPLAY_NAME`, `AXON_LOGO_FILE` servido em `/oauth2/assets/logo`; FR-023). Toda página tem `lang="pt-BR"`, rótulos ligados aos campos,
 foco visível e atende WCAG 2.2 AA.
 
+### Marca (FR-023 reescrita, ADR-038; research R20–R22)
+
+| Caso | Lugar principal do cartão | Rodapé do cartão |
+|---|---|---|
+| sem marca própria (nome "Axon" e sem logotipo) | lockup Axon: `<picture>` com `axon-lockup-dark.svg` no escuro e `axon-lockup-light.svg` no claro, `alt="Axon"`, 106 × 32 | nada |
+| nome diferente de "Axon" ou logotipo | logotipo (`/oauth2/assets/logo`) ou a inicial em quadrado, e o nome da instalação | `<p class="attribution">`: símbolo de 16px (`axon-symbol.svg` / `axon-symbol-light.svg`, `alt=""`) e "com Axon" |
+
+Toda página tem `<link rel="icon" type="image/svg+xml" href="/oauth2/assets/favicon.svg">` (o símbolo Axon, com ou sem
+marca da instalação) e o título `<página> · <nome da instalação>`, "Axon" por padrão. Tokens de cor do `DESIGN.md`, iguais
+aos da console, com os pares de texto em AA nos dois temas.
+
 ## Login — `GET /oauth2/authorize` (sem sessão) e `POST /oauth2/login`
 
 | Elemento | Conteúdo |

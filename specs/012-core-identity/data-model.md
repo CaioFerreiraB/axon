@@ -133,3 +133,28 @@ qualquer --logout | desativação | troca de senha (outras sessões) | rotação
 | `signing_keys` | `kid` | `public_jwk jsonb`, `private_sealed bytea`, `state` |
 | `settings` | `id = 1` | `google_enabled`, `version`, `updated_by`, `updated_at` |
 | `schema_version` | `version` | padrão dos módulos (ADR-015) |
+
+---
+
+# Passada de 2026-10-20: identidade Axon (US8; research R20–R24)
+
+### `Brand` (adapter, `pages.py`)
+
+| Campo | Tipo | Regra |
+|---|---|---|
+| `name` | `str` | `AXON_DISPLAY_NAME`; padrão `DEFAULT_NAME = "Axon"` |
+| `has_logo` | `bool` | `AXON_LOGO_FILE` definido |
+| `custom` | `bool` | `name != "Axon" or has_logo` — escolhe entre o lockup no lugar principal e a atribuição "com Axon" no rodapé |
+| `stylesheet` | `str` | o CSS com hash |
+
+### Nomes com comportamento
+
+| Item | Antes | Agora |
+|---|---|---|
+| cookie de sessão | `__Host-aic_session` / `aic_session` | `__Host-axon_session` / `axon_session` |
+| realm do `Basic` | `ai-core` | `axon` |
+| rótulo da subchave (`SecretCipher`) | `ai-core/identity/v1` | `axon-ai/identity/v1` |
+| contexto do CSRF de "Minha conta" | `ai-core/identity/csrf:` | `axon-ai/identity/csrf:` |
+
+Uma `SigningKey` com `private_sealed` selado pelo rótulo antigo não abre: `IdentityStartError`, que aponta
+`axon identity keys rotate --force`.

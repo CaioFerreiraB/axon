@@ -7,7 +7,8 @@
 **Status**: Draft
 
 **Input**: Pedido do mantenedor (2026-10-13): login por usuário e senha, com login Google opcional, sem Keycloak; a
-plataforma emite os tokens que o Open WebUI repassa e que a console usa; ADR-030, ADR-031, ADR-033.
+plataforma emite os tokens que o Open WebUI repassa e que a console usa; ADR-030, ADR-031, ADR-033. Fase 9, incremento
+9.5 (2026-10-20): identidade Axon — ADR-037, ADR-038.
 
 ## Module Boundary *(mandatory)*
 
@@ -46,6 +47,13 @@ plataforma emite os tokens que o Open WebUI repassa e que a console usa; ADR-030
 - Q: Ao cadastrar uma pessoa ou redefinir a senha dela, quem define a senha temporária? → A: A plataforma gera uma senha aleatória forte, devolvida uma única vez na resposta da operação, para o admin repassar; o admin não digita senha.
 - Q: Na página de login, a pessoa entra com o nome de usuário, com o e-mail ou com qualquer um dos dois? → A: Com qualquer um dos dois; ambos são únicos, e o e-mail é comparado sem diferenciar maiúsculas.
 - Q: Que nome aparece na página de login, vista também por quem usa o chat? → A: O nome da instalação, definido pelo operador, com logotipo opcional; sem ele, um nome neutro da plataforma. Nada de domínio no core (princípio I). As páginas são desenhadas primeiro para celular.
+
+### Session 2026-10-20
+
+- Q: Que marca as páginas do provedor mostram depois do renome (ADR-038)? → A: Sem nome nem logotipo próprios da instalação, o lockup Axon (símbolo e wordmark `axon`) ocupa o lugar principal do cartão. Com um nome diferente de "Axon" ou um logotipo, eles ocupam o lugar principal, e o rodapé do cartão leva o símbolo pequeno e "com Axon". O favicon é sempre o símbolo Axon. O nome padrão da instalação passa de "Agentic" a "Axon". Vale para login, troca de senha, "Minha conta", erro e saída. A FR-023 é reescrita com isso.
+- Q: As cores das páginas mudam? → A: Sim. Os tokens passam aos do `DESIGN.md` (ADR-038, item 4): neutros frios da marca no claro e `axon-night` (`#0B0F19`) com superfícies derivadas no escuro, com o mesmo azul de ação (`#2563EB`), os mesmos estados e o contraste AA de antes. Os valores são iguais aos da console (013), que muda na passada dela.
+- Q: Quais identificadores do provedor mudam de nome? → A: O cookie da sessão (`axon_session`; `__Host-axon_session` quando seguro), o realm do `WWW-Authenticate: Basic` (`axon`), o rótulo da subchave que sela as chaves de assinatura (`axon-ai/identity/v1`) e o contexto do CSRF de "Minha conta" (`axon-ai/identity/csrf:`) (ADR-037, item 2).
+- Q: O que acontece com o que foi criado com os nomes antigos? → A: Corte seco, sem migração (ADR-037, item 3). O cookie antigo não é lido, então todo mundo entra de novo; "Minha conta" aberta antes da troca leva ao login (o CSRF dela deriva da sessão, que já não é lida). Uma chave de assinatura selada com o rótulo antigo não abre: a identidade não sobe, e a mensagem do boot aponta `axon identity keys rotate --force` (o caminho que já existe para chave mestra perdida, que encerra as sessões), dizendo também que a chave pode ter sido selada antes do renome. Contas, grupos e senhas não dependem de nenhum desses nomes e continuam.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -212,6 +220,26 @@ token sai com outro identificador de chave.
 
 ---
 
+### User Story 8 - Identidade Axon: as páginas de login com a marca da plataforma (Priority: P2)
+
+A plataforma passa a se chamar Axon (ADR-037, ADR-038). Numa instalação sem marca própria, quem entra vê o lockup Axon no cartão de login. Numa instalação com nome ou logotipo, vê a marca da organização no lugar principal e, discreto no rodapé, "com Axon". A aba do navegador mostra sempre o símbolo Axon. As cores seguem a marca nos dois temas, sem perder contraste.
+
+**Why this priority**: É o único lugar em que a marca da plataforma aparece para quem não abre a console; e os identificadores do provedor (cookie, rótulos) precisam do nome novo antes da instalação passar à tag nova. P2 porque nenhum fluxo de login muda.
+
+**Independent Test**: Abrir o login sem nome nem logotipo da instalação e ver o lockup Axon e o favicon; definir um nome próprio e ver o nome no lugar principal e "com Axon" no rodapé; entrar e ver o cookie `axon_session`; subir com uma chave de assinatura selada com o rótulo antigo e ver a identidade recusar o boot com a orientação de rotação forçada.
+
+**Acceptance Scenarios**:
+
+1. **Given** uma instalação sem nome nem logotipo próprios, **When** alguém abre o login, a troca de senha, "Minha conta", a página de erro ou a de saída, **Then** o lockup Axon ocupa o lugar principal do cartão, nenhuma atribuição aparece no rodapé, e o título da aba termina em "Axon".
+2. **Given** uma instalação com um nome próprio (diferente de "Axon") ou um logotipo, **When** alguém abre essas páginas, **Then** o nome e o logotipo da instalação ocupam o lugar principal, e o rodapé do cartão mostra o símbolo Axon pequeno e "com Axon".
+3. **Given** qualquer uma das páginas, **When** o navegador pede o ícone, **Then** recebe o símbolo Axon, com ou sem marca da instalação.
+4. **Given** as páginas nos temas claro e escuro, **When** se mede o contraste de texto, campos e botões, **Then** todo par atende WCAG 2.2 AA, com os tokens da marca.
+5. **Given** um login bem-sucedido, **When** a resposta chega, **Then** o cookie de sessão se chama `__Host-axon_session` (ou `axon_session` em desenvolvimento sem HTTPS), e um cookie `aic_session` que o navegador ainda mande é ignorado.
+6. **Given** uma troca de código no endpoint de token com credencial de cliente errada, **When** a resposta é 401, **Then** o desafio é `Basic realm="axon"`.
+7. **Given** uma instalação persistente cuja chave de assinatura foi selada com o rótulo antigo, **When** a plataforma sobe, **Then** a identidade não sobe e a mensagem aponta `axon identity keys rotate --force`; **When** o operador roda o comando, **Then** a plataforma sobe com uma chave nova, e todas as sessões terminam.
+
+---
+
 ### Edge Cases
 
 - E-mail igual a outro com maiúsculas diferentes: tratado como o mesmo e-mail; o cadastro é recusado.
@@ -232,6 +260,9 @@ token sai com outro identificador de chave.
 - Perfil persistente com identidade ligada e sem chave mestra: a identidade não sobe, com erro que nomeia a variável.
 - Pessoa com senha temporária fecha a página antes de trocá-la: na próxima entrada, a troca continua obrigatória.
 - Navegador acessa a plataforma pelo endereço público, e os contêineres pelo endereço interno: o emissor é sempre o
+- Instalação com `AXON_DISPLAY_NAME=Axon` e sem logotipo: igual a sem marca própria — o lockup no lugar principal e nenhuma atribuição (o lugar principal já é o Axon).
+- Instalação com logotipo e sem nome próprio: o logotipo e o nome padrão "Axon" no lugar principal, e "com Axon" no rodapé (há marca da instalação).
+- "Minha conta" aberta antes da troca e enviada depois: a sessão do cookie antigo não é lida, e a página leva ao login. O login aberto antes continua valendo: a proteção dele é do pedido pendente, não do nome do provedor.
   endereço público; os endpoints usados servidor a servidor respondem também pelo interno.
 
 ## Requirements *(mandatory)*
@@ -302,7 +333,12 @@ token sai com outro identificador de chave.
 - **FR-021**: Logins aceitos e recusados, bloqueios, recusas do Google e mudanças de conta DEVEM ser registrados em log
   com o nome de usuário (quando existe) e o motivo, sem nenhum segredo.
 - **FR-022**: O módulo DEVE servir uma página "Minha conta", acessível a quem tem sessão no provedor, em que a pessoa troca a própria senha informando a atual; a troca DEVE encerrar as outras sessões dela e revogar os tokens de renovação dessas sessões. Conta só para Google não tem senha a trocar. Falha na senha atual conta para o bloqueio da FR-013.
-- **FR-023**: A página de login, a troca de senha e "Minha conta" DEVEM mostrar o nome da instalação e, se houver, o logotipo dela, ambos definidos pela instalação; sem eles, um nome neutro da plataforma. Essas páginas DEVEM funcionar primeiro em tela de celular e também no computador, e atender WCAG 2.2 AA.
+- **FR-023**: A página de login, a troca de senha, "Minha conta", a de erro e a de saída DEVEM mostrar, no lugar principal do cartão, o nome e o logotipo da instalação quando ela definiu um nome diferente de "Axon" ou um logotipo — e então o rodapé do cartão DEVE levar o símbolo Axon pequeno e "com Axon" —; sem isso, o lockup Axon no lugar principal e nenhuma atribuição. O ícone da aba DEVE ser sempre o símbolo Axon, e o nome padrão da instalação, "Axon" (ADR-038; reescrita em 2026-10-20). Essas páginas DEVEM funcionar primeiro em tela de celular e também no computador, e atender WCAG 2.2 AA nos dois temas, com os tokens de cor do `DESIGN.md`, iguais aos da console.
+
+- **FR-024**: O cookie de sessão do provedor DEVE se chamar `axon_session`, com o prefixo `__Host-` quando seguro (ADR-037); o cookie com o nome antigo NÃO DEVE ser lido.
+- **FR-025**: O desafio `WWW-Authenticate: Basic` do endpoint de token DEVE usar o realm `axon`.
+- **FR-026**: As chaves de assinatura DEVEM ser seladas com a subchave de rótulo `axon-ai/identity/v1`, e o CSRF de "Minha conta" DEVE ser derivado com o contexto `axon-ai/identity/csrf:` (ADR-033, ADR-037). Uma chave selada com outro rótulo NÃO DEVE abrir: a identidade não sobe, e a mensagem DEVE apontar a rotação forçada e citar a chave mestra trocada ou o selo anterior ao renome. Sem migração.
+- **FR-027**: Os consumidores no workspace que citam esses nomes — os testes, o e2e da console que entra pelas páginas e os documentos vivos — DEVEM usar os nomes novos na mesma passada (ADR-037, item 7).
 
 ### Key Entities
 
@@ -332,6 +368,7 @@ token sai com outro identificador de chave.
 - **SC-006**: Numa instalação nova, o operador cria o primeiro admin e entra na console em menos de 5 minutos, seguindo
   só a documentação da instalação.
 - **SC-007**: Rotacionar a chave de assinatura não invalida nenhum token vigente nem encerra nenhuma sessão.
+- **SC-008**: Depois da passada da US8, em 100% das páginas do provedor, nos dois temas e nas larguras de celular e de computador, a marca segue a FR-023 e o contraste atende AA; e há zero ocorrências de `aic_session`, `realm="ai-core"`, `ai-core/identity/` e do nome padrão "Agentic" no código, nos testes e nos documentos vivos do workspace e das specs do core (fora do histórico do ADR-037, item 6, e dos testes e textos que nomeiam o antigo de propósito).
 
 ## Assumptions
 
@@ -342,6 +379,8 @@ token sai com outro identificador de chave.
 - Os clientes são da própria instalação (Open WebUI e console); por isso não há tela de consentimento.
 - Processo único: os contadores de tentativas ficam em memória, como os de rate limit da 003.
 - Contas, sessões e chaves exigem o perfil `persistent` (Postgres). No `memory`, tudo é efêmero e a chave de assinatura
+- US8: o AA da FR-023 vale para os pares de texto e controles em repouso nos dois temas. O hover do botão primário no escuro (`#3882F6` com texto branco, 3,7:1, já assim antes) é a pendência que o mantenedor registrou para a passada da 013, que decide e muda os dois CSS juntos (ADR-038, item 4).
+- US8 (ADR-037, ADR-038): o símbolo, o lockup e o favicon vêm de `brand-kit/svg/` (aprovados pelo mantenedor) e entram nos assets das páginas; a console (013) os usa na passada dela. A instalação continua presa a uma tag antiga até a passada dela.
   muda a cada processo; serve só para desenvolvimento.
 - O Open WebUI v0.12 é cliente confidencial e guarda os tokens dele; a instalação configura a sessão dele um pouco
   menor que a sessão de 30 dias do provedor, para que ele nunca fique com um token de renovação já vencido (com o

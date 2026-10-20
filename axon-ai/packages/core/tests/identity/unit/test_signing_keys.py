@@ -69,3 +69,31 @@ async def test_chave_mestra_errada_para_o_inicio_com_orientacao() -> None:
     other.service._cipher = AesGcmCipher(bytes(32))
     with pytest.raises(IdentityStartError, match="keys rotate --force"):
         await other.service.start()
+
+
+@pytest.mark.us8
+def test_os_rotulos_sao_os_da_marca() -> None:
+    import hashlib
+
+    from axon_ai.identity.adapters.cipher import INFO
+    from axon_ai.identity.domain.digest import session_csrf
+
+    assert INFO == b"axon-ai/identity/v1"
+    assert session_csrf("t") == hashlib.sha256(b"axon-ai/identity/csrf:t").hexdigest()
+
+
+@pytest.mark.us8
+async def test_chave_selada_antes_do_renome_para_o_inicio_e_a_rotacao_forcada_recupera() -> None:
+    """US8 cen. 7 (ADR-037, corte seco): o rótulo antigo não abre; `rotate --force` não precisa abri-lo."""
+    antigo = harness()
+    antigo.service._cipher = AesGcmCipher(MASTER_KEY, info=b"ai-core/identity/v1")
+    await antigo.service.start()
+    novo = harness()
+    novo.keys = antigo.keys
+    novo.service._keys = antigo.keys
+    with pytest.raises(IdentityStartError, match="antes do renome") as caught:
+        await novo.service.start()
+    assert "keys rotate --force" in str(caught.value)
+    await novo.service.rotate_keys(force=True)
+    await novo.service.start()
+    assert novo.service.jwks()["keys"]

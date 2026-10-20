@@ -201,3 +201,78 @@ E a 012 entra nos contratos existentes de "framework HTTP só nos adapters" e "n
 |-----------|------------|-------------------------------------|
 | 13 portas secundárias | Quatro armazenamentos com ciclos de vida diferentes (contas; pedidos, códigos, sessões e renovação; chaves; ajustes), mais rede (Google), arquivo, segredos, cifra, hash, assinatura, relógio, aleatoriedade e contadores — cada uma é I/O, não-determinismo ou algo lento cuja troca deixa as suítes ágeis (princípio XIII) | Um único store: misturaria a expiração curta de códigos com contas permanentes e impediria testar o uso único do código isolado; hash e assinatura sem porta: as suítes de protocolo levariam segundos por login com argon2 real |
 | Adapter de cifra (`SecretCipher`) com código parecido com o da 009 | ADR-033: cada módulo cifra os próprios segredos com subchave própria; nenhum módulo decifra o de outro | Um módulo comum de cifra: seria um seam novo consumido por 009 e 012 só para ~40 linhas, com acoplamento que a regra "uma porta por módulo" do ADR-020 evita |
+
+---
+
+# Passada de 2026-10-20: identidade Axon (US8; [ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md), [ADR-038](../../docs/adr/ADR-038-marca-da-plataforma-e-marca-da-instalacao.md))
+
+> As seções acima são os planos das passadas anteriores e ficam como foram executadas (ADR-037, item 6); os nomes
+> antigos nelas se leem pela tabela do ADR-037. Esta seção é o plano da US8.
+
+**Insumos lidos**: [spec.md](spec.md) (US8, FR-023 reescrita, FR-024–FR-027, SC-008, clarificações de 2026-10-20),
+[design.md](design.md), ADR-033, ADR-037, ADR-038, `DESIGN.md` ("Brand" e tokens), `brand-kit/svg/` e o README dele,
+constituição 1.3.1, as passadas da 011 (`AXON_DISPLAY_NAME` padrão "Axon") e da 008 (`instance.custom`, a mesma regra).
+Research: R20–R26. **Sem divergência do `design.md`** além do desenho da marca, que o ADR-038 decide; sem ADR novo.
+
+## Summary (US8)
+
+As páginas do provedor mostram o lockup Axon quando a instalação não tem marca própria, e a marca dela com "com Axon" no
+rodapé quando tem; o favicon é sempre o símbolo (R20), servido com os outros assets da marca copiados do `brand-kit`
+(R21). Os tokens de cor passam aos do `DESIGN.md`, com AA verificado por teste (R22). Cookie, realm, subchave e CSRF
+ganham os nomes novos, em corte seco, com a mensagem de chave que não abre ampliada (R23, R24). Testes e documentos
+acompanham (R25); capturas nos dois temas e duas larguras fecham a verificação (R26).
+
+## Technical Context (US8)
+
+- **Language/Version, dependências, storage**: sem mudança; sem migração. Cinco SVG novos no pacote (cópias do `brand-kit`).
+- **Testing**: páginas (marca, atribuição, favicon), assets (servidos e iguais ao `brand-kit`), contraste dos tokens,
+  cookie, realm, rótulos; o e2e da console; capturas pelo Playwright do MCP.
+- **Constraints**: HTML sem script (CSP `script-src 'none'`), `img-src 'self'`; princípio I (nenhuma marca de domínio).
+- Nenhum `NEEDS CLARIFICATION`.
+
+## Constitution Check (US8)
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| I. Núcleo agnóstico de domínio | ✅ | Axon é a marca da plataforma; a da instalação continua vindo da configuração (ADR-038, Consequências) |
+| II. Módulos substituíveis por seams | ✅ | Nenhum seam muda; a marca e os nomes ficam no adapter primário (`pages.py`, `http.py`) e nos adapters de cifra |
+| VI. Conteúdo externo é não-confiável | ✅ | O nome da instalação continua escapado; os SVG da marca são arquivos do pacote, com a CSP de SVG |
+| VII. Falha fechada e explícita | ✅ | Chave selada com o rótulo antigo para o boot, com a causa e o comando de recuperação (R24) |
+| XI. API independente da interface | ✅ | As páginas continuam sem script e sem dependência da console |
+| XIII. Portas e adapters | ✅ | Tudo em `adapters/` e `domain/digest.py`; nenhuma porta nova |
+
+**Module boundary gate**: `axon_ai/identity/**` e `tests/identity/**`. Fora do módulo, só o teste de cookie da
+integração da 011 e documentos vivos. **Ports & adapters gate**: sem mudança. **Resultado**: PASS.
+
+## Project Structure (US8)
+
+```text
+axon-ai/packages/core/src/axon_ai/identity/
+├── adapters/
+│   ├── pages.py            # DEFAULT_NAME "Axon"; Brand.custom; lockup, atribuição e favicon (R20)
+│   ├── http.py             # custom; assets da marca; cookie axon_session; realm axon (R20, R21, R23)
+│   ├── cipher.py           # INFO = b"axon-ai/identity/v1" (R24)
+│   └── assets/
+│       ├── identity.css    # tokens do DESIGN.md; .lockup e .attribution (R20, R22)
+│       └── brand/          # cópias de brand-kit/svg (R21)
+├── domain/digest.py        # _CSRF_CONTEXT = "axon-ai/identity/csrf:" (R24)
+└── service.py              # mensagem da chave que não abre (R24)
+```
+
+## Seam Notes for Consumers (US8)
+
+| Consumidor | O que muda para ele |
+|---|---|
+| Open WebUI e console | Entram pelas mesmas páginas; quem tinha sessão entra de novo (cookie novo) |
+| 011 | Nada no código: passa `AXON_DISPLAY_NAME` e `AXON_LOGO_FILE` como antes |
+| 013 | Usa os mesmos SVG e tokens na passada dela |
+| Operador com chaves antigas | `axon identity keys rotate --force`, como a mensagem do boot diz |
+
+## Complexity Tracking (US8)
+
+Nenhuma linha nova.
+
+## Constitution Check — pós-design (US8)
+
+Reavaliado com [contracts/pages.md](contracts/pages.md), [contracts/oidc.md](contracts/oidc.md),
+[data-model.md](data-model.md) e [quickstart.md](quickstart.md) ("Fase 9, incremento 9.5"): **PASS**.

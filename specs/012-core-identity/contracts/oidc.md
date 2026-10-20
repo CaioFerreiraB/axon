@@ -90,11 +90,18 @@ Acrescenta `nonce`, `auth_time`, `amr`, `email`, `email_verified` (sempre `true`
 `Authorization: Bearer <access_token>` válido deste emissor → `sub`, `preferred_username`, `name`, `email`,
 `email_verified`, `groups`. Conta desativada → `401`.
 
-## `GET /oauth2/assets/identity.<hash>.css` · `GET /oauth2/assets/logo`
+## `GET /oauth2/assets/identity.<hash>.css` · `GET /oauth2/assets/logo` · `GET /oauth2/assets/<marca>.svg`
 
 CSS das páginas e o logotipo da instalação (`AXON_LOGO_FILE`, SVG ou PNG; sem ele, `404` e a página mostra só o
 nome). `Cache-Control: public, max-age=31536000, immutable` no CSS com hash; `max-age=3600` no logotipo; SVG servido
 com `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'` para não executar script embutido.
+
+Os SVG da marca Axon (`axon-lockup-light.svg`, `axon-lockup-dark.svg`, `axon-symbol.svg`, `axon-symbol-light.svg`,
+`favicon.svg`; cópias de `brand-kit/svg/`, ADR-038) saem com `image/svg+xml`, `max-age=604800` e a mesma CSP de SVG. Outro
+nome → `404`.
+
+O cookie de sessão das páginas é `__Host-axon_session` (ou `axon_session` sem HTTPS); um `aic_session` que o navegador
+mande é ignorado (ADR-037). O `401` do endpoint de token traz `WWW-Authenticate: Basic realm="axon"`.
 
 ## `GET /oauth2/jwks`
 

@@ -96,6 +96,8 @@ e documentos vivos de 008, 011, 012 e 013 atualizados.
 selado com o rótulo `axon-ai/observability/v1`, e o selado com o antigo não abre (a saúde mostra; regrava-se pela console).
 **008 feita** (2026-10-20) — cabeçalhos `x-axon-store`/`x-axon-progress` (os antigos recebem 400 que cita o novo, por decisão
 do mantenedor), extensão `x_axon`, OpenAPI "Axon" e `me.instance.custom` (ADR-038).
+**012 feita** (2026-10-20) — páginas com o lockup Axon ou a marca da instalação e "com Axon", favicon do símbolo, tokens
+da marca com AA (menos o hover escuro, pendente na 013); cookie `axon_session`, realm `axon`, rótulos `axon-ai/identity/…`.
 
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 

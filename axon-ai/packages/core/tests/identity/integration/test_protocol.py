@@ -401,7 +401,7 @@ async def test_logout_com_dica_e_endereco_exato(started: Harness, http: httpx.As
     )
     assert response.status_code == 302
     assert response.headers["location"] == "http://localhost:8080/?state=saida"
-    assert "__Host-aic_session" in response.headers["set-cookie"] and "Max-Age=0" in response.headers["set-cookie"]
+    assert "__Host-axon_session" in response.headers["set-cookie"] and "Max-Age=0" in response.headers["set-cookie"]
     renewed = await http.post(
         "/oauth2/token",
         data={"grant_type": "refresh_token", "refresh_token": tokens["refresh_token"], "client_id": CONSOLE.id},
@@ -420,3 +420,16 @@ async def test_logout_sem_endereco_valido_mostra_voce_saiu(started: Harness, htt
     )
     assert response.status_code == 200 and "Você saiu" in response.text
     assert "location" not in response.headers
+
+
+@pytest.mark.us8
+async def test_cliente_errado_no_token_recebe_o_realm_axon(started: Harness, http: httpx.AsyncClient) -> None:
+    """US8 cen. 6 (ADR-037): o desafio do `Basic` diz `axon`."""
+    await started.add_account("ana")
+    code = await login_code(http)
+    response = await http.post(
+        "/oauth2/token",
+        data={"grant_type": "authorization_code", "code": code, "redirect_uri": OPEN_WEBUI_CALLBACK},
+        auth=(OPEN_WEBUI.id, "errado"),
+    )
+    assert response.status_code == 401 and response.headers["www-authenticate"] == 'Basic realm="axon"'

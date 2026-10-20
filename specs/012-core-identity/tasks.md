@@ -385,3 +385,89 @@ T026 + T028                        # domínio e páginas em paralelo; T027 e T02
 3. US4–US6: Google, força bruta e desativação.
 4. US7 e Polish.
 5. O encaixe (003 US9, 008 US9, 011 US6, 002 US7) vem nas passadas das consumidoras, nesta fase.
+
+---
+
+## Passada de 2026-10-20: identidade Axon — US8 ([ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md), [ADR-038](../../docs/adr/ADR-038-marca-da-plataforma-e-marca-da-instalacao.md); research R20–R26)
+
+**Goal**: páginas com o lockup Axon ou a marca da instalação com "com Axon", favicon do símbolo, tokens do `DESIGN.md` em
+AA; cookie `axon_session`, realm `axon`, rótulos `axon-ai/identity/…`; suítes, e2e e capturas.
+
+**Independent Test**: [quickstart.md, "Fase 9, incremento 9.5"](quickstart.md).
+
+### Setup
+
+- [X] T068 [US8] Copiar `brand-kit/svg/{axon-lockup-light,axon-lockup-dark,axon-symbol,axon-symbol-light,favicon}.svg` para
+  `axon-ai/packages/core/src/axon_ai/identity/adapters/assets/brand/` (R21); a marca `us8` em `axon-ai/pyproject.toml`
+  ganha `; 012 US8 — identidade Axon (marca das páginas, cookie, realm e rótulos)`
+
+### Tests (antes das T072–T076)
+
+- [X] T069 [P] [US8] `axon-ai/packages/core/tests/identity/integration/test_pages.py` (R20, R21, marca `us8`): sem marca
+  própria, o login, a troca de senha, "Minha conta", o erro e a saída têm o `<picture>` do lockup (`axon-lockup-dark.svg`
+  na `<source>` escura, `axon-lockup-light.svg` no `<img alt="Axon">`), nenhum `class="attribution"` e o título
+  `Entrar · Axon` (cen. 1); com `display_name="Instituto Exemplo"`, o nome no lugar principal, sem lockup, e a atribuição
+  com `com Axon` e o símbolo `alt=""` (cen. 2); com logotipo e o nome padrão, a atribuição também; toda página tem
+  `<link rel="icon" type="image/svg+xml" href="/oauth2/assets/favicon.svg">` (cen. 3); os testes existentes do título e da
+  marca passam ao padrão novo
+- [X] T070 [P] [US8] Assets e contraste (R21, R22, marca `us8`): `GET /oauth2/assets/<nome>.svg` para os cinco nomes →
+  200, `image/svg+xml`, a CSP de SVG e o corpo igual ao arquivo de `brand-kit/svg/` (caminho a partir da raiz do
+  repositório); nome desconhecido → 404; e `axon-ai/packages/core/tests/identity/unit/test_page_contrast.py`, que lê os
+  dois blocos de tokens de `assets/identity.css` e confere ≥ 4,5:1 para primário, secundário e terciário sobre
+  `--fundo-base` e `--fundo-sutil`, `--acao-texto` sobre `--fundo-base`, `--texto-sobre-acao` sobre `--acao-base`,
+  `--ok-texto` sobre `--ok-fundo`, `--erro-texto` sobre `--erro-fundo` e `--foco` sobre os dois fundos (cen. 4)
+- [X] T071 [P] [US8] Nomes com comportamento (R23, R24, marca `us8`): o cookie (`__Host-axon_session`/`axon_session`) em
+  `tests/identity/integration/test_login_uniform.py`, `test_google.py`, `test_protocol.py` e
+  `tests/bootstrap/integration/test_platform_identity.py`; um pedido com só `aic_session` não tem sessão (cen. 5); o realm
+  `Basic realm="axon"` no 401 do token (cen. 6); `INFO == b"axon-ai/identity/v1"` e o CSRF com o contexto novo; uma chave
+  selada com `AesGcmCipher(MASTER_KEY, info=b"ai-core/identity/v1")` faz `start()` levantar `IdentityStartError` com
+  `rotate --force` e "antes do renome", e `rotate_keys(force=True)` devolve a identidade (cen. 7). Rodar T069–T071 e ver
+  falhar
+
+### Implementation
+
+- [X] T072 [US8] `axon-ai/packages/core/src/axon_ai/identity/adapters/pages.py` (R20): `DEFAULT_NAME = "Axon"`,
+  `Brand.custom`, `_brand` com o lockup ou a marca da instalação, `_attribution`, o `<link rel="icon">` e a atribuição no
+  `_document`; docstrings
+- [X] T073 [US8] `axon-ai/packages/core/src/axon_ai/identity/adapters/http.py` (R20, R21, R23): `custom` no `Brand`; os SVG
+  de `assets/brand/` carregados e servidos com `image/svg+xml`, `max-age=604800` e a CSP de SVG; `cookie_name` novo;
+  `Basic realm="axon"`
+- [X] T074 [US8] `axon-ai/packages/core/src/axon_ai/identity/adapters/assets/identity.css` (R20, R22): os tokens da tabela
+  do R22, o comentário do topo, `.lockup` (altura 32px, largura automática) e `.attribution` (caption terciário, símbolo de
+  16px, centrado, com respiro do cartão)
+- [X] T075 [US8] `axon-ai/packages/core/src/axon_ai/identity/adapters/cipher.py` e `domain/digest.py` (R24): rótulo e
+  contexto novos, e a docstring do cipher; `axon-ai/packages/core/src/axon_ai/identity/service.py`: a mensagem da chave que
+  não abre
+- [X] T076 [US8] `axon-ai/packages/core/tests/identity/contract/test_cipher.py`: a subchave de outro módulo continua a da 009
+  (`axon-ai/observability/v1`); conferir que o teste da identidade usa o rótulo novo
+
+### Integration e verificação
+
+- [X] T077 [US8] Suítes (a partir de `axon-ai/`): `uv run pytest && uv run mypy && uv run ruff check packages && uv run
+  ruff format --check packages && uv run lint-imports`, com e sem `AXON_TEST_POSTGRES_DSN`; a console (`npm test` e
+  `npm run e2e`, que entra pelas páginas)
+- [X] T078 [US8] Verificação visual (R26): `serve` no `memory` com identidade, capturas do login sem e com marca da
+  instalação em 390 e 1440 px, claro e escuro, e do favicon, pelo Playwright do MCP; guardar no scratchpad e descrever no
+  relatório
+- [X] T079 [US8] Resíduos (SC-008): `git grep -nE 'aic_session|realm="ai-core"|ai-core/identity/|"Agentic"'` fora do
+  histórico só nos testes e textos do corte seco (e no que é da 013: a Sidebar e o AccessDenied da console); nenhuma
+  palavra `agentic` removida (`--word-diff`)
+- [X] T080 [P] [US8] `specs/README.md` (linha da 012 com a US8) e `docs/roadmap.md` (andamento do 9.5: 012 feita)
+
+### Dependencies (US8)
+
+T068 → T069 ∥ T070 ∥ T071 (veem falhar) → T072 → T073 → T074 → T075 → T076 → T077 → T078 → T079; T080 em paralelo com a
+T077.
+
+### Notas da execução (US8)
+
+- O teste de contraste achou um par que **já reprovava** com os tokens anteriores: o terciário sobre o fundo sutil no
+  claro (`#74747c` sobre `#fafafa`); com os tokens da marca, 4,96:1. O hover escuro fica fora do teste (pendência da
+  013, R22).
+- `Safe("\n") + _ATTRIBUTION` daria `str` comum, que o `join` escaparia: a atribuição entra como `Safe("\n" + …)`.
+- O Penpot não estava conectado nesta sessão; a verificação visual seguiu o `DESIGN.md` (R26). Capturas (390 e 1440 px,
+  claro e escuro, sem e com marca da instalação) no scratchpad da sessão, `capturas-012/`; a pasta `.playwright-mcp/` que
+  o Playwright criou no repositório foi apagada.
+- O "Agentic" que sobra no código é da console (`Sidebar.tsx`, `AccessDenied.tsx`, a fixture do MSW), da passada da 013.
+- Suítes: workspace 3208 passed, 168 skipped; com `AXON_TEST_POSTGRES_DSN`, 3365 passed, 11 skipped; mypy sem erro; ruff
+  limpo; import-linter 69 kept; console 67 testes e e2e 39 passed, 4 skipped.
