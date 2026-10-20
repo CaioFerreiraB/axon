@@ -262,3 +262,17 @@ def test_exportacao_que_falha_aparece_e_a_que_volta_limpa() -> None:
     destination.export(to_record(finished(request_id="r2"), AT))
     _flush(transport)
     assert destination.stats().last_error is None
+
+
+@pytest.mark.us8
+def test_os_spans_se_identificam_como_o_servico_axon() -> None:
+    """US8 cen. 1 (ADR-037, research R39): o recurso e o escopo do instrumentador dizem `axon`."""
+    transport, exporter = _memory()
+    transport.send(to_record(started(), AT))
+    transport.send(to_record(finished(), AT + timedelta(seconds=1)))
+    _flush(transport)
+    spans = exporter.get_finished_spans()
+    assert spans
+    for span in spans:
+        assert span.resource.attributes["service.name"] == "axon"
+        assert span.instrumentation_scope is not None and span.instrumentation_scope.name == "axon"

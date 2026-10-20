@@ -354,3 +354,59 @@ ai-core/packages/core/src/ai_core/llm/service.py   # toque: ModelExchange (R35)
 | 006 | Emitir `ModelExchange` depois de cada `ModelCall`, com mensagens e saída; nunca credencial |
 | 008 | `UsageReportSeam`, `PriceBook`, `TraceDestinations` nas rotas de administração; `InstallationDefined`/`Conflict` → 409, `MasterKeyMissing` → 409, `InvalidQuery`/`InvalidPrice`/`InvalidField` → 422 |
 | 011 | Montar `TraceService(primary, destinations=[UsageDestination(origin), LangfuseDestination], …)`; `origin="evaluation"` no `ai-core eval run`; tarefas: flush de 2 s, retenção diária; `flush` no `aclose()`; migrações do schema `observability`; itens de saúde `trace:usage`, `trace:langfuse`; `AI_CORE_LANGFUSE_*`, `AI_CORE_USAGE_*` |
+
+## Passada de 2026-10-20: identidade Axon (US8; [ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md))
+
+> As seções acima são os planos das passadas anteriores e ficam como foram executadas (ADR-037, item 6); os nomes
+> antigos nelas se leem pela tabela do ADR-037. Esta seção é o plano da US8.
+
+**Insumos lidos**: [spec.md](spec.md) (US8, FR-021–FR-023, SC-009, clarificações de 2026-10-20), [design.md](design.md),
+ADR-033, ADR-034, ADR-037, constituição 1.3.1, a passada da 011 (comandos `axon eval` e `axon audit`). Research: R39–R42.
+**Sem divergência do `design.md`** além dos nomes; sem ADR novo.
+
+**Summary**: os spans do Langfuse passam a se identificar como o serviço `axon` (R39), e o segredo do Langfuse gravado pela
+console passa a ser selado com o rótulo `axon-ai/observability/v1` (R40). Segredo antigo não abre e cai no caminho que já
+existe para chave mestra errada, visível na saúde, sem migração (R41). Testes novos para os dois nomes e para o segredo
+antigo; o teste de cifra da identidade e os documentos vivos acompanham (R42).
+
+**Technical Context**: sem mudança de linguagem, dependência, storage ou migração. Duas constantes de produção, nos
+adapters `langfuse.py` e `cipher.py`. Nenhum `NEEDS CLARIFICATION`.
+
+**Constitution Check (US8)**
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| II. Módulos substituíveis por seams | ✅ | Nenhum seam muda; os nomes ficam dentro dos adapters da 009 |
+| VII. Falha fechada e explícita | ✅ | Segredo que não abre deixa o destino sem credencial e diz o motivo na saúde; nada é enviado com credencial errada (R41) |
+| XII. Simplicidade deliberada | ✅ | Sem migração nem leitura com o rótulo antigo (R41) |
+| XIII. Portas e adapters | ✅ | O SDK de OTel e a cifra continuam só nos adapters (import-linter) |
+
+**Module boundary gate**: `axon_ai/observability/adapters/{langfuse,cipher}.py` e `tests/observability/**`. Fora do
+módulo, só o teste de cifra da identidade (que usa o rótulo da 009 para provar a separação das subchaves) e documentos
+vivos. **Ports & adapters gate**: sem mudança. **Resultado**: PASS.
+
+**Project Structure (US8)**
+
+```text
+axon-ai/packages/core/
+├── src/axon_ai/observability/adapters/
+│   ├── langfuse.py          # SERVICE_NAME = "axon": service.name e tracer (R39)
+│   └── cipher.py            # INFO = b"axon-ai/observability/v1" (R40)
+└── tests/
+    ├── observability/contract/test_langfuse_transport.py   # serviço axon nos spans (R42)
+    ├── observability/contract/test_trace_destinations.py   # segredo antigo não abre; regravar volta (R42)
+    └── identity/contract/test_cipher.py                    # rótulo novo da 009 (R42)
+```
+
+**Seam Notes for Consumers (US8)**
+
+| Consumidor | O que muda para ele |
+|---|---|
+| 008, 013 | Nada: a console mostra a saúde e grava o segredo pelos mesmos seams |
+| 012 | Nada no código; o teste de cifra dela usa o rótulo novo da 009 |
+| Operador | Filtra os traces pelo serviço `axon` no Langfuse; regrava o segredo da console num ambiente que já o tinha |
+
+**Complexity Tracking (US8)**: nenhuma linha nova.
+
+**Constitution Check — pós-design (US8)**: reavaliado com [contracts/ports.md](contracts/ports.md),
+[design.md](design.md) e [quickstart.md](quickstart.md) ("Fase 9, incremento 9.5"): **PASS**.

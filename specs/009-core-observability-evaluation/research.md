@@ -556,3 +556,62 @@ não pode se perder no encerramento.
 
 **Alternatives considered**: ler o log do OTel (frágil); uma tarefa periódica na linha de comando (o processo termina
 antes).
+
+---
+
+## Passada de 2026-10-20: identidade Axon ([ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md); US8)
+
+Decisões pré-aprovadas pelo ADR-037 (nomes, corte seco, ordem das passadas); o que segue é como elas chegam aos destinos
+do trace, sem re-pesquisa. Os R anteriores ficam como foram executados (ADR-037, item 6); os nomes antigos neles se leem
+pela tabela do ADR-037.
+
+### R39 — O serviço `axon` no Langfuse
+
+- **Decision**: em `axon_ai/observability/adapters/langfuse.py`, `Resource.create({"service.name": "axon"})` e
+  `provider.get_tracer("axon")`, como constante do módulo (`SERVICE_NAME: Final = "axon"`), para o recurso e o escopo do
+  instrumentador dizerem o mesmo.
+- **Rationale** (ADR-037, item 2: "`service.name` do OTel … → `axon`"): é o nome que o operador procura no Langfuse; na
+  operação, o nome fica curto.
+- **Alternatives**: `axon-ai` (o nome da distribuição Python, não do serviço); o nome da instalação (`AXON_DISPLAY_NAME`)
+  como serviço — a instalação se distingue pelo projeto do Langfuse, e o nome do serviço identifica o software.
+
+### R40 — O rótulo `axon-ai/observability/v1`
+
+- **Decision**: `INFO: Final = b"axon-ai/observability/v1"` em `axon_ai/observability/adapters/cipher.py` (a docstring
+  cita o rótulo novo). O formato do selo (`versão ‖ nonce ‖ texto cifrado + tag`, versão `1`) não muda; o `/v1` do rótulo
+  continua: ele versiona a derivação, e o que muda é só o nome.
+- **Rationale** (ADR-037, item 2: rótulos HKDF `axon-ai/…`; ADR-033): a subchave continua própria da 009 — a da
+  identidade tem outro rótulo (`ai-core/identity/v1` até a passada da 012, `axon-ai/identity/v1` depois) —, e nenhuma
+  das duas abre o selo da outra.
+- **Alternatives**: `axon-ai/observability/v2` (o número versiona o esquema, que não mudou); congelar o rótulo antigo
+  (o ADR-037 rejeita a transição com nome antigo congelado).
+
+### R41 — Corte seco do segredo gravado
+
+- **Decision**: nenhuma migração nem leitura com o rótulo antigo. O caminho que já existe trata o segredo antigo:
+  `DestinationService._open` recebe `SealError`, guarda "o segredo gravado não abre com esta chave mestra" como erro do
+  segredo, os ajustes efetivos ficam sem a credencial da console, e o item `langfuse` da saúde leva esse `last_error`.
+  O admin grava o segredo de novo pela console (`set_langfuse`), e `_write` chama `start()`, que relê e reconfigura sem
+  restart. O Langfuse da instalação (`AXON_LANGFUSE_*`) não passa pelo selo.
+- **Rationale** (ADR-037, item 3): não há instalação com dado a preservar; o erro já é fechado e visível.
+- **Alternatives**: migração que abre com o rótulo antigo e sela com o novo (exigiria manter o rótulo antigo no código,
+  para um dado que só existe em desenvolvimento); tentar o rótulo antigo quando o novo falha (janela de compatibilidade
+  sem fim definido).
+
+### R42 — Testes, consumidores e documentos
+
+- **Decision**: em `tests/observability/contract/test_langfuse_transport.py`, um caso `us8`: os spans exportados têm
+  `resource.attributes["service.name"] == "axon"` e `instrumentation_scope.name == "axon"` (cen. 1). Em
+  `tests/observability/contract/test_trace_destinations.py`, um caso `us8` com o harness de lá: um segredo selado com
+  `AesGcmCipher(MASTER_KEY, info=b"ai-core/observability/v1")` gravado no armazenamento → depois de `start()`, o destino da
+  console fica sem credencial e o item `langfuse` da saúde tem `last_error` com "não abre" (cen. 3); `set_langfuse` com o
+  segredo de novo → o destino volta, sem erro (cen. 4); e um teste de unidade do rótulo (`INFO ==
+  b"axon-ai/observability/v1"`). Consumidor: `tests/identity/contract/test_cipher.py` (a subchave da 009 não abre o selo
+  da identidade) passa ao rótulo novo. Documentos vivos: `contracts/ports.md` e `design.md` da 009; o quickstart ganha a
+  seção "Fase 9, incremento 9.5". Verificação: as suítes do workspace (com e sem `AXON_TEST_POSTGRES_DSN`, porque o
+  armazenamento dos ajustes tem adapter Postgres); `git grep` de `ai-core/observability` e do `service.name` antigo; e
+  nenhuma palavra `agentic` removida.
+- **Rationale**: FR-021 e FR-022 precisam de verificador próprio; o resto é o comportamento que já tem teste (chave
+  mestra errada).
+- **Alternatives**: teste ponta a ponta com um Langfuse de verdade (já existe a integração opcional; o nome do serviço se
+  prova no exportador em memória).

@@ -65,5 +65,5 @@ descartes sobe.
 | `UsageStore` | `append(rows)`, `daily(query)`, `previous_total(query)`, `purge(before)` | Postgres `observability.model_calls`/`executions` | listas com a mesma agregação em Python | fuso, origem, agrupamentos |
 | `PriceStore` | `all()`, `add(price)`, `effective(provider, model, day)` | Postgres `observability.prices` | lista | vigência |
 | `DestinationSettingsStore` | `get()`, `put(settings, expected_version)` | Postgres `observability.destination_settings` | valor | versão |
-| `SecretCipher` | `seal`, `open` | AES-GCM + HKDF (`ai-core/observability/v1`) | o real com chave fixa | ida e volta; chave errada |
-| `LangfuseTransport` | `send(spans)`, `check(host, public, secret)`, `shutdown()` | OTel SDK + OTLP/HTTP | coletor OTLP falso local; transporte que trava | lote; descarta sem bloquear; autenticação |
+| `SecretCipher` | `seal`, `open` | AES-GCM + HKDF (`axon-ai/observability/v1`; era `ai-core/…`, ADR-037) | o real com chave fixa | ida e volta; chave errada |
+| `LangfuseTransport` | `send(spans)`, `check(host, public, secret)`, `shutdown()` | OTel SDK + OTLP/HTTP (serviço `axon`, R39) | coletor OTLP falso local; transporte que trava | lote; descarta sem bloquear; autenticação |

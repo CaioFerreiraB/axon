@@ -34,6 +34,7 @@ from axon_ai.observability.ports import DestinationStats, LangfuseCredentials, L
 
 logger: Final = logging.getLogger("axon_ai.observability")
 
+SERVICE_NAME: Final = "axon"
 OTLP_PATH: Final = "/api/public/otel/v1/traces"
 CHECK_PATH: Final = "/api/public/projects"
 QUEUE: Final = 2_048
@@ -138,7 +139,9 @@ class OtelLangfuseTransport:
             if credentials is None:
                 self._provider, self._tracer = None, None
             else:
-                provider = TracerProvider(resource=Resource.create({"service.name": "ai-core"}), shutdown_on_exit=False)
+                provider = TracerProvider(
+                    resource=Resource.create({"service.name": SERVICE_NAME}), shutdown_on_exit=False
+                )
                 provider.add_span_processor(
                     BatchSpanProcessor(
                         _Watched(self._factory(credentials), self._exported),
@@ -147,7 +150,7 @@ class OtelLangfuseTransport:
                         schedule_delay_millis=self._delay,
                     )
                 )
-                self._provider, self._tracer = provider, provider.get_tracer("ai-core")
+                self._provider, self._tracer = provider, provider.get_tracer(SERVICE_NAME)
         if old is not None:
             threading.Thread(target=old.shutdown, name="langfuse-shutdown", daemon=True).start()
 

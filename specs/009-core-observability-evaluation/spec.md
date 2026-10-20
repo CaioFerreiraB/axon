@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: Tradução de arch-v1 §29 (trace, harness, métricas), §27 (benchmark de modelos), §31 Fase 6; ADR-007. Fase 9 (2026-10-13): uso e custo por modelo e por dia, Langfuse e captura opcional de conteúdo — ADR-033, ADR-034.
+**Input**: Tradução de arch-v1 §29 (trace, harness, métricas), §27 (benchmark de modelos), §31 Fase 6; ADR-007. Fase 9 (2026-10-13): uso e custo por modelo e por dia, Langfuse e captura opcional de conteúdo — ADR-033, ADR-034. Fase 9, incremento 9.5 (2026-10-20): identidade Axon — ADR-037.
 
 ## Module Boundary *(mandatory)*
 
@@ -38,6 +38,13 @@
 - Q: No benchmark de modelos, como entram RAM e CPU, que são do servidor do modelo e não do processo do harness? → A: O harness mede o que observa — tempo até o primeiro token, tokens/s, latência, confiabilidade de tool calling (ações válidas do controller) e fidelidade —; RAM e CPU entram como anotação do operador no relatório (campo livre por modelo), sem medição automática.
 - Q: De onde o juiz tira o texto dos trechos entregues à geração, que precisa ler para julgar a fidelidade, se o evento de recuperação foi decidido sem texto? → A: O evento de recuperação passa a levar o texto **só dos trechos entregues** à geração — o que o modelo viu —, cortado em 2.000 caracteres e redigido como todo texto livre do trace; candidatos e reordenados continuam sem texto. Revê em parte a resposta da primeira pergunta desta sessão (decidido durante a implementação).
 - Q: As rodadas de avaliação (`axon eval run`, inclusive o modelo juiz) entram no uso e custo? → A: Entram, marcadas com a origem "avaliação"; o relatório mostra só a produção por padrão e permite incluir a avaliação ou ver só ela.
+
+### Session 2026-10-20
+
+- Q: Como os traces se identificam no Langfuse depois do renome? → A: Como o serviço `axon` — o nome do serviço do recurso e o do instrumentador (eram `ai-core`; ADR-037, item 2). É o que o operador vê para filtrar os traces da plataforma no Langfuse.
+- Q: Com que rótulo o segredo do Langfuse é selado? → A: Com a subchave derivada da chave mestra pelo rótulo `axon-ai/observability/v1` (era `ai-core/observability/v1`; ADR-037, item 2; ADR-033). Continua própria da 009: nenhum outro módulo abre o que ela selou.
+- Q: O que acontece com o segredo gravado antes da troca? → A: Corte seco, sem migração (ADR-037, item 3): o segredo selado com o rótulo antigo não abre. O Langfuse configurado pela console fica sem credencial, e a saúde mostra, no item do Langfuse, que o segredo gravado não abre — o caminho que já existe para chave mestra errada. O admin grava o segredo de novo pela console. O Langfuse configurado pela instalação (variáveis `AXON_LANGFUSE_*`) não passa pelo selo e não muda.
+- Q: Os comandos de avaliação e de auditoria mudam? → A: Não nesta passada: `axon eval run|compare` e `axon audit` já existem sob a raiz `axon` desde a passada da 011.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -178,6 +185,24 @@ backend principal continua sem texto.
 
 ---
 
+### User Story 8 - Identidade Axon: os traces e o segredo com o nome da plataforma (Priority: P2)
+
+A plataforma passa a se chamar Axon (ADR-037). O operador filtra no Langfuse os traces do serviço `axon`. O segredo do Langfuse que o admin grava pela console é selado com o rótulo da plataforma; um segredo gravado antes da troca não abre, e a saúde diz isso, em vez de o envio falhar em silêncio.
+
+**Why this priority**: O nome do serviço é o que o operador procura no Langfuse; o rótulo do selo é dado persistido com o nome da plataforma. P2 porque nenhum comportamento de trace, uso ou avaliação muda.
+
+**Independent Test**: Com o destino Langfuse em memória, enviar uma execução e ver o nome do serviço `axon` nos spans; selar um segredo com o rótulo antigo e ver a configuração pela console ficar sem credencial, com o motivo na saúde; gravar o segredo de novo e ver o destino voltar.
+
+**Acceptance Scenarios**:
+
+1. **Given** o Langfuse configurado, **When** uma execução é enviada, **Then** os traces chegam como o serviço `axon`.
+2. **Given** um segredo gravado pela console depois da troca, **When** a plataforma lê os ajustes, **Then** o segredo abre e o Langfuse recebe os traces.
+3. **Given** um segredo selado com o rótulo antigo, **When** a plataforma lê os ajustes, **Then** o Langfuse configurado pela console fica sem credencial e o item do Langfuse na saúde diz que o segredo gravado não abre.
+4. **Given** o cenário 3, **When** o admin grava o segredo de novo pela console, **Then** o destino volta a funcionar, sem restart.
+5. **Given** o Langfuse configurado pelas variáveis da instalação, **When** a plataforma sobe, **Then** ele funciona como antes: o selo não participa.
+
+---
+
 ### Edge Cases
 
 - Item do conjunto dourado que referencia documento fora do corpus: não é falha do sistema. O core não conhece o corpus — conferir o conjunto contra o catálogo é do pack (105) —, e o harness aponta, como aviso no item, a evidência esperada que não aparece entre os candidatos de nenhum item da rodada ("evidência não vista"); item com formato inválido é sinalizado como inválido e não roda.
@@ -188,6 +213,8 @@ backend principal continua sem texto.
 - Dois preços para o mesmo modelo: vale, em cada dia, o de data de início mais recente que não seja posterior ao dia.
 - Langfuse reconfigurado no meio de execuções: os registros já enfileirados vão ao destino antigo; os seguintes, ao novo.
 - Chave mestra ausente no perfil persistente: gravar a chave secreta do Langfuse é recusado com a explicação; o resto dos ajustes grava.
+- Segredo do Langfuse selado antes do renome: não abre com o rótulo novo; o destino da console fica sem credencial e a saúde mostra o motivo até o admin gravar o segredo de novo (sem migração, corte seco do ADR-037).
+- Subchave de outro módulo (a da identidade, por exemplo) com a mesma chave mestra: continua não abrindo o selo da 009, e vice-versa.
 
 ## Requirements *(mandatory)*
 
@@ -213,6 +240,11 @@ backend principal continua sem texto.
 - **FR-018**: O seam Trace Destinations DEVE expor e gravar os ajustes do Langfuse (endereço, chave pública, chave secreta só de escrita, ligado) e da captura de conteúdo, com a origem de cada campo (instalação, runtime ou padrão); a instalação prevalece. A chave secreta gravada em runtime DEVE ficar cifrada com a chave mestra da instalação ([ADR-033](../../docs/adr/ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md)) e nunca DEVE ser devolvida. Gravar DEVE reconfigurar o destino sem restart. Uma operação de teste DEVE dizer se o Langfuse aceita as credenciais.
 - **FR-019**: O texto de prompt e de resposta DEVE existir só num evento dedicado (emitido pela 006 junto com a chamada de modelo), que só é entregue com a captura de conteúdo ligada (desligada por padrão) e só a destinos que declaram aceitar conteúdo; o backend principal NÃO DEVE recebê-lo. O texto passa pela redação de credenciais e é cortado por mensagem. Nenhum outro evento carrega texto de prompt, resposta, argumento ou resultado de tool, exceto os trechos entregues já previstos na FR-004 ([ADR-017](../../docs/adr/ADR-017-trace-sink-cresce-por-eventos-aditivos.md), ADR-034).
 - **FR-020**: O uso DEVE ser expurgado depois de um período de retenção configurável pela instalação.
+
+- **FR-021**: Os traces enviados ao Langfuse DEVEM identificar o serviço como `axon` (ADR-037).
+- **FR-022**: O segredo do Langfuse gravado pela console DEVE ser selado com a subchave de rótulo `axon-ai/observability/v1`, própria da 009 (ADR-033, ADR-037). Segredo selado com outro rótulo, inclusive o antigo, NÃO DEVE abrir; o destino da console fica sem credencial e a saúde DEVE dizer que o segredo gravado não abre, sem migração nem janela de compatibilidade.
+- **FR-023**: Os consumidores no workspace que citam o rótulo ou o nome do serviço — testes de outros módulos e documentos vivos — DEVEM usar os nomes novos na mesma passada (ADR-037, item 7).
+
 
 ### Key Entities
 
@@ -240,6 +272,7 @@ backend principal continua sem texto.
 - **SC-006**: Com o Langfuse ou o banco de uso indisponíveis, nenhuma execução fica mais lenta de forma perceptível nem falha.
 - **SC-007**: Em nenhum cenário de teste o texto de prompt ou de resposta chega ao backend principal, e com a captura desligada não chega a nenhum destino.
 - **SC-008**: O relatório de 90 dias com até 100 mil chamadas de modelo responde em menos de 1 segundo.
+- **SC-009**: Depois da passada da US8, zero ocorrências do rótulo `ai-core/observability/v1` e do nome de serviço `ai-core` da 009 no código, nos testes e nos documentos vivos do workspace e das specs do core (fora do histórico do ADR-037, item 6, e dos testes e textos que nomeiam o antigo de propósito), e as suítes do workspace passam.
 
 ## Assumptions
 
@@ -249,3 +282,4 @@ backend principal continua sem texto.
 - Uso, preços e ajustes dos destinos exigem o perfil `persistent` para sobreviver a um restart; no `memory`, ficam em memória.
 - O custo é estimativa: preços manuais, sem separar tokens de cache ou de raciocínio, e com os tokens que o provider informa.
 - Trace e harness estão em lados opostos do hexágono (porta secundária × adapter primário); dividi-los em duas specs é opcional e, se feito, segue "Como reescrever um módulo" em `specs/README.md`.
+- US8 (ADR-037): ambientes locais com o segredo do Langfuse gravado pela console regravam o segredo depois da passada; a instalação, presa a uma tag antiga até a passada dela, não é afetada até lá.

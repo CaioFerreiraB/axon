@@ -92,6 +92,8 @@ novo; a instalação (US7) fica para depois da 101.
 **003 feita** (2026-10-20) — audiências `axon` (chat) e `axon-admin` (console), chaves de API `axn_<key_id>_<segredo>`,
 credenciais antigas não autenticam; `TEST_API_KEY` com o prefixo novo; clientes de exemplo da identidade, e2e da console
 e documentos vivos de 008, 011, 012 e 013 atualizados.
+**009 feita** (2026-10-20) — os traces chegam ao Langfuse como o serviço `axon`; o segredo do Langfuse da console é
+selado com o rótulo `axon-ai/observability/v1`, e o selado com o antigo não abre (a saúde mostra; regrava-se pela console).
 
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 

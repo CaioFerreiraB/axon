@@ -545,3 +545,58 @@ Task: "integration/test_observability_jsonl.py (T010)"
   garantido por T016)
 - Falha de trace nunca derruba execução: se um teste precisar de exceção propagada, o teste está errado (FR-011)
 - Commit por tarefa ou grupo lógico
+
+---
+
+## Passada de 2026-10-20: identidade Axon — US8 ([ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md); research R39–R42)
+
+**Goal**: spans do Langfuse com o serviço `axon`; segredo da console selado com `axon-ai/observability/v1`; segredo antigo
+não abre e a saúde diz isso; regravar devolve o destino.
+
+**Independent Test**: [quickstart.md, "Fase 9, incremento 9.5"](quickstart.md) — `-m us8` em `observability/` e o teste de
+cifra da identidade.
+
+### Tests (antes da T075)
+
+- [X] T072 [US8] `axon-ai/pyproject.toml`: a descrição da marca `us8` ganha `; 009 US8 — identidade Axon (serviço e
+  rótulo do selo)`
+- [X] T073 [P] [US8] `axon-ai/packages/core/tests/observability/contract/test_langfuse_transport.py` (R42): caso marcado
+  `us8` com `_memory()`: depois de `started()`/`finished()` e `_flush`, todo span exportado tem
+  `resource.attributes["service.name"] == "axon"` e `instrumentation_scope.name == "axon"` (cen. 1)
+- [X] T074 [P] [US8] `axon-ai/packages/core/tests/observability/contract/test_trace_destinations.py` (R42): caso `us8`
+  com `_service(...)` e cifra: gravar no armazenamento ajustes com o Langfuse ligado e
+  `langfuse_secret_sealed = AesGcmCipher(MASTER_KEY, info=b"ai-core/observability/v1").seal(b"sk-lf-segredo")`;
+  depois de `start()`, o destino efetivo não tem credencial e o item `langfuse` de `health()` tem `last_error` com
+  `"não abre"` (cen. 3); `set_langfuse(secret_key=..., version=...)` → `last_error` vazio e o destino com credencial
+  (cen. 4); e `INFO == b"axon-ai/observability/v1"`. Rodar T073–T074 e ver falhar
+
+### Implementation
+
+- [X] T075 [US8] `axon-ai/packages/core/src/axon_ai/observability/adapters/langfuse.py` (R39): `SERVICE_NAME: Final =
+  "axon"` usado no `Resource.create` e no `get_tracer`; `axon-ai/packages/core/src/axon_ai/observability/adapters/cipher.py`
+  (R40): `INFO: Final = b"axon-ai/observability/v1"` e a docstring
+- [X] T076 [P] [US8] Consumidor (R42): `axon-ai/packages/core/tests/identity/contract/test_cipher.py`, a subchave de outro
+  módulo com `info=b"axon-ai/observability/v1"`
+
+### Integration e verificação
+
+- [X] T077 [US8] Suítes (a partir de `axon-ai/`): `uv run pytest && uv run mypy && uv run ruff check packages && uv run
+  ruff format --check packages && uv run lint-imports`, e de novo com `AXON_TEST_POSTGRES_DSN` (ajustes dos destinos no
+  Postgres)
+- [X] T078 [US8] Quickstart da US8 e resíduos (SC-009): `git grep -n "ai-core/observability"` e o `service.name` antigo
+  fora do histórico só nos testes e textos que nomeiam o antigo de propósito; nenhuma palavra `agentic` removida
+  (`--word-diff`)
+- [X] T079 [P] [US8] `specs/README.md` (linha da 009 com a US8) e `docs/roadmap.md` (andamento do 9.5: 009 feita)
+
+### Dependencies (US8)
+
+T072 → T073 ∥ T074 (veem falhar) → T075 → T076 → T077 → T078; T079 em paralelo com a T077.
+
+### Notas da execução (US8)
+
+- T073–T074 falharam como esperado antes da T075 (3 casos). Os cenários 2 e 5 da US8 já tinham verificador:
+  `test_gravar_liga_o_destino_e_o_segredo_nunca_volta`, agora com o rótulo novo, e `test_instalacao_somente_leitura`.
+- `SERVICE_NAME` entrou como constante do módulo, ao lado de `OTLP_PATH`; com o nome, a linha do `TracerProvider` passou
+  de 120 colunas e o `ruff format` a quebrou. Um travessão no comentário do teste novo virou "a" (RUF003).
+- Suítes: workspace 3130 passed, 168 skipped; com `AXON_TEST_POSTGRES_DSN` (contêiner `postgres:17` temporário), 3287
+  passed, 11 skipped; mypy sem erro; ruff limpo; import-linter 69 kept.

@@ -81,7 +81,7 @@ pelo preço vigente em cada dia. Os preços ficam aqui, não na 006: a 009 não 
 **Ajustes e segredos.** Precedência pura em `domain/` (instalação > runtime > padrão, com a origem por campo);
 `AXON_LANGFUSE_{HOST,PUBLIC_KEY,SECRET_KEY}` é tudo ou nada (parcial = erro de configuração que nomeia a
 variável que falta); `AXON_LANGFUSE_CAPTURE_CONTENT` vale à parte. Chave secreta de runtime cifrada pela porta
-`SecretCipher` (AES-GCM, subchave HKDF `ai-core/observability/v1` de `AXON_MASTER_KEY`, [ADR-033](../../docs/adr/ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md)); sem chave
+`SecretCipher` (AES-GCM, subchave HKDF `axon-ai/observability/v1` de `AXON_MASTER_KEY`, [ADR-033](../../docs/adr/ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md)); sem chave
 mestra, gravar a secreta é recusado.
 
 **Conteúdo.** `ModelExchange(request_id, role, provider, model, messages, output)`, emitido pela 006 logo depois do

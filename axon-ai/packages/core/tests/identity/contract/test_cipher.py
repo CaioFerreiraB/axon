@@ -27,7 +27,7 @@ def test_chave_mestra_errada_falha_sem_vazar_o_texto() -> None:
 def test_subchave_de_outro_modulo_nao_abre() -> None:
     sealed = AesGcmCipher(MASTER_KEY).seal(b"segredo")
     with pytest.raises(SealError):
-        AesGcmCipher(MASTER_KEY, info=b"ai-core/observability/v1").open(sealed)
+        AesGcmCipher(MASTER_KEY, info=b"axon-ai/observability/v1").open(sealed)
 
 
 @pytest.mark.parametrize("tamper", [lambda s: s[:-1] + bytes([s[-1] ^ 1]), lambda s: b"\x02" + s[1:], lambda s: s[:10]])

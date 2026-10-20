@@ -130,3 +130,43 @@ async def test_saude_dos_destinos(stores: Stores) -> None:
     )
     (langfuse,) = service.health()
     assert langfuse.state == "ok"
+
+
+# --- Identidade Axon (US8; ADR-037, research R40 a R42) ---------------------------------------------------------------
+
+
+def test_o_rotulo_da_subchave_e_o_da_marca() -> None:
+    from axon_ai.observability.adapters.cipher import INFO
+
+    assert INFO == b"axon-ai/observability/v1"
+
+
+@pytest.mark.us8
+async def test_segredo_selado_com_o_rotulo_antigo_nao_abre_e_regravar_devolve_o_destino(stores: Stores) -> None:
+    antigo = DestinationService(
+        store=stores.settings,
+        cipher=AesGcmCipher(MASTER_KEY, info=b"ai-core/observability/v1"),
+        installation=InstallationDestinations(),
+        transport=RecordingLangfuseTransport(),
+        langfuse=None,
+        usage=None,
+        clock=MovingClock(),
+    )
+    await antigo.start()
+    await antigo.set_langfuse(
+        enabled=True,
+        host="https://lf.exemplo.org",
+        public_key="pk",
+        secret_key="sk-antigo",
+        actor="user:root",
+        version=0,
+    )
+    service, transport, destination = await _service(stores)
+    assert not destination.enabled and transport.credentials is None
+    (langfuse,) = service.health()
+    assert langfuse.last_error is not None and "não abre" in langfuse.last_error
+    view = await service.settings()
+    await service.set_langfuse(secret_key="sk-novo", actor="user:root", version=view.version)
+    assert destination.enabled and transport.credentials is not None and transport.credentials.secret_key == "sk-novo"
+    (langfuse,) = service.health()
+    assert langfuse.last_error is None

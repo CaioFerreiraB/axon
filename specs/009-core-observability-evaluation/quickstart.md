@@ -184,3 +184,22 @@ Pack `scouting` 0.2.0 com o índice real (413 trechos) num Qdrant local, e5 em O
 Duração: 1 min 43 s com o juiz (9 julgamentos). **Projeção (SC-002)**: depois do aquecimento, cerca de 24 s por item
 com juiz → 50 perguntas em ~20 min, dentro dos 30 min; sem juiz, menos.
 
+
+---
+
+## Fase 9, incremento 9.5 (2026-10-20): US8 — o serviço `axon` e o rótulo do selo
+
+A partir de `axon-ai/`, com `XDG_DATA_HOME=$HOME/.local/share` nesta máquina. Decisões em [research.md](research.md)
+R39–R42.
+
+```bash
+uv run pytest packages/core/tests/observability -m us8 -v
+uv run pytest packages/core/tests/observability packages/core/tests/identity/contract/test_cipher.py -q
+```
+
+**Esperado**: verde — os spans exportados têm o serviço e o escopo `axon`; um segredo selado com o rótulo antigo deixa o
+destino da console sem credencial e o item `langfuse` da saúde com "o segredo gravado não abre"; regravar o segredo
+devolve o destino, sem restart; a subchave da 009 e a da identidade não abrem o selo uma da outra.
+
+Num ambiente local que já tinha o segredo do Langfuse gravado pela console: na tela de observabilidade, gravar a chave
+secreta de novo; a saúde (`axon health` ou a console) deixa de mostrar o erro do segredo.
