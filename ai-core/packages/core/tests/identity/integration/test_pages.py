@@ -31,12 +31,26 @@ async def test_cabecalhos_de_seguranca(http: httpx.AsyncClient) -> None:
     response = await _login_page(http)
     csp = response.headers["content-security-policy"]
     assert "default-src 'none'" in csp and "style-src 'self'" in csp and "frame-ancestors 'none'" in csp
+    assert "font-src 'self'" in csp
     form_action = re.search(r"form-action ([^;]+)", csp)
     assert form_action is not None
     assert form_action.group(1).split() == ["'self'", "http://localhost:3000", "http://localhost:8080"]
     assert response.headers["x-content-type-options"] == "nosniff"
-    assert response.headers["referrer-policy"] == "no-referrer"
+    assert response.headers["referrer-policy"] == "same-origin"
     assert response.headers["cache-control"] == "no-store"
+
+
+async def test_fonte_do_desenho_servida_pela_propria_pagina(http: httpx.AsyncClient) -> None:
+    """Mona Sans (OFL) nos quatro pesos, sem terceiros — a CSP só aceita fonte da própria origem (R18)."""
+    css_href = re.search(r'href="(/oauth2/assets/identity\.[0-9a-f]{12}\.css)"', (await _login_page(http)).text)
+    assert css_href is not None
+    css = (await http.get(css_href.group(1))).text
+    for weight in (400, 500, 600, 700):
+        assert f'url("mona-sans-{weight}.woff2")' in css
+        font = await http.get(f"/oauth2/assets/mona-sans-{weight}.woff2")
+        assert font.status_code == 200 and font.headers["content-type"] == "font/woff2"
+        assert font.content[:4] == b"wOF2"
+    assert (await http.get("/oauth2/assets/OFL.txt")).status_code == 404
 
 
 async def test_css_com_hash_e_cache_longo(http: httpx.AsyncClient) -> None:

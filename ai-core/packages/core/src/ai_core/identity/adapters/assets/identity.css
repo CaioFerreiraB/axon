@@ -2,6 +2,38 @@
    "Login e conta"), os mesmos da console (013): neutros de grafite, um azul de ação, estados em verde e vermelho, fios
    de 1px, raio 6 e 8. Celular primeiro; tema escuro por prefers-color-scheme. Sem script. */
 
+@font-face {
+  font-family: "Mona Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("mona-sans-400.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Mona Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("mona-sans-500.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Mona Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("mona-sans-600.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Mona Sans";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("mona-sans-700.woff2") format("woff2");
+}
+
 :root {
   color-scheme: light dark;
   --fundo-base: #ffffff;
@@ -16,6 +48,7 @@
   --acao-base: #2563eb;
   --acao-hover: #1d4ed8;
   --acao-texto: #1d4ed8;
+  --acao-sutil: #eff4ff;
   --ok-texto: #15803d;
   --ok-fundo: #ecfdf3;
   --erro-texto: #c42b2b;
@@ -41,6 +74,7 @@
     --acao-base: #2563eb;
     --acao-hover: #3b82f6;
     --acao-texto: #93b4fb;
+    --acao-sutil: #13213d;
     --ok-texto: #4cc38a;
     --ok-fundo: #0f2a1c;
     --erro-texto: #f87171;
@@ -70,6 +104,12 @@ body {
   font-size: 0.875rem;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  caret-color: var(--acao-base);
+}
+
+::selection {
+  background: var(--acao-sutil);
+  color: var(--texto-primario);
 }
 
 .shell {
@@ -137,6 +177,8 @@ h2 {
   margin: 1.75rem 0 0.75rem;
   font-size: 1rem;
   font-weight: 600;
+  /* O espaço da Mona Sans em 600 é estreito nos títulos pequenos (o mesmo ajuste da console). */
+  word-spacing: 0.06em;
 }
 
 .lead {

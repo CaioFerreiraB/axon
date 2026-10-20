@@ -203,3 +203,23 @@ cria o grupo antes de cadastrar quem entra nele), e `ai-core identity keys rotat
 - **Rationale**: uma passada por módulo (princípio II); a suíte de protocolo roda com o router montado num app de teste,
   sem a 011.
 - **Alternatives considered**: implementar o encaixe aqui (violaria a fronteira).
+
+## R18 — `Referrer-Policy: same-origin` nas páginas (2026-10-14, achado do e2e da console)
+
+- **Decision**: as páginas e redirecionamentos da 012 mandam `Referrer-Policy: same-origin`, não `no-referrer`. O
+  `origin_ok` continua recusando `Origin` diferente da origem pública ou da de chegada — inclusive `null`.
+- **Rationale**: pela especificação do Fetch, com `no-referrer` o navegador serializa a origem de um POST de navegação
+  como `null`, mesmo de mesma origem; o Chromium faz exatamente isso, e o login pelo formulário era recusado ("Não foi
+  possível conferir o formulário"). A prova da 9.1 não pegou porque o `check-webui.py` usa `urllib`, que não manda
+  `Origin`. Com `same-origin`, o `Origin` volta correto e nenhum referenciador sai para outro site.
+- **Alternatives considered**: aceitar `Origin: null` e confiar só no token sincronizador (enfraquece a defesa em
+  profundidade contra formulários de outros sites).
+
+## R19 — Mona Sans servida pela própria página (2026-10-14, achado do e2e da console)
+
+- **Decision**: os quatro pesos da Mona Sans (latino, woff2, SIL OFL 1.1 em `assets/fonts/OFL.txt`) vão no pacote da
+  012 e saem por `/oauth2/assets/mona-sans-<peso>.woff2`; o CSS os declara com `@font-face` por URL relativa, e a CSP
+  das páginas ganha `font-src 'self'`.
+- **Rationale**: o CSS do desenho aprovado declarava a Mona Sans sem servi-la, e as páginas caíam na fonte do sistema;
+  servir da própria origem mantém a CSP sem terceiros e o visual igual ao da console.
+- **Alternatives considered**: fonte do sistema (diverge do desenho); Google Fonts (terceiro, privacidade, CSP).

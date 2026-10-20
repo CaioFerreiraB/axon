@@ -116,7 +116,7 @@ válida.
 `Content-Security-Policy: default-src 'none'; style-src 'self'; img-src 'self' data:; form-action 'self' <origens dos redirect_uris dos clientes>; frame-ancestors 'none'; base-uri 'none'`
 (as origens vêm do `identity.yaml` no boot; sem elas, o navegador bloquearia o redirecionamento que segue o POST do
 login — research R5),
-`X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`.
+`X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin` (com `no-referrer`, o Chromium manda `Origin: null` no POST do próprio formulário — research R18).
 
 ## Suíte de protocolo (`tests/identity/integration/test_protocol.py`)
 

@@ -40,6 +40,8 @@ FORM_LIMIT: Final = 16 * 1024
 """Teto do corpo dos formulários do provedor (R4)."""
 
 STYLESHEET: Final = Path(__file__).parent / "assets" / "identity.css"
+FONTS: Final = Path(__file__).parent / "assets" / "fonts"
+"""Mona Sans (SIL OFL 1.1, `fonts/OFL.txt`), a fonte do desenho aprovado, servida pela própria página: sem terceiros."""
 
 type Network = ipaddress.IPv4Network | ipaddress.IPv6Network
 
@@ -68,7 +70,7 @@ class IdentityHttpSettings:
 
 _COMMON_HEADERS: Final = {
     "X-Content-Type-Options": "nosniff",
-    "Referrer-Policy": "no-referrer",
+    "Referrer-Policy": "same-origin",
 }
 
 
@@ -79,6 +81,7 @@ class _Http:
         self.service = service
         self.settings = settings
         self.css = STYLESHEET.read_bytes()
+        self.fonts = {path.name: path.read_bytes() for path in FONTS.glob("*.woff2")}
         self.css_name = f"identity.{hashlib.sha256(self.css).hexdigest()[:12]}.css"
         self.brand = pages.Brand(
             name=settings.display_name.strip() or pages.DEFAULT_NAME,
@@ -89,7 +92,8 @@ class _Http:
         self.public_origin = f"{public.scheme}://{public.netloc}"
         origins = " ".join(origin for origin in redirect_origins(tuple(service.clients.values())))
         self.csp = (
-            f"default-src 'none'; style-src 'self'; img-src 'self' data:; form-action 'self' {origins}".rstrip()
+            "default-src 'none'; style-src 'self'; font-src 'self'; img-src 'self' data:; "
+            + f"form-action 'self' {origins}".rstrip()
             + "; frame-ancestors 'none'; base-uri 'none'"
         )
 
@@ -359,6 +363,12 @@ def router(service: IdentityService, settings: IdentityHttpSettings | None = Non
                 http.css,
                 media_type="text/css; charset=utf-8",
                 headers={**_COMMON_HEADERS, "Cache-Control": "public, max-age=31536000, immutable"},
+            )
+        if name in http.fonts:
+            return Response(
+                http.fonts[name],
+                media_type="font/woff2",
+                headers={**_COMMON_HEADERS, "Cache-Control": "public, max-age=604800"},
             )
         if name == "logo" and http.settings.logo is not None:
             content, media_type = http.settings.logo
