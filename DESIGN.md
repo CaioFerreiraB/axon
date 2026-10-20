@@ -1,15 +1,15 @@
 ---
-name: Agentic — console de administração e login
-description: Console de administração (spec 013) e páginas de login e "Minha conta" (spec 012) da plataforma ai-core, no padrão da categoria.
+name: Axon — console de administração e login
+description: Console de administração (spec 013) e páginas de login e "Minha conta" (spec 012) da plataforma Axon, no padrão da categoria.
 colors:
   fundo-base: "#ffffff"
-  fundo-sutil: "#fafafa"
-  fundo-realce: "#f4f4f5"
-  borda-base: "#e8e8ea"
-  borda-forte: "#d4d4d8"
-  texto-primario: "#18181b"
-  texto-secundario: "#5f5f66"
-  texto-terciario: "#74747c"
+  fundo-sutil: "#f8fafc"
+  fundo-realce: "#f1f5f9"
+  borda-base: "#e5e7eb"
+  borda-forte: "#d1d5db"
+  texto-primario: "#111827"
+  texto-secundario: "#556070"
+  texto-terciario: "#666d7c"
   texto-sobre-acao: "#ffffff"
   acao-base: "#2563eb"
   acao-hover: "#1d4ed8"
@@ -29,16 +29,16 @@ colors:
   serie-3: "#1baf7a"
   serie-4: "#eda100"
   foco: "#2563eb"
-  fundo-base-escuro: "#0a0a0b"
-  fundo-sutil-escuro: "#111113"
-  fundo-realce-escuro: "#1a1a1d"
-  borda-base-escuro: "#26262a"
-  borda-forte-escuro: "#34343a"
-  texto-primario-escuro: "#ededef"
-  texto-secundario-escuro: "#a0a0a8"
-  texto-terciario-escuro: "#8a8a93"
-  acao-hover-escuro: "#3b82f6"
-  acao-sutil-escuro: "#13213d"
+  fundo-base-escuro: "#0b0f19"
+  fundo-sutil-escuro: "#111724"
+  fundo-realce-escuro: "#1a2130"
+  borda-base-escuro: "#242b3a"
+  borda-forte-escuro: "#353d4f"
+  texto-primario-escuro: "#f1f3f7"
+  texto-secundario-escuro: "#a3abbb"
+  texto-terciario-escuro: "#8c94a6"
+  acao-hover-escuro: "#3882f6"
+  acao-sutil-escuro: "#14223f"
   acao-texto-escuro: "#93b4fb"
   estado-ok-texto-escuro: "#4cc38a"
   estado-ok-fundo-escuro: "#0f2a1c"
@@ -243,29 +243,39 @@ components:
     backgroundColor: "{colors.acao-base}"
 ---
 
-# Design System: Agentic — console de administração e login
+# Design System: Axon — console de administração e login
 
 ## Overview
 
 **Creative North Star: "O padrão da categoria, bem-acabado"**
 
-A console e as páginas de login são ferramentas de operador no acabamento que se espera de Vercel e Linear: neutros de grafite sobre branco (no escuro, quase preto com cinzas frios), um único azul de ação e verde, âmbar e vermelho só para estado. A convenção é o compromisso. Nada de enfeite de outro mundo, nada de painel SaaS genérico de cartões de métrica com ícone e gradiente, nada de frieza de terminal.
+A console e as páginas de login são ferramentas de operador no acabamento que se espera de Vercel e Linear: neutros frios da marca Axon sobre branco (no escuro, o `axon-night` com cinzas azulados), um único azul de ação e verde, âmbar e vermelho só para estado. A convenção é o compromisso. Nada de enfeite de outro mundo, nada de painel SaaS genérico de cartões de métrica com ícone e gradiente, nada de frieza de terminal.
 
 A densidade é de ferramenta de trabalho: corpo em 14px, linhas de tabela de 48px, controles de 32px, página com 32–40px de respiro. A profundidade vem de fios de 1px e de três tons de fundo, não de sombra. A tipografia é uma sans só, Mona Sans, com JetBrains Mono restrita a identificadores. Um admin lê `openrouter/openai/gpt-4.1-mini` e sabe que é um valor literal que a plataforma aceita.
 
-O login e "Minha conta" (HTML do servidor, sem script) usam os mesmos valores, com celular primeiro: alvos de 44px, campo de 16px para o navegador não dar zoom e cartão com fio só a partir de 640px. A marca visível é sempre a da instalação (nome e logotipo opcionais, ou a inicial num quadrado de grafite), nunca a de um domínio.
+O login e "Minha conta" (HTML do servidor, sem script) usam os mesmos valores, com celular primeiro: alvos de 44px, campo de 16px para o navegador não dar zoom e cartão com fio só a partir de 640px. Sem marca da instalação, aparece o lockup Axon; com nome ou logotipo da instalação, eles ocupam o lugar principal e o Axon fica só no rodapé (ver Brand). Nunca a marca de um domínio.
 
 **Key Characteristics:**
-- Neutros de grafite, um azul de ação, três cores de estado e quatro cores de série de dados.
+- Neutros frios da marca, um azul de ação, três cores de estado e quatro cores de série de dados.
 - Mona Sans 400–700 em tudo; JetBrains Mono só em identificadores.
 - Fios de 1px, sem sombra; sombra só no que flutua.
 - Raio de 6px nos controles e de 8px nos painéis.
 - Temas claro e escuro com os mesmos nomes de token.
 - Todo estado de tela é desenhado: vazio, carregando, erro, travado, definido na instalação, acesso negado.
 
+## Brand
+
+O símbolo e o lockup são os de `brand-kit/svg/` (ADR-038), vetorizados do quadro de marca do mantenedor: três terminais, braços grossos e uma base que some atrás do braço esquerdo. **O degradê e o esmaecimento fazem parte do símbolo** e não viram token de interface. Sobre fundo escuro a rampa vai de `#5070FA` a `#C9D3FB`, e sobre fundo claro de `#396EF9` a `#7A91FC`. O wordmark `axon` é geométrico e não depende de fonte.
+
+- **Lugar principal:** barra lateral da console (símbolo de 32px, wordmark de 12px e a legenda "Console" abaixo), cabeçalho do cartão de login e de "Minha conta" (símbolo de 28px e wordmark de 14px) e cartão de acesso negado.
+- **Com marca da instalação:** nome e logotipo dela ocupam o lugar principal, e o rodapé do login e da barra lateral leva o símbolo de 16px e "com Axon" em caption terciário.
+- **Lockup:** símbolo com 1,85× a altura de x, centrado nela, e vão de 0,45× a altura de x. Largura mínima de 96px; abaixo disso, só o símbolo.
+- **Favicon:** ladrilho `#0B0F19` com o símbolo, sem esmaecimento, legível a 16px. É sempre o do Axon, mesmo com marca da instalação.
+- **Embutido em linha:** cada instância precisa de ids únicos para o degradê e a máscara (`useId` na console).
+
 ## Colors
 
-Paleta de grafite com um azul de ação. A cor existe para dizer "aja aqui" ou "isto está bem, em atenção ou com erro", e para mais nada.
+Paleta de neutros frios (a família ink, slate, line e mist do Axon) com um azul de ação. A cor existe para dizer "aja aqui" ou "isto está bem, em atenção ou com erro", e para mais nada.
 
 ### Primary
 - **Azul de ação** (`acao-base`): botão primário, interruptor ligado, caixa marcada, cursor de texto, anel de foco no claro. No escuro o valor de fundo continua o mesmo (texto branco a 5,2:1), e só o hover clareia (`acao-hover-escuro`).
@@ -400,7 +410,7 @@ Faixa de 8px de raio, ícone de 16px, título em 500 e texto em body-sm, nos ton
 - **Vazio:** título em 500 e texto secundário de até 52ch, centrados, com ação opcional.
 - **Carregando:** esqueleto em fundo realce, pulsando a 1,6s (parado com movimento reduzido), na forma do conteúdo.
 - **Erro:** aviso de erro com o motivo da API e o botão "Tentar de novo".
-- **Acesso negado:** cartão centrado sobre o fundo sutil, com a marca da instalação, o título "Sua conta não tem acesso à console" e a ação "Sair".
+- **Acesso negado:** cartão centrado sobre o fundo sutil, com a marca (lockup Axon ou a da instalação), o título "Sua conta não tem acesso à console" e a ação "Sair".
 - **Definido na instalação** e **Só muda por novo deploy:** sempre com cadeado, nunca só com texto.
 
 ### Gráfico de custo por dia (componente assinatura)
@@ -432,4 +442,5 @@ Barras empilhadas em SVG próprio.
 - **Don't** usar cartões de métrica com ícone, gradiente ou cor decorativa: a faixa de números é uma tabela de uma linha, com fios.
 - **Don't** gerar cor de série além das quatro validadas; o excedente vira "Outros".
 - **Don't** usar `select` para referência de modelo.
-- **Don't** pôr marca, termo ou imagem de domínio na console ou no login; a marca é só a da instalação.
+- **Don't** pôr marca, termo ou imagem de domínio na console ou no login. A marca é o Axon ou a da instalação (ADR-038).
+- **Don't** redesenhar, recolorir, achatar ou tirar o esmaecimento do símbolo; use os arquivos de `brand-kit/svg/`.

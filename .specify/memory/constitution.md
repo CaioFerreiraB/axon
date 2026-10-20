@@ -1,39 +1,41 @@
 <!--
 Sync Impact Report
-- Version change: 1.2.0 → 1.3.0 (MINOR: orientação materialmente ampliada — componentes novos na
-  tabela de stack e no vocabulário; nenhum princípio removido nem redefinido)
-- Origem: ADRs 029–034, aceitos em 2026-10-13 (console de administração própria; a plataforma é o
-  provedor de identidade; superfície de administração; sobreposição de Assistants de sistema;
-  segredos de runtime cifrados; trace com destinos e conteúdo opcional)
+- Version change: 1.3.0 → 1.3.1 (PATCH: redação — nomes da plataforma e nomes técnicos; nenhum
+  princípio removido, acrescentado nem redefinido)
+- Origem: ADR-037 (a plataforma se chama Axon, e os nomes técnicos seguem a marca) e ADR-038 (a
+  marca da plataforma é Axon; a da instalação ocupa o lugar principal), aceitos em 2026-10-20
 - Princípios modificados (títulos inalterados):
-  - VI. Conteúdo externo é não-confiável — novo item: segredo configurado em runtime é cifrado com a
-    chave mestra da instalação, nunca devolvido pela API, e a variável de ambiente prevalece (ADR-033)
-  - XI. API independente da interface; streaming desde o início — o primeiro item passa a cobrir
-    Open WebUI e a console: nenhuma lógica de agente nem regra de negócio na interface; toda tela da
-    console tem equivalente na API (ADR-029)
+  - I. Núcleo agnóstico de domínio — `ai-core` → `axon-ai`; esclarece que a marca da plataforma
+    (Axon) não é marca de domínio
+  - II. Módulos substituíveis por seams — `ai-core-contracts` → `axon-ai-contracts`, `ai-generic` →
+    `axon-generic`, `ai-scouting` → `axon-scouting`
+  - XIII. Portas e adapters por módulo — `ai-core-contracts` → `axon-ai-contracts`
 - Seções modificadas:
-  - Vocabulário normativo — termos novos "Console" e "Sobreposição"
-  - Stack e restrições técnicas — linha "Interface" (Open WebUI para chat + console opcional), linha
-    nova "Identidade" (provedor OIDC da plataforma, ADR-030), linha de PostgreSQL passa a citar
-    contas, sobreposições e uso
+  - Título — "Plataforma Agentic AI Constitution" → "Axon Constitution"
+  - Stack e restrições técnicas — grupo de entry point `axon.packs`, contratos `axon-ai-contracts`
+    (faixa do exemplo `>=0.2,<0.3`), composition root em `axon_ai/bootstrap/`, `axon packs check`;
+    repositórios `axon` (workspace `axon-ai`), `axon-scouting`, `axon-deploy`
+  - Organização do SDD — blocos `0xx` = repositório `axon`, `1xx` = `axon-scouting`
 - Seções removidas: nenhuma
-- Templates: nenhum ajuste necessário (.specify/templates/overrides/* não citam interface, identidade
-  nem segredos de runtime)
-- Artefatos afetados fora da constituição: specs/README.md (tabela "fora de escopo": a linha da
-  interface passa a valer para as duas interfaces; módulos 012 e 013) e docs/roadmap.md (Fase 9) —
-  ajustados na mesma sessão, fora deste comando
+- Inalterado de propósito: o flow `agentic` (termo técnico do motor, ADR-037 item 5)
+- Templates: .specify/templates/overrides/{spec,plan}-template.md citam `agentic-app` — ajuste
+  pendente, fora deste comando (fechamento do renome, ADR-037)
+- Artefatos afetados fora da constituição: CLAUDE.md, specs/README.md, docs/roadmap.md e as specs
+  (passadas do ADR-037) — fora deste comando
 - TODOs: nenhum.
 -->
 
-# Plataforma Agentic AI Constitution
+# Axon Constitution
 
 ## Core Principles
 
 ### I. Núcleo agnóstico de domínio
 
-- O `ai-core` NÃO DEVE conhecer escotismo, finanças ou qualquer outro domínio. Nenhum nome,
+- O `axon-ai` NÃO DEVE conhecer escotismo, finanças ou qualquer outro domínio. Nenhum nome,
   regra, léxico ou prompt de domínio pode aparecer no código ou nas specs do core (exemplos
   ilustrativos em specs são permitidos quando marcados como tal).
+- A marca da plataforma (Axon) não é marca de domínio: o core, a console e as páginas de login a
+  mostram por padrão, e a marca da instalação ocupa o lugar principal quando existe (ADR-038).
 - Todo conhecimento de domínio vive em Capability Packs. RAG de domínio pertence ao pack dono do
   domínio; o core fornece apenas o contrato.
 - Adicionar um pack ou um Assistant NÃO DEVE exigir modificação no core.
@@ -51,15 +53,15 @@ impede reescrever packs sem tocar no core.
   de nós, campos de estado interno, tabelas, classes privadas.
 - Reescrever um módulo que preserva seus seams NÃO DEVE exigir mudança em nenhuma outra spec
   nem em outro módulo. Mudar um seam exige ADR e lista explícita das specs consumidoras afetadas.
-- Os contratos de pack (`ai-core-contracts`) são independentes do motor de execução: não expõem
+- Os contratos de pack (`axon-ai-contracts`) são independentes do motor de execução: não expõem
   tipos do framework de grafo, de HTTP ou de armazenamento (ADR-011, aceito).
 - O estado interno do motor de execução é privado do core; packs enxergam apenas a visão estável
   definida nos contratos (ADR-011, aceito).
 - Fronteiras de import são verificadas no CI (import-linter) em todo repositório: contratos não
-  importam nada do projeto; packs importam apenas contratos; core e `ai-generic` não se importam;
+  importam nada do projeto; packs importam apenas contratos; core e `axon-generic` não se importam;
   um módulo do core importa de outro apenas o `api.py` (princípio XIII).
 
-**Por quê:** o mantenedor pretende reescrever por completo o `ai-scouting` e o grafo do `ai-core`
+**Por quê:** o mantenedor pretende reescrever por completo o `axon-scouting` e o grafo do `axon-ai`
 em breve; isso só é barato se cada um estiver atrás de seams estáveis.
 
 ### III. O core orquestra; packs fornecem capacidades
@@ -160,7 +162,7 @@ em breve; isso só é barato se cada um estiver atrás de seams estáveis.
 ### XIII. Portas e adapters por módulo
 
 - A arquitetura tem um estilo nomeado por escala (ADR-012): o **sistema** é um microkernel (o core
-  é o kernel dono do fluxo; packs e servidores MCP são plug-ins; `ai-core-contracts` é o contrato
+  é o kernel dono do fluxo; packs e servidores MCP são plug-ins; `axon-ai-contracts` é o contrato
   de plug-in); a **organização** do core é um monolito modular (um processo, uma imagem, módulos
   com seams); cada **módulo** é hexagonal, com as políticas determinísticas no centro (núcleo
   funcional).
@@ -235,20 +237,21 @@ Decisões pré-aprovadas. Um plano que diverge delas precisa de ADR.
 | Registries, histórico, auditoria, contas, sobreposições, uso | PostgreSQL — adapters das portas de armazenamento de cada módulo |
 | Interface | Open WebUI (chat, via compat OpenAI) · console de administração própria (SPA React + TypeScript, opcional na instalação; ADR-029) |
 | Identidade | Provedor OIDC da própria plataforma (módulo 012): contas locais com senha argon2id e login Google só para usuários cadastrados; a 003 verifica o JWT localmente (ADR-030) |
-| Packs | Distribuições Python descobertas por entry point `ai_core.packs` |
-| Contratos | `ai-core-contracts`, semver próprio com convenção 0.x deslocada (ADR-014), apenas stdlib + `typing_extensions` |
-| Composição | Composition root na spec 011 (`ai_core/bootstrap/`); num pack, o `pack.py` |
+| Packs | Distribuições Python descobertas por entry point `axon.packs` |
+| Contratos | `axon-ai-contracts`, semver próprio com convenção 0.x deslocada (ADR-014), apenas stdlib + `typing_extensions` |
+| Composição | Composition root na spec 011 (`axon_ai/bootstrap/`); num pack, o `pack.py` |
 | Repositório do core | uv workspace (`contracts`, `core`, `generic`) + import-linter (fronteiras entre distribuições, `api.py` entre módulos, camadas dentro do módulo) |
-| Deploy | Imagem Docker com lista de packs por build-arg; `ai-core packs check` no build |
+| Deploy | Imagem Docker com lista de packs por build-arg; `axon packs check` no build |
 
 Restrições de ambiente:
 
 - Hardware alvo: 2 OCPU · 12 GB RAM · ARM64 · sem GPU. Expectativa: 5–15 tokens/s com modelo
   local de ~1.7B; tool calling nesse porte é nominal, não confiável.
-- Repositórios: `ai-core` (contratos + core + pack genérico), um repositório por pack de domínio
-  (`ai-scouting`, …) e um repositório de instalação por deploy. Packs dependem de
-  `ai-core-contracts` por faixa semver (`>=0.1,<0.2`), nunca de `ai-core`.
-- Versionamento (ADR-014): semver em `ai-core-contracts` com a convenção 0.x deslocada —
+- Repositórios: `axon` (workspace `axon-ai`: contratos + core + pack genérico), um repositório
+  por pack de domínio (`axon-scouting`, …) e um repositório de instalação por deploy
+  (`axon-deploy`). Packs dependem de `axon-ai-contracts` por faixa semver (`>=0.2,<0.3`), nunca
+  de `axon-ai`.
+- Versionamento (ADR-014): semver em `axon-ai-contracts` com a convenção 0.x deslocada —
   enquanto o major for 0, mudança aditiva sobe o patch e breaking sobe o minor; a partir de 1.0,
   aditiva sobe o minor e breaking sobe o major. A faixa do pack é derivada da `contract_version`
   (`0.N` → `>=0.N,<0.(N+1)`; `X.Y` → `>=X.Y,<(X+1)`). Janela de depreciação de uma série
@@ -258,8 +261,8 @@ Restrições de ambiente:
 
 ## Organização do SDD e fluxo de trabalho
 
-- **Blocos de numeração** em `specs/`: `0xx` = repositório `ai-core` (core, contratos, pack
-  genérico); `1xx` = `ai-scouting`; `2xx`+ = packs futuros. Specs novas são criadas no bloco do
+- **Blocos de numeração** em `specs/`: `0xx` = repositório `axon` (core, contratos, pack
+  genérico); `1xx` = `axon-scouting`; `2xx`+ = packs futuros. Specs novas são criadas no bloco do
   módulo dono.
 - Toda spec contém a seção **Module Boundary** (obrigatória pelo template do projeto), incluindo
   a linha de dependências de infraestrutura (via portas).
@@ -289,4 +292,4 @@ Restrições de ambiente:
 - Todo PR de implementação DEVE passar nas verificações de fronteira de import, na suíte de
   conformidade dos seams que o módulo expõe e nas suítes das portas secundárias que ele declara.
 
-**Version**: 1.3.0 | **Ratified**: 2026-09-10 | **Last Amended**: 2026-10-13
+**Version**: 1.3.1 | **Ratified**: 2026-09-10 | **Last Amended**: 2026-10-20

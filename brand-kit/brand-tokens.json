@@ -1,0 +1,25 @@
+{
+  "name": "Axon",
+  "tagline": "Design. Connect. Build.",
+  "colors": {
+    "axon-night": "#0B0F19",
+    "axon-blue": "#3882F6",
+    "axon-violet": "#8B5CF6",
+    "axon-ink": "#111827",
+    "axon-slate": "#64748B",
+    "axon-line": "#E5E7EB",
+    "axon-mist": "#F8FAFC",
+    "axon-white": "#FFFFFF"
+  },
+  "typography": {
+    "sans": "Inter, Geist Sans, system-ui, sans-serif",
+    "mono": "Geist Mono, JetBrains Mono, ui-monospace, monospace"
+  },
+  "principles": [
+    "workspace-first",
+    "clarity-before-decoration",
+    "visible-modularity",
+    "execution-feedback",
+    "controlled-density"
+  ]
+}

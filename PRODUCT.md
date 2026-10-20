@@ -22,7 +22,7 @@ core, sem script (spec 012). Escolha do mantenedor em 2026-10-13.
 
 ## Product Purpose
 
-Plataforma de agentes de IA modular: um núcleo genérico (`ai-core`) que orquestra Assistants — configurações que
+Axon, plataforma de agentes de IA modular: um núcleo genérico (`ai-core`) que orquestra Assistants — configurações que
 amarram flow, packs de capacidade, servidores MCP, modelos por papel, limites e ACL — e packs de domínio que trazem o
 conhecimento. A console de administração existe para que o operador aplique, sem deploy, o que o deploy permitir:
 modelos e MCPs de cada Assistant, contas e grupos, login Google, Langfuse, e acompanhe uso e custo por modelo e por
@@ -53,13 +53,15 @@ não tem regra própria — tudo o que ela faz existe na API de administração.
 - Idioma: português do Brasil; números e datas no formato brasileiro; dinheiro em USD.
 - Tema claro e escuro, seguindo o sistema, com troca manual na console; a página de login segue o sistema.
 - O núcleo é agnóstico de domínio: nenhuma marca, termo ou imagem de domínio no core, na console ou na página de login.
-- Nome exibido: definido pela instalação (com logotipo opcional); sem ele, um nome neutro da plataforma (provisório:
-  "Agentic").
+- Nome exibido: definido pela instalação (com logotipo opcional); sem ele, o lockup Axon. Com marca da instalação, o
+  Axon fica só no rodapé ("com Axon"); o favicon é sempre o do Axon (ADR-038).
 
 ## Brand Commitments
 
-Nenhuma identidade visual existente. A marca visível é a da instalação (nome e logotipo opcionais), nunca a de um
-domínio embutido no core.
+A plataforma se chama **Axon** ("Design. Connect. Build."; `brand-kit/`, ADR-037 e ADR-038). O símbolo e o lockup
+vêm de `brand-kit/svg/`, com o degradê e o esmaecimento da base como parte da marca. Sem marca da instalação, o Axon
+ocupa o lugar principal; com ela, nome e logotipo da instalação ficam no lugar principal e o Axon só no rodapé. Nunca
+a marca de um domínio embutido no core.
 
 Direção escolhida pelo mantenedor em 2026-10-13: **o padrão da categoria**, executado no nível de acabamento de
 **Vercel e Linear** (os produtos ao lado dos quais a console deve parecer à vontade). Convenção é o compromisso:

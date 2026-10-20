@@ -1,0 +1,21 @@
+:root {
+  --axon-night: #0B0F19;
+  --axon-blue: #3882F6;
+  --axon-violet: #8B5CF6;
+  --axon-ink: #111827;
+  --axon-slate: #64748B;
+  --axon-line: #E5E7EB;
+  --axon-mist: #F8FAFC;
+  --axon-white: #FFFFFF;
+
+  --brand-primary: var(--axon-blue);
+  --brand-accent: var(--axon-violet);
+  --brand-bg-dark: var(--axon-night);
+  --brand-bg-light: var(--axon-mist);
+  --brand-text-dark: var(--axon-ink);
+  --brand-text-light: var(--axon-white);
+  --brand-border-light: var(--axon-line);
+
+  --axon-font-sans: Inter, "Geist Sans", system-ui, sans-serif;
+  --axon-font-mono: "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
+}

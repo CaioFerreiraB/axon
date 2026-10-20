@@ -15,7 +15,7 @@ limitando `/speckit-tasks` e `/speckit-implement` às user stories da fase (ex.:
 | **6 — Avaliação** | **Antes de calibrar qualquer número do RAG** | 009 · US2, US3, US4 · 105 · US1–US5 |
 | **7 — Open WebUI** ✅ | Assistants aparecem como modelos | 008 · US6, US8 |
 | **8 — GraphRAG** | Retriever de grafo atrás do contrato existente | 106 (resolver a ontologia primeiro) |
-| **9 — Console e identidade própria** | Login da própria plataforma (senha e Google) no lugar do Keycloak e administração gráfica do que o deploy permitir: modelos e MCPs por Assistant, uso e custo, Langfuse, ajustes de login | 012 · todas · 013 · todas · 003 · US9, US10 · 009 · US5–US7 · 006 · toque `model_exchange` · 008 · US9 · 011 · US6 · 002 · US7 |
+| **9 — Console e identidade própria** | Login da própria plataforma (senha e Google) no lugar do Keycloak e administração gráfica do que o deploy permitir: modelos e MCPs por Assistant, uso e custo, Langfuse, ajustes de login | 012 · todas · 013 · todas · 003 · US9, US10 · 009 · US5–US7 · 006 · toque `model_exchange` · 008 · US9 · 011 · US6 · 002 · US7 · identidade Axon (incremento 9.5): US "Identidade Axon" em 001, 011, 010, 002, 003, 009, 008, 012, 013 e 101 |
 
 **Fase 1 concluída em 2026-09-21.** `ai-core serve` sobe a plataforma a partir de `packs.yaml` e `assistants.yaml`, e
 uma requisição no formato OpenAI atravessa API (008), motor (005), Pack Hooks (002) com o `ai-generic` (010) e Model
@@ -69,6 +69,15 @@ Assistants de sistema sob a flag `overrides` do YAML, segredos de runtime cifrad
 (a variável de ambiente prevalece), e um trace com destinos — uso e custo por dia para o dashboard, Langfuse, e o texto
 de prompt e resposta só quando ligado. A console (013) é uma SPA opcional na instalação. A Fase 8 (GraphRAG) não muda
 de número: as fases não são estritamente sequenciais.
+
+**Incremento 9.5, identidade Axon (2026-10-20).** ADR-037 e ADR-038 aceitos e constituição 1.3.1: a plataforma passa a
+se chamar Axon, e os nomes técnicos seguem a marca (`axon-ai`, `axon-ai-contracts`, `axon-generic`, `axon-scouting`,
+comando `axon`, `AXON_*`, `x-axon-*`, grupo `axon.packs`; repositórios `axon`, `axon-deploy`, `axon-scouting`), em corte
+seco. A marca Axon aparece por padrão, e a da instalação ocupa o lugar principal quando existe. Cada spec afetada
+ganha uma US "Identidade Axon" pelo spec-kit, nesta ordem: 001 → 011 → 010 → 002 → 003 → 009 → 008 → 012 → 013 →
+tags `contracts-v0.2.0` e `v0.7.0-rc1` → 101 → 002 (instalação). O símbolo é desenhado no Penpot e escolhido pelo
+mantenedor antes das passadas da 012 e da 013. As specs 004–007 e 102–106 mudam só nos nomes, dentro das passadas da
+011 e da 101.
 
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 
