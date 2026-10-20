@@ -64,7 +64,7 @@ def test_cenario_2_identidade_e_emissor_externo_juntos(tmp_path: Path) -> None:
         IDENTITY_ENABLED="true",
         PUBLIC_URL="http://localhost:8000",
         OIDC_ISSUER="https://idp.exemplo.org",
-        OIDC_AUDIENCE="ai-core",
+        OIDC_AUDIENCE="axon",
     )
     _failed_at_configuration(plataforma, "AXON_OIDC_ISSUER")
 
@@ -126,7 +126,7 @@ async def test_cenario_4_langfuse_fora_do_ar_nao_impede_o_boot_e_aparece_na_saud
 
 def test_cenario_5_suite_de_pack_encontra_o_admin_semeado_e_a_chave() -> None:
     assert profiles.TEST_ADMIN_USERNAME == "admin-teste" and profiles.TEST_ADMIN_PASSWORD
-    assert profiles.TEST_API_KEY.startswith("aic_")
+    assert profiles.TEST_API_KEY.startswith("axn_")
 
 
 async def test_o_test_nunca_sai_para_a_rede_no_langfuse(tmp_path: Path) -> None:
@@ -157,7 +157,7 @@ def test_chave_mestra_do_memory_e_uma_so_por_processo(tmp_path: Path) -> None:
     """O `memory` sem `AXON_MASTER_KEY` sorteia uma chave para todos os módulos que selam segredos (ADR-033)."""
     clients = tmp_path / "identity.yaml"
     clients.write_text(
-        "version: 1\nclients:\n  console:\n    type: public\n    audience: ai-core-admin\n"
+        "version: 1\nclients:\n  console:\n    type: public\n    audience: axon-admin\n"
         "    redirect_uris: [http://localhost:8080/callback]\n",
         encoding="utf-8",
     )

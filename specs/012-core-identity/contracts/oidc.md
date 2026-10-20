@@ -73,12 +73,12 @@ Erros no formato RFC 6749 (`invalid_request`, `invalid_client` 401, `invalid_gra
 ### Token de acesso (JWT RS256, `kid` no cabeçalho)
 
 ```json
-{"iss": "https://agentic.exemplo.org", "aud": "ai-core", "sub": "5f1c…", "preferred_username": "ana",
+{"iss": "https://agentic.exemplo.org", "aud": "axon", "sub": "5f1c…", "preferred_username": "ana",
  "groups": ["admin", "equipe"], "azp": "open-webui", "scope": "openid profile email groups",
  "iat": 1791945600, "exp": 1791946200}
 ```
 
-`aud` é a `audience` do cliente (`axon-ai` para o Open WebUI, `ai-core-admin` para a console — ADR-031).
+`aud` é a `audience` do cliente (`axon` para o Open WebUI, `axon-admin` para a console — ADR-031, ADR-037).
 
 ### Token de identidade
 

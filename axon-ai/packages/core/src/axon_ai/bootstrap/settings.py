@@ -17,7 +17,7 @@ from typing import Final
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from axon_ai.assistants.domain.keys import parse_key
+from axon_ai.assistants.domain.keys import KEY_PREFIX, parse_key
 from axon_ai.observability.api import InvalidField
 from axon_ai.observability.domain.settings import check_host
 
@@ -154,7 +154,7 @@ class Settings:
                     f"{PREFIX}DEV_API_KEY: não vale no perfil '{PERSISTENT_PROFILE}' — emita chaves com `axon keys`"
                 )
             if parse_key(self.dev_api_key) is None:
-                raise ConfigurationError(f"{PREFIX}DEV_API_KEY: precisa ter o formato aic_<16 hex>_<…>")
+                raise ConfigurationError(f"{PREFIX}DEV_API_KEY: precisa ter o formato {KEY_PREFIX}<16 hex>_<…>")
         if self.oidc_issuer and not self.oidc_audience:
             raise ConfigurationError(f"{PREFIX}OIDC_AUDIENCE: obrigatória quando {PREFIX}OIDC_ISSUER está definida")
         if self.conversation_retention_days < 1:

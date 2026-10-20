@@ -1,6 +1,6 @@
 # Contrato — API de administração (`/admin/v1`, Fase 9)
 
-Superfície `admin` (ADR-031): `Authorization: Bearer <token da console (aud ai-core-admin) | chave de API>`. Só o grupo
+Superfície `admin` (ADR-031): `Authorization: Bearer <token da console (aud axon-admin) | chave de API>`. Só o grupo
 de administração alcança; credencial inválida → `401`; autenticado fora do grupo → `404` em **toda** rota, igual a rota
 inexistente (FR-024). Toda resposta: `Cache-Control: no-store`, o identificador da requisição (FR-010) e nenhum valor de
 segredo (FR-027). Sem CORS (FR-028). A console (013) espelha estes formatos em esquemas `zod`.

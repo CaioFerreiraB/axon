@@ -141,7 +141,7 @@ async def test_login_por_senha_e_tokens_do_cliente_confidencial(
     header = jwt.get_unverified_header(token["access_token"])
     assert header["alg"] == "RS256" and header["kid"] == started.service.jwks()["keys"][0]["kid"]
     access = jwt.decode(token["access_token"], options={"verify_signature": False})
-    assert access["aud"] == "ai-core" and access["iss"] == ISSUER and access["sub"] == "id-ana"
+    assert access["aud"] == "axon" and access["iss"] == ISSUER and access["sub"] == "id-ana"
     assert access["groups"] == ["admin", "equipe"] and access["exp"] - access["iat"] == 600
     info = await http.get("/oauth2/userinfo", headers={"authorization": f"Bearer {token['access_token']}"})
     assert info.status_code == 200
@@ -294,7 +294,7 @@ async def test_console_com_pkce_pelo_authlib_e_audiencia_propria(started: Harnes
             f"{ISSUER}/oauth2/token", code=code, redirect_uri=CONSOLE_CALLBACK, code_verifier=verifier
         )
     access = jwt.decode(token["access_token"], options={"verify_signature": False})
-    assert access["aud"] == "ai-core-admin" and access["azp"] == "console"
+    assert access["aud"] == "axon-admin" and access["azp"] == "console"
     await _validated_id_token(http, token["id_token"], client_id=CONSOLE.id, nonce="nonce-console")
 
 

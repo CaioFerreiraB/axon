@@ -147,7 +147,7 @@ clients:
   {TEST_CHAT_CLIENT}:
     type: confidential
     secret: open_webui
-    audience: ai-core
+    audience: axon
     redirect_uris: [{TEST_CHAT_CALLBACK}]
 """,
         encoding="utf-8",

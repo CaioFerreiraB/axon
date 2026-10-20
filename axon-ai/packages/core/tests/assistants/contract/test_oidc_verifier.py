@@ -46,7 +46,7 @@ async def test_estatico_devolve_as_claims_do_token_conhecido_na_audiencia_certa(
     verifier = StaticOidcVerifier({"token-ana": claims("ana")})
     assert (await verifier.verify("token-ana", audience=AUDIENCE) or {}).get("sub") == "ana"
     assert await verifier.verify("outro", audience=AUDIENCE) is None
-    assert await verifier.verify("token-ana", audience="ai-core-admin") is None
+    assert await verifier.verify("token-ana", audience="axon-admin") is None
 
 
 async def test_desligado_recusa_tudo() -> None:
@@ -203,8 +203,8 @@ async def test_fonte_em_processo_acompanha_a_rotacao_sem_rede() -> None:
 async def test_audiencia_e_conferida_a_cada_chamada(key: SigningKey) -> None:
     verifier = JwksOidcVerifier(issuer=ISSUER, source=CallableJwksSource(lambda: {"keys": [key.jwk()]}))
     chat = key.sign(claims("ana"))
-    console = key.sign(claims("ana", aud="ai-core-admin"))
+    console = key.sign(claims("ana", aud="axon-admin"))
     assert await verifier.verify(chat, audience=AUDIENCE) is not None
-    assert await verifier.verify(chat, audience="ai-core-admin") is None
-    assert await verifier.verify(console, audience="ai-core-admin") is not None
+    assert await verifier.verify(chat, audience="axon-admin") is None
+    assert await verifier.verify(console, audience="axon-admin") is not None
     assert await verifier.verify(console, audience=AUDIENCE) is None

@@ -20,7 +20,7 @@ from axon_ai.assistants.domain.access import OidcAudiences
 
 pytestmark = pytest.mark.us9
 
-ADMIN_AUDIENCE = "ai-core-admin"
+ADMIN_AUDIENCE = "axon-admin"
 
 
 class Env:
@@ -84,7 +84,7 @@ async def test_cenario_4_chave_de_admin_vale_na_administracao_e_na_privada(env: 
     assert await env.authenticate(PUBLIC_SURFACE, issued.plaintext) is None
 
 
-@pytest.mark.parametrize("credential", ["", "lixo", "aic_0000000000000000_inventada", "a.b.c"])
+@pytest.mark.parametrize("credential", ["", "lixo", "axn_0000000000000000_inventada", "a.b.c"])
 async def test_credencial_invalida_nao_autentica(env: Env, credential: str) -> None:
     assert await env.authenticate(ADMIN_SURFACE, credential) is None
 

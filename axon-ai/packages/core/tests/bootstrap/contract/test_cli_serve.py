@@ -67,7 +67,7 @@ def test_serve_avisa_quando_o_memory_nao_tem_chave_nem_oidc(
 def test_serve_nao_avisa_com_chave_de_desenvolvimento_nem_imprime_segredo(
     ambiente: Path, monkeypatch: pytest.MonkeyPatch, server: FakeServer, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    chave = "aic_0123456789abcdef_segredo-dev"
+    chave = "axn_0123456789abcdef_segredo-dev"
     monkeypatch.setenv("AXON_PROFILE", "memory")
     monkeypatch.setenv("AXON_DEV_API_KEY", chave)
 

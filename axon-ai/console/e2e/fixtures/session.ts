@@ -6,7 +6,7 @@ import { expect, type APIRequestContext, type Page } from "@playwright/test";
 export const ADMIN = { username: "ana", password: "senha-da-ana-no-e2e", email: "ana@exemplo.org" };
 export const OUTSIDER = { username: "bia", password: "senha-da-bia-no-e2e", email: "bia@exemplo.org" };
 /** A chave de teste do perfil `test` (`axon_ai.bootstrap.profiles.TEST_API_KEY`), do grupo de administração. */
-export const TEST_API_KEY = "aic_7e57c0de00000001_chave-de-teste";
+export const TEST_API_KEY = "axn_7e57c0de00000001_chave-de-teste";
 
 export async function login(page: Page, path = "/uso", who: { username: string; password: string } = ADMIN) {
   await page.goto(path);

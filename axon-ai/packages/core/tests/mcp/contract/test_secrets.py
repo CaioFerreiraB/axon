@@ -21,7 +21,7 @@ def memory(values: Mapping[str, str]) -> SecretResolver:
 
 def environment(values: Mapping[str, str]) -> SecretResolver:
     env = {f"AXON_MCP_SECRET_{ref.upper()}": value for ref, value in values.items()}
-    env |= {"AXON_DATABASE_URL": "postgresql://u:senha@db/x", "PATH": "/usr/bin", "AXON_DEV_API_KEY": "aic_x"}
+    env |= {"AXON_DATABASE_URL": "postgresql://u:senha@db/x", "PATH": "/usr/bin", "AXON_DEV_API_KEY": "axn_x"}
     return EnvSecretResolver(env)
 
 

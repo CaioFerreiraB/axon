@@ -34,7 +34,7 @@ ponta a ponta pegam divergências.
 
 ## Autenticação
 
-- Cliente público `console` da 012, código + PKCE, audiência `ai-core-admin` (ADR-031).
+- Cliente público `console` da 012, código + PKCE, audiência `axon-admin` (ADR-031).
 - Tokens só em memória; ao recarregar a página, `signinRedirect` reaproveita a sessão do provedor e volta sem token
   guardado no navegador. Renovação silenciosa com o token de renovação rotativo.
 - `GET /admin/v1/me` com 404 → página "Sua conta não tem acesso à console"; 401 → renova ou refaz o login.

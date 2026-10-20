@@ -217,7 +217,7 @@ def test_keys_create_imprime_a_chave_e_avisa_que_o_perfil_nao_e_persistente(
     configurar()
     assert run(["keys", "create", "--subject", "user:caio", "--group", "admin", "--label", "notebook"], server) == 0
     saida = capsys.readouterr()
-    assert saida.out.strip().splitlines()[-1].startswith("aic_"), "a chave sai sozinha na última linha"
+    assert saida.out.strip().splitlines()[-1].startswith("axn_"), "a chave sai sozinha na última linha"
     assert "subject: user:caio" in saida.out and "notebook" in saida.out
     assert "não tem armazenamento persistente" in saida.err
 

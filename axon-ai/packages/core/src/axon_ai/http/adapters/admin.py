@@ -1,6 +1,6 @@
 """Superfície de administração `/admin/v1` (spec 008 US9; ADR-031; contracts/admin-api.md; research R43 a R49).
 
-Aceita o token da console (audiência `ai-core-admin`) ou uma chave de API — a 003 decide pela superfície `admin`. Só o
+Aceita o token da console (audiência `axon-admin`) ou uma chave de API — a 003 decide pela superfície `admin`. Só o
 grupo de administração alcança; credencial inválida é 401; autenticado fora do grupo recebe, em **toda** rota, o mesmo
 404 de uma rota inexistente — a rota final deste módulo autentica e devolve esse 404, para nenhuma rota se revelar.
 Toda resposta sai com `Cache-Control: no-store` e um `X-Request-Id` (o middleware do prefixo); nenhuma traz valor de

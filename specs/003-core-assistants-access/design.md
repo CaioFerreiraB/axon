@@ -110,8 +110,8 @@ Superfícies são poucas e estáveis; assistants crescem. Por isso a variável d
 
 - `Surface = "public" | "private" | "admin"`; `SCHEME_OF_SURFACE` vira `SCHEMES_OF_SURFACE: Mapping[Surface,
   frozenset[Scheme]]` = `{public: {oidc}, private: {api_key}, admin: {oidc, api_key}}`. Na administração, `parse_key()`
-  com o prefixo `aic_` → caminho de chave; senão, OIDC.
-- Audiência por superfície: `public` aceita a do chat (`axon-ai`), `admin` a da console (`ai-core-admin`); a 011 as
+  com o prefixo `axn_` (era `aic_`; ADR-037) → caminho de chave; senão, OIDC.
+- Audiência por superfície: `public` aceita a do chat (`axon`), `admin` a da console (`axon-admin`) — eram `ai-core` e `ai-core-admin` (ADR-037); a 011 as
   configura a partir dos clientes da 012.
 - `is_admin(principal, admin_group)` = `admin_group in principal.groups`, sem olhar o esquema.
 - O `JwksOidcVerifier` mantém a lógica e ganha uma fonte de chaves plugável (`JwksSource`): HTTP (descoberta ou

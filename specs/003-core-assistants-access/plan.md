@@ -374,3 +374,83 @@ ai-core/packages/core/src/ai_core/assistants/
 | 008 | Usar `SCHEMES_OF_SURFACE`; a superfície `admin` chama `authenticate(surface="admin", …)`; `SystemAssistantAdmin` para as rotas de Assistants; `RequestRejected` → 422 nomeando o campo, `Conflict` → 409 |
 | 011 | `OidcAudiences` a partir dos clientes da 012; `JwksOidcVerifier(source=CallableJwksSource(identity.jwks))` com a identidade ligada; `SystemOverrideStore` no perfil (memória/Postgres) e a migração `003`; saúde por `assistants.declared_models()` |
 | Operador | `overrides: [models, mcp]` por Assistant; sem a flag, nada muda pela console |
+
+---
+
+# Passada de 2026-10-20: identidade Axon (US11; [ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md))
+
+> As seções acima são os planos das passadas anteriores e ficam como foram executadas (ADR-037, item 6); os nomes
+> antigos nelas se leem pela tabela do ADR-037. Esta seção é o plano da US11.
+
+**Insumos lidos**: [spec.md](spec.md) (US11, FR-024–FR-027, SC-008, clarificações de 2026-10-20), [design.md](design.md),
+ADR-031 (a separação das audiências), ADR-037, constituição 1.3.1, a passada da 011 (perfil `test`, chave de
+desenvolvimento, clientes de exemplo da identidade). Research: R33–R37. **Sem divergência do `design.md`** além dos
+nomes; sem ADR novo.
+
+## Summary (US11)
+
+As audiências passam a `axon` e `axon-admin` (R33), e as chaves de API, ao prefixo `axn_` (R34), em corte seco e sem
+migração (R35). A 011 (credencial de teste, mensagens, clientes de exemplo), o e2e da console, os testes e os documentos
+vivos acompanham por lista fechada (R36); um teste novo prova os nomes novos e a recusa dos antigos (R37).
+
+## Technical Context (US11)
+
+- **Language/Version, dependências, storage**: sem mudança; sem migração.
+- **Testing**: um arquivo de contrato novo (`us11`), um caso novo em `test_keys.py`, literais trocados nas suítes; o e2e
+  da console com a chave e as audiências novas.
+- **Scale/Scope**: duas constantes de produção na 003 (`OidcAudiences`, `KEY_PREFIX`); na 011, três arquivos; ~25
+  arquivos de teste; 2 do e2e; ~12 documentos vivos.
+- Nenhum `NEEDS CLARIFICATION`.
+
+## Constitution Check (US11)
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| II. Módulos substituíveis por seams | ✅ | A forma do Principal, do Execution Grant e do `Authenticator` não muda; os nomes mudam por ADR, no módulo dono |
+| VII. Falha fechada e explícita | ✅ | Credencial antiga é não autenticada (401), como qualquer inválida; nada é aceito em silêncio (R35) |
+| ADR-031 (superfícies separadas) | ✅ | A separação de audiências continua: o token do chat não alcança a administração (cen. 3) |
+| XII. Simplicidade deliberada | ✅ | Sem janela de compatibilidade nem migração (R35) |
+| XIII. Portas e adapters | ✅ | Só `domain/` muda na 003; nenhuma porta nova |
+
+**Module boundary gate**: `axon_ai/assistants/domain/{access,keys}.py` e `tests/assistants/**`. Fora do módulo, só os
+consumidores que o ADR-037 (item 7) atribui a esta passada (R36): a composition root (011) nos três arquivos que
+carregam audiência ou formato de chave, duas docstrings (012, 008), testes que usam credenciais, o e2e da console e
+documentos vivos. Nenhum comportamento de outro módulo muda. **Ports & adapters gate**: sem mudança. **Resultado**: PASS.
+
+## Project Structure (US11)
+
+```text
+axon-ai/
+├── pyproject.toml                                   # marca us11
+├── console/e2e/{serve_platform.py,fixtures/session.ts}   # audiências e TEST_API_KEY (R36)
+└── packages/core/
+    ├── src/axon_ai/
+    │   ├── assistants/domain/access.py              # OidcAudiences("axon", "axon-admin") (R33)
+    │   ├── assistants/domain/keys.py                # KEY_PREFIX = "axn_" (R34)
+    │   ├── bootstrap/{identity,settings,profiles}.py   # clientes de exemplo, mensagens, TEST_API_KEY (R33, R34)
+    │   ├── identity/domain/tokens.py                # docstring (R36)
+    │   └── http/adapters/admin.py                   # docstring (R36)
+    └── tests/
+        ├── assistants/contract/test_credentials_axon.py   # novo (R37)
+        └── …                                        # literais de credencial e audiência (R36)
+```
+
+## Seam Notes for Consumers (US11)
+
+| Consumidor | O que muda para ele |
+|---|---|
+| 008 | Nada no código: a API repassa a credencial; os contratos citam `axn_…` e `axon-admin` |
+| 011 | `TEST_API_KEY` com valor novo; mensagens da chave de desenvolvimento pelo `KEY_PREFIX`; clientes de exemplo com as audiências novas |
+| 012 | Os clientes do `identity.yaml` declaram `audience: axon` / `axon-admin`; o provedor não muda |
+| 013 | O e2e usa a chave e as audiências novas; a console não conhece a audiência (o cliente `console` a recebe da 012) |
+| Suíte de pack externo | `TEST_API_KEY` começa com `axn_`; quem a importa não muda de código |
+| Instalação | Nada até a passada dela: o `identity.yaml` do deploy e a imagem continuam com a tag antiga |
+
+## Complexity Tracking (US11)
+
+Nenhuma linha nova.
+
+## Constitution Check — pós-design (US11)
+
+Reavaliado com [design.md](design.md), [data-model.md](data-model.md), [contracts/](contracts/) e
+[quickstart.md](quickstart.md) ("Fase 9, incremento 9.5"): **PASS**.

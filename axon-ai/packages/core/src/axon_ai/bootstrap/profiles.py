@@ -29,7 +29,7 @@ from axon_ai.assistants.adapters.memory import (
 from axon_ai.assistants.adapters.oidc import HttpJwksSource, JwksOidcVerifier
 from axon_ai.assistants.api import ApiKeyInfo
 from axon_ai.assistants.domain.access import OidcAudiences
-from axon_ai.assistants.domain.keys import ApiKeyRecord, hash_key, parse_key
+from axon_ai.assistants.domain.keys import KEY_PREFIX, ApiKeyRecord, hash_key, parse_key
 from axon_ai.bootstrap import observability as observability_parts
 from axon_ai.bootstrap.identity import TEST_ADMIN_PASSWORD as TEST_ADMIN_PASSWORD
 from axon_ai.bootstrap.identity import TEST_ADMIN_USERNAME as TEST_ADMIN_USERNAME
@@ -144,7 +144,7 @@ TEST_ADMIN_GROUP: Final = "admin"
 """Grupo da chave de teste. Administra quem declarar `api_keys: {admin_group: admin}` no `assistants.yaml`."""
 TEST_OIDC_TOKEN: Final = "token-oidc-de-teste"
 """Credencial da superfície pública (`/v1`): `Authorization: Bearer <TEST_OIDC_TOKEN>`."""
-TEST_API_KEY: Final = "aic_7e57c0de00000001_chave-de-teste"
+TEST_API_KEY: Final = "axn_7e57c0de00000001_chave-de-teste"
 """Credencial da superfície privada (`/private/v1`): `Authorization: Bearer <TEST_API_KEY>`. Com a identidade ligada, o
 admin semeado entra com `TEST_ADMIN_USERNAME` e `TEST_ADMIN_PASSWORD`, reexportados aqui (R39)."""
 
@@ -261,7 +261,7 @@ def _seeded_keys(*keys: tuple[str, str, Collection[str], str]) -> Callable[[Sett
 def _record(plaintext: str, *, subject: str, groups: Collection[str], label: str, at: datetime) -> ApiKeyRecord:
     key_id = parse_key(plaintext)
     if key_id is None:  # pragma: no cover — a configuração já recusou (settings.py)
-        raise ConfigurationError("chave semeada fora do formato aic_<16 hex>_<…>")
+        raise ConfigurationError(f"chave semeada fora do formato {KEY_PREFIX}<16 hex>_<…>")
     info = ApiKeyInfo(key_id=key_id, subject=subject, groups=frozenset(groups), label=label, created_at=at)
     return ApiKeyRecord(info=info, key_hash=hash_key(plaintext))
 

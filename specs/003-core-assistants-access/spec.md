@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: Tradução de arch-v1 §12 (Assistants), §15 (autenticação e autorização), §16 (cadeia de enforcement — elos 1, 2 e 7), §25 (requisição só restringe), §28 (assistants de usuário persistidos), Parte IX (multi-tenancy); ADR-002, ADR-008. Fase 9 (2026-10-13): superfície de administração e sobreposição de Assistants de sistema — ADR-030, ADR-031, ADR-032.
+**Input**: Tradução de arch-v1 §12 (Assistants), §15 (autenticação e autorização), §16 (cadeia de enforcement — elos 1, 2 e 7), §25 (requisição só restringe), §28 (assistants de usuário persistidos), Parte IX (multi-tenancy); ADR-002, ADR-008. Fase 9 (2026-10-13): superfície de administração e sobreposição de Assistants de sistema — ADR-030, ADR-031, ADR-032. Fase 9, incremento 9.5 (2026-10-20): identidade Axon — ADR-037.
 
 ## Module Boundary *(mandatory)*
 
@@ -37,6 +37,13 @@
 ### Session 2026-10-13
 
 - Q: Se um deploy muda no YAML a mesma seção que já tem sobreposição, quem vale? → A: O deploy. A sobreposição guarda uma impressão digital da seção do YAML de quando foi gravada; se o deploy muda a seção, a sobreposição fica inativa (guardada, visível com o motivo "o deploy mudou a seção") e o YAML novo vale. Para reaplicá-la, um admin a grava de novo sobre o YAML atual.
+
+### Session 2026-10-20
+
+- Q: Quais audiências cada superfície aceita depois do renome da plataforma? → A: A pública (chat), `axon`; a de administração (console), `axon-admin` (eram `ai-core` e `ai-core-admin`; ADR-037, item 2). A separação do ADR-031 não muda: o token do chat não alcança a administração. A audiência pública continua configurável pela instalação, para um emissor externo; a padrão é `axon`.
+- Q: Qual o formato da chave de API? → A: `axn_<key_id>_<segredo>` (era `aic_`; ADR-037, item 2), com o mesmo `key_id` de 16 hexadecimais e o mesmo segredo. Na superfície de administração, que aceita os dois esquemas, o prefixo `axn_` continua decidindo o caminho de chave.
+- Q: O que acontece com credenciais do formato antigo? → A: Corte seco (ADR-037, item 3): chave `aic_…` e token com audiência `ai-core`/`ai-core-admin` são não autenticados, como qualquer credencial inválida, sem janela nem mensagem própria. Chaves já emitidas deixam de valer — o armazenamento guarda o hash da chave inteira, prefixo incluído —, e o ambiente local é recriado; não há migração que reescreva ou revogue as antigas, porque não há instalação com dado a preservar.
+- Q: Quem acompanha a troca nesta passada? → A: Os consumidores no workspace, de forma mecânica (ADR-037, item 7): a credencial `TEST_API_KEY` do perfil `test` (mesmo nome, valor novo, com o prefixo `axn_`), a chave de desenvolvimento do perfil `memory` e a mensagem que descreve o formato dela (011), os clientes de exemplo da identidade (audiências), o e2e da console e os documentos vivos de 003, 008, 011, 012 e 013 — inclusive os trechos em que a substituição mecânica da 011 trocou uma audiência por `axon-ai`, que nunca foi audiência. O `identity.yaml` da instalação muda na passada dela.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -234,6 +241,25 @@ a sobreposição aparece inativa.
 
 ---
 
+### User Story 11 - Identidade Axon: credenciais com o nome da plataforma (Priority: P2)
+
+A plataforma passa a se chamar Axon (ADR-037). O operador emite chaves de API que começam com `axn_`, e quem integra lê no prefixo de que plataforma é a chave. O provedor de identidade emite tokens com a audiência `axon` para o chat e `axon-admin` para a console, e cada superfície aceita só a sua, como antes. Credenciais do formato antigo não autenticam.
+
+**Why this priority**: A chave de API e a audiência estão em toda requisição que a plataforma aceita, e a console e o Open WebUI se ligam por elas; as passadas da 008, da 012 e da 013 e a da instalação dependem desses nomes. P2 porque nenhum comportamento de autorização muda, só os nomes.
+
+**Independent Test**: Emitir uma chave e ver que ela começa com `axn_` e autentica na superfície privada; apresentar uma chave do formato antigo e um token com a audiência antiga e ver os dois recusados como não autenticados; um token `axon` não entra na administração, e um `axon-admin` de admin entra.
+
+**Acceptance Scenarios**:
+
+1. **Given** um operador que emite uma chave, **When** a chave é mostrada, **Then** ela tem o formato `axn_<16 hexadecimais>_<segredo>` e autentica na superfície privada e, para um admin, na de administração.
+2. **Given** uma credencial no formato antigo (`aic_…`), **When** chega à superfície privada ou à de administração, **Then** é não autenticada, como qualquer credencial inválida.
+3. **Given** um token com a audiência `axon`, **When** chega à superfície pública, **Then** autentica; **When** chega à de administração, **Then** é não autenticado.
+4. **Given** um token com a audiência `axon-admin` de um membro do grupo de administração, **When** chega à de administração, **Then** o Principal é admin.
+5. **Given** um token com a audiência antiga (`ai-core` ou `ai-core-admin`), **When** chega a qualquer superfície, **Then** é não autenticado.
+6. **Given** a suíte de um pack que monta a plataforma pelo perfil de teste, **When** usa a credencial de teste exportada, **Then** ela tem o prefixo novo e autentica na superfície privada.
+
+---
+
 ### Edge Cases
 
 - Assistant de usuário com o mesmo nome de um Assistant de sistema: impossível por construção — nomes de usuário levam o prefixo `~`, que nome de sistema não pode usar (erro de configuração no boot). Dois usuários podem ter `~meu-rag`; cada um resolve e lista só o próprio.
@@ -248,6 +274,9 @@ a sobreposição aparece inativa.
 - Sobreposição de `mcp` que mantém as tools de pack do YAML: só as entradas com namespace MCP de `allowed_tools` e `write_tools` são trocadas.
 - Instalação com o provedor da plataforma ligado e um emissor externo configurado: erro de configuração no boot; a plataforma confia num único emissor (ADR-030).
 - Pessoa sai do grupo de administração com um token da console ainda válido: a autorização é avaliada a cada requisição pelos grupos do token; o acesso termina quando o token expira (no máximo 10 minutos, 012).
+- Chave emitida antes do renome ainda guardada: nunca autentica (o hash cobre o prefixo antigo); continua listável e revogável até o ambiente ser recriado.
+- Texto que começa com `aic_` na superfície de administração: não é tratado como chave e segue o caminho de token, onde falha — o resultado é o mesmo não autenticado.
+- Instalação com um `identity.yaml` cujos clientes ainda declaram as audiências antigas: os tokens emitidos não autenticam em nenhuma superfície até o arquivo ser atualizado (passada da instalação).
 
 ## Requirements *(mandatory)*
 
@@ -277,6 +306,12 @@ a sobreposição aparece inativa.
 - **FR-022**: O seam System Assistant Admin DEVE expor, por Assistant de sistema, o YAML de cada seção sobreponível, a sobreposição (ativa ou inativa, com motivo), a configuração efetiva, o estado e as seções permitidas; e as operações de gravar e descartar uma sobreposição, restritas a admin.
 - **FR-023**: Admin DEVE ser o Principal que pertence ao grupo de administração, em qualquer esquema; cada superfície limita os esquemas que aceita (FR-001). O verificador OIDC DEVE conferir a audiência esperada pela superfície e aceitar um único emissor, cujas chaves públicas chegam pela composition root — em processo, quando o emissor é a própria plataforma (012).
 
+- **FR-024**: A superfície pública DEVE aceitar, por padrão, tokens com a audiência `axon`, e a de administração, só tokens com a audiência `axon-admin` (ADR-037; ADR-031). Token com outra audiência, inclusive as antigas `ai-core` e `ai-core-admin`, DEVE ser não autenticado.
+- **FR-025**: Chaves de API DEVEM ter o formato `axn_<key_id>_<segredo>`, com o `key_id` de 16 hexadecimais; credencial com o prefixo antigo `aic_` DEVE ser não autenticada, sem janela de compatibilidade (corte seco, ADR-037, item 3).
+- **FR-026**: Na superfície de administração, o prefixo `axn_` DEVE decidir o caminho de chave; o resto segue o caminho de token.
+- **FR-027**: Os consumidores no workspace — a credencial de teste exportada pelo perfil de teste, a chave de desenvolvimento, os clientes de exemplo da identidade, o e2e da console e os documentos vivos que citam a audiência ou o formato da chave — DEVEM usar os nomes novos na mesma passada (ADR-037, item 7).
+
+
 ### Key Entities
 
 - **Principal**: identificador (`user:…`, `svc:…`), esquema, grupos.
@@ -298,6 +333,7 @@ a sobreposição aparece inativa.
 - **SC-005**: 100% das requisições com campos de ampliação são rejeitadas antes de qualquer chamada de modelo.
 - **SC-006**: Uma sobreposição gravada vale na requisição seguinte, sem restart; e nenhuma sobreposição amplia o que o YAML permite (allowlist, tools de escrita em público), verificado por suíte adversarial.
 - **SC-007**: Em teste, nenhum token emitido para o chat é aceito na superfície de administração, e nenhum Principal fora do grupo de administração distingue uma rota de administração de uma inexistente.
+- **SC-008**: Depois da passada da US11, zero ocorrências do prefixo `aic_` de chave e das audiências `ai-core`/`ai-core-admin` no código, nos testes, na configuração e nos documentos vivos do workspace e das specs do core (fora do histórico do ADR-037, item 6, do contrato da instalação, do `CLAUDE.md`, do cookie da 012, que muda na passada dela, e dos testes e textos que nomeiam o antigo de propósito), e as suítes do workspace e da console passam.
 
 ## Assumptions
 
@@ -306,3 +342,4 @@ a sobreposição aparece inativa.
 - Chaves de API são emitidas pelo operador; a primeira sai pela linha de comando, já que o endpoint de administração exige uma credencial do grupo de administração.
 - Sobreposições ficam em cache por processo, invalidado a cada gravação — a mesma premissa de processo único dos contadores de taxa.
 - A verificação de que o modelo solicitado existe no provider é feita pela spec 006; esta spec aplica a allowlist.
+- US11 (ADR-037): a instalação continua presa a uma tag antiga do core, com os nomes antigos de ponta a ponta, até a passada dela; o pack de domínio, que usa a credencial de teste exportada, a recebe com o prefixo novo quando passar à tag nova (101).

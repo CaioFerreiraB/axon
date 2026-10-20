@@ -113,7 +113,7 @@ DSN = "postgresql://ai:segredo@127.0.0.1:1/ai"
 """Porta 1: nada escuta ali. Construir o perfil persistente não pode conectar — se conectasse, este teste pendura ou
 falha."""
 
-DEV_KEY = "aic_0123456789abcdef_segredo-dev"
+DEV_KEY = "axn_0123456789abcdef_segredo-dev"
 
 
 def _access(parts: dict[str, Any], *, admin_group: str | None = None) -> AccessService:
@@ -226,7 +226,7 @@ async def test_o_memory_sem_chave_nem_oidc_recusa_toda_credencial() -> None:
 
 
 def test_com_emissor_configurado_o_oidc_e_o_verificador_jwks() -> None:
-    settings = Settings(profile="memory", oidc_issuer="https://idp.exemplo.test", oidc_audience="ai-core")
+    settings = Settings(profile="memory", oidc_issuer="https://idp.exemplo.test", oidc_audience="axon")
     built = profile_for("memory").build_all(settings, {"assistants_config": _config(None)})
     assert isinstance(built["oidc"], JwksOidcVerifier)
 

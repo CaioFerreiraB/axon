@@ -22,8 +22,8 @@ class OidcClaims:
 class OidcAudiences:
     """A audiência que cada superfície aceita (ADR-031, research R26): o token do chat não alcança a administração."""
 
-    public: str = "ai-core"
-    admin: str = "ai-core-admin"
+    public: str = "axon"
+    admin: str = "axon-admin"
 
     def of(self, surface: str) -> str | None:
         return {"public": self.public, "admin": self.admin}.get(surface)

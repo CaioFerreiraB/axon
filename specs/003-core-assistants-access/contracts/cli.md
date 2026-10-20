@@ -36,7 +36,7 @@ linha — para que um script possa capturá-la —, e nunca em log.
 $ axon keys create --subject user:caio --group operadores --label "notebook"
 key_id: 3f9a1c2e7b604d18
 subject: user:caio  groups: operadores
-aic_3f9a1c2e7b604d18_Jd8…
+axn_3f9a1c2e7b604d18_Jd8…
 ```
 
 ## `axon keys list`

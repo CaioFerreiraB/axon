@@ -86,7 +86,7 @@ def test_settings_e_imutavel() -> None:
 # --- Fase 2 (T021; contracts/configuration.md, "Fase 2") -------------------------------------------------------------
 
 DSN = "postgresql://ai:segredo-do-banco@db.interno:5432/ai"
-DEV_KEY = "aic_0123456789abcdef_segredo-dev"
+DEV_KEY = "axn_0123456789abcdef_segredo-dev"
 
 
 def test_variaveis_novas_tem_defaults() -> None:
@@ -104,7 +104,7 @@ def test_variaveis_novas_sao_lidas() -> None:
             "AXON_PROFILE": "persistent",
             "AXON_DATABASE_URL": DSN,
             "AXON_OIDC_ISSUER": "https://idp.exemplo.test",
-            "AXON_OIDC_AUDIENCE": "ai-core",
+            "AXON_OIDC_AUDIENCE": "axon",
             "AXON_OIDC_JWKS_URL": "https://idp.exemplo.test/jwks",
             "AXON_OIDC_SUBJECT_CLAIM": "preferred_username",
             "AXON_OIDC_GROUPS_CLAIM": "roles",
@@ -113,7 +113,7 @@ def test_variaveis_novas_sao_lidas() -> None:
         }
     ).load()
     assert settings.profile == "persistent" and settings.database_url == DSN
-    assert (settings.oidc_issuer, settings.oidc_audience) == ("https://idp.exemplo.test", "ai-core")
+    assert (settings.oidc_issuer, settings.oidc_audience) == ("https://idp.exemplo.test", "axon")
     assert settings.oidc_jwks_url == "https://idp.exemplo.test/jwks"
     assert (settings.oidc_subject_claim, settings.oidc_groups_claim) == ("preferred_username", "roles")
     assert (settings.conversation_retention_days, settings.conversation_expiry_interval) == (30, 60.0)

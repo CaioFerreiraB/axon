@@ -83,7 +83,7 @@ A API recebe `<assistant>` ou `<assistant>/<modelo>` e pede o grant.
 |---|---|---|
 | `AXON_PROFILE` | `memory` | agora `memory`, `persistent` ou `test` |
 | `AXON_DATABASE_URL` | — | **segredo**; obrigatória no `persistent`; nunca impressa |
-| `AXON_DEV_API_KEY` | — | **segredo**; chave de desenvolvimento do `memory` (`aic_<16 hex>_<segredo>`); recusada no `persistent` |
+| `AXON_DEV_API_KEY` | — | **segredo**; chave de desenvolvimento do `memory` (`axn_<16 hex>_<segredo>`); recusada no `persistent` |
 | `AXON_OIDC_ISSUER` | — | emissor OIDC; sem ele, a superfície pública recusa toda credencial |
 | `AXON_OIDC_AUDIENCE` | — | obrigatória quando há emissor |
 | `AXON_OIDC_JWKS_URL` | — | opcional; sem ela, descoberta em `<emissor>/.well-known/openid-configuration` |

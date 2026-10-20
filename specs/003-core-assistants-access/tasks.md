@@ -740,3 +740,81 @@ Task: "T025 adapters/tokens.py e adapters/oidc.py"
 - Testes de cada story são escritos antes e falham antes da implementação
 - Postgres: sem `AI_CORE_TEST_POSTGRES_DSN`, os casos do adapter real são pulados com motivo; na CI eles rodam sempre
 - Nenhuma tarefa toca `ai_core/http/` nem `ai_core/bootstrap/` (research R2)
+
+---
+
+## Passada de 2026-10-20: identidade Axon — US11 ([ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md); research R33–R37)
+
+**Goal**: audiências `axon`/`axon-admin` e chaves `axn_<key_id>_<segredo>`; credenciais antigas não autenticam; a 011,
+o e2e da console, os testes e os documentos vivos com os nomes novos; suítes verdes.
+
+**Independent Test**: [quickstart.md, "Fase 9, incremento 9.5"](quickstart.md) — `-m us11` e a suíte de
+`assistants/`; à mão, a chave de desenvolvimento antiga recusada e a nova autenticando.
+
+### Tests (antes das T089–T090)
+
+- [X] T086 [US11] `axon-ai/pyproject.toml`: marca `"us11: 003 US11 — identidade Axon (audiências e prefixo da chave)"`
+- [X] T087 [US11] `axon-ai/packages/core/tests/assistants/contract/test_credentials_axon.py` (R37), marca `us11`, com o
+  emissor em processo de `test_surfaces.py` (`SigningKey`, `CallableJwksSource`, `access_service`): `OidcAudiences()`
+  é `public="axon"`, `admin="axon-admin"`; chave emitida casa `axn_[0-9a-f]{16}_\S+` e autentica na privada e, de admin,
+  na administração (cen. 1); a mesma chave com o prefixo trocado para `aic_`, e `aic_0123456789abcdef_segredo`, não
+  autenticam na privada nem na administração (cen. 2); token `axon` autentica na pública e não na administração
+  (cen. 3); `axon-admin` de admin é admin (cen. 4); `ai-core` e `ai-core-admin` não autenticam em nenhuma superfície
+  (cen. 5)
+- [X] T088 [P] [US11] `axon-ai/packages/core/tests/assistants/unit/test_keys.py`: `compose_key` começa com `axn_`;
+  `parse_key(f"aic_{KEY_ID}_segredo") is None` (FR-025). Rodar T087–T088 e ver falhar
+
+### Implementation
+
+- [X] T089 [US11] `axon-ai/packages/core/src/axon_ai/assistants/domain/access.py` (R33): `public: str = "axon"`,
+  `admin: str = "axon-admin"`; `axon-ai/packages/core/src/axon_ai/assistants/domain/keys.py` (R34): `KEY_PREFIX: Final =
+  "axn_"` e a docstring com `axn_<key_id>_<segredo>`
+- [X] T090 [US11] Composition root (R33, R34): `axon-ai/packages/core/src/axon_ai/bootstrap/identity.py`
+  (`TEST_CLIENTS`: `audience="axon"` e `audience="axon-admin"`); `bootstrap/settings.py` e `bootstrap/profiles.py`
+  (mensagens `f"...{KEY_PREFIX}<16 hex>_<…>"`, importando `KEY_PREFIX` de `axon_ai.assistants.domain.keys`;
+  `TEST_API_KEY: Final = "axn_7e57c0de00000001_chave-de-teste"`); docstrings de
+  `axon_ai/identity/domain/tokens.py` (`axon`, `axon-admin`) e `axon_ai/http/adapters/admin.py` (`axon-admin`)
+
+### Consumidores (R36)
+
+- [X] T091 [US11] Literais das suítes, arquivo a arquivo, com o contexto conferido: `aic_` → `axn_` (nunca
+  `aic_session`), `ai-core-admin` → `axon-admin` e `ai-core` **como audiência** → `axon` (`AUDIENCE`, `aud=`,
+  `audience=`, `audience:` em YAML embutido, `OIDC_AUDIENCE`, `oidc_audience=`, docstrings de audiência), em
+  `axon-ai/packages/core/tests/{assistants,identity,bootstrap,http,mcp}/**` (lista de `git grep -nE
+  'aic_|ai-core-admin|"ai-core"|audience: ai-core|OIDC_AUDIENCE' -- axon-ai/packages/core/tests`, sem `aic_session`); os testes
+  que nomeiam o antigo de propósito ficam (T087, T088)
+- [X] T092 [P] [US11] Console: `axon-ai/console/e2e/serve_platform.py` (`audience: axon-admin`, `audience: axon`) e
+  `axon-ai/console/e2e/fixtures/session.ts` (`TEST_API_KEY = "axn_7e57c0de00000001_chave-de-teste"`)
+- [X] T093 [P] [US11] Documentos vivos: `specs/008-core-http-api/contracts/{admin-api.md,private-surface.md}`;
+  `specs/011-core-bootstrap/contracts/configuration.md` e `quickstart.md` (`axn_`; a nota "muda de prefixo na passada da
+  003" vira "tem o prefixo `axn_` desde a passada da 003"); `specs/012-core-identity/contracts/{identity-yaml.md,oidc.md}`
+  e `design.md` (audiências, inclusive as linhas com `axon-ai` no lugar da audiência); `specs/013-core-admin-console/design.md`
+
+### Integration e verificação
+
+- [X] T094 [US11] Suítes (a partir de `axon-ai/`): `uv run pytest && uv run mypy && uv run ruff check packages && uv run
+  ruff format --check packages && uv run lint-imports`; conformidade Postgres com `AXON_TEST_POSTGRES_DSN` (armazenamento
+  de chaves); a console (`npm ci && npm run typecheck && npm run lint && npm test`) e o e2e (`npm run e2e`)
+- [X] T095 [US11] Quickstart da US11 à mão e resíduos (SC-008): `git grep -nE "aic_|ai-core-admin"` e as audiências
+  `ai-core` fora do histórico, da instalação, das `1xx`, do `CLAUDE.md` e do cookie `aic_session` só mostram os testes e
+  textos que nomeiam o antigo de propósito; nenhuma palavra `agentic` removida (`--word-diff`)
+- [X] T096 [P] [US11] `specs/README.md` (linha da 003 com a US11) e `docs/roadmap.md` (andamento do 9.5: 003 feita)
+
+### Dependencies (US11)
+
+T086 → T087 ∥ T088 (veem falhar) → T089 → T090 → T091 ∥ T092 ∥ T093 → T094 → T095; T096 em paralelo com a T094.
+
+### Notas da execução (US11)
+
+- T087–T088 falharam como esperado antes da T089 (8 casos); depois da T089–T090, 154 testes das suítes quebraram pelos
+  literais (`aic_`, `"ai-core"`, `ai-core-admin`, `audience: ai-core`), todos de credencial ou audiência — conferido
+  antes da troca: os outros `ai-core` dos testes são `x-ai-core-*` (008), `ai-core/observability/v1` (009) e
+  `http://ai-core:8000` (instalação), que ficam.
+- Quatro documentos vivos (003 `design.md` e `data-model.md`, 012 `identity-yaml.md`, `oidc.md` e `design.md`) e a docstring
+  de `identity/domain/tokens.py` traziam `axon-ai` no lugar da audiência, troca da substituição mecânica da 011; passaram
+  a `axon`.
+- `ruff`: a docstring de `tokens.py` passou de 120 colunas com a referência a mais; ficou só com o ADR-031.
+- Suítes: workspace 3127 passed, 167 skipped; com `AXON_TEST_POSTGRES_DSN` (contêiner `postgres:17` temporário), 3283
+  passed, 11 skipped; mypy sem erro; ruff limpo; import-linter 69 kept; console 67 testes e e2e 39 passed, 4 skipped (o
+  teste de fumaça do nginx, sem `CONSOLE_NGINX_URL`). À mão: `AXON_DEV_API_KEY=aic_…` recusada citando
+  `axn_<16 hex>_<…>`; `serve` com a chave nova: 200 com ela, 401 com a antiga.

@@ -72,8 +72,8 @@ async def test_credencial_ausente_e_recusada_sem_levantar(case: Case, surface: s
 
 async def test_chave_malformada_adulterada_ou_desconhecida_e_recusada(case: Case) -> None:
     adulterada = case.key[:-1] + ("A" if case.key[-1] != "A" else "B")
-    desconhecida = "aic_00000000000000ff_segredo"
-    for credential in ("aic_zzz", adulterada, desconhecida, f"Bearer {case.key}"):
+    desconhecida = "axn_00000000000000ff_segredo"
+    for credential in ("axn_zzz", adulterada, desconhecida, f"Bearer {case.key}"):
         assert await case.service.authenticate(surface="private", credential=credential) is None
 
 

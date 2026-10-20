@@ -14,7 +14,7 @@ KEY_ID = "0123456789abcdef"
 
 def test_chave_composta_e_lida_de_volta() -> None:
     chave = compose_key(KEY_ID, "Jd8-_x")
-    assert chave == f"aic_{KEY_ID}_Jd8-_x"
+    assert chave == f"axn_{KEY_ID}_Jd8-_x"
     assert parse_key(chave) == KEY_ID
 
 
@@ -23,15 +23,16 @@ def test_chave_composta_e_lida_de_volta() -> None:
     [
         "",
         "abc",
-        "aic_",
-        f"aic_{KEY_ID}",
-        f"aic_{KEY_ID}_",
-        "aic_XYZ_segredo",
-        "aic_0123456789ABCDEF_segredo",
-        "aic_0123456789abcde_segredo",
+        "axn_",
+        f"axn_{KEY_ID}",
+        f"axn_{KEY_ID}_",
+        "axn_XYZ_segredo",
+        "axn_0123456789ABCDEF_segredo",
+        "axn_0123456789abcde_segredo",
         f"xyz_{KEY_ID}_segredo",
-        f"Bearer aic_{KEY_ID}_segredo",
-        f"aic_{KEY_ID}_seg redo",
+        f"Bearer axn_{KEY_ID}_segredo",
+        f"axn_{KEY_ID}_seg redo",
+        f"aic_{KEY_ID}_segredo",  # o prefixo antigo: corte seco (ADR-037, US11)
     ],
 )
 def test_chave_fora_do_formato_nao_tem_key_id(texto: str) -> None:

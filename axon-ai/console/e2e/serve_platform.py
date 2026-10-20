@@ -51,13 +51,13 @@ version: 1
 clients:
   console:
     type: public
-    audience: ai-core-admin
+    audience: axon-admin
     redirect_uris: [{CONSOLE}/callback]
     post_logout_redirect_uris: [{CONSOLE}/]
   open-webui:
     type: confidential
     secret: open_webui
-    audience: ai-core
+    audience: axon
     redirect_uris: [http://localhost:3000/oauth/oidc/callback]
 """
 

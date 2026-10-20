@@ -15,7 +15,7 @@ def _record(
     key_id: str, *, subject: str = "user:caio", at: Any = T0, groups: frozenset[str] = frozenset()
 ) -> ApiKeyRecord:
     info = ApiKeyInfo(key_id=key_id, subject=subject, groups=groups, label="notebook", created_at=at)
-    return ApiKeyRecord(info=info, key_hash=hash_key(f"aic_{key_id}_segredo"))
+    return ApiKeyRecord(info=info, key_hash=hash_key(f"axn_{key_id}_segredo"))
 
 
 async def test_guarda_e_le_pelo_key_id(api_key_store: Any) -> None:
@@ -24,7 +24,7 @@ async def test_guarda_e_le_pelo_key_id(api_key_store: Any) -> None:
 
     lido = await api_key_store.get("00000000000000a1")
     assert lido == record
-    assert lido.key_hash == hash_key("aic_00000000000000a1_segredo")
+    assert lido.key_hash == hash_key("axn_00000000000000a1_segredo")
     assert await api_key_store.get("00000000000000ff") is None
 
 

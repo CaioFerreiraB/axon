@@ -134,7 +134,7 @@ class ApiKeyAdmin(Protocol):
 
 `SCHEMES_OF_SURFACE` substitui `SCHEME_OF_SURFACE` (mantido, derivado e depreciado, até a série seguinte). Na superfície
 `admin`, credencial com o prefixo de chave da 003 segue o caminho de chave; qualquer outra, OIDC com a audiência
-`ai-core-admin`. Na `public`, OIDC com a audiência `ai-core`. Audiência errada → `None` (não autenticado).
+`axon-admin`. Na `public`, OIDC com a audiência `axon`. Audiência errada → `None` (não autenticado).
 `is_admin(principal)` = membro do grupo de administração, em qualquer esquema.
 
 ### `SystemAssistantAdmin` — consumido pela 008 (superfície de administração)

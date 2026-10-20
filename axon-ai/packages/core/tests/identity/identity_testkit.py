@@ -48,7 +48,7 @@ CONSOLE_CALLBACK: Final = "http://localhost:8080/callback"
 OPEN_WEBUI: Final = Client(
     id="open-webui",
     type="confidential",
-    audience="ai-core",
+    audience="axon",
     redirect_uris=(OPEN_WEBUI_CALLBACK,),
     post_logout_redirect_uris=("http://localhost:3000/auth",),
     secret_ref="open_webui",
@@ -56,7 +56,7 @@ OPEN_WEBUI: Final = Client(
 CONSOLE: Final = Client(
     id="console",
     type="public",
-    audience="ai-core-admin",
+    audience="axon-admin",
     redirect_uris=(CONSOLE_CALLBACK,),
     post_logout_redirect_uris=("http://localhost:8080/",),
 )

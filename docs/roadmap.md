@@ -89,6 +89,9 @@ desenvolvimento, import-linter, suíte do core, CI) e documentos vivos atualizad
 **002 feita** (2026-10-20) — o Pack Runtime descobre packs só pelo grupo `axon.packs` (pack só no grupo antigo,
 habilitado, fica `error: não instalado`); `axon-generic`, o pack de teste dos contratos e as distribuições falsas no grupo
 novo; a instalação (US7) fica para depois da 101.
+**003 feita** (2026-10-20) — audiências `axon` (chat) e `axon-admin` (console), chaves de API `axn_<key_id>_<segredo>`,
+credenciais antigas não autenticam; `TEST_API_KEY` com o prefixo novo; clientes de exemplo da identidade, e2e da console
+e documentos vivos de 008, 011, 012 e 013 atualizados.
 
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 

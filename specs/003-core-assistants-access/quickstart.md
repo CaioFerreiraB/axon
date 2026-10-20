@@ -158,3 +158,31 @@ AXON_PROFILE=test AXON_PACKS_FILE=/tmp/packs.yaml AXON_ASSISTANTS_FILE=/tmp/assi
 
 Esperado: código 1 e a linha de `sem-controller` dizendo `models: o flow 'agentic' exige o papel 'controller', que o
 Assistant não declara`.
+
+---
+
+## Fase 9, incremento 9.5 (2026-10-20): US11 — credenciais com o nome Axon
+
+A partir de `axon-ai/`, com `XDG_DATA_HOME=$HOME/.local/share` nesta máquina. Decisões em [research.md](research.md)
+R33–R37.
+
+```bash
+uv run pytest packages/core/tests -m us11 -v
+uv run pytest packages/core/tests/assistants packages/core/tests/bootstrap/integration/test_boot_phase9.py -q
+```
+
+**Esperado**: verde — a chave emitida tem o formato `axn_<16 hex>_<segredo>`; `aic_…` e os tokens com `ai-core` ou
+`ai-core-admin` são não autenticados nas três superfícies; o token `axon` não entra na administração; o `axon-admin` de
+admin entra; o `TEST_API_KEY` do perfil `test` começa com `axn_`.
+
+À mão, no perfil `memory`:
+
+```bash
+AXON_PROFILE=memory AXON_DEV_API_KEY=aic_0123456789abcdef_dev uv run axon health   # recusada: formato axn_<16 hex>_<…>
+AXON_PROFILE=memory AXON_DEV_API_KEY=axn_0123456789abcdef_dev uv run axon serve &
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer axn_0123456789abcdef_dev" localhost:8000/private/v1/health
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer aic_0123456789abcdef_dev" localhost:8000/private/v1/health
+```
+
+**Esperado**: o primeiro comando sai com erro de configuração que cita `axn_<16 hex>_<…>`; depois, `200` com a chave
+nova e `401` com a antiga.

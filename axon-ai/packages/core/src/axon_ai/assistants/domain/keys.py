@@ -1,6 +1,6 @@
 """Chaves de API: formato, hash e comparação (research R7).
 
-Formato `aic_<key_id>_<segredo>`: o `key_id` (8 bytes em hexadecimal) é público e serve para listar e revogar; o
+Formato `axn_<key_id>_<segredo>`: o `key_id` (8 bytes em hexadecimal) é público e serve para listar e revogar; o
 segredo tem 32 bytes. Guarda-se o SHA-256 da chave inteira: com 256 bits de entropia, um hash rápido basta — KDF lenta
 é para senha escolhida por gente.
 """
@@ -14,7 +14,7 @@ from typing import Final
 
 from axon_ai.assistants.api import KEY_ID_PATTERN, ApiKeyInfo
 
-KEY_PREFIX: Final = "aic_"
+KEY_PREFIX: Final = "axn_"
 KEY_ID_BYTES: Final = 8
 SECRET_BYTES: Final = 32
 

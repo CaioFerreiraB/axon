@@ -53,7 +53,7 @@ def persistente(ambiente: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Non
         connection.execute("DROP SCHEMA IF EXISTS identity CASCADE")
     clients = ambiente / "identity.yaml"
     clients.write_text(
-        "version: 1\nclients:\n  console:\n    type: public\n    audience: ai-core-admin\n"
+        "version: 1\nclients:\n  console:\n    type: public\n    audience: axon-admin\n"
         "    redirect_uris: [http://localhost:8080/callback]\n",
         encoding="utf-8",
     )

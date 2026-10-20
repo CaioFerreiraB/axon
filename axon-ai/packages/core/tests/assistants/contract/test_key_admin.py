@@ -16,8 +16,8 @@ async def test_emissao_por_administrador_devolve_chave_que_autentica() -> None:
     issued = await service.issue(actor=CAIO_KEY, subject="svc:ingestor", groups=["leitores"], label="pipeline")
 
     assert issued.info.key_id == "0000000000000001"
-    assert issued.plaintext == "aic_0000000000000001_segredo2"
-    assert re.fullmatch(r"aic_[0-9a-f]{16}_\S+", issued.plaintext)
+    assert issued.plaintext == "axn_0000000000000001_segredo2"
+    assert re.fullmatch(r"axn_[0-9a-f]{16}_\S+", issued.plaintext)
     assert issued.info.created_at == T0 and issued.info.active
     principal = await service.authenticate(surface="private", credential=issued.plaintext)
     assert principal == Principal(subject="svc:ingestor", scheme="api_key", groups=frozenset({"leitores"}))

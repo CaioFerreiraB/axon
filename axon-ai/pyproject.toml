@@ -53,6 +53,7 @@ markers = [
     "us8: 003 US8 — validação de Assistants",
     "us9: 003 US9 — administração por grupo, com token da plataforma ou chave",
     "us10: 003 US10 — sobreposições de Assistants de sistema",
+    "us11: 003 US11 — identidade Axon (audiências e prefixo da chave)",
 ]
 asyncio_default_fixture_loop_scope = "function"
 # estende os padrões do pytest; o pack de teste (fixtures/) roda no próprio ambiente limpo

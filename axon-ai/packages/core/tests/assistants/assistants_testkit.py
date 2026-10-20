@@ -39,7 +39,7 @@ FLOWS = frozenset({"chat", "agentic"})
 """Nomes de flow que o motor "oferece" nas suítes."""
 
 ISSUER = "https://idp.exemplo.test"
-AUDIENCE = "ai-core"
+AUDIENCE = "axon"
 
 
 # ---------------------------------------------------------------------------------------------------------------------

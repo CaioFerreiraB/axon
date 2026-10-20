@@ -192,10 +192,10 @@ CAIO_TOKEN: Final = "tok-caio"
 """Tokens OIDC do verificador estático: `user:ana` sem grupos; `user:bia` do grupo `chefia`; `user:caio` — o mesmo
 subject da `ADMIN_KEY`, pela superfície pública."""
 
-ADMIN_KEY: Final = "aic_00000000000000a1_admin"
+ADMIN_KEY: Final = "axn_00000000000000a1_admin"
 """Chave de `user:caio`, do grupo de administração `operadores`."""
 
-SVC_KEY: Final = "aic_00000000000000b2_servico"
+SVC_KEY: Final = "axn_00000000000000b2_servico"
 """Chave de `svc:ingestor`, sem grupos."""
 
 

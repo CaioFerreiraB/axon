@@ -262,7 +262,7 @@ assistants validate` listar as sobreposições inativas (T082).
 
 ### `OidcAudiences` (configuração do `AccessService`)
 
-`public: str` (padrão `axon-ai`), `admin: str` (padrão `ai-core-admin`).
+`public: str` (padrão `axon`), `admin: str` (padrão `axon-admin`) — ADR-037, research R33.
 
 ### Armazenamento (schema `assistants`, migração `003_system_overrides.sql`)
 

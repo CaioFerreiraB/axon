@@ -183,8 +183,8 @@ servers:
 network:
   internal_hosts: [localhost]
 YAML
-AXON_MCP_FILE=/tmp/mcp.yaml AXON_DEV_API_KEY=aic_0123456789abcdef_dev uv run axon serve
-curl -s -H "Authorization: Bearer aic_0123456789abcdef_dev" localhost:8000/private/v1/health | jq .
+AXON_MCP_FILE=/tmp/mcp.yaml AXON_DEV_API_KEY=axn_0123456789abcdef_dev uv run axon serve
+curl -s -H "Authorization: Bearer axn_0123456789abcdef_dev" localhost:8000/private/v1/health | jq .
 ```
 
 Esperado: um item `mcp:<alias>` por servidor do arquivo; servidor fora do ar deixa a saúde `degraded` (200).
@@ -198,8 +198,8 @@ A partir de `axon-ai/`, com o `XDG_DATA_HOME=$HOME/.local/share` desta máquina:
 ```bash
 uv sync
 uv run axon --version                                     # axon-ai 0.7.0rc1
-AXON_PROFILE=memory AXON_DEV_API_KEY=aic_0123456789abcdef_dev uv run axon serve &
-curl -s -H "Authorization: Bearer aic_0123456789abcdef_dev" localhost:8000/private/v1/health | jq .status
+AXON_PROFILE=memory AXON_DEV_API_KEY=axn_0123456789abcdef_dev uv run axon serve &
+curl -s -H "Authorization: Bearer axn_0123456789abcdef_dev" localhost:8000/private/v1/health | jq .status
 kill %1
 AI_CORE_PROFILE=memory uv run axon health; echo "código $?"  # recusa: AI_CORE_PROFILE → AXON_PROFILE; código 1
 uv run python -c "import ai_core" 2>&1 | tail -1          # ModuleNotFoundError: corte seco
@@ -208,4 +208,4 @@ uv run python -c "import ai_core" 2>&1 | tail -1          # ModuleNotFoundError:
 Esperado: a versão nova; a saúde `ok` com o prefixo novo; a recusa com a linha da variável e o código 1; o módulo antigo
 ausente. A suíte inteira (`uv run pytest && uv run mypy && uv run ruff check packages && uv run lint-imports`), a
 conformidade Postgres com `AXON_TEST_POSTGRES_DSN` e a console (`npm run typecheck && npm run lint && npm test`, a partir
-de `axon-ai/console/`) passam com os nomes novos. A chave `aic_…` muda de prefixo na passada da 003.
+de `axon-ai/console/`) passam com os nomes novos. A chave tem o prefixo `axn_` desde a passada da 003.

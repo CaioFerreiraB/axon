@@ -523,3 +523,97 @@ Marcas `us9` e `us10`.
 **Rationale**: SC-006 e SC-007 são adversariais.
 
 **Alternatives considered**: —
+
+---
+
+# Passada de 2026-10-20: identidade Axon ([ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md); US11)
+
+Decisões pré-aprovadas pelo ADR-037 (nomes, corte seco, ordem das passadas); o que segue é como elas chegam à
+autenticação e aos consumidores dela no workspace, sem re-pesquisa. Os R anteriores ficam como foram executados (ADR-037,
+item 6); os nomes antigos neles se leem pela tabela do ADR-037.
+
+## R33 — Audiências `axon` e `axon-admin`
+
+**Decision**: `OidcAudiences(public="axon", admin="axon-admin")` em `axon_ai/assistants/domain/access.py`. Nada mais muda
+na 003: `AccessService.authenticate` pede ao verificador a audiência da superfície, e o padrão público continua
+sobreposto por `AXON_OIDC_AUDIENCE` para emissor externo (a 011 deriva `DEFAULT_PUBLIC_AUDIENCE` de `OidcAudiences()`,
+então acompanha sem mudança). Os clientes de exemplo da identidade (`axon_ai/bootstrap/identity.py`, `TEST_CLIENTS`)
+passam a `audience="axon"` (Open WebUI) e `audience="axon-admin"` (console): são os valores que a 003 aceita, e o perfil
+`test` com identidade emite por eles.
+
+**Rationale** (ADR-037, item 2): as audiências são identificadores que a 003 confere; o nome da operação é curto, `axon`.
+Ficaram fora da substituição mecânica da 011 (011 R47) por ter comportamento.
+
+**Alternatives considered**: `axon-ai`/`axon-ai-admin` (o ADR fixa `axon`/`axon-admin`; `axon-ai` é o nome da
+distribuição Python, não do serviço); aceitar também as antigas por uma janela (contra o corte seco).
+
+## R34 — Prefixo `axn_`
+
+**Decision**: `KEY_PREFIX = "axn_"` em `axon_ai/assistants/domain/keys.py` (a docstring descreve `axn_<key_id>_<segredo>`).
+`compose_key` e `parse_key` não mudam de forma. As mensagens que descrevem o formato na 011 (`settings.py`, a chave de
+desenvolvimento; `profiles.py`, a chave semeada) passam a derivar do `KEY_PREFIX` (`f"{KEY_PREFIX}<16 hex>_<…>"`),
+para o prefixo morar num lugar só. `TEST_API_KEY` passa a `"axn_7e57c0de00000001_chave-de-teste"` (mesmo `key_id`, mesmo
+segredo).
+
+**Rationale** (ADR-037, item 2): o prefixo diz de onde é a chave a quem a encontra num log ou num `.env`, e decide o caminho
+na superfície de administração (R25). Três letras e sublinhado, como antes.
+
+**Alternatives considered**: `axon_` (o ADR escolhe `axn_`); manter o texto literal nas mensagens da 011 (duas fontes do
+mesmo formato).
+
+## R35 — Corte seco, sem migração
+
+**Decision**: nenhum caminho de compatibilidade. Chave `aic_…` na superfície privada: `parse_key` devolve `None` →
+não autenticado. Na de administração: sem o prefixo `axn_`, a credencial segue o caminho de token, que falha → não
+autenticado. Token com `aud` antigo: o verificador recusa a audiência → não autenticado. Chaves já gravadas (memória ou
+schema `assistants`) não são migradas nem revogadas: o hash cobre a chave inteira, então nenhuma volta a autenticar, e
+continuam listáveis e revogáveis até o ambiente ser recriado.
+
+**Rationale** (ADR-037, item 3): não há instalação com dado a preservar; ambientes locais são recriados.
+
+**Alternatives considered**: migração SQL que revoga todas as chaves existentes (código e migração para um estado que
+não existe fora de desenvolvimento); aceitar `aic_` e reescrever na leitura (janela de compatibilidade sem usuário).
+
+## R36 — Consumidores e documentos vivos
+
+**Decision**: troca por arquivo, com lista fechada (lição da 011):
+
+- **código e configuração**: `access.py`, `keys.py` (R33, R34); na 011, `bootstrap/identity.py` (clientes de exemplo),
+  `bootstrap/settings.py` e `bootstrap/profiles.py` (mensagens e `TEST_API_KEY`); a docstring de
+  `axon_ai/identity/domain/tokens.py` (cita `axon-ai`, troca da 011, por `axon`) e a de `axon_ai/http/adapters/admin.py`;
+- **testes**: as credenciais e audiências literais das suítes de `assistants/`, `identity/`, `bootstrap/`, `http/` e
+  `mcp/` (`aic_` → `axn_`, `"ai-core-admin"` → `"axon-admin"`, `"ai-core"` como audiência → `"axon"`; `audience:
+  ai-core…` nos YAML embutidos), com a marca `us11` registrada em `axon-ai/pyproject.toml`;
+- **console**: `axon-ai/console/e2e/serve_platform.py` (audiências do `identity.yaml` do e2e) e
+  `axon-ai/console/e2e/fixtures/session.ts` (`TEST_API_KEY`);
+- **documentos vivos**: 003 (`design.md`, `data-model.md`, `contracts/assistants-api.md`, `contracts/cli.md`), 008
+  (`contracts/admin-api.md`, `contracts/private-surface.md`), 011 (`contracts/configuration.md`, `quickstart.md`, cuja
+  nota "muda de prefixo na passada da 003" vira fato), 012 (`contracts/identity-yaml.md`, `contracts/oidc.md`,
+  `design.md`) e 013 (`design.md`) — inclusive as linhas em que a 011 trocou uma audiência por `axon-ai`.
+
+Ficam: `"ai-core"` que não é audiência (o `service.name` do Langfuse, 009; o `title` do OpenAPI, 008; o realm, 012), o
+cookie `aic_session` (012), `specs/002-core-pack-runtime/contracts/installation.md` e o deploy (passada da instalação),
+as specs `1xx`, `CLAUDE.md` e o histórico.
+
+**Rationale** (ADR-037, itens 6 e 7): quem consome um identificador muda na passada do dono, para a CI ficar verde. A 011
+mostrou que `ai-core` entre crases é ambíguo (comando, distribuição, audiência), por isso cada troca de audiência aqui é
+feita olhando o contexto, não por padrão global.
+
+**Alternatives considered**: substituição global de `"ai-core"` (alcançaria o `service.name` e o `title`, que são de
+outras passadas).
+
+## R37 — Testes
+
+**Decision**: `axon-ai/packages/core/tests/assistants/contract/test_credentials_axon.py` (marca `us11`), com o emissor em
+processo de `test_surfaces.py`: `OidcAudiences()` é `("axon", "axon-admin")`; a chave emitida casa
+`axn_[0-9a-f]{16}_\S+` e autentica na privada e, de admin, na administração (cen. 1); `aic_<16 hex>_<segredo>` —
+inclusive o texto da chave emitida com o prefixo trocado para `aic_` — é não autenticado na privada e na administração
+(cen. 2); token `axon` entra na pública e não na administração (cen. 3); `axon-admin` de admin é admin (cen. 4); tokens
+com `ai-core` e `ai-core-admin` são não autenticados nas três superfícies (cen. 5). Em `tests/assistants/unit/test_keys.py`,
+`parse_key` recusa o prefixo antigo. O cenário 6 é `tests/bootstrap/integration/test_boot_phase9.py` (o `TEST_API_KEY`
+começa com `axn_` e autentica) e as suítes ponta a ponta que usam a credencial exportada.
+
+**Rationale**: FR-024 a FR-026 precisam de verificador que não dependa do texto dos testes existentes, que passam a usar
+os nomes novos.
+
+**Alternatives considered**: só ajustar os literais dos testes existentes (não prova a recusa do antigo).

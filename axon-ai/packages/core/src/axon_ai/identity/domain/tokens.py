@@ -1,6 +1,6 @@
 """Claims dos tokens emitidos e a conferência do token de acesso no `userinfo` (FR-006; research R6).
 
-O token de acesso leva a `audience` do cliente (`axon-ai`, `ai-core-admin` — ADR-031); o de identidade, o `client_id`.
+O token de acesso leva a `audience` do cliente (`axon`, `axon-admin` — ADR-031); o de identidade, o `client_id`.
 Como nenhuma audiência pode ser id de cliente (`domain/clients.py`), um não se passa pelo outro.
 """
 

@@ -46,11 +46,11 @@ from axon_ai.observability.service import DestinationService, UsageService
 pytestmark = pytest.mark.us9
 
 CONSOLE_ROOT: Final = "tok-console-root"
-"""Token da console (audiência `ai-core-admin`) de `user:root`, do grupo de administração `operadores`."""
+"""Token da console (audiência `axon-admin`) de `user:root`, do grupo de administração `operadores`."""
 CONSOLE_ANA: Final = "tok-console-ana"
 """Token da console de `user:ana`, fora do grupo de administração."""
 CHAT_ROOT: Final = "tok-chat-root"
-"""Token do Open WebUI (audiência `ai-core`) do mesmo admin: não alcança a administração (ADR-031)."""
+"""Token do Open WebUI (audiência `axon`) do mesmo admin: não alcança a administração (ADR-031)."""
 
 AGENDA_URL: Final = "https://agenda.example/mcp"
 LANGFUSE_SECRET: Final = "sk-lf-segredo-de-teste"
@@ -155,8 +155,8 @@ def _kit(
         ),
         mcp=build(servers={AGENDA_URL: scripted(RemoteTool(name="listar"), RemoteTool(name="marcar"))}).service,
         oidc_tokens={
-            CONSOLE_ROOT: claims("root", groups=["operadores"], aud="ai-core-admin", ttl=3600),
-            CONSOLE_ANA: claims("ana", aud="ai-core-admin", ttl=3600),
+            CONSOLE_ROOT: claims("root", groups=["operadores"], aud="axon-admin", ttl=3600),
+            CONSOLE_ANA: claims("ana", aud="axon-admin", ttl=3600),
             CHAT_ROOT: claims("root", groups=["operadores"], ttl=3600),
         },
         system_overrides=InMemorySystemOverrideStore(),
@@ -251,7 +251,7 @@ def test_quem_nao_administra_recebe_o_404_de_rota_inexistente(kit: Kit) -> None:
 
 @pytest.mark.parametrize("token", [CHAT_ROOT, "tok-desconhecido", None])
 def test_credencial_recusada_e_401_em_toda_rota(kit: Kit, token: str | None) -> None:
-    """O token do chat (audiência `ai-core`) não alcança a administração, mesmo de um admin (ADR-031)."""
+    """O token do chat (audiência `axon`) não alcança a administração, mesmo de um admin (ADR-031)."""
     for method, path, body in [*ROUTES, ("GET", "/nao-existe", None)]:
         response = kit.call(method, path, token, body)
         assert response.status_code == 401, (method, path)
@@ -531,7 +531,7 @@ def test_login_google_exige_cliente_na_instalacao(kit: Kit) -> None:
 
 def test_chaves_pela_administracao(kit: Kit) -> None:
     issued = kit.call("POST", "/keys", body={"subject": "svc:etl", "groups": ["leitores"], "label": "etl"})
-    assert issued.status_code == 201 and issued.json()["key"].startswith("aic_")
+    assert issued.status_code == 201 and issued.json()["key"].startswith("axn_")
     plaintext, key_id = issued.json()["key"], issued.json()["key_id"]
     listed = kit.call("GET", "/keys").json()["data"]
     assert key_id in [key["key_id"] for key in listed] and plaintext not in str(listed)

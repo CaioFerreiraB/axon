@@ -30,12 +30,12 @@ def test_gera_par_com_kid_de_16_hex_e_jwk_publica() -> None:
 def test_assina_com_kid_e_verifica_contra_o_jwks() -> None:
     signer = shared_signer()
     key = signer.generate_key()
-    token = signer.sign({"sub": "x", "aud": "ai-core"}, kid=key.kid, private_pem=key.private_pem)
+    token = signer.sign({"sub": "x", "aud": "axon"}, kid=key.kid, private_pem=key.private_pem)
     assert jwt.get_unverified_header(token) == {"alg": "RS256", "kid": key.kid, "typ": "JWT"}
     jwks = {"keys": [dict(key.public_jwk)]}
-    assert signer.verify(token, jwks) == {"sub": "x", "aud": "ai-core"}
+    assert signer.verify(token, jwks) == {"sub": "x", "aud": "axon"}
     # outro assinador (outro processo) verifica só com o JWKS
-    assert RsaTokenSigner().verify(token, jwks) == {"sub": "x", "aud": "ai-core"}
+    assert RsaTokenSigner().verify(token, jwks) == {"sub": "x", "aud": "axon"}
 
 
 def test_recusa_kid_desconhecido_assinatura_alterada_none_e_hmac() -> None:

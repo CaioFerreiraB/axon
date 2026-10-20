@@ -71,7 +71,7 @@ TEST_CLIENTS: Final = (
     Client(
         id=TEST_CHAT_CLIENT,
         type="confidential",
-        audience="ai-core",
+        audience="axon",
         redirect_uris=(TEST_CHAT_CALLBACK,),
         post_logout_redirect_uris=("http://localhost:3000/auth",),
         secret_ref="open_webui",
@@ -79,7 +79,7 @@ TEST_CLIENTS: Final = (
     Client(
         id=TEST_CONSOLE_CLIENT,
         type="public",
-        audience="ai-core-admin",
+        audience="axon-admin",
         redirect_uris=(TEST_CONSOLE_CALLBACK,),
         post_logout_redirect_uris=("http://localhost:8080/",),
     ),

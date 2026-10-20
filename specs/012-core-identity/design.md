@@ -56,8 +56,8 @@ introspecção.
 
 ## Tokens
 
-- **Acesso:** JWT RS256 com `kid`, 10 min. Claims: `iss`, `aud` (do cliente: `axon-ai` para o Open WebUI,
-  `ai-core-admin` para a console — ADR-031), `sub` (id estável da conta), `preferred_username`, `groups`, `azp`,
+- **Acesso:** JWT RS256 com `kid`, 10 min. Claims: `iss`, `aud` (do cliente: `axon` para o Open WebUI,
+  `axon-admin` para a console — ADR-031), `sub` (id estável da conta), `preferred_username`, `groups`, `azp`,
   `scope`, `iat`, `exp`. A 003 usa `preferred_username` como subject (`user:<nome>`), como na Fase 7.
 - **Identidade:** acrescenta `nonce`, `auth_time`, `amr` (`pwd` ou `google`), `email`, `email_verified`, `name`.
 - **Renovação:** 32 bytes aleatórios, guardado só o hash, preso à sessão (absoluta de 30 dias — clarificação de 2026-10-13). Público: rotação a cada uso
@@ -107,12 +107,12 @@ clients:
   open-webui:
     type: confidential
     secret: open_webui            # → AXON_IDENTITY_SECRET_OPEN_WEBUI
-    audience: ai-core
+    audience: axon
     redirect_uris: [http://localhost:3000/oauth/oidc/callback]
     post_logout_redirect_uris: [http://localhost:3000/auth]
   console:
     type: public
-    audience: ai-core-admin
+    audience: axon-admin
     redirect_uris: [http://localhost:8080/callback]
     post_logout_redirect_uris: [http://localhost:8080/]
 ```

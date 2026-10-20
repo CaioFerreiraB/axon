@@ -18,12 +18,12 @@ clients:
   open-webui:
     type: confidential
     secret: open_webui
-    audience: ai-core
+    audience: axon
     redirect_uris: [http://localhost:3000/oauth/oidc/callback]
     post_logout_redirect_uris: [http://localhost:3000/auth]
   console:
     type: public
-    audience: ai-core-admin
+    audience: axon-admin
     redirect_uris: [https://agentic.exemplo.org/callback, http://axon-ai-console:8080/callback]
 """
 
@@ -38,7 +38,7 @@ def test_le_o_arquivo_do_operador(tmp_path: Path) -> None:
     clients = YamlClientSource(_write(tmp_path, VALID)).load()
     assert [client.id for client in clients] == ["open-webui", "console"]
     webui, console = clients
-    assert webui.type == "confidential" and webui.secret_ref == "open_webui" and webui.audience == "ai-core"
+    assert webui.type == "confidential" and webui.secret_ref == "open_webui" and webui.audience == "axon"
     assert console.type == "public" and console.secret_ref is None and console.post_logout_redirect_uris == ()
     assert redirect_origins(clients) == (
         "http://localhost:3000",
@@ -51,7 +51,7 @@ def _clients(**entries: Any) -> dict[str, Any]:
     return {"version": 1, "clients": entries}
 
 
-_CONSOLE = {"type": "public", "audience": "ai-core-admin", "redirect_uris": ["http://localhost:8080/callback"]}
+_CONSOLE = {"type": "public", "audience": "axon-admin", "redirect_uris": ["http://localhost:8080/callback"]}
 
 
 @pytest.mark.parametrize(

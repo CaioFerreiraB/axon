@@ -17,7 +17,7 @@ def test_claims_de_acesso_com_audiencia_do_cliente() -> None:
     claims = access_claims(issuer=ISSUER, client=OPEN_WEBUI, account=ANA, scope="openid", now=T0, ttl=TTL)
     assert claims == {
         "iss": ISSUER,
-        "aud": "ai-core",
+        "aud": "axon",
         "sub": "id-ana",
         "preferred_username": "ana",
         "groups": ["admin", "equipe"],
@@ -27,7 +27,7 @@ def test_claims_de_acesso_com_audiencia_do_cliente() -> None:
         "exp": EPOCH + 600,
     }
     console = access_claims(issuer=ISSUER, client=CONSOLE, account=ANA, scope="openid", now=T0, ttl=TTL)
-    assert console["aud"] == "ai-core-admin" and console["azp"] == "console"
+    assert console["aud"] == "axon-admin" and console["azp"] == "console"
 
 
 def test_claims_de_identidade() -> None:
@@ -64,7 +64,7 @@ def test_userinfo() -> None:
 
 def test_token_de_acesso_no_userinfo() -> None:
     claims = access_claims(issuer=ISSUER, client=OPEN_WEBUI, account=ANA, scope="openid", now=T0, ttl=TTL)
-    audiences = {"ai-core", "ai-core-admin"}
+    audiences = {"axon", "axon-admin"}
     assert access_subject(claims, issuer=ISSUER, audiences=audiences, now=T0) == "id-ana"
     assert access_subject(claims, issuer=ISSUER, audiences=audiences, now=T0 + TTL + timedelta(seconds=60)) == "id-ana"
     assert access_subject(claims, issuer=ISSUER, audiences=audiences, now=T0 + TTL + timedelta(seconds=61)) is None
@@ -83,5 +83,5 @@ def test_dica_do_logout_tolera_expiracao() -> None:
     )
     clients = {"open-webui", "console"}
     assert hinted_subject(identity, issuer=ISSUER, client_ids=clients) == ("id-ana", "open-webui")
-    assert hinted_subject({**identity, "aud": "ai-core"}, issuer=ISSUER, client_ids=clients) is None
+    assert hinted_subject({**identity, "aud": "axon"}, issuer=ISSUER, client_ids=clients) is None
     assert hinted_subject(identity, issuer="https://outro", client_ids=clients) is None

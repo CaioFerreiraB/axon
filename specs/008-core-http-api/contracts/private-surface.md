@@ -16,7 +16,7 @@ GET /private/v1/packs
 
 POST /private/v1/admin/keys   {"subject": "svc:ingestor", "groups": ["leitores"], "label": "pipeline"}
 201 {"key_id": "…", "subject": "svc:ingestor", "groups": ["leitores"], "label": "pipeline",
-     "created_at": "…", "revoked_at": null, "key": "aic_…"}
+     "created_at": "…", "revoked_at": null, "key": "axn_…"}
 
 GET /private/v1/health
 200 {"status": "ok", "items": [{"name": "packs", "ok": true, "detail": null}]}
