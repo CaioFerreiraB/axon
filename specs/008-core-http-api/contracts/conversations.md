@@ -9,7 +9,7 @@
 | com `conversation_id` de outro subject ou inexistente | 404, antes de qualquer execução |
 | com `conversation_id` de outro Assistant | 400 `conversation_assistant_mismatch`, antes de qualquer execução |
 
-A resposta devolve o id no cabeçalho `X-Conversation-Id` e em `x_ai_core.conversation_id` — no corpo do
+A resposta devolve o id no cabeçalho `X-Conversation-Id` e em `x_axon.conversation_id` — no corpo do
 `chat.completion`, ou no primeiro chunk em streaming (FR-014). Só evento final sem erro grava a troca; conversa apagada
 durante a execução não recebe a troca (FR-018).
 

@@ -669,3 +669,78 @@ Task: "integration/test_http_end_to_end.py (T011)"
   requisição nativa) e, na 011, `tests/bootstrap/integration/test_platform_rag_first.py` (a timeline com o motor real)
 - [X] T083 Passada de encaixe da 002 (`agentic-deploy`): a conexão manda `x-ai-core-progress: status`, `CORE_REF` na
   tag nova; conferir no navegador (conferido pelo `scripts/check-webui.py`, que lê o `statusHistory` gravado)
+
+---
+
+## Passada de 2026-10-20: identidade Axon — US10 ([ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md), [ADR-038](../../docs/adr/ADR-038-marca-da-plataforma-e-marca-da-instalacao.md); research R50–R55)
+
+**Goal**: cabeçalhos `x-axon-store`/`x-axon-progress`, extensão `x_axon`, OpenAPI "Axon"; os cabeçalhos antigos
+recebem 400 que cita o novo; `me.instance.custom`; suítes verdes.
+
+**Independent Test**: [quickstart.md, "Fase 9, incremento 9.5"](quickstart.md) — `-m us10`, a suíte de `http/` e a
+integração do `me`; à mão, o título e o 400 do cabeçalho antigo.
+
+### Tests (antes das T098–T101)
+
+- [X] T094 [US10] `axon-ai/pyproject.toml`: a descrição da marca `us10` (já usada pela 003 US10) ganha `; 008 US10 — identidade Axon (cabeçalhos, extensão, OpenAPI e instance.custom)`
+- [X] T095 [P] [US10] `axon-ai/packages/core/tests/http/unit/test_chat_request.py` (R55): `reject_legacy_headers` com
+  `["x-ai-core-store"]`, `["X-AI-Core-Progress"]` e `["x-axon-store", "x-ai-core-store"]` levanta `ChatRequestInvalid`
+  com `field` = o antigo (em minúsculas), `code == "invalid_header"` e o novo na mensagem; com `["x-axon-store",
+  "content-type"]` não levanta; `STORE_HEADER == "x-axon-store"` e `PROGRESS_HEADER == "x-axon-progress"`
+- [X] T096 [P] [US10] `axon-ai/packages/core/tests/http/contract/test_legacy_headers.py` (R55), marca `us10`, com o
+  `http_testkit` da suíte: `/v1/chat/completions` e `/v1/chat` com `x-ai-core-store: false`, com `x-ai-core-progress:
+  status` e com o antigo e o novo juntos → 400, `error.code == "invalid_header"`, `error.param` = o antigo, a mensagem
+  cita o novo, e nenhuma chamada de modelo (cen. 3); com só `x-axon-store: false` → 200 sem conversa (cen. 1);
+  `GET /openapi.json` → `info.title == "Axon"` (cen. 5)
+- [X] T097 [P] [US10] `me` (R55, cen. 6): em `axon-ai/packages/core/tests/http/contract/test_admin_api.py`, o
+  `InstanceBranding(name="Axon", logo_url="/oauth2/assets/logo", custom=True)` do ambiente e o `me` com `custom: true`, e
+  um caso com `InstanceBranding()` → `{"name": "Axon", "logo_url": None, "custom": False}`; em
+  `axon-ai/packages/core/tests/bootstrap/integration/test_platform_identity_admin.py`, o `me` sem marca própria com
+  `"custom": False`, e um caso com `AXON_DISPLAY_NAME` próprio → `custom: True`. Rodar T095–T097 e ver falhar
+
+### Implementation
+
+- [X] T098 [US10] `axon-ai/packages/core/src/axon_ai/http/domain/chat_request.py` (R50, R51): `STORE_HEADER = "x-axon-store"`,
+  `PROGRESS_HEADER = "x-axon-progress"`, as docstrings, `LEGACY_HEADERS` e `reject_legacy_headers(names: Iterable[str])`;
+  `domain/errors.py` e `domain/openai_chunks.py`: `EXTRA = "x_axon"` e a docstring
+- [X] T099 [US10] `axon-ai/packages/core/src/axon_ai/http/adapters/chat.py` (R51): `reject_legacy_headers(request.headers.keys())`
+  nas duas rotas, depois de `authenticated(...)` e antes do parse; `adapters/app.py` (R52): `title="Axon"`
+- [X] T100 [US10] `axon-ai/packages/core/src/axon_ai/http/ports.py` (R53): `InstanceBranding(name: str = "Axon", logo_url:
+  str | None = None, custom: bool = False)`; `http/adapters/admin.py`: `"instance": {"name", "logo_url", "custom"}`
+- [X] T101 [US10] `axon-ai/packages/core/src/axon_ai/bootstrap/wiring.py::_instance` (R53): `custom=settings.display_name
+  != DEFAULT_DISPLAY_NAME or logo is not None`, com `DEFAULT_DISPLAY_NAME` de `axon_ai.bootstrap.settings`
+
+### Consumidores (R54)
+
+- [X] T102 [US10] Testes, por troca de texto nos arquivos de `git grep -lE 'x-ai-core|x_ai_core' --
+  axon-ai/packages/core/tests` menos os da T095 e T096 (`x-ai-core-store` → `x-axon-store`, `x-ai-core-progress` →
+  `x-axon-progress`, `x_ai_core` → `x_axon`), inclusive a fixture `tests/http/open_webui_v0_12.py`
+- [X] T103 [P] [US10] `specs/README.md`: a linha da 008 com os nomes novos e a US10
+
+### Integration e verificação
+
+- [X] T104 [US10] Suítes (a partir de `axon-ai/`): `uv run pytest && uv run mypy && uv run ruff check packages && uv run
+  ruff format --check packages && uv run lint-imports`, com e sem `AXON_TEST_POSTGRES_DSN`; a console (`npm test` e
+  `npm run e2e`, que lê o `me`)
+- [X] T105 [US10] Quickstart da US10 à mão (título e 400 do cabeçalho antigo com `serve`) e resíduos (SC-010):
+  `git grep -nE "x-ai-core|x_ai_core"` fora do histórico, de `contracts/installation.md` e do `CLAUDE.md` só nos testes e
+  textos da recusa; nenhuma palavra `agentic` removida (`--word-diff`)
+- [X] T106 [P] [US10] `docs/roadmap.md` (andamento do 9.5: 008 feita)
+
+### Dependencies (US10)
+
+T094 → T095 ∥ T096 ∥ T097 (veem falhar) → T098 → T099 → T100 → T101 → T102 → T104 → T105; T103 e T106 em paralelo com a
+T104.
+
+### Notas da execução (US10)
+
+- A marca `us10` já existia (003 US10); a 008 entrou na mesma descrição, como fazem as outras marcas compartilhadas.
+- T095–T097 falharam como esperado antes da T098 (erro de coleta no domínio, `custom` inexistente em `InstanceBranding`).
+- O cálculo de `custom` ganhou um teste de unidade na 011 (`tests/bootstrap/unit/test_instance_branding.py`): nome
+  padrão, `AXON_DISPLAY_NAME=Axon` explícito, nome próprio, logotipo servido e logotipo sem identidade (não servido, não
+  conta).
+- No exemplo do `me` em `contracts/admin-api.md`, o nome de instalação é neutro ("Instituto Exemplo"), por causa do
+  princípio I.
+- Suítes: workspace 3150 passed, 168 skipped; com `AXON_TEST_POSTGRES_DSN`, 3307 passed, 11 skipped; mypy sem erro;
+  ruff limpo; import-linter 69 kept; console 67 testes e e2e 39 passed, 4 skipped. À mão, com `serve`: `/openapi.json`
+  com o título `Axon`; `x-ai-core-store: false` → 400 `invalid_header`, `param: "x-ai-core-store"`, "use 'x-axon-store'".

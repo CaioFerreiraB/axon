@@ -5,10 +5,10 @@ GET /v1/models
 {"object": "list",
  "data": [
    {"id": "geral", "object": "model", "created": 1790000000, "owned_by": "system",
-    "x_ai_core": {"generation": "ollama/qwen3:1.7b", "description": "Assistente de uso geral",
+    "x_axon": {"generation": "ollama/qwen3:1.7b", "description": "Assistente de uso geral",
                   "origin": "system", "allow": ["ollama/*"]}},
    {"id": "~meu-rag", "object": "model", "created": 1790000000, "owned_by": "user:ana",
-    "x_ai_core": {"generation": "ollama/qwen3:1.7b", "description": null, "origin": "user", "allow": ["ollama/*"]}}
+    "x_axon": {"generation": "ollama/qwen3:1.7b", "description": null, "origin": "user", "allow": ["ollama/*"]}}
  ]}
 ```
 

@@ -25,10 +25,10 @@ a lista de modelos fica vazia e a conversa falha com "Model '' was not found" �
 ## Conexão (`OPENAI_API_CONFIGS`)
 
 ```json
-{"0": {"enable": true, "auth_type": "system_oauth", "headers": {"x-ai-core-store": "false", "x-ai-core-progress": "status"}, "connection_type": "external"}}
+{"0": {"enable": true, "auth_type": "system_oauth", "headers": {"x-axon-store": "false", "x-axon-progress": "status"}, "connection_type": "external"}}
 ```
 
-com `OPENAI_API_BASE_URLS` apontando para o `/v1` da plataforma e `ENABLE_OLLAMA_API=false`. O `x-ai-core-progress:
+com `OPENAI_API_BASE_URLS` apontando para o `/v1` da plataforma e `ENABLE_OLLAMA_API=false`. O `x-axon-progress:
 status` (FR-005a) mostra o progresso na timeline de status do Open WebUI, em vez do bloco de raciocínio (research R42).
 
 ## Tarefas auxiliares desligadas (clarificação 3)
@@ -46,7 +46,7 @@ ganhou cadastro pela tela (o cadastro vence o metadado padrão, mas não traz pa
 | Pedido do Open WebUI | Resposta |
 |---|---|
 | `GET /v1/models` com o token do usuário | os Assistants que aquele token resolve (FR-003), id `<assistant>` |
-| `POST /v1/chat/completions`, `stream: true`, parâmetros do modelo, `x-ai-core-store: false`, `x-ai-core-progress: status` | 200 SSE: papel, timeline de status (fila, início e desfecho de cada etapa, avisos, conclusão), texto, chunk final, `[DONE]`; nenhuma conversa gravada |
+| `POST /v1/chat/completions`, `stream: true`, parâmetros do modelo, `x-axon-store: false`, `x-axon-progress: status` | 200 SSE: papel, timeline de status (fila, início e desfecho de cada etapa, avisos, conclusão), texto, chunk final, `[DONE]`; nenhuma conversa gravada |
 | `tools` (modo nativo) | 400 `widening_field` |
 | conteúdo multimodal (imagem anexada) | 400 em `messages` |
 | plataforma cheia | 503 `overloaded` + `Retry-After` (o Open WebUI mostra o erro) |
@@ -55,6 +55,6 @@ ganhou cadastro pela tela (o cadastro vence o metadado padrão, mas não traz pa
 
 | # | Verificação | Onde |
 |---|---|---|
-| 1 | o pedido do Open WebUI v0.12 (fixture, com `x-ai-core-progress: status`) recebe streaming com a timeline de status antes e depois do texto, nenhum raciocínio, a última linha com `done: true`, `[DONE]` e nenhum id de conversa; sem o cabeçalho, raciocínio como antes | `tests/http/contract/test_open_webui.py` |
+| 1 | o pedido do Open WebUI v0.12 (fixture, com `x-axon-progress: status`) recebe streaming com a timeline de status antes e depois do texto, nenhum raciocínio, a última linha com `done: true`, `[DONE]` e nenhum id de conversa; sem o cabeçalho, raciocínio como antes | `tests/http/contract/test_open_webui.py` |
 | 2 | dois tokens de grupos diferentes → duas listas diferentes em `/v1/models`, cada uma só com o que o token resolve | idem (US8 cen. 1–2) |
 | 3 | a interface de verdade: dois usuários do Keycloak de desenvolvimento, seletor de modelos e uma conversa em streaming; uma execução por mensagem no trace | passada de encaixe da 002 (US8 cen. 2–5) |

@@ -54,7 +54,7 @@ async def test_login_sobreposicao_conversa_e_uso(tmp_path: Path) -> None:
         me = await client.get("/admin/v1/me", headers=bearer(console))
         assert me.status_code == 200, me.text
         assert (me.json()["username"], me.json()["scheme"]) == (TEST_ADMIN_USERNAME, "oidc")
-        assert me.json()["instance"] == {"name": "Axon", "logo_url": None}  # o nome padrão (ADR-038)
+        assert me.json()["instance"] == {"name": "Axon", "logo_url": None, "custom": False}  # o nome padrão (ADR-038)
 
         saved = await client.put(
             "/admin/v1/assistants/geral/models",

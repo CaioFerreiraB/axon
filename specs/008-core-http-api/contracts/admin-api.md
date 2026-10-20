@@ -29,11 +29,13 @@ Escritas de recursos versionados levam `version` no corpo (ou na query, no `DELE
 
 ```json
 {"subject": "user:ana", "username": "ana", "name": "Ana Souza", "groups": ["admin", "equipe"], "scheme": "oidc",
- "instance": {"name": "Agentic", "logo_url": "/oauth2/assets/logo"}}
+ "instance": {"name": "Instituto Exemplo", "logo_url": "/oauth2/assets/logo", "custom": true}}
 ```
 
-`logo_url` é `null` sem logotipo. O nome vem de `AXON_DISPLAY_NAME` (011); a console usa os dois na barra lateral
-(013 FR-020).
+`logo_url` é `null` sem logotipo. O nome vem de `AXON_DISPLAY_NAME` (011; padrão "Axon"); a console usa os dois na barra
+lateral (013 FR-020). `custom` (aditivo, US10, ADR-038) é `true` quando a instalação definiu um nome diferente de "Axon"
+ou um logotipo servido; com `false`, o lugar principal é o lockup Axon e a atribuição "com Axon" não aparece. Sem marca
+própria: `{"name": "Axon", "logo_url": null, "custom": false}`.
 
 ## Assistants de sistema (003, `SystemAssistantAdmin`)
 

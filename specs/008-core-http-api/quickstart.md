@@ -164,12 +164,12 @@ pergunta…", "Consultando os documentos…", "Escrevendo a resposta…"); nenhu
 streaming: o primeiro executa, o segundo recebe "Aguardando uma vaga (posição 1 na fila)…" no início e executa depois,
 o terceiro recebe 503 `overloaded` com `Retry-After: 30`.
 
-**Pedido efêmero.** O mesmo pedido com `-H 'x-ai-core-store: false'` responde sem `conversation_id`, e
+**Pedido efêmero.** O mesmo pedido com `-H 'x-axon-store: false'` responde sem `conversation_id`, e
 `GET /v1/conversations` não muda.
 
 **Medição (R36), 2026-10-13 — com OpenRouter, por decisão do mantenedor** (o suporte ao Ollama local fica para
 depois). `axon serve` no perfil `memory` (Ryzen 7 7700, 16 threads, 14 GB), Assistant `conversa` (flow `chat`,
-`axon-generic`), geração `openrouter/~z-ai/glm-flash-latest`, pergunta curta, streaming, `x-ai-core-store: false`, 3
+`axon-generic`), geração `openrouter/~z-ai/glm-flash-latest`, pergunta curta, streaming, `x-axon-store: false`, 3
 rodadas por caso, `AXON_MAX_EXECUTIONS=4`:
 
 | Simultâneas | Primeiro texto (p50 / máx) | Total (p50 / máx) |
@@ -198,3 +198,32 @@ trouxe o raciocínio "Preparando o contexto da pergunta…", "Consultando os doc
 encontrados…", "Conferindo se os trechos cobrem a pergunta…", "Escrevendo a resposta…" e a resposta com citações do
 Estatuto e do POR. A prova achou um defeito na 003 — a chave de cifragem do JWKS do Keycloak fazia o verificador
 descartar todas as chaves — corrigido no core `v0.4.1` (003 research R24).
+
+---
+
+## Fase 9, incremento 9.5 (2026-10-20): US10 — a API com o nome Axon
+
+A partir de `axon-ai/`, com `XDG_DATA_HOME=$HOME/.local/share` nesta máquina. Decisões em [research.md](research.md)
+R50–R55.
+
+```bash
+uv run pytest packages/core/tests -m us10 -v
+uv run pytest packages/core/tests/http packages/core/tests/bootstrap/integration/test_platform_identity_admin.py -q
+```
+
+**Esperado**: verde — `x-axon-store: false` é efêmero e `x-axon-progress: status` dá a timeline; `x-ai-core-store` ou
+`x-ai-core-progress` recebem 400 `invalid_header` com o antigo em `param` e o novo na mensagem, nas duas entradas de chat,
+sem chamada de modelo; os chunks e erros usam `x_axon`; `/openapi.json` tem o título "Axon"; o `me` traz
+`instance.custom` falso sem marca própria e verdadeiro com nome ou logotipo.
+
+À mão, no perfil `memory`:
+
+```bash
+AXON_PROFILE=memory AXON_DEV_API_KEY=axn_0123456789abcdef_dev uv run axon serve &
+curl -s localhost:8000/openapi.json | jq -r .info.title
+curl -s -H "Authorization: Bearer axn_0123456789abcdef_dev" -H "x-ai-core-store: false" -H "Content-Type: application/json" \
+  -d '{"model": "geral", "messages": [{"role": "user", "content": "oi"}]}' localhost:8000/private/v1/chat/completions | jq .error
+```
+
+**Esperado**: `Axon`; o erro com `"code": "invalid_header"`, `"param": "x-ai-core-store"` e a mensagem citando
+`x-axon-store`.

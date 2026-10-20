@@ -37,7 +37,7 @@ def test_formato_da_entrada(client: TestClient) -> None:
         "object": "model",
         "created": int(CREATED.timestamp()),
         "owned_by": "system",
-        "x_ai_core": {
+        "x_axon": {
             "generation": str(ModelRef(provider="ollama", model="qwen3:1.7b")),
             "description": "uso geral",
             "origin": "system",

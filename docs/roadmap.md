@@ -94,6 +94,8 @@ credenciais antigas não autenticam; `TEST_API_KEY` com o prefixo novo; clientes
 e documentos vivos de 008, 011, 012 e 013 atualizados.
 **009 feita** (2026-10-20) — os traces chegam ao Langfuse como o serviço `axon`; o segredo do Langfuse da console é
 selado com o rótulo `axon-ai/observability/v1`, e o selado com o antigo não abre (a saúde mostra; regrava-se pela console).
+**008 feita** (2026-10-20) — cabeçalhos `x-axon-store`/`x-axon-progress` (os antigos recebem 400 que cita o novo, por decisão
+do mantenedor), extensão `x_axon`, OpenAPI "Axon" e `me.instance.custom` (ADR-038).
 
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 

@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: Tradução de arch-v1 §25 (API, duas superfícies, compat OpenAI e Open WebUI, streaming, requisição nativa), §28 (histórico de conversa), §31 Fase 7; ADR-002. Fase 9 (2026-10-13): superfície de administração para a console — ADR-029, ADR-031, ADR-032, ADR-033, ADR-034.
+**Input**: Tradução de arch-v1 §25 (API, duas superfícies, compat OpenAI e Open WebUI, streaming, requisição nativa), §28 (histórico de conversa), §31 Fase 7; ADR-002. Fase 9 (2026-10-13): superfície de administração para a console — ADR-029, ADR-031, ADR-032, ADR-033, ADR-034. Fase 9, incremento 9.5 (2026-10-20): identidade Axon — ADR-037, ADR-038.
 
 ## Module Boundary *(mandatory)*
 
@@ -57,8 +57,16 @@
 - Q: Como o Open WebUI deve se identificar na plataforma, para que cada usuário veja só os Assistants permitidos a ele? → A: Por SSO OIDC: Open WebUI e plataforma usam o mesmo provedor de identidade; a conexão do Open WebUI aponta para `/v1` com a autenticação `system_oauth`, que repassa o access token OAuth de cada usuário logado, e a 003 o verifica como qualquer token OIDC. O Open WebUI não filtra modelos por conta própria — a ACL da 003 é a fonte da verdade, e a lista de modelos é a do `/v1/models` com o token daquele usuário. Nenhum mecanismo de autenticação novo na API; a instalação de referência traz um provedor OIDC de desenvolvimento para a prova.
 - Q: O progresso da execução (fila, recuperação, tool chamada) deve aparecer para quem usa o Open WebUI, ou só para clientes que leem o campo extra da API? → A: Também como raciocínio: cada evento de progresso sai, além do campo extra, como uma linha curta em português em `delta.reasoning_content` — que o Open WebUI mostra num bloco recolhível de "pensamento" e clientes OpenAI padrão ignoram —; o texto da resposta (`delta.content`) não muda. Refina a clarificação de 2026-09-21 (o chunk de progresso deixa de ter `delta` vazio).
 - Q: O que fazer com as chamadas auxiliares que o Open WebUI dispara a cada conversa (gerar título, tags, sugestões de continuação, autocompletar)? → A: Desligá-las na instalação de referência, pela configuração do Open WebUI (sem código): a plataforma só recebe as mensagens da conversa, e o título passa a ser o começo da primeira mensagem. Cada tarefa auxiliar seria uma execução completa do Assistant, com recuperação, ocupando vaga da fila no hardware alvo.
-- Q: As conversas que a plataforma criaria a cada mensagem do Open WebUI (que nunca envia id de conversa) devem ser gravadas mesmo assim? → A: Não, quando o cliente pede: o cabeçalho opcional `x-ai-core-store: false`, num pedido sem id de conversa, torna o pedido efêmero — a API executa e responde, mas não cria nem grava conversa e não devolve id. A conexão do Open WebUI na instalação de referência envia o cabeçalho; sem ele, tudo segue como antes (FR-013, FR-014). Evita dado pessoal duplicado e fragmentado que o usuário não vê nem apaga.
-- Q: O bloco de raciocínio mostra só o nome de cada etapa. Como o usuário do Open WebUI acompanha o que a execução faz — chamadas, retornos, decisões e tempos? → A: Por uma timeline de status, no componente nativo do Open WebUI v0.12 (eventos `status` na chave `event` do chunk), ligada pelo cabeçalho opcional `x-ai-core-progress: status` que a conexão da instalação envia. Nesse modo, o progresso sai só como status, sem `reasoning_content`, e continua depois do primeiro texto (conferência da resposta, avisos e a linha final). Cada etapa ganha uma linha de início e uma de desfecho, com o desfecho que o motor publica (ADR-028) e o tempo que a API mede: tools chamadas e argumentos, trechos e documentos, decisões do controller e do portão, modelo e tokens. Nunca vai texto de trecho, conteúdo de resultado de tool nem texto de erro de tool. Sem o cabeçalho, vale a clarificação anterior.
+- Q: As conversas que a plataforma criaria a cada mensagem do Open WebUI (que nunca envia id de conversa) devem ser gravadas mesmo assim? → A: Não, quando o cliente pede: o cabeçalho opcional `x-axon-store: false`, num pedido sem id de conversa, torna o pedido efêmero — a API executa e responde, mas não cria nem grava conversa e não devolve id. A conexão do Open WebUI na instalação de referência envia o cabeçalho; sem ele, tudo segue como antes (FR-013, FR-014). Evita dado pessoal duplicado e fragmentado que o usuário não vê nem apaga.
+- Q: O bloco de raciocínio mostra só o nome de cada etapa. Como o usuário do Open WebUI acompanha o que a execução faz — chamadas, retornos, decisões e tempos? → A: Por uma timeline de status, no componente nativo do Open WebUI v0.12 (eventos `status` na chave `event` do chunk), ligada pelo cabeçalho opcional `x-axon-progress: status` que a conexão da instalação envia. Nesse modo, o progresso sai só como status, sem `reasoning_content`, e continua depois do primeiro texto (conferência da resposta, avisos e a linha final). Cada etapa ganha uma linha de início e uma de desfecho, com o desfecho que o motor publica (ADR-028) e o tempo que a API mede: tools chamadas e argumentos, trechos e documentos, decisões do controller e do portão, modelo e tokens. Nunca vai texto de trecho, conteúdo de resultado de tool nem texto de erro de tool. Sem o cabeçalho, vale a clarificação anterior.
+
+### Session 2026-10-20
+
+- Q: Quais os nomes dos cabeçalhos e da chave de extensão depois do renome da plataforma? → A: `x-axon-store` e `x-axon-progress` (eram `x-ai-core-store` e `x-ai-core-progress`), e a chave de extensão nos chunks e no envelope de erro, `x_axon` (era `x_ai_core`; ADR-037, item 2). Os valores e o comportamento não mudam. As referências a esses cabeçalhos nesta spec passam ao nome novo.
+- Q: O que acontece com um pedido que ainda manda um cabeçalho antigo? → A: É recusado com 400 (`invalid_header`), antes de qualquer execução, com `param` igual ao cabeçalho antigo e a mensagem citando o novo (`x-ai-core-store` → `x-axon-store`), também quando o novo vem junto. Ignorá-lo como cabeçalho desconhecido faria um cliente que pede para não gravar ter a conversa gravada sem saber (princípio VII). É a segunda concessão de diagnóstico do renome, ao lado da recusa das variáveis `AI_CORE_*` no boot (decisão do mantenedor de 2026-10-20, dentro do corte seco do ADR-037: o nome antigo não é aceito, só explicado).
+- Q: Qual o título da API no documento OpenAPI? → A: "Axon" (era "ai-core"; ADR-037, item 2).
+- Q: Como a console sabe se a instalação tem marca própria (ADR-038)? → A: `GET /admin/v1/me` ganha `instance.custom` (aditivo): `true` quando a instalação definiu um nome diferente do padrão "Axon" ou um logotipo; `false` quando o lugar principal é o Axon. O nome padrão da marca da instalação passa de "Agentic" a "Axon". Quem decide se a instalação definiu nome ou logotipo é a composição (011), a partir da configuração que ela já lê; a 008 só publica.
+- Q: Quem acompanha a troca nesta passada? → A: A fixture do pedido do Open WebUI v0.12 (os cabeçalhos da conexão), os testes e os documentos vivos da 008 e o `specs/README.md`. A conexão real do Open WebUI na instalação muda na passada dela; a console passa a usar o `custom` na passada da 013 (a validação do `me` na console ignora a chave nova até lá).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -154,7 +162,7 @@ Eventos intermediários do motor (tool chamada, recuperação em curso) e a espe
 2. **Given** todas as vagas de execução ocupadas, **When** uma requisição em streaming entra na fila, **Then** recebe em até 2 segundos um evento de progresso "na fila" e, ao ganhar a vaga, segue normalmente.
 3. **Given** vagas e fila cheias, **When** chega uma requisição nova, **Then** ela é recusada com 503 e indicação de quando tentar de novo, antes de qualquer chamada de modelo.
 4. **Given** uma execução em streaming pelo Open WebUI, **When** o motor emite progresso, **Then** cada evento anterior ao texto da resposta aparece como uma linha de raciocínio em português (`delta.reasoning_content`), nenhuma linha de raciocínio vem depois do primeiro texto, o texto da resposta não contém nenhuma delas, e um cliente OpenAI padrão recebe a mesma resposta que receberia sem o progresso.
-5. **Given** uma execução em streaming com o cabeçalho `x-ai-core-progress: status`, **When** o motor emite progresso e desfechos de etapa, **Then** cada um sai como evento `status` do Open WebUI (`event`), com o início de etapa `done: false` e o desfecho `done: true`. A timeline nomeia tools e argumentos, trechos e documentos, as decisões e o modelo, com tempos, e segue depois do primeiro texto até uma linha final `done: true`. Nenhum `reasoning_content` sai, o texto da resposta não muda, e um valor de cabeçalho fora de `reasoning`/`status` é recusado com 400 antes de qualquer execução.
+5. **Given** uma execução em streaming com o cabeçalho `x-axon-progress: status`, **When** o motor emite progresso e desfechos de etapa, **Then** cada um sai como evento `status` do Open WebUI (`event`), com o início de etapa `done: false` e o desfecho `done: true`. A timeline nomeia tools e argumentos, trechos e documentos, as decisões e o modelo, com tempos, e segue depois do primeiro texto até uma linha final `done: true`. Nenhum `reasoning_content` sai, o texto da resposta não muda, e um valor de cabeçalho fora de `reasoning`/`status` é recusado com 400 antes de qualquer execução.
 
 ---
 
@@ -192,7 +200,7 @@ Open WebUI se conecta pela compat OpenAI na superfície pública: o usuário ent
 2. **Given** dois usuários com permissões diferentes logados no Open WebUI, **When** cada um abre o seletor de modelos, **Then** cada um vê exatamente os Assistants que o próprio token resolve no `/v1/models` — nenhum vê os do outro.
 3. **Given** um Assistant público, **When** o usuário conversa pelo Open WebUI, **Then** a resposta chega em streaming, sem nenhum código de interface customizado.
 4. **Given** a instalação de referência, **When** o usuário envia uma mensagem pelo Open WebUI, **Then** a plataforma recebe uma única execução — nenhuma chamada auxiliar de título, tags, sugestões ou autocompletar.
-5. **Given** a conexão do Open WebUI com o cabeçalho `x-ai-core-store: false`, **When** o usuário conversa, **Then** nenhuma conversa é criada nem gravada na plataforma, e a listagem de conversas daquele subject não muda.
+5. **Given** a conexão do Open WebUI com o cabeçalho `x-axon-store: false`, **When** o usuário conversa, **Then** nenhuma conversa é criada nem gravada na plataforma, e a listagem de conversas daquele subject não muda.
 
 ---
 
@@ -227,6 +235,25 @@ administração; com um token de não admin, todas respondem 404; com um token d
 
 ---
 
+### User Story 10 - Identidade Axon: a API com o nome da plataforma (Priority: P2)
+
+A plataforma passa a se chamar Axon (ADR-037). Quem integra configura os cabeçalhos `x-axon-store` e `x-axon-progress`, lê a extensão `x_axon` e vê a API documentada como "Axon". Um cliente que ainda manda o cabeçalho antigo recebe um erro que diz o nome novo, em vez de ter o pedido atendido de outro jeito. A console fica sabendo se a instalação tem marca própria, para decidir entre o lockup Axon e a atribuição "com Axon" (ADR-038).
+
+**Why this priority**: Os cabeçalhos são a configuração da conexão do Open WebUI; um nome antigo ignorado faria conversas serem gravadas sem pedido. P2 porque o comportamento da API não muda, só os nomes, mais um campo aditivo.
+
+**Independent Test**: Um pedido com `x-axon-store: false` é efêmero e um com `x-axon-progress: status` recebe a timeline; o mesmo pedido com `x-ai-core-store` ou `x-ai-core-progress` recebe 400 que nomeia o cabeçalho antigo e cita o novo; o `me` traz `instance.custom` falso com o nome padrão e verdadeiro com nome ou logotipo da instalação.
+
+**Acceptance Scenarios**:
+
+1. **Given** um pedido com `x-axon-store: false` e sem id de conversa, **When** chega a qualquer das duas entradas de chat, **Then** é efêmero, como antes.
+2. **Given** um pedido em streaming com `x-axon-progress: status`, **When** a execução emite progresso, **Then** ele sai na timeline de status, como antes.
+3. **Given** um pedido com `x-ai-core-store` ou `x-ai-core-progress`, com ou sem o cabeçalho novo junto, **When** chega a qualquer das duas entradas de chat, **Then** recebe 400 `invalid_header` antes de qualquer execução, com `param` igual ao cabeçalho antigo e a mensagem citando o novo.
+4. **Given** um chunk com extensão ou um erro com detalhe da plataforma, **When** o cliente o lê, **Then** a chave de extensão é `x_axon`.
+5. **Given** a documentação da API, **When** o cliente a pede, **Then** o título é "Axon".
+6. **Given** uma instalação sem nome nem logotipo próprios, **When** um admin pede `GET /admin/v1/me`, **Then** `instance` traz o nome "Axon" e `custom: false`; **Given** um nome próprio ou um logotipo, **Then** `custom: true`.
+
+---
+
 ### Edge Cases
 
 - Execução sem streaming com MCP do Assistant fora do ar: a resposta é gerada sem a tool, o registro `McpUnavailable` é `error`, e a API responde 502 com a resposta, os motivos e `x-should-retry: false` — o SDK oficial não repete.
@@ -246,7 +273,9 @@ administração; com um token de não admin, todas respondem 404; com um token d
 - Conversa apagada enquanto uma execução dela está em andamento: a exclusão prevalece; a resposta chega ao cliente, mas a troca não é gravada.
 - Pedido de exclusão de conversa de outro Principal ou inexistente: 404, sem revelar se ela existe.
 - Open WebUI repassa um token expirado ou de outro emissor: a API responde 401 no formato de erro da OpenAI, como para qualquer cliente; a interface mostra o erro, e o usuário entra de novo — a API não renova tokens.
-- Pedido com `x-ai-core-store: false` e id de conversa: recusado com 400 que nomeia o cabeçalho, antes de qualquer execução — continuar uma conversa armazenada sem gravá-la é contraditório. Valor do cabeçalho diferente de `true` ou `false`: 400 que nomeia o cabeçalho.
+- Pedido com `x-axon-store: false` e id de conversa: recusado com 400 que nomeia o cabeçalho, antes de qualquer execução — continuar uma conversa armazenada sem gravá-la é contraditório. Valor do cabeçalho diferente de `true` ou `false`: 400 que nomeia o cabeçalho.
+- Cabeçalho antigo com valor vazio ou inválido: recusado pela mesma regra do cenário 3 da US10; a presença do nome antigo basta.
+- Instalação que define `AXON_DISPLAY_NAME=Axon` sem logotipo: `custom: false` — o lugar principal já é o Axon, e a atribuição não aparece (ADR-038).
 - Chave de API emitida com o subject de um usuário alcança as conversas e os Assistants dele: emitir chaves é poder do grupo de administração (003 FR-015), e a conversa pertence ao subject, não à superfície.
 - Rota de administração pedida por um não admin: 404 idêntico ao de rota inexistente; a existência da administração não vaza.
 - Dois admins gravam a mesma sobreposição ou o mesmo ajuste: o segundo recebe 409 com a versão atual; nada é sobrescrito.
@@ -262,7 +291,7 @@ administração; com um token de não admin, todas respondem 404; com um token d
 - **FR-003**: A API DEVE listar como modelos exatamente os Assistants que o Principal resolve (003 FR-008), um por Assistant, com id `<assistant>` e o modelo de geração declarado e a descrição em campos extras. Pedidos com `<assistant>/<modelo>` ou `<assistant>/<provider>/<modelo>` continuam aceitos dentro da allowlist.
 - **FR-004**: A API DEVE aceitar requisição nativa (Assistant, mensagens, streaming) e rejeitar campos de ampliação.
 - **FR-005**: A API DEVE traduzir os eventos do motor em chunks SSE, emitindo progresso como metadados ignoráveis e, enquanto o texto da resposta não começou, também no mesmo chunk como uma linha curta em português em `delta.reasoning_content` (o raciocínio que o Open WebUI exibe à parte); depois do primeiro texto, só nos metadados. Progresso nunca vai em `delta.content`. Falha depois de o stream ter aberto DEVE encerrar o stream normalmente — chunk final com desfecho de erro, motivos em campo extra e marcador de fim —, nunca com conexão pendurada nem interrompida sem aviso.
-- **FR-005a**: Nas duas superfícies, o cabeçalho opcional `x-ai-core-progress` DEVE escolher como o progresso aparece em streaming: `reasoning` (padrão, o FR-005) ou `status`; outro valor DEVE ser recusado com 400 que o nomeia, antes de qualquer execução. Em `status`, a fila, cada início e cada desfecho de etapa (005 FR-012a) e o fim da execução DEVEM sair como evento `status` na chave `event` do chunk, que o Open WebUI mostra como timeline, sem `reasoning_content` e também depois do primeiro texto. O desfecho DEVE trazer o tempo da etapa, medido pela API. Texto de trecho, conteúdo de resultado de tool e texto de erro de tool NÃO DEVEM aparecer. Sem streaming, o cabeçalho não muda nada.
+- **FR-005a**: Nas duas superfícies, o cabeçalho opcional `x-axon-progress` DEVE escolher como o progresso aparece em streaming: `reasoning` (padrão, o FR-005) ou `status`; outro valor DEVE ser recusado com 400 que o nomeia, antes de qualquer execução. Em `status`, a fila, cada início e cada desfecho de etapa (005 FR-012a) e o fim da execução DEVEM sair como evento `status` na chave `event` do chunk, que o Open WebUI mostra como timeline, sem `reasoning_content` e também depois do primeiro texto. O desfecho DEVE trazer o tempo da etapa, medido pela API. Texto de trecho, conteúdo de resultado de tool e texto de erro de tool NÃO DEVEM aparecer. Sem streaming, o cabeçalho não muda nada.
 - **FR-006**: A superfície pública DEVE oferecer CRUD de Assistants do próprio usuário (Fase 2) e de MCPs do próprio usuário (Fase 3, com a 007).
 - **FR-007**: A superfície privada DEVE oferecer introspecção de packs e administração de chaves de API, ambas restritas ao grupo de administração (003 FR-015) com 404 para os demais; health para qualquer chave válida (Fase 2); e CRUD de MCPs globais (Fase 3, com a 007).
 - **FR-008**: A API DEVE armazenar cada conversa — estado e mensagens — pelo subject do Principal e pelo Assistant, separada do estado de execução.
@@ -280,12 +309,19 @@ administração; com um token de não admin, todas respondem 404; com um token d
 - **FR-020**: Assistant que o Principal resolve, mas que está indisponível, DEVE responder 424 no formato de erro da OpenAI, com código `assistant_unavailable` e os motivos, antes de qualquer execução; o 424 nunca é devolvido a quem não resolveria o Assistant (FR-009).
 - **FR-021**: Falha do armazenamento de credenciais durante a autenticação DEVE responder 503 no formato de erro da OpenAI, com código `storage_unavailable`, antes de qualquer outra verificação; a mensagem nomeia o armazenamento e não expõe detalhe de infraestrutura (endereço, driver, mensagem do banco).
 - **FR-022**: O desfecho de uma execução DEVE ser decidido pela gravidade dos registros do evento final (005, ADR-018), nunca pelo tipo: só registros `notice` → sucesso (`finish_reason: "stop"`, 200 sem streaming); algum registro `error` → falha (`finish_reason: "error"` no stream; 502 sem streaming, com a resposta e os motivos no corpo). Toda resposta de falha de execução DEVE levar o cabeçalho `x-should-retry: false`, para que clientes que repetem 5xx automaticamente não reexecutem o loop nem tools de escrita.
-- **FR-023**: Nas duas superfícies, um pedido sem id de conversa e com o cabeçalho `x-ai-core-store: false` DEVE ser efêmero: executa e responde normalmente, mas não cria nem grava conversa e não devolve id de conversa. O cabeçalho com id de conversa, ou com valor diferente de `true`/`false`, DEVE ser recusado com 400 que o nomeia, antes de qualquer execução. Sem o cabeçalho (ou com `true`), vale o FR-013.
+- **FR-023**: Nas duas superfícies, um pedido sem id de conversa e com o cabeçalho `x-axon-store: false` DEVE ser efêmero: executa e responde normalmente, mas não cria nem grava conversa e não devolve id de conversa. O cabeçalho com id de conversa, ou com valor diferente de `true`/`false`, DEVE ser recusado com 400 que o nomeia, antes de qualquer execução. Sem o cabeçalho (ou com `true`), vale o FR-013.
 - **FR-024**: A superfície de administração DEVE aceitar só o grupo de administração (003), em qualquer esquema que ela aceite; credencial inválida → 401 no envelope de erro; Principal autenticado fora do grupo → 404 em toda rota, igual a rota inexistente.
 - **FR-025**: A superfície de administração DEVE expor, sobre os seams dos módulos donos e sem regra própria: `me`; Assistants de sistema (lista e detalhe com YAML, sobreposições, efetivo, estado e seções permitidas; gravar e descartar sobreposição de `models` e de `mcp`; testar modelo pela verificação de saúde da 006); MCPs globais (o CRUD da superfície privada) com a lista de tools e a saúde de cada servidor; uso (período, fuso, agrupamento) e preços; ajustes do Langfuse e da captura de conteúdo, com teste de conexão; contas, grupos e ajustes de login (012). O formato fica no contrato `admin-api.md`.
 - **FR-026**: Toda escrita na superfície de administração sobre um recurso versionado (sobreposição, ajustes) DEVE exigir a versão lida; versão desatualizada → 409 com a versão atual. Recusa de validação → 422 que nomeia o campo; escrita em campo definido pela instalação → 409 que nomeia o campo e a origem.
 - **FR-027**: Nenhuma resposta da superfície de administração DEVE trazer valor de segredo (chaves do Langfuse, credenciais de MCP, hashes); a senha temporária de uma conta aparece só na resposta da operação que a definiu.
 - **FR-028**: A API NÃO DEVE habilitar requisições entre origens: a console é servida na mesma origem da plataforma (013), e os prefixos da API são repassados sem reescrita.
+
+- **FR-029**: Os cabeçalhos do pedido efêmero e do modo de progresso DEVEM se chamar `x-axon-store` e `x-axon-progress` (FR-023, FR-005a; ADR-037), e a chave de extensão nos chunks e no envelope de erro, `x_axon`.
+- **FR-030**: Um pedido às entradas de chat com `x-ai-core-store` ou `x-ai-core-progress` DEVE ser recusado com 400 `invalid_header` antes de qualquer execução, com `param` igual ao cabeçalho antigo e a mensagem citando o novo, mesmo com o novo presente (clarificação de 2026-10-20).
+- **FR-031**: O documento OpenAPI da plataforma DEVE ter o título "Axon".
+- **FR-032**: `GET /admin/v1/me` DEVE trazer `instance.custom`: `true` quando a instalação definiu um nome diferente do padrão "Axon" ou um logotipo, `false` caso contrário; o nome padrão da marca da instalação DEVE ser "Axon" (ADR-038). Mudança aditiva.
+- **FR-033**: Os consumidores no workspace que citam os cabeçalhos ou a chave de extensão — a fixture do Open WebUI, os testes e os documentos vivos — DEVEM usar os nomes novos na mesma passada (ADR-037, item 7).
+
 
 ### Key Entities
 
@@ -306,17 +342,19 @@ administração; com um token de não admin, todas respondem 404; com um token d
 - **SC-007**: 100% das conversas apagadas pelo usuário deixam de ser recuperáveis pela API imediatamente, e nenhuma conversa permanece armazenada além do prazo de retenção mais um ciclo de expiração (teste com relógio fixo).
 - **SC-008**: 100% das ações da console (013) têm rota na superfície de administração, e cada rota funciona também com chave de API de admin, sem console.
 - **SC-009**: Em teste, nenhum Principal fora do grupo de administração distingue uma rota de administração de uma inexistente, e nenhuma resposta de administração traz valor de segredo.
+- **SC-010**: Depois da passada da US10, zero ocorrências de `x-ai-core-store`, `x-ai-core-progress` e `x_ai_core` no código, nos testes e nos documentos vivos do workspace e das specs do core (fora do histórico do ADR-037, item 6, do contrato da instalação e dos testes e textos da recusa do FR-030), e 100% dos pedidos com um cabeçalho antigo são recusados antes de executar.
 
 ## Assumptions
 
 - O histórico de conversa usa armazenamento persistente a partir da Fase 2 (adapter Postgres; em memória na Fase 1).
-- O Open WebUI não envia o id de conversa; o histórico da interface é o dela. Na instalação de referência a conexão envia `x-ai-core-store: false`, e esses pedidos são efêmeros (FR-023); sem o cabeçalho, cada requisição abriria uma conversa nova.
-- A mesma conexão envia `x-ai-core-progress: status` (FR-005a): o progresso aparece na timeline de status do Open WebUI v0.12, que repassa a chave `event` de cada chunk ao emissor de eventos dele e grava os status na mensagem. Outro cliente que não conheça a chave a ignora como campo extra.
+- O Open WebUI não envia o id de conversa; o histórico da interface é o dela. Na instalação de referência a conexão envia `x-axon-store: false`, e esses pedidos são efêmeros (FR-023); sem o cabeçalho, cada requisição abriria uma conversa nova.
+- A mesma conexão envia `x-axon-progress: status` (FR-005a): o progresso aparece na timeline de status do Open WebUI v0.12, que repassa a chave `event` de cada chunk ao emissor de eventos dele e grava os status na mensagem. Outro cliente que não conheça a chave a ignora como campo extra.
 - A fila atende por ordem de chegada; justiça entre Principals fica fora da v1, porque o limite por minuto da 003 já contém o abuso individual. Processo único na v1: limite e fila valem por processo.
 - Os valores iniciais de limite, fila e espera são medidos no hardware alvo na implementação (o plano fixa valores provisórios e o método), não aqui.
 - O harness de avaliação (009) roda em processo próprio e não passa por esta fila; avaliação não roda no mesmo host da produção.
 - Os traces (009) seguem a própria retenção, limitada e configurável; apagar uma conversa não apaga, na v1, os traces das requisições dela.
 - A aplicação HTTP é montada pela composition root (011), que injeta os seams consumidos.
+- US10 (ADR-037): até a passada da instalação, a conexão do Open WebUI da instalação de referência manda os cabeçalhos antigos, mas usa a imagem de uma tag antiga do core, que os aceita; as duas mudam juntas lá.
 - As interfaces são o Open WebUI (chat) e, opcional, a console de administração (013, Fase 9); nenhuma lógica de agente nem regra de negócio vive nelas (princípio XI, ADR-029).
 - O Open WebUI faz login no mesmo provedor OIDC que a 003 verifica e repassa o access token de cada usuário (`system_oauth`); o token precisa ter o emissor, a audiência e as claims de subject e grupos que a configuração da 003 lê. Desde a Fase 9, a instalação de referência (002) usa o provedor da própria plataforma (012, ADR-030) no lugar do Keycloak de desenvolvimento; um provedor externo continua possível.
 - Na instalação de referência, as tarefas auxiliares do Open WebUI (título, tags, sugestões de continuação, autocompletar) ficam desligadas; o operador que as religar sabe que cada uma é uma execução completa do Assistant e ocupa vaga da fila (FR-016).

@@ -109,7 +109,7 @@ def test_o_assistant_rag_first_sem_controller_e_servido_e_ve_o_identificador(tmp
     for item in CHUNKS:
         assert f"[Manual, p. {item.page} · id: {item.chunk_id}]" in resultado
     assert plataforma.trace is not None
-    tipos = [record.type for record in plataforma.trace.trace(payload["x_ai_core"]["request_id"]).records]
+    tipos = [record.type for record in plataforma.trace.trace(payload["x_axon"]["request_id"]).records]
     assert "coverage_gate" in tipos and "tool_call" in tipos and "controller_decision" not in tipos
     assert tipos.count("model_call") == 1
 
@@ -122,7 +122,7 @@ def test_retriever_que_falha_e_502_sem_reexecucao(tmp_path: Path) -> None:
 
     assert response.status_code == 502, response.text
     assert response.headers.get("x-should-retry") == "false"
-    assert [e["kind"] for e in response.json()["x_ai_core"]["errors"]] == ["RetrievalFailed"]
+    assert [e["kind"] for e in response.json()["x_axon"]["errors"]] == ["RetrievalFailed"]
     assert geracao.calls == []
 
 
@@ -133,7 +133,7 @@ def test_limiar_do_operador_sem_controller_gera_sem_trechos(tmp_path: Path) -> N
         response = client.post("/v1/chat/completions", headers=OIDC, json=body(model="leitor"))
 
     assert response.status_code == 200, response.text
-    assert [e["kind"] for e in response.json()["x_ai_core"]["errors"]] == ["CoverageInsufficient"]
+    assert [e["kind"] for e in response.json()["x_axon"]["errors"]] == ["CoverageInsufficient"]
     assert [m for m in geracao.calls[-1]["messages"] if m["role"] == "tool"] == []
 
 
@@ -144,7 +144,7 @@ def test_timeline_de_status_nomeia_a_busca_os_documentos_e_o_portao(tmp_path: Pa
     with TestClient(plataforma.app) as client:
         response = client.post(
             "/v1/chat/completions",
-            headers=OIDC | {"x-ai-core-progress": "status"},
+            headers=OIDC | {"x-axon-progress": "status"},
             json=body(model="leitor", stream=True),
         )
 

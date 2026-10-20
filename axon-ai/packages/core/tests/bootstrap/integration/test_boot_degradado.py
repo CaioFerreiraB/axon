@@ -44,7 +44,7 @@ def test_o_assistant_que_nao_depende_do_pack_quebrado_atende(tmp_path: Path) -> 
         assert client.post("/v1/chat/completions", headers=OIDC, json=body()).status_code == 200
         orfao = client.post("/v1/chat/completions", headers=OIDC, json=body(model="orfao"))
         assert orfao.status_code == 424, "autorizado, mas indisponível: 424 com o motivo (008 FR-020)"
-        assert any("inexistente" in motivo for motivo in orfao.json()["x_ai_core"]["reasons"])
+        assert any("inexistente" in motivo for motivo in orfao.json()["x_axon"]["reasons"])
 
 
 def test_o_pack_quebrado_aparece_em_erro_no_registro(tmp_path: Path) -> None:

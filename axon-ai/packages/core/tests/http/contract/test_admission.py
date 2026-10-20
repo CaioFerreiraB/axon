@@ -109,7 +109,7 @@ async def test_quem_espera_ve_a_fila_na_hora_e_segue_ao_ganhar_a_vaga() -> None:
     abertura, fila = await abrir(terceiro, 2)
     assert abertura["choices"][0]["delta"] == {"role": "assistant"}
     assert reasoning(fila) == "Aguardando uma vaga (posição 1 na fila)…\n"
-    assert fila["x_ai_core"]["progress"] == {"stage": "queue", "detail": "1"}
+    assert fila["x_axon"]["progress"] == {"stage": "queue", "detail": "1"}
     assert engine.calls == 0, "o aviso de fila vem antes de qualquer execução"
 
     engine.gate.set()
@@ -132,7 +132,7 @@ async def test_no_modo_status_a_fila_e_o_progresso_vao_para_a_timeline() -> None
     timeline = service.stream(replace(REQUEST, progress="status"), PRINCIPAL)
     _, fila = await abrir(timeline, 2)
     assert fila["event"]["data"] == {"description": "Aguardando uma vaga (posição 1 na fila)…", "done": False}
-    assert fila["x_ai_core"]["progress"] == {"stage": "queue", "detail": "1"}
+    assert fila["x_axon"]["progress"] == {"stage": "queue", "detail": "1"}
 
     engine.gate.set()
     await drenar(ocupando)
@@ -163,7 +163,7 @@ async def test_espera_esgotada_sem_streaming_e_503_e_em_streaming_e_fim_com_erro
     assert reasoning(chunks[1]) == "Aguardando uma vaga (posição 1 na fila)…\n"
     final = chunks[-1]
     assert final["choices"][0]["finish_reason"] == "error"
-    assert [(e["stage"], e["kind"]) for e in final["x_ai_core"]["errors"]] == [("admission", "QueueTimeout")]
+    assert [(e["stage"], e["kind"]) for e in final["x_axon"]["errors"]] == [("admission", "QueueTimeout")]
     assert has_done(com_stream.text)
     assert engine.calls == 0, "nenhuma chamada de modelo para quem esperou"
 

@@ -4,7 +4,7 @@ Montado a partir do código da versão (backend/open_webui): `routers/openai.py`
 formulário sem `metadata`, `model` sem prefixo, `max_completion_tokens` → `max_tokens` fora da OpenAI),
 `utils/payload.py` (`apply_model_params_to_body_openai`: `temperature`, `top_p`, `max_tokens`, `seed`, `stop`…) e
 `utils/headers.py` (`get_headers_and_cookies`: `Content-Type`, `Authorization: Bearer` do `system_oauth` e os
-`headers` da conexão — na instalação, `x-ai-core-store: false` e `x-ai-core-progress: status`). O histórico vai
+`headers` da conexão — na instalação, `x-axon-store: false` e `x-axon-progress: status`). O histórico vai
 inteiro, porque o Open WebUI não envia id de conversa; o raciocínio das respostas anteriores não volta
 (`reasoning_format=None`). Mudou a versão do Open WebUI: refazer a partir do código novo.
 """
@@ -39,6 +39,6 @@ def headers(access_token: str) -> dict[str, str]:
     return {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {access_token}",
-        "x-ai-core-store": "false",
-        "x-ai-core-progress": "status",
+        "x-axon-store": "false",
+        "x-axon-progress": "status",
     }

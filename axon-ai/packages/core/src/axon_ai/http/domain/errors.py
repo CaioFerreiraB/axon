@@ -28,7 +28,7 @@ from axon_ai.llm.api import ModelRoutingError
 from axon_ai.mcp.api import McpConflict, UnknownServer
 from axon_ai.observability import api as observability
 
-EXTRA: Final = "x_ai_core"
+EXTRA: Final = "x_axon"
 ASSISTANT_NOT_FOUND: Final = "assistant não encontrado"
 NOT_FOUND: Final = "recurso não encontrado"
 """Mensagens fixas do 404: o corpo é idêntico para inexistente e não autorizado — nem o nome pedido volta (SC-001)."""

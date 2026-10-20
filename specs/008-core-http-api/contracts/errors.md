@@ -16,7 +16,7 @@ chegou a ganhar um.
 | conversa de outro Assistant | 400 | `invalid_request_error` | `conversation_assistant_mismatch` | `conversation_id` |
 | nome de Assistant de usuário já usado pelo dono | 409 | `conflict_error` | `conflict` | `name` |
 | alias de MCP repetido, ou entrada do arquivo do operador alterada pela API (Fase 3) | 409 | `conflict_error` | `conflict` | `alias` |
-| Assistant autorizado, mas indisponível | 424 | `dependency_error` | `assistant_unavailable` | — ; motivos em `x_ai_core.reasons` |
+| Assistant autorizado, mas indisponível | 424 | `dependency_error` | `assistant_unavailable` | — ; motivos em `x_axon.reasons` |
 | cota do par (Principal, Assistant) | 429 + `Retry-After` | `rate_limit_error` | `rate_limit_exceeded` | — |
 | execução com registro `error` sem streaming (ADR-018) | 502 + `x-should-retry: false` | `api_error` | `execution_failed` | — (Fase 1, R6; Fase 3, R30–R31) |
 
@@ -39,8 +39,8 @@ Conformidade: `tests/http/unit/test_errors.py` (envelope e tabela) e as suítes 
 | Causa | Status | `type` | `code` | `param` |
 |---|---|---|---|---|
 | vagas e fila cheias; espera esgotada sem streaming | 503 + `Retry-After` | `server_error` | `overloaded` | — |
-| `x-ai-core-store: false` com `conversation_id` | 400 | `invalid_request_error` | `store_conflict` | `x-ai-core-store` |
-| `x-ai-core-store` com valor diferente de `true`/`false` | 400 | `invalid_request_error` | `invalid_header` | `x-ai-core-store` |
+| `x-axon-store: false` com `conversation_id` | 400 | `invalid_request_error` | `store_conflict` | `x-axon-store` |
+| `x-axon-store` com valor diferente de `true`/`false` | 400 | `invalid_request_error` | `invalid_header` | `x-axon-store` |
 
 O 503 de sobrecarga não leva `x-should-retry`: nada rodou, e repetir depois do `Retry-After` é seguro. Ele vem depois
 das recusas de 404, 400, 424 e 429 e antes de qualquer chamada de modelo.

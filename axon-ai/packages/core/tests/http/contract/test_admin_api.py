@@ -162,7 +162,7 @@ def _kit(
         system_overrides=InMemorySystemOverrideStore(),
         flow_roles={"chat": ("generation",), "agentic": ("generation", "controller")},
         admin_seams=admin_seams if seams else None,
-        instance=InstanceBranding(name="Agentic", logo_url="/oauth2/assets/logo"),
+        instance=InstanceBranding(name="Instituto Exemplo", logo_url="/oauth2/assets/logo", custom=True),
     )
     return Kit(client=TestClient(platform.app), platform=platform, identity=identity, transport=transport)
 
@@ -292,7 +292,7 @@ def test_me_traz_a_sessao_e_a_marca_da_instalacao(kit: Kit) -> None:
         "name": "Root da Silva",
         "groups": ["operadores"],
         "scheme": "oidc",
-        "instance": {"name": "Agentic", "logo_url": "/oauth2/assets/logo"},
+        "instance": {"name": "Instituto Exemplo", "logo_url": "/oauth2/assets/logo", "custom": True},
     }
     key = kit.call("GET", "/me", ADMIN_KEY).json()
     assert (key["subject"], key["scheme"], key["name"]) == ("user:caio", "api_key", "caio")
@@ -568,3 +568,9 @@ def test_nenhuma_resposta_traz_segredo_e_toda_sai_sem_cache(scenario: Scenario) 
         assert response.headers.get("x-request-id"), (method, path)
         for secret in SECRETS:
             assert secret not in response.text, (method, path, secret)
+
+
+@pytest.mark.us10
+def test_sem_marca_propria_o_me_traz_o_axon() -> None:
+    """US10 cen. 6 (ADR-038): o padrão da porta é o lockup Axon, sem atribuição."""
+    assert InstanceBranding() == InstanceBranding(name="Axon", logo_url=None, custom=False)

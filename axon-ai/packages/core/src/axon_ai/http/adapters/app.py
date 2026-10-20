@@ -74,7 +74,7 @@ def create_app(
     instance: InstanceBranding | None = None,
 ) -> FastAPI:
     """Monta a app com os seams já injetados. A API não instancia nada de outro módulo (princípio XIII)."""
-    app = FastAPI(title="ai-core", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Axon", version="0.1.0", lifespan=lifespan)
     app.state.chat_service = ChatService(
         engine=engine,
         grants=grants,

@@ -78,7 +78,7 @@ def test_o_identificador_liga_resposta_e_trace() -> None:
     response = client.post("/v1/chat/completions", json=body())
 
     request_id = response.headers["x-request-id"]
-    assert response.json()["x_ai_core"]["request_id"] == request_id
+    assert response.json()["x_axon"]["request_id"] == request_id
     assert trace.of_type(ExecutionStarted)[0].request_id == request_id
     assert trace.of_type(ModelCall)[0].request_id == request_id
 

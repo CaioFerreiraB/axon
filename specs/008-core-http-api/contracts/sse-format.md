@@ -8,9 +8,9 @@ que sustenta a SC-003.
 
 ```text
 (abre)         → chunk com delta {"role": "assistant"}
-ProgressEvent  → chunk com delta {} e x_ai_core.progress = {"stage": "..."}
+ProgressEvent  → chunk com delta {} e x_axon.progress = {"stage": "..."}
 TokenEvent     → chunk com delta {"content": "<pedaço>"}
-FinalEvent     → chunk com delta {}, finish_reason e x_ai_core (citações, marcações, erros)
+FinalEvent     → chunk com delta {}, finish_reason e x_axon (citações, marcações, erros)
 (fecha)        → data: [DONE]
 ```
 
@@ -37,7 +37,7 @@ em todos.
 | Apontamento de validator **não** vira `"error"` | reprovar é achado sobre a resposta, não falha de execução (005) |
 | Nada é escrito depois de `[DONE]` | — |
 
-## Campo extra `x_ai_core`
+## Campo extra `x_axon`
 
 ```json
 {"request_id": "req-1", "citations": [{"chunk_id": "c1"}], "flags": ["nao_fundamentada"], "errors": []}
@@ -63,10 +63,10 @@ clientes compatíveis e é onde a plataforma diz o que a OpenAI não tem onde di
 
 ```text
 (abre)                      → delta {"role": "assistant"}
-(na fila)                   → delta {"reasoning_content": "Aguardando uma vaga (posição 2 na fila)…\n"}, x_ai_core.progress {"stage": "queue", "detail": "2"}
-ProgressEvent antes do texto → delta {"reasoning_content": "<linha>\n"}, x_ai_core.progress {"stage": …, "detail": …}
+(na fila)                   → delta {"reasoning_content": "Aguardando uma vaga (posição 2 na fila)…\n"}, x_axon.progress {"stage": "queue", "detail": "2"}
+ProgressEvent antes do texto → delta {"reasoning_content": "<linha>\n"}, x_axon.progress {"stage": …, "detail": …}
 TokenEvent                  → delta {"content": "<pedaço>"}
-ProgressEvent depois do texto → delta {}, x_ai_core.progress (como antes)
+ProgressEvent depois do texto → delta {}, x_axon.progress (como antes)
 FinalEvent                  → como antes
 ```
 
@@ -82,12 +82,12 @@ Suíte: `test_openai_chunks.py` ganha os casos de raciocínio (antes e depois do
 
 ## Timeline de status (2026-10-13, FR-005a; research R42)
 
-Com `x-ai-core-progress: status`:
+Com `x-axon-progress: status`:
 
 ```text
 (abre)                      → delta {"role": "assistant"}
-(na fila)                   → delta {}, event status {"description": "Aguardando uma vaga (posição 2 na fila)…", "done": false}, x_ai_core.progress
-ProgressEvent               → delta {}, event status {"description": "<linha de início>", "done": false}, x_ai_core.progress
+(na fila)                   → delta {}, event status {"description": "Aguardando uma vaga (posição 2 na fila)…", "done": false}, x_axon.progress
+ProgressEvent               → delta {}, event status {"description": "<linha de início>", "done": false}, x_axon.progress
 StepFinished                → delta {}, event status {"description": "<desfecho> · <tempo>", "done": true} (uma por linha)
 TokenEvent                  → delta {"content": "<pedaço>"}
 FinalEvent                  → delta {}, event status por registro e a linha de conclusão ("done": true); depois o chunk final de sempre

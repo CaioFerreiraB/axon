@@ -68,7 +68,7 @@ def test_o_controller_pede_a_tool_do_servidor_e_a_resposta_chega_pela_api(tmp_pa
     assert len(controller.calls) == 2
 
     assert plataforma.trace is not None
-    tipos = [record.type for record in plataforma.trace.trace(payload["x_ai_core"]["request_id"]).records]
+    tipos = [record.type for record in plataforma.trace.trace(payload["x_axon"]["request_id"]).records]
     assert "controller_decision" in tipos and "tool_call" in tipos
 
 
@@ -91,7 +91,7 @@ def test_servidor_mcp_fora_do_ar_e_falha_explicita_e_a_resposta_ainda_chega(tmp_
     assert response.status_code == 502
     payload = response.json()
     assert payload["choices"][0]["message"]["content"] == "Brasília"
-    assert [e["kind"] for e in payload["x_ai_core"]["errors"]] == ["McpUnavailable"]
+    assert [e["kind"] for e in payload["x_axon"]["errors"]] == ["McpUnavailable"]
 
 
 # --- 008 Fase 3 (T054): as rotas de MCP pela plataforma ---------------------------------------------------------------

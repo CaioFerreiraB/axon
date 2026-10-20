@@ -7,7 +7,13 @@ from typing import Any
 import pytest
 from http_testkit import MODEL_ID, body
 
-from axon_ai.http.domain.chat_request import ChatRequestInvalid, parse
+from axon_ai.http.domain.chat_request import (
+    PROGRESS_HEADER,
+    STORE_HEADER,
+    ChatRequestInvalid,
+    parse,
+    reject_legacy_headers,
+)
 
 
 def test_corpo_minimo() -> None:
@@ -86,7 +92,7 @@ def test_stream_nao_booleano() -> None:
         parse(body(stream="yes"))
 
 
-# --- Fase 7 (T067): pedido efêmero, cabeçalho `x-ai-core-store` (FR-023, R37) ---------------------------------------
+# --- Fase 7 (T067): pedido efêmero, cabeçalho `x-axon-store` (FR-023, R37) ---------------------------------------
 
 
 @pytest.mark.us8
@@ -128,11 +134,11 @@ def test_store_com_valor_desconhecido_e_recusado(value: str) -> None:
 def test_parse_le_o_cabecalho() -> None:
     assert parse(body(), store_header="false").store is False
     assert parse(body()).store is True
-    with pytest.raises(ChatRequestInvalid, match="x-ai-core-store"):
+    with pytest.raises(ChatRequestInvalid, match="x-axon-store"):
         parse(body(conversation_id="conv_1"), store_header="false")
 
 
-# --- Timeline de status: cabeçalho `x-ai-core-progress` (FR-005a, R42) --------------------------------------------
+# --- Timeline de status: cabeçalho `x-axon-progress` (FR-005a, R42) --------------------------------------------
 
 
 @pytest.mark.us6
@@ -161,3 +167,29 @@ def test_as_duas_entradas_leem_o_cabecalho_de_progresso() -> None:
     assert parse(body(), progress_header="status").progress == "status"
     native = {"assistant": "geral", "messages": [{"role": "user", "content": "oi"}]}
     assert parse_native(native, progress_header="status").progress == "status"
+
+
+# --- Identidade Axon (US10; FR-029, FR-030; research R50, R51) --------------------------------------------------------
+
+
+def test_os_cabecalhos_tem_o_nome_da_marca() -> None:
+    assert (STORE_HEADER, PROGRESS_HEADER) == ("x-axon-store", "x-axon-progress")
+
+
+@pytest.mark.parametrize(
+    ("nomes", "antigo", "novo"),
+    [
+        (["x-ai-core-store"], "x-ai-core-store", "x-axon-store"),
+        (["X-AI-Core-Progress"], "x-ai-core-progress", "x-axon-progress"),
+        (["x-axon-store", "x-ai-core-store"], "x-ai-core-store", "x-axon-store"),
+    ],
+)
+def test_cabecalho_antigo_e_recusado_citando_o_novo(nomes: list[str], antigo: str, novo: str) -> None:
+    with pytest.raises(ChatRequestInvalid) as caught:
+        reject_legacy_headers(nomes)
+    assert (caught.value.field, caught.value.code) == (antigo, "invalid_header")
+    assert novo in str(caught.value)
+
+
+def test_sem_cabecalho_antigo_nada_acontece() -> None:
+    reject_legacy_headers(["x-axon-store", "content-type", "authorization"])

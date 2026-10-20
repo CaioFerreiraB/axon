@@ -151,7 +151,7 @@ def admin_router(seams: AdminSeams, instance: InstanceBranding) -> APIRouter:
             "name": name,
             "groups": sorted(principal.groups),
             "scheme": principal.scheme,
-            "instance": {"name": instance.name, "logo_url": instance.logo_url},
+            "instance": {"name": instance.name, "logo_url": instance.logo_url, "custom": instance.custom},
         }
 
     # --- Assistants de sistema (003) ------------------------------------------------------------------------------

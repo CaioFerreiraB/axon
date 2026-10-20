@@ -778,3 +778,95 @@ com os seams em memória: token da console e chave de admin, não admin 404, tok
 **Rationale**: SC-008 e SC-009.
 
 **Alternatives considered**: —
+
+---
+
+# Passada de 2026-10-20: identidade Axon ([ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md), [ADR-038](../../docs/adr/ADR-038-marca-da-plataforma-e-marca-da-instalacao.md); US10)
+
+Decisões pré-aprovadas pelos ADRs (nomes, corte seco, `instance.custom`) e a do mantenedor de 2026-10-20 (recusar o
+cabeçalho antigo); o que segue é como elas chegam à API, sem re-pesquisa. Os R anteriores ficam como foram executados
+(ADR-037, item 6); os nomes antigos neles se leem pela tabela do ADR-037.
+
+## R50 — Cabeçalhos e chave de extensão
+
+**Decision**: em `axon_ai/http/domain/chat_request.py`, `STORE_HEADER = "x-axon-store"` e `PROGRESS_HEADER =
+"x-axon-progress"` (as docstrings das funções que os leem citam o nome novo); em `domain/errors.py` e
+`domain/openai_chunks.py`, `EXTRA = "x_axon"`. Valores aceitos, códigos de erro e comportamento não mudam.
+
+**Rationale** (ADR-037, item 2: `x-ai-core-*` → `x-axon-*`): na operação, o nome fica curto; a chave de extensão segue o
+mesmo radical, para quem lê o chunk ou o erro reconhecer a plataforma.
+
+**Alternatives considered**: `x-axon-ai-*` (o ADR rejeita o sufixo na operação); manter `x_ai_core` no corpo (dois
+vocabulários na mesma resposta).
+
+## R51 — Recusa dos cabeçalhos antigos
+
+**Decision**: em `chat_request.py`, `LEGACY_HEADERS: Final = {"x-ai-core-store": STORE_HEADER, "x-ai-core-progress":
+PROGRESS_HEADER}` e a função pura `reject_legacy_headers(names: Iterable[str]) -> None`, que, para o primeiro nome antigo
+presente (na ordem do mapa, comparando sem caixa), levanta `ChatRequestInvalid(f"cabeçalho '{antigo}' foi renomeado: use
+'{novo}'", field=antigo, code="invalid_header")`. O adapter de chat (`adapters/chat.py`) a chama nas duas entradas
+(`/chat/completions` e `/chat`), depois da autenticação e antes do parse do corpo — um pedido não autenticado continua
+401, e nenhum pedido com o nome antigo chega a executar. A presença basta: valor vazio ou com o novo junto também é
+recusado.
+
+**Rationale** (decisão do mantenedor de 2026-10-20; princípio VII; ADR-037, item 3): ignorar `x-ai-core-store: false`
+gravaria a conversa de um cliente que pediu o contrário; aceitar o antigo seria janela de compatibilidade. O 400 explica e
+não aceita — a mesma forma da recusa de `AI_CORE_*` no boot. O código `invalid_header` é o que o cliente já recebe por
+valor errado no cabeçalho.
+
+**Alternatives considered**: ignorar como desconhecido (rejeitado pelo mantenedor); aceitar os dois nomes; recusar só
+quando o novo falta (deixa a dúvida de qual vale); um código novo `legacy_header` (o cliente já trata `invalid_header`, e
+`param` diz qual).
+
+## R52 — Título do OpenAPI
+
+**Decision**: `FastAPI(title="Axon", …)` em `adapters/app.py`; o `version` do documento fica como está.
+
+**Rationale** (ADR-037, item 2: "`title` do OpenAPI … → `axon`", em texto corrido "Axon", item 1).
+
+**Alternatives considered**: `axon` minúsculo (o título é texto corrido; o wordmark é que é minúsculo).
+
+## R53 — `instance.custom` e o nome padrão
+
+**Decision**: `InstanceBranding` (`http/ports.py`) ganha `custom: bool = False`, e o `name` padrão passa a `"Axon"`;
+`GET /admin/v1/me` publica `{"name", "logo_url", "custom"}`. A composição (011, `bootstrap/wiring.py::_instance`) calcula
+`custom = settings.display_name != DEFAULT_DISPLAY_NAME or logo_url is not None` — sobre o logotipo que de fato é servido
+(com a identidade ligada), para a console nunca receber `custom: true` sem nada próprio para mostrar.
+
+**Rationale** (ADR-038, item 2): a console precisa saber se o lugar principal é da instalação. `AXON_DISPLAY_NAME=Axon`
+sem logotipo dá `false`: o lugar principal já é o Axon, e a atribuição "com Axon" não aparece.
+
+**Alternatives considered**: `custom` pela presença da variável no ambiente (o `Settings` não guarda se o valor veio do
+padrão, e o resultado visível seria o mesmo lockup duas vezes); a console comparar o nome com "Axon" (regra de marca
+espalhada no cliente).
+
+## R54 — Consumidores e documentos vivos
+
+**Decision**: a fixture `tests/http/open_webui_v0_12.py` (cabeçalhos da conexão) e os testes que citam os cabeçalhos ou a
+chave de extensão, por troca de texto em lista fechada (`x-ai-core-store` → `x-axon-store`, `x-ai-core-progress` →
+`x-axon-progress`, `x_ai_core` → `x_axon`), menos os testes novos da recusa; `test_admin_api.py` com `InstanceBranding(name=
+"Axon", …, custom=True)` e o `me` com `custom`; `tests/bootstrap/integration/test_platform_identity_admin.py` com
+`custom: false`. Documentos vivos: `spec.md` (já trocado no specify), `data-model.md`, `quickstart.md`, `contracts/`
+(`chat-completions.md`, `conversations.md`, `errors.md`, `models.md`, `open-webui.md`, `sse-format.md`, `admin-api.md`) e
+a linha da 008 em `specs/README.md`. A validação do `me` na console (`zod`, que descarta chave desconhecida) não muda
+aqui; a 013 passa a ler `custom`. Ficam: `specs/002-core-pack-runtime/contracts/installation.md` e o deploy (passada da
+instalação), o histórico.
+
+**Rationale** (ADR-037, item 7).
+
+**Alternatives considered**: nenhuma.
+
+## R55 — Testes
+
+**Decision**: em `tests/http/unit/test_chat_request.py`, `reject_legacy_headers` recusa cada nome antigo (com o novo na
+mensagem e o antigo em `field`), sem caixa, e aceita a lista sem nenhum antigo. Em `tests/http/contract/test_ephemeral.py`
+ou num arquivo novo `tests/http/contract/test_legacy_headers.py` (marca `us10`): `/v1/chat/completions` e `/v1/chat` com
+`x-ai-core-store: false` e com `x-ai-core-progress: status` → 400 `invalid_header`, `param` igual ao antigo e a mensagem
+citando o novo, sem chamada de modelo; com o novo e o antigo juntos → 400; com só o novo → como antes (cen. 1–3). O
+título do OpenAPI em `/openapi.json` é "Axon" (cen. 5). O `me` com e sem marca própria (cen. 6), na suíte da superfície de
+administração e na integração da 011. A chave `x_axon` nos chunks e no erro é coberta pelos testes de `openai_chunks` e
+`errors` depois da troca (cen. 4).
+
+**Rationale**: o cenário 3 é o único comportamento novo e precisa de verificador nas duas entradas.
+
+**Alternatives considered**: testar a recusa só no domínio (não prova que o adapter a chama antes de executar).

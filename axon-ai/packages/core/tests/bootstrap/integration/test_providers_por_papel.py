@@ -42,7 +42,7 @@ def test_providers_por_papel_no_trace(tmp_path: Path) -> None:
         response = client.post("/v1/chat/completions", headers=OIDC, json=body(model="pesquisador"))
 
     assert response.status_code == 200, response.text
-    request_id = response.json()["x_ai_core"]["request_id"]
+    request_id = response.json()["x_axon"]["request_id"]
     assert plataforma.trace is not None
     chamadas = [
         (record.attributes["role"], record.attributes["provider"])

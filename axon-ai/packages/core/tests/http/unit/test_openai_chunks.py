@@ -30,7 +30,7 @@ def test_token_vira_chunk_com_o_pedaco() -> None:
     chunk = token_chunk(TokenEvent(text="Bras"), **ENVELOPE)
     assert chunk["choices"][0]["delta"] == {"content": "Bras"}
     assert chunk["choices"][0]["finish_reason"] is None
-    assert "x_ai_core" not in chunk
+    assert "x_axon" not in chunk
 
 
 def test_progresso_antes_do_texto_vai_como_raciocinio_e_campo_extra() -> None:
@@ -38,38 +38,38 @@ def test_progresso_antes_do_texto_vai_como_raciocinio_e_campo_extra() -> None:
     chunk = progress_chunk(ProgressEvent(stage="generate"), **ENVELOPE)
     assert chunk["choices"][0]["delta"] == {"reasoning_content": "Escrevendo a resposta…\n"}
     assert chunk["choices"][0]["finish_reason"] is None
-    assert chunk["x_ai_core"]["progress"] == {"stage": "generate"}
+    assert chunk["x_axon"]["progress"] == {"stage": "generate"}
 
 
 def test_progresso_depois_do_texto_vai_com_delta_vazio_e_campo_extra() -> None:
     chunk = progress_chunk(ProgressEvent(stage="validate_answer"), reasoning=False, **ENVELOPE)
     assert chunk["choices"][0]["delta"] == {}
-    assert chunk["x_ai_core"]["progress"] == {"stage": "validate_answer"}
+    assert chunk["x_axon"]["progress"] == {"stage": "validate_answer"}
 
 
 def test_tool_nomeada_no_raciocinio() -> None:
     chunk = progress_chunk(ProgressEvent(stage="execute_tool", detail="generic.calculate"), **ENVELOPE)
     assert chunk["choices"][0]["delta"] == {"reasoning_content": "Usando a ferramenta generic.calculate…\n"}
-    assert chunk["x_ai_core"]["progress"] == {"stage": "execute_tool", "detail": "generic.calculate"}
+    assert chunk["x_axon"]["progress"] == {"stage": "execute_tool", "detail": "generic.calculate"}
 
 
 def test_chunk_da_fila() -> None:
     chunk = queue_chunk(position=2, **ENVELOPE)
     assert chunk["choices"][0]["delta"] == {"reasoning_content": "Aguardando uma vaga (posição 2 na fila)…\n"}
     assert chunk["choices"][0]["finish_reason"] is None
-    assert chunk["x_ai_core"]["progress"] == {"stage": "queue", "detail": "2"}
+    assert chunk["x_axon"]["progress"] == {"stage": "queue", "detail": "2"}
 
 
 def test_espera_esgotada_na_fila_e_desfecho_de_erro() -> None:
     issue = ExecutionIssue(stage="admission", kind="QueueTimeout", message="espera esgotada na fila")
     chunk = final_chunk(FinalEvent(answer="", errors=(issue,)), **ENVELOPE)
     assert chunk["choices"][0]["finish_reason"] == "error"
-    assert chunk["x_ai_core"]["errors"] == [{"stage": "admission", "kind": "QueueTimeout", "message": issue.message}]
+    assert chunk["x_axon"]["errors"] == [{"stage": "admission", "kind": "QueueTimeout", "message": issue.message}]
 
 
 def test_progresso_com_detalhe() -> None:
     chunk = progress_chunk(ProgressEvent(stage="generate", detail="modelo local"), **ENVELOPE)
-    assert chunk["x_ai_core"]["progress"]["detail"] == "modelo local"
+    assert chunk["x_axon"]["progress"]["detail"] == "modelo local"
 
 
 def test_chunk_final_traz_desfecho_citacoes_e_marcacoes() -> None:
@@ -80,9 +80,9 @@ def test_chunk_final_traz_desfecho_citacoes_e_marcacoes() -> None:
     )
     chunk = final_chunk(final, **ENVELOPE)
     assert chunk["choices"][0]["finish_reason"] == "stop"
-    assert chunk["x_ai_core"]["citations"] == [CITATION]
-    assert chunk["x_ai_core"]["flags"] == ["revisada"]
-    assert chunk["x_ai_core"]["request_id"] == "req-1"
+    assert chunk["x_axon"]["citations"] == [CITATION]
+    assert chunk["x_axon"]["flags"] == ["revisada"]
+    assert chunk["x_axon"]["request_id"] == "req-1"
 
 
 def test_erro_de_execucao_vira_desfecho_de_erro() -> None:
@@ -92,7 +92,7 @@ def test_erro_de_execucao_vira_desfecho_de_erro() -> None:
     )
     chunk = final_chunk(final, **ENVELOPE)
     assert chunk["choices"][0]["finish_reason"] == "error"
-    assert chunk["x_ai_core"]["errors"][0]["kind"] == "ModelCallFailed"
+    assert chunk["x_axon"]["errors"][0]["kind"] == "ModelCallFailed"
 
 
 def test_apontamento_de_validator_nao_vira_erro() -> None:
@@ -128,7 +128,7 @@ def test_resposta_sem_streaming_traz_a_mensagem_inteira() -> None:
     assert body["object"] == "chat.completion"
     assert body["choices"][0]["message"] == {"role": "assistant", "content": "Brasília"}
     assert body["choices"][0]["finish_reason"] == "stop"
-    assert body["x_ai_core"]["flags"] == ["revisada"]
+    assert body["x_axon"]["flags"] == ["revisada"]
 
 
 def test_envelope_e_igual_em_todos_os_chunks() -> None:
@@ -155,9 +155,9 @@ def test_status_da_timeline_vai_na_chave_event_com_delta_vazio() -> None:
     started = status_chunk(Status("Escrevendo a resposta…", done=False), progress={"stage": "generate"}, **ENVELOPE)
     assert started["choices"][0]["delta"] == {}
     assert started["event"] == {"type": "status", "data": {"description": "Escrevendo a resposta…", "done": False}}
-    assert started["x_ai_core"] == {"progress": {"stage": "generate"}}
+    assert started["x_axon"] == {"progress": {"stage": "generate"}}
 
     done = status_chunk(Status("Concluído em 2,0 s", done=True), **ENVELOPE)
     assert done["event"]["data"]["done"] is True
-    assert "x_ai_core" not in done
+    assert "x_axon" not in done
     assert done["id"] == started["id"] and done["object"] == "chat.completion.chunk"

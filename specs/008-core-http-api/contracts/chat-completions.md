@@ -43,7 +43,7 @@ seam Python. **Mudar o formato exige ADR**, porque a compatibilidade é o ponto 
     "message": {"role": "assistant", "content": "Brasília"},
     "finish_reason": "stop"
   }],
-  "x_ai_core": {"request_id": "req-1", "citations": [], "flags": [], "errors": []}
+  "x_axon": {"request_id": "req-1", "citations": [], "flags": [], "errors": []}
 }
 ```
 
@@ -85,9 +85,11 @@ provider simulado (research R10):
 
 | Pedido | O que acontece |
 |---|---|
-| sem `conversation_id` e com `x-ai-core-store: false` | executa e responde; nenhuma conversa criada ou gravada; sem `conversation_id` no extra e sem `X-Conversation-Id` |
-| com `conversation_id` e `x-ai-core-store: false` | 400 `store_conflict`, `param: "x-ai-core-store"`, antes de qualquer execução |
-| `x-ai-core-store` com valor diferente de `true`/`false` | 400 `invalid_header`, `param: "x-ai-core-store"` |
+| sem `conversation_id` e com `x-axon-store: false` | executa e responde; nenhuma conversa criada ou gravada; sem `conversation_id` no extra e sem `X-Conversation-Id` |
+| com `conversation_id` e `x-axon-store: false` | 400 `store_conflict`, `param: "x-axon-store"`, antes de qualquer execução |
+| `x-axon-store` com valor diferente de `true`/`false` | 400 `invalid_header`, `param: "x-axon-store"` |
 | plataforma cheia | ver [admission.md](admission.md) |
+| `x-ai-core-store` ou `x-ai-core-progress` (os nomes antigos), com ou sem o novo junto | 400 `invalid_header`, `param` igual ao antigo, mensagem `cabeçalho 'x-ai-core-store' foi renomeado: use 'x-axon-store'`, depois da autenticação e antes de qualquer execução (FR-030, research R51) |
 
-Vale nas duas superfícies e na requisição nativa (`POST /chat`).
+Vale nas duas superfícies e na requisição nativa (`POST /chat`). Os cabeçalhos se chamam `x-axon-*` desde a passada de
+2026-10-20 (US10, ADR-037).

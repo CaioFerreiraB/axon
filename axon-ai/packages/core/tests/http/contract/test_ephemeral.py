@@ -1,4 +1,4 @@
-"""T068 — pedido efêmero com `x-ai-core-store: false` (FR-023, FR-014; contracts/chat-completions.md, "Fase 7")."""
+"""T068 — pedido efêmero com `x-axon-store: false` (FR-023, FR-014; contracts/chat-completions.md, "Fase 7")."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from http_testkit import ADMIN_KEY, ANA_TOKEN, CAIO_TOKEN, Platform, bearer, chu
 
 pytestmark = pytest.mark.us8
 
-EFEMERO = {"x-ai-core-store": "false"}
+EFEMERO = {"x-axon-store": "false"}
 PERGUNTA = [{"role": "user", "content": "capital?"}]
 
 
@@ -42,10 +42,10 @@ def test_pedido_efemero_nao_cria_conversa_nem_devolve_id(rota: str, credencial: 
     assert "x-conversation-id" not in response.headers
     if corpo.get("stream"):
         chunks = chunks_of(response.text)
-        assert all("conversation_id" not in c.get("x_ai_core", {}) for c in chunks)
+        assert all("conversation_id" not in c.get("x_axon", {}) for c in chunks)
         assert "".join(c["choices"][0]["delta"].get("content", "") for c in chunks) == "Brasília"
     else:
-        assert "conversation_id" not in response.json()["x_ai_core"]
+        assert "conversation_id" not in response.json()["x_axon"]
         assert response.json()["choices"][0]["message"]["content"] == "Brasília"
     # A conversa é do subject: `user:caio` (a `ADMIN_KEY`) lê as suas pela superfície pública com o próprio token.
     assert conversas(client, ANA_TOKEN if credencial == ANA_TOKEN else CAIO_TOKEN) == []
@@ -61,7 +61,7 @@ def test_sem_o_cabecalho_a_conversa_nasce_como_antes() -> None:
 
 def test_true_grava_normalmente() -> None:
     client = TestClient(Platform(llm=provider()).app)
-    headers = bearer(ANA_TOKEN) | {"x-ai-core-store": "true"}
+    headers = bearer(ANA_TOKEN) | {"x-axon-store": "true"}
     response = client.post("/v1/chat/completions", headers=headers, json=compat())
     assert response.headers["x-conversation-id"]
 
@@ -78,17 +78,17 @@ def test_efemero_com_id_de_conversa_e_conflito_antes_de_executar() -> None:
 
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "store_conflict"
-    assert response.json()["error"]["param"] == "x-ai-core-store"
+    assert response.json()["error"]["param"] == "x-axon-store"
     assert len(llm.calls) == chamadas, "nenhuma execução"
 
 
 def test_valor_desconhecido_e_recusado_nomeando_o_cabecalho() -> None:
     client = TestClient(Platform(llm=provider()).app)
     response = client.post(
-        "/v1/chat/completions", headers=bearer(ANA_TOKEN) | {"x-ai-core-store": "talvez"}, json=compat()
+        "/v1/chat/completions", headers=bearer(ANA_TOKEN) | {"x-axon-store": "talvez"}, json=compat()
     )
     assert response.status_code == 400
     assert (response.json()["error"]["code"], response.json()["error"]["param"]) == (
         "invalid_header",
-        "x-ai-core-store",
+        "x-axon-store",
     )

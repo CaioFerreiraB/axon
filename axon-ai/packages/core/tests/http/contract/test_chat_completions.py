@@ -158,7 +158,7 @@ def test_falha_depois_do_stream_aberto_encerra_o_stream_com_motivo() -> None:
     assert response.status_code == 200
     chunks = chunks_of(response.text)
     assert chunks[-1]["choices"][0]["finish_reason"] == "error"
-    assert chunks[-1]["x_ai_core"]["errors"][0]["kind"] == "ModelCallFailed"
+    assert chunks[-1]["x_axon"]["errors"][0]["kind"] == "ModelCallFailed"
     assert has_done(response.text)
 
 
@@ -171,7 +171,7 @@ def test_falha_sem_streaming_responde_502_e_nao_200() -> None:
     assert response.status_code == 502
     payload = response.json()
     assert payload["choices"][0]["finish_reason"] == "error"
-    assert payload["x_ai_core"]["errors"][0]["kind"] == "ModelCallFailed"
+    assert payload["x_axon"]["errors"][0]["kind"] == "ModelCallFailed"
     assert response.headers["x-request-id"]
     # FR-022: o SDK oficial repete 5xx sozinho — e cada repetição rodaria a execução de novo.
     assert response.headers["x-should-retry"] == "false"
@@ -184,7 +184,7 @@ def test_execucao_so_com_avisos_e_sucesso_sem_streaming() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["choices"][0]["finish_reason"] == "stop"
-    assert payload["x_ai_core"]["errors"][0]["kind"] == "ValidatorIssue"
+    assert payload["x_axon"]["errors"][0]["kind"] == "ValidatorIssue"
     assert "x-should-retry" not in response.headers
 
 
@@ -201,8 +201,8 @@ def test_erro_anterior_a_execucao_nao_leva_o_cabecalho_de_nao_repetir() -> None:
 def test_progresso_chega_no_stream_como_campo_extra_e_raciocinio_antes_do_texto(client: TestClient) -> None:
     """Fase 7 (FR-005, R34): antes do primeiro token, também como raciocínio; depois, só no campo extra."""
     chunks = chunks_of(post(client, stream=True).text)
-    progresso = [c for c in chunks if "progress" in c.get("x_ai_core", {})]
-    assert [c["x_ai_core"]["progress"]["stage"] for c in progresso] == [
+    progresso = [c for c in chunks if "progress" in c.get("x_axon", {})]
+    assert [c["x_axon"]["progress"]["stage"] for c in progresso] == [
         "prepare_context",
         "generate",
         "validate_answer",
@@ -242,11 +242,11 @@ def test_progresso_de_tool_chega_antes_dos_tokens() -> None:
 
     assert response.status_code == 200
     chunks = chunks_of(response.text)
-    progresso = [c["x_ai_core"]["progress"] for c in chunks if "progress" in c.get("x_ai_core", {})]
+    progresso = [c["x_axon"]["progress"] for c in chunks if "progress" in c.get("x_axon", {})]
     assert {"stage": "execute_tool", "detail": "generic.calculate"} in progresso
     primeiro_token = next(i for i, c in enumerate(chunks) if c["choices"][0]["delta"].get("content"))
     indice_tool = next(
-        i for i, c in enumerate(chunks) if c.get("x_ai_core", {}).get("progress", {}).get("stage") == "execute_tool"
+        i for i, c in enumerate(chunks) if c.get("x_axon", {}).get("progress", {}).get("stage") == "execute_tool"
     )
     assert indice_tool < primeiro_token
     assert chunks[indice_tool]["choices"][0]["delta"] == {

@@ -15,7 +15,13 @@ from axon_ai.assistants.api import Principal
 from axon_ai.http.adapters.auth import authenticated
 from axon_ai.http.adapters.errors import ApiError
 from axon_ai.http.adapters.sse import MEDIA_TYPE, event_stream
-from axon_ai.http.domain.chat_request import PROGRESS_HEADER, STORE_HEADER, ChatRequest, parse
+from axon_ai.http.domain.chat_request import (
+    PROGRESS_HEADER,
+    STORE_HEADER,
+    ChatRequest,
+    parse,
+    reject_legacy_headers,
+)
 from axon_ai.http.domain.errors import EXTRA, InvalidRequest, error_for
 from axon_ai.http.domain.native_request import parse_native
 from axon_ai.http.service import ChatService
@@ -32,6 +38,7 @@ def chat_router(*, surface: str) -> APIRouter:
     async def chat_completions(request: Request, response: Response) -> Any:
         """Compat OpenAI: tolera campos que ignora, recusa os de ampliação."""
         principal = await authenticated(request, surface)
+        reject_legacy_headers(request.headers.keys())
         chat = parse(
             await json_body(request),
             store_header=request.headers.get(STORE_HEADER),
@@ -43,6 +50,7 @@ def chat_router(*, surface: str) -> APIRouter:
     async def chat_native(request: Request, response: Response) -> Any:
         """Requisição nativa: estrita, com a mesma resposta da compat (research R17)."""
         principal = await authenticated(request, surface)
+        reject_legacy_headers(request.headers.keys())
         chat = parse_native(
             await json_body(request),
             store_header=request.headers.get(STORE_HEADER),

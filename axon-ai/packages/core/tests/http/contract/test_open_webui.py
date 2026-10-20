@@ -12,7 +12,7 @@ pytestmark = pytest.mark.us8
 
 
 def test_pedido_do_open_webui_recebe_streaming_com_a_timeline_de_status() -> None:
-    """FR-005a, US6 cen. 5: a conexão manda `x-ai-core-progress: status`; o progresso vira status do Open WebUI
+    """FR-005a, US6 cen. 5: a conexão manda `x-axon-progress: status`; o progresso vira status do Open WebUI
     (`event`), do começo ao fim, e nenhum raciocínio sai."""
     client = TestClient(Platform(llm=provider()).app)
 
@@ -38,7 +38,7 @@ def test_pedido_do_open_webui_recebe_streaming_com_a_timeline_de_status() -> Non
     assert descriptions[-1].startswith("Concluído em ") and statuses[-1][1]["done"] is True
     assert [data["done"] for _, data in statuses].count(False) == 3, "um início por etapa do chat"
 
-    assert all("conversation_id" not in c.get("x_ai_core", {}) for c in chunks)
+    assert all("conversation_id" not in c.get("x_axon", {}) for c in chunks)
     assert chunks[-1]["choices"][0]["finish_reason"] == "stop"
     assert has_done(response.text)
 
@@ -46,7 +46,7 @@ def test_pedido_do_open_webui_recebe_streaming_com_a_timeline_de_status() -> Non
 def test_sem_o_cabecalho_de_progresso_o_open_webui_recebe_raciocinio() -> None:
     """FR-005 (US6 cen. 4) continua valendo para a conexão que não manda o cabeçalho."""
     client = TestClient(Platform(llm=provider()).app)
-    sem = {name: value for name, value in headers(ANA_TOKEN).items() if name != "x-ai-core-progress"}
+    sem = {name: value for name, value in headers(ANA_TOKEN).items() if name != "x-axon-progress"}
 
     response = client.post("/v1/chat/completions", headers=sem, json=body())
 
@@ -63,13 +63,13 @@ def test_sem_o_cabecalho_de_progresso_o_open_webui_recebe_raciocinio() -> None:
 def test_modo_de_progresso_desconhecido_e_400_nas_duas_entradas(path: str) -> None:
     client = TestClient(Platform(llm=provider()).app)
     payload = body() if path.endswith("completions") else {"assistant": "geral", "messages": body()["messages"]}
-    errado = headers(ANA_TOKEN) | {"x-ai-core-progress": "timeline"}
+    errado = headers(ANA_TOKEN) | {"x-axon-progress": "timeline"}
 
     response = client.post(path, headers=errado, json=payload)
 
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "invalid_header"
-    assert response.json()["error"]["param"] == "x-ai-core-progress"
+    assert response.json()["error"]["param"] == "x-axon-progress"
 
 
 def test_requisicao_nativa_tambem_mostra_a_timeline() -> None:

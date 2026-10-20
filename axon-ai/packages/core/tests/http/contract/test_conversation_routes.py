@@ -31,7 +31,7 @@ def test_sem_id_abre_conversa_grava_a_troca_e_devolve_o_id(platform: Platform) -
     client = TestClient(platform.app)
     response = chat(client, ANA_TOKEN)
     cid = response.headers["x-conversation-id"]
-    assert response.json()["x_ai_core"]["conversation_id"] == cid
+    assert response.json()["x_axon"]["conversation_id"] == cid
 
     lida = client.get(f"/v1/conversations/{cid}", headers=bearer(ANA_TOKEN)).json()
     assert lida["assistant"] == "geral" and lida["message_count"] == 2
@@ -43,7 +43,7 @@ def test_em_streaming_o_id_vai_no_primeiro_chunk_e_no_cabecalho(platform: Platfo
     client = TestClient(platform.app)
     response = chat(client, ANA_TOKEN, stream=True)
     primeiro = chunks_of(response.text)[0]
-    assert primeiro["x_ai_core"]["conversation_id"] == response.headers["x-conversation-id"]
+    assert primeiro["x_axon"]["conversation_id"] == response.headers["x-conversation-id"]
     lida = client.get(f"/v1/conversations/{response.headers['x-conversation-id']}", headers=bearer(ANA_TOKEN))
     assert lida.json()["message_count"] == 2
 

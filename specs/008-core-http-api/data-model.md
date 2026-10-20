@@ -61,7 +61,7 @@ desenvolvimento e diz isso no nome, e `Uuid4RequestIds`; nos testes, `Sequential
 | `model` | o id pedido, como veio |
 | `choices[0].message` | `{"role": "assistant", "content": <resposta final>}` |
 | `choices[0].finish_reason` | `"stop"`, ou `"error"` quando o evento final traz erro de execução |
-| `x_ai_core` | campo extra: citações, marcações e erros do evento final |
+| `x_axon` | campo extra: citações, marcações e erros do evento final |
 
 Cabeçalho `X-Request-Id` com o identificador do trace, sempre (FR-010).
 
@@ -69,9 +69,9 @@ Cabeçalho `X-Request-Id` com o identificador do trace, sempre (FR-010).
 
 1. **primeiro chunk**: `delta = {"role": "assistant"}`, sem conteúdo — é o que os clientes esperam para abrir a
    mensagem;
-2. **progresso**: `delta = {}` e `x_ai_core.progress = {"stage": …}` — clientes padrão ignoram (R5);
+2. **progresso**: `delta = {}` e `x_axon.progress = {"stage": …}` — clientes padrão ignoram (R5);
 3. **token**: `delta = {"content": <pedaço>}`, um chunk por pedaço, escrito na hora;
-4. **chunk final**: `delta = {}`, `finish_reason` e `x_ai_core` com citações, marcações e erros;
+4. **chunk final**: `delta = {}`, `finish_reason` e `x_axon` com citações, marcações e erros;
 5. `data: [DONE]`.
 
 Todo chunk repete `id`, `object`, `created` e `model`.
@@ -85,7 +85,7 @@ Todo chunk repete `id`, `object`, `created` e `model`.
 | Credencial inválida na superfície | 401 |
 | Assistant inexistente **ou** não autorizado | 404, com o mesmo corpo nos dois casos (FR-009) |
 | Motor levanta antes do primeiro evento (`ExecutionRequestInvalid`, `UnknownFlow`) | 400 nomeando o problema; nada foi executado |
-| Execução falha depois do stream aberto | chunk final com `finish_reason="error"`, motivos em `x_ai_core.errors`, e `[DONE]`; conexão fecha limpa (R6) |
+| Execução falha depois do stream aberto | chunk final com `finish_reason="error"`, motivos em `x_axon.errors`, e `[DONE]`; conexão fecha limpa (R6) |
 | Execução falha sem streaming | **502** com os motivos e o texto parcial no corpo. Sem streaming ainda dá para escolher o status, e 200 com marcador de erro seria degradação silenciosa, que o princípio VII proíbe — em streaming o 200 já foi enviado e o chunk com desfecho de erro é o melhor possível |
 | Cliente desconecta no meio do stream | o iterador do motor é fechado e a execução cancelada (005) |
 
@@ -135,12 +135,12 @@ fora do módulo (011); a API só o serializa (200 se `ok`, 503 se não).
 ## Formatos de fio
 
 - **Entrada da listagem de modelos** (R16): `{"id": "<assistant>", "object": "model", "created": <epoch>, "owned_by":
-  "system" | "<subject>", "x_ai_core": {"generation": "ollama/qwen3:1.7b", "description": …, "origin": "system" |
+  "system" | "<subject>", "x_axon": {"generation": "ollama/qwen3:1.7b", "description": …, "origin": "system" |
   "user", "allow": […]}}`.
 - **Requisição nativa** (R17): `{"assistant", "model"?, "messages", "stream"?, "conversation_id"?}` — nada além disso.
 - **Rascunho de Assistant de usuário** (R19): os campos do `UserAssistantDraft` da 003, com `models` como
   `{"generation": "ollama/qwen3:1.7b", …}` e `limits` opcional.
-- **Envelope de erro** (R14): `{"error": {"message", "type", "param", "code"}}`, com `x_ai_core.reasons` no 424.
+- **Envelope de erro** (R14): `{"error": {"message", "type", "param", "code"}}`, com `x_axon.reasons` no 424.
 
 ---
 
@@ -197,7 +197,7 @@ recusado (vagas e fila cheias) ──→ 503 + Retry-After, antes de abrir o str
 
 | Campo | Tipo | Regra |
 |---|---|---|
-| `store` | `bool` | default `True`; `False` com `x-ai-core-store: false` e sem `conversation_id` (FR-023) |
+| `store` | `bool` | default `True`; `False` com `x-axon-store: false` e sem `conversation_id` (FR-023) |
 
 ### Linhas de progresso (`domain/progress_text.py`)
 
@@ -210,11 +210,11 @@ token; depois, `delta: {}` como antes.
 | Causa | Status | `type` | `code` | `param` |
 |---|---|---|---|---|
 | vagas e fila cheias, ou espera esgotada sem streaming | 503 + `Retry-After` | `server_error` | `overloaded` | — |
-| `x-ai-core-store: false` com `conversation_id` | 400 | `invalid_request_error` | `store_conflict` | `x-ai-core-store` |
-| `x-ai-core-store` com valor diferente de `true`/`false` | 400 | `invalid_request_error` | `invalid_header` | `x-ai-core-store` |
+| `x-axon-store: false` com `conversation_id` | 400 | `invalid_request_error` | `store_conflict` | `x-axon-store` |
+| `x-axon-store` com valor diferente de `true`/`false` | 400 | `invalid_request_error` | `invalid_header` | `x-axon-store` |
 
 No stream já aberto, a espera esgotada vira o registro `{"stage": "admission", "kind": "QueueTimeout", "message": …}` no
-`x_ai_core.errors` do chunk final, com `finish_reason: "error"`.
+`x_axon.errors` do chunk final, com `finish_reason: "error"`.
 
 ## Timeline de status (2026-10-13, FR-005a; research R42)
 
@@ -222,7 +222,7 @@ No stream já aberto, a espera esgotada vira o registro `{"stage": "admission", 
 
 | Campo | Tipo | Regra |
 |---|---|---|
-| `progress` | `"reasoning" \| "status"` | default `"reasoning"`; do cabeçalho `x-ai-core-progress`, nas duas entradas |
+| `progress` | `"reasoning" \| "status"` | default `"reasoning"`; do cabeçalho `x-axon-progress`, nas duas entradas |
 
 ### `domain/timeline.py`
 
@@ -234,4 +234,28 @@ No stream já aberto, a espera esgotada vira o registro `{"stage": "admission", 
 
 | Causa | Status | `type` | `code` | `param` |
 |---|---|---|---|---|
-| `x-ai-core-progress` com valor diferente de `reasoning`/`status` | 400 | `invalid_request_error` | `invalid_header` | `x-ai-core-progress` |
+| `x-axon-progress` com valor diferente de `reasoning`/`status` | 400 | `invalid_request_error` | `invalid_header` | `x-axon-progress` |
+
+---
+
+# Passada de 2026-10-20: identidade Axon (US10; research R50–R53)
+
+| Item | Antes | Agora |
+|---|---|---|
+| cabeçalho do pedido efêmero | `x-ai-core-store` | `x-axon-store` |
+| cabeçalho do modo de progresso | `x-ai-core-progress` | `x-axon-progress` |
+| chave de extensão (chunks e envelope de erro) | `x_ai_core` | `x_axon` |
+| título do OpenAPI | `ai-core` | `Axon` |
+
+### `LEGACY_HEADERS` (domínio, `chat_request.py`)
+
+`{"x-ai-core-store": "x-axon-store", "x-ai-core-progress": "x-axon-progress"}` — o nome antigo presente no pedido, em
+qualquer caixa e com qualquer valor, é `ChatRequestInvalid` com `field` = o antigo e `code` = `invalid_header`.
+
+### `InstanceBranding` (porta, `http/ports.py`)
+
+| Campo | Tipo | Padrão | Regra |
+|---|---|---|---|
+| `name` | `str` | `"Axon"` | `AXON_DISPLAY_NAME` (011) |
+| `logo_url` | `str \| None` | `None` | `/oauth2/assets/logo` quando há logotipo e a identidade (012) o serve |
+| `custom` | `bool` | `False` | `True` quando `name` ≠ `"Axon"` ou `logo_url` ≠ `None` (calculado pela 011) |

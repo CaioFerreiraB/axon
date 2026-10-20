@@ -104,10 +104,12 @@ class AdminGate(Protocol):
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class InstanceBranding:
-    """Nome e logotipo da instalação (011: `AXON_DISPLAY_NAME` e `AXON_LOGO_FILE`), para o `GET /admin/v1/me`."""
+    """Nome e logotipo da instalação (011: `AXON_DISPLAY_NAME` e `AXON_LOGO_FILE`), para o `GET /admin/v1/me`.
+    `custom` diz à console se o lugar principal é da instalação ou o lockup Axon (ADR-038, research R53)."""
 
-    name: str = "Agentic"
+    name: str = "Axon"
     logo_url: str | None = None
+    custom: bool = False
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

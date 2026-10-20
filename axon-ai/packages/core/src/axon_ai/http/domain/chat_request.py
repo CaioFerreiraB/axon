@@ -7,7 +7,7 @@ superfície nenhuma, porque execução de avaliação fixa a data em processo, p
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Final, Literal
 
@@ -26,11 +26,14 @@ IGNORED_SAMPLING_FIELDS: Final = ("temperature", "top_p", "max_tokens", "max_com
 
 USER_ROLE: Final = "user"
 
-STORE_HEADER: Final = "x-ai-core-store"
+STORE_HEADER: Final = "x-axon-store"
 """Cabeçalho do pedido efêmero (FR-023): `false`, sem id de conversa, executa sem criar nem gravar conversa."""
 
-PROGRESS_HEADER: Final = "x-ai-core-progress"
+PROGRESS_HEADER: Final = "x-axon-progress"
 """Como o progresso aparece em streaming (FR-005a): `reasoning` (padrão) ou `status`, a timeline do Open WebUI."""
+
+LEGACY_HEADERS: Final = {"x-ai-core-store": STORE_HEADER, "x-ai-core-progress": PROGRESS_HEADER}
+"""Os nomes de antes do renome (ADR-037) e os novos: o antigo é recusado citando o novo, nunca ignorado (FR-030)."""
 
 type ProgressMode = Literal["reasoning", "status"]
 
@@ -56,7 +59,7 @@ class ChatRequest:
 def parse(
     body: Mapping[str, Any], *, store_header: str | None = None, progress_header: str | None = None
 ) -> ChatRequest:
-    """Valida o corpo no formato OpenAI (e os cabeçalhos `x-ai-core-store` e `x-ai-core-progress`) e devolve só o que a
+    """Valida o corpo no formato OpenAI (e os cabeçalhos `x-axon-store` e `x-axon-progress`) e devolve só o que a
     execução usa."""
     reject_forbidden(body)
 
@@ -75,8 +78,19 @@ def parse(
     )
 
 
+def reject_legacy_headers(names: Iterable[str]) -> None:
+    """Recusa o pedido que ainda manda um cabeçalho de antes do renome (FR-030, research R51). Ignorá-lo faria um
+    `x-ai-core-store: false` gravar a conversa de quem pediu o contrário; a presença do nome basta."""
+    present = {name.lower() for name in names}
+    for legacy, current in LEGACY_HEADERS.items():
+        if legacy in present:
+            raise ChatRequestInvalid(
+                f"cabeçalho '{legacy}' foi renomeado: use '{current}'", field=legacy, code="invalid_header"
+            )
+
+
 def parse_progress(value: str | None) -> ProgressMode:
-    """O cabeçalho `x-ai-core-progress` (FR-005a, research R42): ausente ou `reasoning` é o FR-005; `status` é a
+    """O cabeçalho `x-axon-progress` (FR-005a, research R42): ausente ou `reasoning` é o FR-005; `status` é a
     timeline. Outro valor é recusado — aceitar em silêncio esconderia um erro de configuração da conexão."""
     if value is None:
         return "reasoning"
@@ -93,7 +107,7 @@ def parse_progress(value: str | None) -> ProgressMode:
 
 
 def parse_store(value: str | None, conversation_id: str | None) -> bool:
-    """O cabeçalho `x-ai-core-store` (FR-023, research R37): ausente ou `true` grava; `false` sem id de conversa torna o
+    """O cabeçalho `x-axon-store` (FR-023, research R37): ausente ou `true` grava; `false` sem id de conversa torna o
     pedido efêmero; `false` com id é contraditório — continuar uma conversa sem gravá-la — e é recusado."""
     if value is None:
         return True

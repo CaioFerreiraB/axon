@@ -60,7 +60,7 @@ def test_assistant_com_roteamento_automatico_fica_indisponivel(tmp_path: Path) -
     assert response.status_code == 424, response.text
     corpo = response.json()
     assert corpo["error"]["code"] == "assistant_unavailable"
-    motivos = corpo["x_ai_core"]["reasons"]
+    motivos = corpo["x_axon"]["reasons"]
     assert any("models.controller" in motivo and "roteamento automático" in motivo for motivo in motivos), motivos
 
 

@@ -42,7 +42,7 @@ from axon_ai.bootstrap.health import DatabaseProbe, PlatformHealth
 from axon_ai.bootstrap.lifecycle import BootContext, BootReport, Stage, run_stages, shutdown
 from axon_ai.bootstrap.ports import ConfigSource
 from axon_ai.bootstrap.profiles import DEFAULT_PUBLIC_AUDIENCE, STORAGE_PORTS, Profile, profile_for
-from axon_ai.bootstrap.settings import EnvConfigSource, Settings
+from axon_ai.bootstrap.settings import DEFAULT_DISPLAY_NAME, EnvConfigSource, Settings
 from axon_ai.capabilities.adapters import postgres_schema as capabilities_schema
 from axon_ai.capabilities.api import GatewayLimits
 from axon_ai.capabilities.service import CapabilityService
@@ -563,7 +563,8 @@ def _api(ctx: BootContext) -> None:
 def _instance(settings: Settings, identity: IdentityService | None) -> InstanceBranding:
     """Nome e logotipo da instalação para o `/admin/v1/me` (008 R48): o logotipo é servido pela 012."""
     logo = "/oauth2/assets/logo" if identity is not None and settings.logo_file is not None else None
-    return InstanceBranding(name=settings.display_name, logo_url=logo)
+    custom = settings.display_name != DEFAULT_DISPLAY_NAME or logo is not None
+    return InstanceBranding(name=settings.display_name, logo_url=logo, custom=custom)
 
 
 def platform_health(parts: Mapping[str, Any], *, session: Mapping[str, Any]) -> PlatformHealth:

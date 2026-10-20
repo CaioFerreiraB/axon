@@ -19,7 +19,7 @@ COMPLETION_OBJECT: Final = "chat.completion"
 ASSISTANT_ROLE: Final = "assistant"
 FINISH_STOP: Final = "stop"
 FINISH_ERROR: Final = "error"
-EXTRA: Final = "x_ai_core"
+EXTRA: Final = "x_axon"
 OPEN_WEBUI_EVENT: Final = "event"
 """Chave que o Open WebUI v0.12 repassa ao emissor de eventos dele (research R42)."""
 
@@ -80,7 +80,7 @@ def status_chunk(
 ) -> dict[str, Any]:
     """Um item da timeline do Open WebUI (FR-005a, research R42): `delta` vazio e o status na chave `event`, que o
     v0.12 repassa ao emissor de eventos dele e grava na mensagem. O início de etapa e a fila levam também o
-    `x_ai_core.progress` de sempre; o cliente padrão ignora as duas chaves."""
+    `x_axon.progress` de sempre; o cliente padrão ignora as duas chaves."""
     extra: dict[str, Any] = {} if progress is None else {EXTRA: {"progress": progress}}
     body = _chunk(request_id=request_id, model=model, created=created, delta={}, **extra)
     body[OPEN_WEBUI_EVENT] = {"type": "status", "data": {"description": status.description, "done": status.done}}

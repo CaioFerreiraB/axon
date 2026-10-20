@@ -506,3 +506,82 @@ ai-core/packages/core/src/ai_core/http/
 |---|---|
 | 011 | Passar `admin_seams` e `instance` ao `create_app` quando a identidade (ou só as chaves) estiver montada; sem eles, `/admin/v1` não existe |
 | 013 (console) | [contracts/admin-api.md](contracts/admin-api.md) é a fonte dos esquemas; `GET /me` 404 = acesso negado |
+
+---
+
+# Passada de 2026-10-20: identidade Axon (US10; [ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md), [ADR-038](../../docs/adr/ADR-038-marca-da-plataforma-e-marca-da-instalacao.md))
+
+> As seções acima são os planos das passadas anteriores e ficam como foram executadas (ADR-037, item 6); os nomes
+> antigos nelas se leem pela tabela do ADR-037. Esta seção é o plano da US10.
+
+**Insumos lidos**: [spec.md](spec.md) (US10, FR-029–FR-033, SC-010, clarificações de 2026-10-20, inclusive a decisão do
+mantenedor de recusar o cabeçalho antigo), [design.md](design.md), ADR-037, ADR-038, constituição 1.3.1, a passada da
+011 (`DEFAULT_DISPLAY_NAME = "Axon"`, `AXON_LOGO_FILE`). Research: R50–R55. **Sem divergência do `design.md`**; sem ADR
+novo: a recusa do cabeçalho antigo explica o nome novo sem aceitar o antigo, dentro do corte seco do ADR-037.
+
+## Summary (US10)
+
+Os cabeçalhos passam a `x-axon-store`/`x-axon-progress` e a extensão a `x_axon` (R50); o antigo recebe 400 que cita o
+novo, antes de executar (R51); o OpenAPI se chama "Axon" (R52); o `me` ganha `instance.custom`, calculado pela composição
+(R53). Fixture do Open WebUI, testes e documentos vivos acompanham (R54); testes novos para a recusa e o `custom` (R55).
+
+## Technical Context (US10)
+
+- **Language/Version, dependências, storage**: sem mudança.
+- **Testing**: um arquivo de contrato novo (`us10`), casos novos no domínio e na superfície de administração; literais
+  trocados nas suítes.
+- **Scale/Scope**: três constantes, uma função pura e duas chamadas no adapter de chat, um campo em `InstanceBranding`,
+  uma linha na composição (011); ~18 arquivos de teste; ~10 documentos.
+- Nenhum `NEEDS CLARIFICATION`.
+
+## Constitution Check (US10)
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| II. Módulos substituíveis por seams | ✅ | O seam de chat não muda de forma; `instance.custom` é aditivo (ADR-038) |
+| VII. Falha fechada e explícita | ✅ | Cabeçalho antigo → 400 que nomeia o novo, antes de executar; nenhum "não gravar" é ignorado (R51) |
+| XI. API independente da interface | ✅ | A API publica `custom`; a decisão de mostrar o lockup ou a atribuição é da console (013) |
+| XII. Simplicidade deliberada | ✅ | A recusa é um mapa de dois nomes e uma função pura; sem alias (R51) |
+| XIII. Portas e adapters | ✅ | A regra fica em `domain/`; o adapter só a chama com os nomes dos cabeçalhos |
+
+**Module boundary gate**: `axon_ai/http/**` e `tests/http/**`. Fora do módulo, só `bootstrap/wiring.py::_instance` (a
+011 calcula `custom` a partir da configuração que ela lê, R53), a integração da 011 que lê o `me`, e documentos vivos.
+**Ports & adapters gate**: `InstanceBranding` ganha um campo; nenhuma porta nova. **Resultado**: PASS.
+
+## Project Structure (US10)
+
+```text
+axon-ai/packages/core/
+├── src/axon_ai/
+│   ├── http/domain/chat_request.py     # STORE_HEADER, PROGRESS_HEADER novos; LEGACY_HEADERS; reject_legacy_headers (R50, R51)
+│   ├── http/domain/{errors,openai_chunks}.py   # EXTRA = "x_axon" (R50)
+│   ├── http/adapters/chat.py           # reject_legacy_headers nas duas entradas (R51)
+│   ├── http/adapters/app.py            # title="Axon" (R52)
+│   ├── http/adapters/admin.py          # me: instance.custom (R53)
+│   ├── http/ports.py                   # InstanceBranding(name="Axon", logo_url, custom) (R53)
+│   └── bootstrap/wiring.py             # _instance calcula custom (R53)
+└── tests/
+    ├── http/contract/test_legacy_headers.py   # novo (R55)
+    ├── http/unit/test_chat_request.py         # reject_legacy_headers (R55)
+    └── …                                      # literais e o me (R54)
+```
+
+## Seam Notes for Consumers (US10)
+
+| Consumidor | O que muda para ele |
+|---|---|
+| Open WebUI (instalação) | A conexão passa a mandar `x-axon-store`/`x-axon-progress` na passada da instalação; antes disso, ela usa uma tag antiga do core |
+| 011 | `_instance` calcula `custom` |
+| 013 | `me.instance.custom` disponível; a console passa a usá-lo na passada dela |
+| Cliente da API | Troca os cabeçalhos; o antigo recebe 400 que diz o novo; a extensão é `x_axon` |
+
+## Complexity Tracking (US10)
+
+| Complexidade | Why Needed | Simpler Alternative Rejected Because |
+|---|---|---|
+| Mapa de cabeçalhos antigos e a recusa (R51) | um cliente antigo que pede para não gravar teria a conversa gravada sem saber | ignorar como desconhecido: rejeitado pelo mantenedor (princípio VII) |
+
+## Constitution Check — pós-design (US10)
+
+Reavaliado com [contracts/](contracts/), [data-model.md](data-model.md) e [quickstart.md](quickstart.md) ("Fase 9,
+incremento 9.5"): **PASS**.

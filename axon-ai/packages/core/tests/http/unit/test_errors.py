@@ -86,7 +86,7 @@ def test_404_tem_corpo_identico_para_inexistente_e_nao_autorizado() -> None:
 
 def test_indisponivel_leva_os_motivos() -> None:
     body = error_for(AssistantUnavailable("x", reasons=["packs: pack 'y' em erro", "flow: z"])).body()
-    assert body["x_ai_core"] == {"reasons": ["packs: pack 'y' em erro", "flow: z"]}
+    assert body["x_axon"] == {"reasons": ["packs: pack 'y' em erro", "flow: z"]}
 
 
 @pytest.mark.parametrize(("seconds", "header"), [(0.1, "1"), (1.0, "1"), (1.01, "2"), (45.0, "45")])

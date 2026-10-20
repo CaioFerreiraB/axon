@@ -123,7 +123,7 @@ def test_resposta_vazia_e_reprovada_pelo_validator_do_pack_sem_virar_erro_http()
     assert response.status_code == 200
     payload = response.json()
     assert payload["choices"][0]["finish_reason"] == "stop"
-    assert payload["x_ai_core"]["errors"][0]["kind"] == "ValidatorIssue"
+    assert payload["x_axon"]["errors"][0]["kind"] == "ValidatorIssue"
     assert trace.of_type(ValidationRun)[0].ok is False
 
 

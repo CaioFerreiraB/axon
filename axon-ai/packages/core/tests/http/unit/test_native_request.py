@@ -79,7 +79,7 @@ def test_campo_obrigatorio_ou_mal_formado(overrides: dict[str, Any], field: str)
 def test_cabecalho_store_na_requisicao_nativa() -> None:
     assert parse_native(_body(), store_header="false").store is False
     assert parse_native(_body()).store is True
-    with pytest.raises(InvalidRequest, match="x-ai-core-store"):
+    with pytest.raises(InvalidRequest, match="x-axon-store"):
         parse_native(_body(conversation_id="conv_1"), store_header="false")
-    with pytest.raises(InvalidRequest, match="x-ai-core-store"):
+    with pytest.raises(InvalidRequest, match="x-axon-store"):
         parse_native(_body(), store_header="talvez")
