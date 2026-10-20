@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Literal
 
 type Origin = Literal["production", "evaluation"]
@@ -25,6 +26,8 @@ class ModelCallRow:
     output_tokens: int
     duration_ms: float
     failed: bool = False
+    reported_cost: Decimal | None = None
+    """O custo que o provider informou (ADR-035); `None` quando ele não informa."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -41,7 +44,11 @@ class ExecutionRow:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class DailyTokens:
-    """Chamadas e tokens de um dia local, por chave (modelo ou Assistant) e modelo — o preço é por modelo."""
+    """Chamadas e tokens de um dia local, por chave (modelo ou Assistant) e modelo — o preço é por modelo.
+
+    Os campos `reported_*` são a parte das chamadas com custo informado pelo provider (ADR-035): o custo delas é a soma
+    informada, e só o resto dos tokens passa pela tabela de preços.
+    """
 
     day: date
     key: str | None
@@ -50,6 +57,23 @@ class DailyTokens:
     calls: int
     input_tokens: int
     output_tokens: int
+    reported_calls: int = 0
+    reported_input_tokens: int = 0
+    reported_output_tokens: int = 0
+    reported_cost: Decimal = Decimal(0)
+
+    @property
+    def unreported_input_tokens(self) -> int:
+        return self.input_tokens - self.reported_input_tokens
+
+    @property
+    def unreported_output_tokens(self) -> int:
+        return self.output_tokens - self.reported_output_tokens
+
+    @property
+    def needs_price(self) -> bool:
+        """Sobram tokens sem custo informado. Chamada sem token nenhum (a que falhou) não pede preço."""
+        return self.unreported_input_tokens > 0 or self.unreported_output_tokens > 0
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

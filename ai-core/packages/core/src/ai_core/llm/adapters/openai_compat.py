@@ -134,6 +134,14 @@ class OpenAICompatProvider:
             detail=f"modelo {model} não encontrado em {self._base_url}; disponíveis: {_listed(available)}",
         )
 
+    async def ready(self) -> ProbeResult:
+        """O endpoint responde à lista de modelos. Nunca levanta, nunca gera tokens."""
+        try:
+            await self._client.models.list()
+        except OpenAIError as error:
+            return ProbeResult(available=False, detail=self._reason(error))
+        return ProbeResult(available=True)
+
     def _has_model(self, model: str, ids: Sequence[str]) -> bool:
         """O modelo está na lista do endpoint. O OpenRouter sobrescreve para aceitar a base de uma variante (R22)."""
         return model in ids
@@ -235,7 +243,37 @@ def _to_tool_calls(raw: Any) -> tuple[ChatToolCall, ...]:
 def _to_usage(raw: Any) -> ChatUsage | None:
     if raw is None:
         return None
-    return ChatUsage(prompt_tokens=raw.prompt_tokens, completion_tokens=raw.completion_tokens)
+    usage = ChatUsage(prompt_tokens=raw.prompt_tokens, completion_tokens=raw.completion_tokens)
+    cost = _reported_cost(raw)
+    if cost is not None:
+        usage["cost"] = cost
+    return usage
+
+
+def _reported_cost(raw: Any) -> float | None:
+    """O custo em USD que o endpoint informa em `usage.cost` — o OpenRouter informa; OpenAI e Ollama, não (ADR-035).
+
+    São campos extras do modelo do SDK, lidos por `getattr`. Com chave própria no upstream (`is_byok`), `cost` é só a
+    taxa do OpenRouter, e o custo do upstream vem em `cost_details.upstream_inference_cost`: os dois somam.
+    """
+    cost = _number(getattr(raw, "cost", None))
+    if cost is None:
+        return None
+    if getattr(raw, "is_byok", False) is True:
+        details = getattr(raw, "cost_details", None)
+        upstream = details.get("upstream_inference_cost") if isinstance(details, dict) else None
+        if upstream is None and details is not None and not isinstance(details, dict):
+            upstream = getattr(details, "upstream_inference_cost", None)
+        cost += _number(upstream) or 0.0
+    return cost
+
+
+def _number(value: Any) -> float | None:
+    """Número finito e não negativo; qualquer outra coisa é "não informado"."""
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    number = float(value)
+    return number if number >= 0 and number != float("inf") else None
 
 
 def _to_response(completion: Any) -> ChatResponse:

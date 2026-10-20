@@ -17,6 +17,7 @@ export const handlers = [
         );
   }),
   http.get(api("/assistants/:name/history"), () => HttpResponse.json({ data: [] })),
+  http.get(api("/providers"), () => HttpResponse.json({ data: f.providers })),
   http.get(api("/mcp"), () => HttpResponse.json({ data: f.servers })),
   http.get(api("/mcp/:alias/health"), ({ params }) => HttpResponse.json(f.healths[String(params.alias)])),
   http.get(api("/usage"), () => HttpResponse.json(f.report)),

@@ -30,6 +30,8 @@ class ScriptedProvider:
         error: ModelCallFailed | None = None,
         fail_after: int | None = None,
         known_models: Sequence[str] | None = None,
+        cost: float | None = None,
+        unready: str | None = None,
     ) -> None:
         self._name = name
         self._content = content
@@ -39,10 +41,13 @@ class ScriptedProvider:
             if usage is None
             else ChatUsage(prompt_tokens=usage["prompt_tokens"], completion_tokens=usage["completion_tokens"])
         )
+        if self._usage is not None and cost is not None:
+            self._usage["cost"] = cost
         self._finish_reason = finish_reason
         self._error = error
         self._fail_after = fail_after
         self._known_models = None if known_models is None else tuple(known_models)
+        self._unready = unready
         self.calls: list[dict[str, Any]] = []
 
     @property
@@ -119,3 +124,7 @@ class ScriptedProvider:
             disponiveis = ", ".join(self._known_models) or "nenhum"
             return ProbeResult(available=False, detail=f"modelo {model} não encontrado; disponíveis: {disponiveis}")
         return ProbeResult(available=True)
+
+    async def ready(self) -> ProbeResult:
+        """Pronto, salvo quando `unready` programa o motivo — como um remoto sem chave ou um local fora do ar."""
+        return ProbeResult(available=self._unready is None, detail=self._unready)

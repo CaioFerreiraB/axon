@@ -7,7 +7,7 @@ Publicado em `ai_core/llm/api.py`. **Mudar qualquer assinatura abaixo exige ADR*
 
 ```python
 from ai_core.llm.api import (
-    BoundModel, ModelHealth, ModelPolicy, ModelRef, ModelRole, ModelRouter, ModelRouting,
+    BoundModel, ModelHealth, ModelPolicy, ModelRef, ModelRole, ModelRouter, ModelRouting, ProviderStatus,
     ModelCallFailed, ModelNotAllowed, ModelRoutingError, RoleNotConfigured, UnknownProvider,
 )
 ```
@@ -105,3 +105,11 @@ Assinaturas inalteradas ([research.md](../research.md) R16, R17). Regras novas:
 13. política com `controller` em `openrouter` e `generation` em `ollama` (dois simulados) → cada `BoundModel` no seu
     provider, e os `ModelCall` com o provider certo por papel;
 14. `check` com um remoto sem credencial → `available=False` com o nome da variável.
+
+## 2026-10-20: custo informado e providers prontos ([ADR-035](../../../docs/adr/ADR-035-custo-informado-pelo-provider-e-providers-prontos.md))
+
+- `ModelRouting.providers() -> tuple[ProviderStatus, ...]`: os providers registrados, por nome, com `ready` e `detail`.
+  Nunca levanta; sonda todos juntos. A porta `ModelProvider` ganha `ready()`: o remoto responde pela credencial, sem
+  rede; o local (Ollama), pela lista de modelos do endpoint.
+- O `ModelCall` que o cliente ligado emite leva `cost_usd` quando o provider informa o custo em `usage.cost`
+  (`ChatUsage.cost`, contratos `0.1.3`); o adapter do OpenRouter pede `usage.include` em todo pedido.

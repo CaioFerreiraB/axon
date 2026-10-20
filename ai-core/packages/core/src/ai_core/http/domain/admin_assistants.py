@@ -12,7 +12,7 @@ from ai_core.assistants.api import (
     SystemAssistantView,
 )
 from ai_core.http.domain.admin_common import AdminInvalid, only, required, text, texts, version_of
-from ai_core.llm.api import MODEL_ROLES, ModelRef, ModelRole
+from ai_core.llm.api import MODEL_ROLES, ModelRef, ModelRole, ProviderStatus
 
 
 def mcp_json(mcp: McpOverride) -> dict[str, Any]:
@@ -21,6 +21,11 @@ def mcp_json(mcp: McpOverride) -> dict[str, Any]:
 
 def models_json(roles: Mapping[ModelRole, ModelRef]) -> dict[str, str]:
     return {role: str(ref) for role, ref in sorted(roles.items())}
+
+
+def provider_json(status: ProviderStatus) -> dict[str, Any]:
+    """Um provider registrado e se está pronto (ADR-035): a console só oferece os prontos na escolha de modelo."""
+    return {"name": status.name, "ready": status.ready, "detail": status.detail}
 
 
 def payload_json(payload: ModelsOverride | McpOverride | None) -> dict[str, Any] | None:

@@ -82,7 +82,7 @@ def delta_chunk(content: str) -> dict[str, object]:
     }
 
 
-def final_chunk(*, finish_reason: str = "stop", usage: Mapping[str, int] | None = None) -> dict[str, object]:
+def final_chunk(*, finish_reason: str = "stop", usage: Mapping[str, object] | None = None) -> dict[str, object]:
     chunk: dict[str, object] = {
         "id": "c1",
         "object": "chat.completion.chunk",
@@ -99,7 +99,7 @@ def completion(
     *,
     content: str = "resposta",
     finish_reason: str = "stop",
-    usage: Mapping[str, int] | None = None,
+    usage: Mapping[str, object] | None = None,
     tool_calls: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     """Corpo de uma resposta única da camada compatível."""

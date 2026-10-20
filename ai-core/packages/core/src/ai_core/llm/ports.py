@@ -35,6 +35,11 @@ class ModelProvider(LLMProvider, Protocol):
         """Diz se o provider responde e conhece o modelo. NUNCA levanta e NUNCA gera tokens."""
         ...
 
+    async def ready(self) -> ProbeResult:
+        """Diz se o provider está pronto para uso, sem modelo nenhum (ADR-035): o remoto, pela credencial, sem rede; o
+        local, se o endpoint responde. NUNCA levanta e NUNCA gera tokens."""
+        ...
+
 
 class SecretResolver(Protocol):
     """Credenciais dos providers remotos (Fase 3, research R21).

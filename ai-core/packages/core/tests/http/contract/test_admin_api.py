@@ -124,7 +124,7 @@ def _kit(
     routing = ModelRoutingService(
         providers={
             "openrouter": ScriptedProvider(name="openrouter", known_models=["openai/gpt-4.1-mini", "nvidia/nemotron"]),
-            "ollama": ScriptedProvider(name="ollama"),
+            "ollama": ScriptedProvider(name="ollama", unready="provider inalcançável em http://ollama.test/v1"),
         },
         trace=RecordingTraceSink(),
         clock=GraphFixedClock(CREATED),
@@ -191,6 +191,7 @@ ROUTES: Final[list[tuple[str, str, Any]]] = [
     ("DELETE", "/assistants/geral/overrides/models?version=1", None),
     ("GET", "/assistants/geral/history", None),
     ("POST", "/assistants/geral/models/check", {"role": "generation", "model": MINI}),
+    ("GET", "/providers", None),
     ("GET", "/mcp", None),
     ("POST", "/mcp", GLOBAL_MCP),
     ("GET", "/mcp/agenda", None),
@@ -365,6 +366,18 @@ def test_testar_modelo_pelo_model_router(kit: Kit) -> None:
     assert missing["available"] is False and "não encontrado" in missing["detail"]
     outside = kit.call("POST", "/assistants/geral/models/check", body={"role": "generation", "model": "ollama/qwen3"})
     assert outside.status_code == 422 and _error(outside)["param"] == "model"
+
+
+def test_providers_com_a_prontidao_de_cada_um(kit: Kit) -> None:
+    """ADR-035: a lista por nome, com o motivo de quem não está pronto."""
+    response = kit.call("GET", "/providers")
+    assert response.status_code == 200
+    assert response.json() == {
+        "data": [
+            {"name": "ollama", "ready": False, "detail": "provider inalcançável em http://ollama.test/v1"},
+            {"name": "openrouter", "ready": True, "detail": None},
+        ]
+    }
 
 
 # --- uso e preços (009 US5) ------------------------------------------------------------------------------------------

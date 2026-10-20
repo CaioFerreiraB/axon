@@ -49,6 +49,25 @@ async def test_tokens_vem_do_usage_do_provider(trace: Any, clock: ScriptedClock)
     assert (trace.events[0].input_tokens, trace.events[0].output_tokens) == (11, 4)
 
 
+@pytest.mark.parametrize("stream", [False, True], ids=["completa", "streaming"])
+async def test_custo_informado_vai_no_dado_de_chamada(trace: Any, clock: ScriptedClock, stream: bool) -> None:
+    """ADR-035: o custo que o provider informa no `usage` chega ao `ModelCall`; sem ele, fica ausente."""
+    provider = ScriptedProvider(name="ollama", usage={"prompt_tokens": 11, "completion_tokens": 4}, cost=0.0042)
+    model = service(provider, trace, clock).for_execution(policy=policy(), request_id=REQUEST_ID).for_role("generation")
+    if stream:
+        async for _ in model.stream(MESSAGES):
+            pass
+    else:
+        await model.complete(MESSAGES)
+    assert trace.events[0].cost_usd == pytest.approx(0.0042)
+
+
+async def test_sem_custo_informado_o_custo_fica_ausente(provider: ScriptedProvider, trace: Any, clock: Any) -> None:
+    router = service(provider, trace, clock).for_execution(policy=policy(), request_id=REQUEST_ID)
+    await router.for_role("generation").complete(MESSAGES)
+    assert trace.events[0].cost_usd is None
+
+
 async def test_sem_usage_os_tokens_ficam_ausentes(trace: Any, clock: ScriptedClock) -> None:
     provider = ScriptedProvider(name="ollama", usage=None)
     router = service(provider, trace, clock).for_execution(policy=policy(), request_id=REQUEST_ID)

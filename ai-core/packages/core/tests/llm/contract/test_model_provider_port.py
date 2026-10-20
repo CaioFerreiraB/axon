@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from llm_testkit import MODEL, PORT_CASES, USAGE
+from llm_testkit import MODEL, PORT_CASES, USAGE, OllamaCase
 
 from ai_core.llm.api import ModelCallFailed
 
@@ -101,8 +101,23 @@ async def test_probe_com_provider_fora_do_ar_nao_levanta(case: Any) -> None:
     assert result.detail
 
 
+async def test_ready_diz_que_o_provider_esta_pronto(case: Any) -> None:
+    """ADR-035: pronto sem modelo nenhum; o caso de fora do ar depende do provider (local ou remoto, abaixo)."""
+    result = await case.ok().ready()
+    assert result.available
+    assert result.detail is None
+
+
+async def test_ready_do_local_fora_do_ar_nao_levanta() -> None:
+    case = OllamaCase()
+    result = await case.failing("inalcançável").ready()
+    assert not result.available
+    assert result.detail is not None and "inalcançável" in result.detail
+
+
 def test_adapters_cumprem_a_porta(case: Any) -> None:
     provider = case.ok()
     assert provider.name == case.name
     assert callable(provider.chat)
     assert callable(provider.probe)
+    assert callable(provider.ready)

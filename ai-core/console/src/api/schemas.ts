@@ -85,6 +85,15 @@ export const modelCheckSchema = z.object({
 });
 export type ModelCheck = z.infer<typeof modelCheckSchema>;
 
+/** Um provider registrado e se está pronto (ADR-035): o remoto pela credencial, o local se responde. */
+export const providerSchema = z.object({
+  name: z.string(),
+  ready: z.boolean(),
+  detail: z.string().nullable(),
+});
+export type Provider = z.infer<typeof providerSchema>;
+export const providerListSchema = z.object({ data: z.array(providerSchema) });
+
 // --- servidores MCP (007) -------------------------------------------------------------------------------------------
 
 export const mcpServerSchema = z.object({

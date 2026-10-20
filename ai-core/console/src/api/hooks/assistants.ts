@@ -6,6 +6,7 @@ import {
   assistantViewSchema,
   historySchema,
   modelCheckSchema,
+  providerListSchema,
   type AssistantView,
   type McpSelection,
   type Section,
@@ -74,5 +75,15 @@ export function useCheckModel(name: string) {
   return useMutation({
     mutationFn: (vars: { role: string; model: string }) =>
       api.send("POST", `${path(name)}/models/check`, vars, modelCheckSchema),
+  });
+}
+
+/** Os providers e a prontidão de cada um (ADR-035): a escolha de modelo só oferece os prontos. */
+export function useProviders() {
+  const api = useApi();
+  return useQuery({
+    queryKey: keys.providers,
+    queryFn: async () => (await api.get("/providers", providerListSchema)).data,
+    staleTime: 30_000,
   });
 }

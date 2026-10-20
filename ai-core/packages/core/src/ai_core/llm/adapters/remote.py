@@ -134,6 +134,10 @@ class RemoteProvider(OpenAICompatProvider):
             return ProbeResult(available=False, detail=self._missing)
         return await super().probe(model)
 
+    async def ready(self) -> ProbeResult:
+        """Só a credencial, sem rede: com ela, o remoto está pronto (ADR-035). A sondagem do modelo é o `probe`."""
+        return ProbeResult(available=self._missing is None, detail=self._missing)
+
     def _reason(self, error: OpenAIError) -> str:
         """O motivo da camada compatível, com o valor da chave trocado — o 401 da OpenAI ecoa a chave mascarada, e um
         proxy poderia ecoá-la inteira (FR-011)."""

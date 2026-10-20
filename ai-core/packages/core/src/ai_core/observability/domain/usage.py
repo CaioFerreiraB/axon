@@ -2,7 +2,8 @@
 
 Do trace saem duas linhas, sem texto nenhum: a chamada de modelo (com o Assistant da execução, achado pelo
 `request_id`) e a execução. O relatório agrega por dia **local** no fuso pedido — 23h30 em São Paulo conta no dia
-local, não no UTC — e calcula o custo por modelo e dia com o preço vigente naquele dia.
+local, não no UTC — e calcula o custo por modelo e dia: o que o provider informou vale como veio (ADR-035), e só os
+tokens das chamadas sem custo informado passam pelo preço vigente naquele dia.
 """
 
 from __future__ import annotations
@@ -26,7 +27,7 @@ from ai_core.observability.api import (
     UsageReport,
     UsageRow,
 )
-from ai_core.observability.domain.prices import cost, effective_price
+from ai_core.observability.domain.prices import QUANTUM, cost, effective_price
 from ai_core.observability.domain.usage_records import (
     DailyRequests,
     DailyTokens,
@@ -77,6 +78,13 @@ def _float(value: object) -> float:
     return float(value) if isinstance(value, int | float) and not isinstance(value, bool) else 0.0
 
 
+def _cost(value: object) -> Decimal | None:
+    """O custo informado, em `Decimal` pelo texto do número (sem herdar o ruído binário do `float`)."""
+    if not isinstance(value, int | float) or isinstance(value, bool) or not value >= 0:
+        return None
+    return Decimal(str(value))
+
+
 def execution_started(record: TraceRecord, *, origin: Origin) -> ExecutionRow:
     attributes = record.attributes
     return ExecutionRow(
@@ -111,6 +119,7 @@ def call_row(record: TraceRecord, *, assistant: str | None, origin: Origin) -> M
         output_tokens=_int(attributes.get("output_tokens")),
         duration_ms=_float(attributes.get("duration_ms")),
         failed=attributes.get("finish_reason") == "error",
+        reported_cost=_cost(attributes.get("cost_usd")),
     )
 
 
@@ -130,7 +139,8 @@ def aggregate(
     by: UsageGrouping,
     origin: UsageOrigin,
 ) -> UsageAggregate:
-    tokens: dict[tuple[date, str | None, str, str], list[int]] = defaultdict(lambda: [0, 0, 0])
+    tokens: dict[tuple[date, str | None, str, str], list[int]] = defaultdict(lambda: [0, 0, 0, 0, 0, 0])
+    reported: dict[tuple[date, str | None, str, str], Decimal] = defaultdict(Decimal)
     daily_requests: dict[tuple[date, str | None], set[str]] = defaultdict(set)
     key_requests: dict[str | None, set[str]] = defaultdict(set)
     total: set[str] = set()
@@ -138,17 +148,33 @@ def aggregate(
         if not start <= row.at < end or (origin != "all" and row.origin != origin):
             continue
         day, key = local_day(row.at, tz), key_of(row, by)
-        counts = tokens[(day, key, row.provider, row.model)]
+        group = (day, key, row.provider, row.model)
+        counts = tokens[group]
         counts[0] += 1
         counts[1] += row.input_tokens
         counts[2] += row.output_tokens
+        if row.reported_cost is not None:
+            counts[3] += 1
+            counts[4] += row.input_tokens
+            counts[5] += row.output_tokens
+            reported[group] += row.reported_cost
         daily_requests[(day, key)].add(row.request_id)
         key_requests[key].add(row.request_id)
         total.add(row.request_id)
     return UsageAggregate(
         tokens=tuple(
             DailyTokens(
-                day=day, key=key, provider=provider, model=model, calls=c[0], input_tokens=c[1], output_tokens=c[2]
+                day=day,
+                key=key,
+                provider=provider,
+                model=model,
+                calls=c[0],
+                input_tokens=c[1],
+                output_tokens=c[2],
+                reported_calls=c[3],
+                reported_input_tokens=c[4],
+                reported_output_tokens=c[5],
+                reported_cost=reported[(day, key, provider, model)],
             )
             for (day, key, provider, model), c in sorted(tokens.items(), key=lambda item: _sort_key(item[0]))
         ),
@@ -183,11 +209,11 @@ class _Totals:
         self.calls += item.calls
         self.input_tokens += item.input_tokens
         self.output_tokens += item.output_tokens
-        if price is None:
-            self.all_priced = False
-        else:
+        part, complete = group_cost(item, price)
+        self.all_priced = self.all_priced and complete
+        if part is not None:
             self.any_priced = True
-            self.cost += cost(price, input_tokens=item.input_tokens, output_tokens=item.output_tokens)
+            self.cost += part
 
     def row(self, key: str | None, requests: int) -> UsageRow:
         return UsageRow(
@@ -199,6 +225,19 @@ class _Totals:
             cost=self.cost if self.any_priced else None,
             priced=self.all_priced,
         )
+
+
+def group_cost(item: DailyTokens, price: Price | None) -> tuple[Decimal | None, bool]:
+    """Custo de um grupo (dia, chave, modelo) e se ficou completo: o informado pelo provider mais, pela tabela, os
+    tokens das chamadas sem custo informado (ADR-035). Sem preço vigente para esses tokens, o custo é só o informado —
+    `None` se nenhuma chamada informou — e fica incompleto."""
+    reported = item.reported_cost.quantize(QUANTUM) if item.reported_calls else None
+    if not item.needs_price:
+        return reported if reported is not None else Decimal(0).quantize(QUANTUM), True
+    if price is None:
+        return reported, False
+    table = cost(price, input_tokens=item.unreported_input_tokens, output_tokens=item.unreported_output_tokens)
+    return (item.reported_cost + table).quantize(QUANTUM), True
 
 
 def period_cost(aggregate_: UsageAggregate, prices: Sequence[Price]) -> tuple[Decimal | None, bool]:
@@ -257,10 +296,10 @@ def build_report(
 
 
 def unpriced(aggregate_: UsageAggregate, prices: Sequence[Price]) -> tuple[str, ...]:
-    """Modelos usados sem preço vigente em algum dia do agregado."""
+    """Modelos usados sem preço vigente em algum dia do agregado, quando sobram tokens sem custo informado."""
     missing = {
         f"{item.provider}/{item.model}"
         for item in aggregate_.tokens
-        if effective_price(prices, provider=item.provider, model=item.model, day=item.day) is None
+        if item.needs_price and effective_price(prices, provider=item.provider, model=item.model, day=item.day) is None
     }
     return tuple(sorted(missing))

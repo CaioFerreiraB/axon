@@ -217,6 +217,10 @@ class OtelLangfuseTransport:
             ):
                 if isinstance(attributes.get(source), int):
                     span_attributes[target] = attributes[source]
+            cost = attributes.get("cost_usd")
+            if isinstance(cost, int | float) and not isinstance(cost, bool):
+                # O custo informado pelo provider (ADR-035): sem ele, o Langfuse estima pela tabela dele.
+                span_attributes["langfuse.observation.cost_details"] = _attribute({"total": cost})
             span = tracer.start_span(
                 f"{attributes.get('role', 'modelo')}",
                 context=context,

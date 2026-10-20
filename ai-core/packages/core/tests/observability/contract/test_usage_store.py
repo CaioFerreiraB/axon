@@ -18,7 +18,13 @@ pytestmark = pytest.mark.us5
 
 
 def _call(
-    at: datetime, rid: str, *, model: str = "a", assistant: str | None = "geral", origin: str = "production"
+    at: datetime,
+    rid: str,
+    *,
+    model: str = "a",
+    assistant: str | None = "geral",
+    origin: str = "production",
+    reported_cost: Decimal | None = None,
 ) -> ModelCallRow:
     return ModelCallRow(
         request_id=rid,
@@ -31,6 +37,7 @@ def _call(
         input_tokens=100,
         output_tokens=10,
         duration_ms=5.0,
+        reported_cost=reported_cost,
     )
 
 
@@ -64,6 +71,22 @@ async def test_agregado_por_dia_local_chave_e_requisicoes_distintas(stores: Stor
     )
     assert {(k.key, k.requests) for k in by_assistant.key_requests} == {("geral", 2), (None, 1)}
     assert by_assistant.total_requests == 3
+
+
+async def test_custo_informado_e_somado_a_parte(stores: Stores) -> None:
+    """ADR-035: a parte com custo informado tem contagem, tokens e soma próprias, em `Decimal` exato."""
+    at = datetime(2026, 10, 14, 15, tzinfo=UTC)
+    calls = [
+        _call(at, "r1", reported_cost=Decimal("0.0000425")),
+        _call(at + timedelta(minutes=1), "r2", reported_cost=Decimal("0.0012")),
+        _call(at + timedelta(minutes=2), "r3"),
+    ]
+    await stores.usage.append(calls, [])
+    agg = await _daily(stores, UsageQuery(start=date(2026, 10, 14), end=date(2026, 10, 14), by="model"))
+    (group,) = agg.tokens
+    assert (group.calls, group.input_tokens, group.output_tokens) == (3, 300, 30)
+    assert (group.reported_calls, group.reported_input_tokens, group.reported_output_tokens) == (2, 200, 20)
+    assert group.reported_cost == Decimal("0.0012425")
 
 
 async def test_execucoes_sao_atualizadas_e_o_expurgo_tira_o_antigo(stores: Stores) -> None:

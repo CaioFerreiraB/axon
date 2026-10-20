@@ -90,6 +90,15 @@
   display: flex;
   gap: 8px;
 }
+.inputRow > input {
+  flex: 1;
+  min-width: 0;
+}
+/* O provider cabe num nome curto (`openrouter`); o modelo fica com o resto da linha. */
+.providerSelect {
+  flex: 0 0 auto;
+  width: 8.5rem;
+}
 .hint {
   color: var(--texto-secundario);
   font-size: var(--tamanho-12);

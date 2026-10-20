@@ -1,41 +1,53 @@
 /** Aba Modelos (013 US2, FR-006): para cada papel, o que o YAML define, a sobreposição e o valor efetivo. Só edita se
  * o YAML libera `models` em `overrides`; a allowlist e os papéis exigidos aparecem como referência, e toda recusa vem
- * da API junto ao papel (FR-001). */
+ * da API junto ao papel (FR-001). A sobreposição escolhe o provider numa lista — só os prontos, mais o que o papel já
+ * usa (ADR-035) — e digita o modelo sem o prefixo. */
 
 import { useId, useMemo, useState } from "react";
 
 import { fieldError, isApiError } from "../../api/errors";
-import { useAssistants, useCheckModel, useDiscardOverride, useSaveModels } from "../../api/hooks/assistants";
+import {
+  useAssistants,
+  useCheckModel,
+  useDiscardOverride,
+  useProviders,
+  useSaveModels,
+} from "../../api/hooks/assistants";
 import { usePrices } from "../../api/hooks/usage";
-import { isMcpPayload, ROLES, type AssistantView, type ModelCheck } from "../../api/schemas";
+import { isMcpPayload, ROLES, type AssistantView, type ModelCheck, type Provider } from "../../api/schemas";
 import { formatInteger } from "../../i18n/format";
 import { DEPLOY_ONLY, ROLE_TEXT } from "../../i18n/pt-BR";
 import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
-import { TextInput } from "../../ui/Field";
+import { Select, TextInput } from "../../ui/Field";
 import { Icon } from "../../ui/icons";
 import { Notice } from "../../ui/Notice";
 import { Table, tableStyles as t } from "../../ui/Table";
 import { useAssistantContext } from "./AssistantDetail";
 import styles from "./Editor.module.css";
 import { DiscardButton, overrideMeta, SaveError } from "./editorParts";
+import { defaultProvider, joinRef, optionLabel, providerOptions, splitRef, type RefParts } from "./modelRef";
 import { overrideOf, sentence } from "./status";
 
-type Draft = Record<string, string>;
+/** Por papel, o provider (vazio = o primeiro pronto) e o modelo sem o prefixo. */
+type Draft = Record<string, RefParts>;
 
 function draftOf(view: AssistantView): Draft {
   const override = overrideOf(view, "models");
   const stored: Record<string, string> =
     override?.state === "active" && override.payload && !isMcpPayload(override.payload) ? override.payload : {};
-  return Object.fromEntries(ROLES.map((role) => [role, stored[role] ?? view.yaml.models[role] ?? ""]));
+  return Object.fromEntries(ROLES.map((role) => [role, splitRef(stored[role] ?? view.yaml.models[role])]));
+}
+
+/** A referência do papel, com o provider padrão quando nenhum foi escolhido. */
+function refOf(parts: RefParts | undefined, fallback: string): string {
+  return parts ? joinRef({ provider: parts.provider || fallback, model: parts.model }) : "";
 }
 
 /** A sobreposição substitui a seção inteira (003 FR-018): vão todos os papéis preenchidos; o vazio fica sem modelo. */
-function rolesOf(draft: Draft): Record<string, string> {
+function rolesOf(draft: Draft, fallback: string): Record<string, string> {
   return Object.fromEntries(
-    Object.entries(draft)
-      .map(([role, value]) => [role, value.trim()] as const)
-      .filter(([, value]) => value !== ""),
+    ROLES.map((role) => [role, refOf(draft[role], fallback)] as const).filter(([, value]) => value !== ""),
   );
 }
 
@@ -91,14 +103,18 @@ function RoleRow({
   editable,
   saveError,
   listId,
+  known,
+  providers,
 }: {
   role: string;
   view: AssistantView;
-  value: string;
-  onChange: (value: string) => void;
+  value: RefParts;
+  onChange: (value: RefParts) => void;
   editable: boolean;
   saveError: unknown;
   listId: string;
+  known: string[];
+  providers: Provider[] | undefined;
 }) {
   const check = useCheckModel(view.name);
   const yaml = view.yaml.models[role];
@@ -109,8 +125,13 @@ function RoleRow({
   const error = fieldError(saveError, `roles.${role}`) ?? fieldError(saveError, `models.${role}`);
   const required = view.required_roles.includes(role);
   const unusedByFlow = !required && role === "controller";
-  const target = value.trim() || yaml || "";
-  const typed = value.trim();
+  const provider = value.provider || defaultProvider(providers);
+  const options = providerOptions(providers, [provider, splitRef(yaml).provider, splitRef(effective).provider]);
+  const chosen = options.find((option) => option.name === provider);
+  const typed = joinRef({ provider, model: value.model });
+  const target = typed || yaml || "";
+  const modelsId = `${listId}-${role}-modelos`;
+  const models = known.filter((ref) => ref.startsWith(`${provider}/`)).map((ref) => splitRef(ref).model);
   const hint =
     typed === "" && yaml
       ? "Vazio: o papel fica sem modelo na sobreposição"
@@ -140,15 +161,38 @@ function RoleRow({
         {editable ? (
           <div className={styles.overrideCell}>
             <div className={styles.inputRow}>
-              <TextInput
+              <Select
                 mono
-                list={listId}
-                value={value}
+                className={styles.providerSelect}
+                value={provider}
                 onChange={(event) => {
                   check.reset();
-                  onChange(event.target.value);
+                  onChange({ ...value, provider: event.target.value });
                 }}
-                placeholder={unusedByFlow || role === "rerank" ? "Sem modelo" : "provider/modelo"}
+                aria-label={`Provedor de ${role}`}
+                title={chosen && !chosen.ready ? (chosen.detail ?? "Indisponível") : undefined}
+              >
+                {provider === "" ? <option value="">Nenhum provedor</option> : null}
+                {options.map((option) => (
+                  <option key={option.name} value={option.name}>
+                    {optionLabel(option)}
+                  </option>
+                ))}
+              </Select>
+              <datalist id={modelsId}>
+                {models.map((model) => (
+                  <option key={model} value={model} />
+                ))}
+              </datalist>
+              <TextInput
+                mono
+                list={modelsId}
+                value={value.model}
+                onChange={(event) => {
+                  check.reset();
+                  onChange({ ...value, model: event.target.value });
+                }}
+                placeholder={unusedByFlow || role === "rerank" ? "Sem modelo" : "autor/modelo"}
                 aria-label={`Modelo de ${role}`}
                 aria-invalid={error ? true : undefined}
                 aria-describedby={`${listId}-${role}-ajuda`}
@@ -203,12 +247,14 @@ export default function ModelsTab() {
   const [baseVersion, setBaseVersion] = useState<number | null>(override?.version ?? null);
   const save = useSaveModels(view.name);
   const discard = useDiscardOverride(view.name);
+  const providers = useProviders();
   const listId = useId();
   const known = useKnownModels(view);
 
+  const fallback = defaultProvider(providers.data);
   const pristine = draftOf(view);
-  const changes = ROLES.filter((role) => (draft[role] ?? "").trim() !== (pristine[role] ?? "").trim()).length;
-  const roles = rolesOf(draft);
+  const changes = ROLES.filter((role) => refOf(draft[role], fallback) !== refOf(pristine[role], fallback)).length;
+  const roles = rolesOf(draft, fallback);
   const nothingToOverride = Object.keys(roles).length === 0;
 
   const onSave = () =>
@@ -262,11 +308,12 @@ export default function ModelsTab() {
             : ""}
         </Notice>
       )}
-      <datalist id={listId}>
-        {known.map((ref) => (
-          <option key={ref} value={ref} />
-        ))}
-      </datalist>
+      {editable && providers.data && !fallback ? (
+        <Notice tone="warn" title="Nenhum provedor pronto">
+          Defina a chave de um provedor remoto (AI_CORE_OPENROUTER_API_KEY ou AI_CORE_OPENAI_API_KEY) ou suba o Ollama
+          em AI_CORE_OLLAMA_BASE_URL. Os papéis que já têm modelo continuam mostrando o provedor deles.
+        </Notice>
+      ) : null}
       <Table caption={`Modelos por papel de ${view.name}`} style={{ tableLayout: "fixed" }}>
         <thead>
           <tr>
@@ -288,11 +335,13 @@ export default function ModelsTab() {
               key={role}
               role={role}
               view={view}
-              value={draft[role] ?? ""}
+              value={draft[role] ?? { provider: "", model: "" }}
               onChange={(value) => setDraft((current) => ({ ...current, [role]: value }))}
               editable={editable}
               saveError={save.error}
               listId={listId}
+              known={known}
+              providers={providers.data}
             />
           ))}
         </tbody>

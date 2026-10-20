@@ -107,7 +107,12 @@ def test_reference_time_requires_timezone() -> None:
 
 @pytest.mark.parametrize(
     ("factory", "field"),
-    [(model_call, "duration_ms"), (model_call, "input_tokens"), (model_call, "output_tokens")],
+    [
+        (model_call, "duration_ms"),
+        (model_call, "input_tokens"),
+        (model_call, "output_tokens"),
+        (model_call, "cost_usd"),
+    ],
 )
 def test_negative_numbers_are_rejected(factory: object, field: str) -> None:
     with pytest.raises(ValueError, match=field):

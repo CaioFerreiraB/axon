@@ -410,6 +410,12 @@ e `npx playwright install chromium && npm run e2e` (Playwright + axe; o `webServ
 playwright test e2e/serving.spec.ts`); a CI é `.github/workflows/console.yml`. O e2e achou dois defeitos da 012,
 corrigidos: `Referrer-Policy: same-origin` (com `no-referrer`, o Chromium mandava `Origin: null` no formulário de login;
 R18) e a Mona Sans servida pelas páginas (R19). A instalação com a console (002 US7) é o incremento 9.4.
+Custo informado e providers prontos (ADR-035, core `0.6.0rc5`, contratos `0.1.3`): o OpenRouter informa o custo de cada
+chamada em `usage.cost` (`ChatUsage.cost`), o adapter o lê e o pede (`usage.include`), e o `ModelCall` o leva em
+`cost_usd`; no relatório da 009 o informado vence a tabela, que só cobre os tokens das chamadas sem custo informado
+(coluna `reported_cost_usd`, migração `004`). O Model Router lista os providers com a prontidão de cada um
+(`providers()`; o remoto pela chave, o local se responde), exposto em `GET /admin/v1/providers`, e a console escolhe o
+provedor numa lista — no modelo por papel e no novo preço — com o modelo digitado sem o prefixo.
 
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =

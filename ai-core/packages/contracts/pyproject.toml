@@ -1,6 +1,6 @@
 [project]
 name = "ai-core-contracts"
-version = "0.1.2"
+version = "0.1.3"
 description = "Contratos públicos do núcleo da plataforma Agentic AI: a única superfície que um pack enxerga."
 readme = "README.md"
 requires-python = ">=3.12"

@@ -46,6 +46,7 @@ Escritas de recursos versionados levam `version` no corpo (ou na query, no `DELE
 | `DELETE /assistants/{name}/overrides/{models\|mcp}?version=3` | — | `AssistantView` |
 | `GET /assistants/{name}/history` | — | `{"data": [{"section", "action", "payload", "version", "actor", "at"}…]}` |
 | `POST /assistants/{name}/models/check` | `{"role": "generation", "model": "openrouter/openai/gpt-4.1-mini"}` | `{"available": true, "detail": "respondeu", "latency_ms": 412}` — pela verificação de saúde do Model Router (006); modelo fora da allowlist → `422` |
+| `GET /providers` | — | `{"data": [{"name": "ollama", "ready": false, "detail": "provider inalcançável em http://localhost:11434/v1"}, {"name": "openrouter", "ready": true, "detail": null}]}` — os providers registrados, por nome, pelo `ModelRouting.providers()` da 006: o remoto pronto pela credencial, o local se responde (ADR-035) |
 
 `AssistantView`:
 
@@ -87,6 +88,9 @@ Valores monetários como string decimal. `tz` padrão: `AI_CORE_USAGE_TIMEZONE`.
 | `GET /prices` | — | `{"data": [{"provider", "model", "input", "output", "effective_from", "state", "created_by", "created_at"}…]}` |
 | `POST /prices` | `{"provider": "ollama", "model": "qwen3:1.7b", "input": "0", "output": "0", "effective_from": "2026-09-14"}` | `201` + o preço |
 | `GET /prices/unpriced?from&to` | — | `{"data": ["ollama/qwen3:1.7b"]}` |
+
+O custo de uma linha é o que o provider informou nas chamadas (o OpenRouter informa) mais, pelo preço vigente, os tokens
+das chamadas sem custo informado (ADR-035). Um modelo só aparece em `unpriced` quando sobram tokens sem custo informado.
 
 ## Observabilidade (009)
 

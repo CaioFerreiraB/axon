@@ -30,6 +30,7 @@ porta `Clock` ([research.md](research.md) R3).
 | `output_tokens` | `int \| None` | idem |
 | `duration_ms` | `float` | `>= 0`, medido pelo emissor |
 | `finish_reason` | `str \| None` | texto livre → redigido |
+| `cost_usd` | `float \| None` | `>= 0`; o custo que o provider **informou** (ADR-035); `None` quando ele não informa |
 
 ### `ValidationRun`
 
@@ -253,7 +254,7 @@ Erros novos: `InstallationDefined(field)`, `MasterKeyMissing`, `InvalidPrice(fie
 
 | Tabela | Chave | Colunas |
 |---|---|---|
-| `model_calls` | `id bigserial` | `request_id`, `at timestamptz`, `origin`, `assistant`, `provider`, `model`, `role`, `input_tokens`, `output_tokens`, `duration_ms`, `failed`; índices em `at` e (`provider`, `model`, `at`) |
+| `model_calls` | `id bigserial` | `request_id`, `at timestamptz`, `origin`, `assistant`, `provider`, `model`, `role`, `input_tokens`, `output_tokens`, `duration_ms`, `failed`, `reported_cost_usd numeric` (nulo quando o provider não informa; migração `004`, ADR-035); índices em `at` e (`provider`, `model`, `at`) |
 | `executions` | `request_id` | `started_at`, `finished_at`, `origin`, `assistant`, `flow`, `ok`, `duration_ms`; índice em `started_at` |
 | `prices` | (`provider`, `model`, `effective_from`) | `usd_per_mtok_in numeric(12,6)`, `usd_per_mtok_out numeric(12,6)`, `created_by`, `created_at` |
 | `destination_settings` | `id = 1` | `langfuse_enabled`, `langfuse_host`, `langfuse_public_key`, `langfuse_secret_sealed bytea`, `capture_content`, `version`, `updated_by`, `updated_at` |

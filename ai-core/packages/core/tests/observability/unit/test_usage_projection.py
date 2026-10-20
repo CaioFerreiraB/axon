@@ -10,7 +10,7 @@ from trace_testkit import AT, finished, model_call, started
 
 from ai_core.observability.api import InvalidQuery, Price, TraceRecord, UsageQuery
 from ai_core.observability.domain.records import to_record
-from ai_core.observability.domain.usage import aggregate, build_report, call_row, previous, window
+from ai_core.observability.domain.usage import aggregate, build_report, call_row, previous, unpriced, window
 from ai_core.observability.ports import ModelCallRow
 
 pytestmark = pytest.mark.us5
@@ -132,3 +132,57 @@ def test_sem_uso_custo_zero_e_completo() -> None:
     query = UsageQuery(start=AT.date(), end=AT.date() + timedelta(days=1))
     report = build_report(query, aggregate([], start=AT, end=AT, tz="UTC", by="model", origin="all"), [])
     assert report.total_cost == Decimal(0) and not report.incomplete and report.totals == ()
+
+
+# --- custo informado pelo provider (ADR-035) --------------------------------------------------------------------------
+
+
+def _report(calls: list[ModelCallRow], prices: list[Price]) -> dict[str | None, object]:
+    query = UsageQuery(start=AT.date(), end=AT.date())
+    start, end = window(query)
+    agg = aggregate(calls, start=start, end=end, tz="UTC", by="model", origin="production")
+    report = build_report(query, agg, prices)
+    return {"report": report, **{row.key: row for row in report.totals}}
+
+
+def test_projecao_le_o_custo_informado_em_decimal_exato() -> None:
+    record = to_record(model_call(cost_usd=0.0000425), AT)
+    assert call_row(record, assistant=None, origin="production").reported_cost == Decimal("0.0000425")
+    assert call_row(to_record(model_call(), AT), assistant=None, origin="production").reported_cost is None
+
+
+def test_tudo_informado_dispensa_a_tabela() -> None:
+    calls = [_row(AT, rid="r1", reported_cost=Decimal("0.25")), _row(AT, rid="r2", reported_cost=Decimal("0.5"))]
+    result = _report(calls, [])
+    row = result["openrouter/a"]
+    assert row.cost == Decimal("0.750000") and row.priced  # type: ignore[attr-defined]
+    assert not result["report"].incomplete  # type: ignore[attr-defined]
+
+
+def test_informado_vence_a_tabela_que_so_vale_para_as_sem_custo() -> None:
+    calls = [_row(AT, rid="r1", reported_cost=Decimal("0.25")), _row(AT, rid="r2")]
+    # tabela: 1 M de entrada a 1 + 0,5 M de saída a 2 = 2 por chamada sem custo informado
+    result = _report(calls, [_price("a", "1", "2", date(2026, 1, 1))])
+    row = result["openrouter/a"]
+    assert row.cost == Decimal("2.250000") and row.priced  # type: ignore[attr-defined]
+
+
+def test_misto_sem_preco_fica_parcial_com_o_informado() -> None:
+    calls = [_row(AT, rid="r1", reported_cost=Decimal("0.25")), _row(AT, rid="r2")]
+    result = _report(calls, [])
+    row = result["openrouter/a"]
+    assert row.cost == Decimal("0.250000") and not row.priced  # type: ignore[attr-defined]
+    assert result["report"].incomplete  # type: ignore[attr-defined]
+
+
+def test_chamada_sem_tokens_nao_pede_preco() -> None:
+    calls = [
+        _row(AT, rid="r1", reported_cost=Decimal("0.25")),
+        _row(AT, rid="r2", input_tokens=0, output_tokens=0, failed=True),
+    ]
+    query = UsageQuery(start=AT.date(), end=AT.date())
+    start, end = window(query)
+    agg = aggregate(calls, start=start, end=end, tz="UTC", by="model", origin="production")
+    assert unpriced(agg, []) == ()
+    row = _report(calls, [])["openrouter/a"]
+    assert row.cost == Decimal("0.250000") and row.priced  # type: ignore[attr-defined]

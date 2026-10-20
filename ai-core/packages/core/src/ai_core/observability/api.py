@@ -59,7 +59,11 @@ class ExecutionStarted:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ModelCall:
-    """Uma chamada de provider de modelo. `role` é texto: o vocabulário de papéis é da 006."""
+    """Uma chamada de provider de modelo. `role` é texto: o vocabulário de papéis é da 006.
+
+    `cost_usd` é o custo que o provider **informou** na resposta (o OpenRouter informa), acrescentado sob o ADR-035;
+    ausente quando ele não informa — aí o relatório de uso calcula pela tabela de preços.
+    """
 
     request_id: str
     role: str
@@ -69,6 +73,7 @@ class ModelCall:
     input_tokens: int | None = None
     output_tokens: int | None = None
     finish_reason: str | None = None
+    cost_usd: float | None = None
 
     def __post_init__(self) -> None:
         _require_text("request_id", self.request_id)
@@ -78,6 +83,9 @@ class ModelCall:
         _require_non_negative("duration_ms", self.duration_ms)
         _require_non_negative("input_tokens", self.input_tokens)
         _require_non_negative("output_tokens", self.output_tokens)
+        _require_non_negative("cost_usd", self.cost_usd)
+        if self.cost_usd is not None and self.cost_usd != self.cost_usd:  # NaN, sem importar `math`
+            raise ValueError("cost_usd não pode ser NaN")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

@@ -200,6 +200,9 @@ class CitingProvider:
     async def probe(self, model: str) -> Any:
         return SimpleNamespace(available=True, detail=None)
 
+    async def ready(self) -> Any:
+        return SimpleNamespace(available=True, detail=None)
+
 
 PACKS = "packs:\n  docs:\n    enabled: true\n"
 ASSISTANTS = f"""

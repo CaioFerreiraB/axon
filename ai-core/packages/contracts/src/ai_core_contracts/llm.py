@@ -39,8 +39,11 @@ class ChatTool(TypedDict):
 
 
 class ChatUsage(TypedDict):
+    """Tokens da chamada e, quando o provider o informa (o OpenRouter informa), o custo em USD (`0.1.3`, ADR-035)."""
+
     prompt_tokens: int
     completion_tokens: int
+    cost: NotRequired[float]
 
 
 class ChatResponse(TypedDict):

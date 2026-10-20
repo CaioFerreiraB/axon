@@ -10,6 +10,7 @@ import type {
   Me,
   Observability,
   Price,
+  Provider,
   UsageReport,
 } from "../../src/api/schemas";
 
@@ -188,6 +189,13 @@ export const emptyReport: UsageReport = {
   previous_total_cost: "0",
   days: [],
 };
+
+/** Só o OpenRouter pronto: o Ollama fora do ar e a OpenAI sem chave (ADR-035). */
+export const providers: Provider[] = [
+  { name: "ollama", ready: false, detail: "provider inalcançável em http://localhost:11434/v1" },
+  { name: "openai", ready: false, detail: "sem credencial: defina AI_CORE_OPENAI_API_KEY" },
+  { name: "openrouter", ready: true, detail: null },
+];
 
 export const prices: Price[] = [
   {

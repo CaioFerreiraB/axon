@@ -1,8 +1,8 @@
 """Provider remoto do OpenRouter (contracts/remote-adapters.md; research R18, R20, R22).
 
-Além dos dados do endpoint, duas particularidades: a sondagem aceita a base de uma variante — `:nitro` e `:floor`
-escolhem o upstream do mesmo modelo e não aparecem como id na lista —, e as chamadas com restrição de formato pedem ao
-OpenRouter que só encaminhe a upstream que a cumpra.
+Além dos dados do endpoint, três particularidades: a sondagem aceita a base de uma variante — `:nitro` e `:floor`
+escolhem o upstream do mesmo modelo e não aparecem como id na lista —, as chamadas com restrição de formato pedem ao
+OpenRouter que só encaminhe a upstream que a cumpra, e todo pedido pede o custo na resposta (ADR-035).
 """
 
 from __future__ import annotations
@@ -40,8 +40,13 @@ class OpenRouterProvider(RemoteProvider):
         response_format: Mapping[str, JSONValue] | None,
     ) -> dict[str, Any]:
         """Com restrição de formato, só upstream que a suporte (research R18). Sem ela, o pedido não restringe: o
-        `require_parameters` excluiria também quem não declara parâmetros acessórios, como `stream_options`."""
+        `require_parameters` excluiria também quem não declara parâmetros acessórios, como `stream_options`.
+
+        Todo pedido leva `usage.include`, para o custo vir em `usage.cost` — também no último pedaço do streaming
+        (ADR-035)."""
         payload = super()._payload(messages, model, tools=tools, response_format=response_format)
+        extra: dict[str, Any] = {"usage": {"include": True}}
         if response_format is not None:
-            payload["extra_body"] = {"provider": {"require_parameters": True}}
+            extra["provider"] = {"require_parameters": True}
+        payload["extra_body"] = extra
         return payload

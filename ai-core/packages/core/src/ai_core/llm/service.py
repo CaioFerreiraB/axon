@@ -7,6 +7,7 @@ disciplina de quem consome (research R7). Não importa `adapters/`.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator, Mapping, Sequence
 from typing import Final
 
@@ -17,6 +18,7 @@ from ai_core.llm.api import (
     ModelRef,
     ModelRole,
     ModelRouter,
+    ProviderStatus,
     UnknownProvider,
 )
 from ai_core.llm.domain.output import constraint_problem
@@ -147,6 +149,7 @@ class TracedModel:
                 input_tokens=None if usage is None else usage["prompt_tokens"],
                 output_tokens=None if usage is None else usage["completion_tokens"],
                 finish_reason=finish_reason,
+                cost_usd=None if usage is None else usage.get("cost"),
             )
         )
 
@@ -238,6 +241,15 @@ class ModelRoutingService:
             probe = await provider.probe(ref.model)
             results.append(ModelHealth(role=role, ref=ref, available=probe.available, detail=probe.detail))
         return tuple(results)
+
+    async def providers(self) -> tuple[ProviderStatus, ...]:
+        """Sonda os providers juntos: o local fora do ar não atrasa os outros (ADR-035)."""
+        names = sorted(self._providers)
+        results = await asyncio.gather(*(self._providers[name].ready() for name in names))
+        return tuple(
+            ProviderStatus(name=name, ready=result.available, detail=result.detail)
+            for name, result in zip(names, results, strict=True)
+        )
 
 
 def _provider_for(providers: Mapping[str, ModelProvider], ref: ModelRef) -> ModelProvider:

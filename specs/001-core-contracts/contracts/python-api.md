@@ -199,6 +199,7 @@ class ChatTool(TypedDict):
 class ChatUsage(TypedDict):
     prompt_tokens: int
     completion_tokens: int
+    cost: NotRequired[float]   # USD informado pelo provider — 0.1.3, ADR-035
 
 class ChatResponse(TypedDict):
     message: ChatMessage

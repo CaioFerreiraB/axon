@@ -100,3 +100,27 @@ async def test_saude_confirma_o_modelo_e_nega_o_inexistente(cls: Any, model: str
     assert not resultado.available
     assert resultado.detail
     assert os.environ[cls.CREDENTIAL] not in resultado.detail
+
+
+@pytest.mark.skipif(
+    not os.environ.get(OpenRouterProvider.CREDENTIAL),
+    reason=f"defina {OpenRouterProvider.CREDENTIAL} para rodar contra o OpenRouter (pago)",
+)
+@pytest.mark.parametrize("stream", [False, True], ids=["completa", "streaming"])
+async def test_openrouter_informa_o_custo_da_chamada(stream: bool, trace: Any) -> None:
+    """ADR-035: o custo em `usage.cost` chega ao `ModelCall`, com e sem streaming."""
+    model = os.environ.get("OPENROUTER_MODEL", "~z-ai/glm-flash-latest")
+    router = routing(OpenRouterProvider, trace).for_execution(
+        policy=policy(OpenRouterProvider, model), request_id="req-custo-real"
+    )
+    generation = router.for_role("generation")
+    pergunta: list[Any] = [{"role": "user", "content": "Responda só: ok"}]
+    if stream:
+        async for _ in generation.stream(pergunta):
+            pass
+    else:
+        await generation.complete(pergunta)
+
+    (call,) = trace.events
+    assert call.finish_reason != "error"
+    assert call.cost_usd is not None and call.cost_usd > 0, call

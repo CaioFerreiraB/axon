@@ -11,8 +11,9 @@ type Usage = { totals: { key: string | null; calls: number }[] };
 
 test("troca o modelo de geração e a conversa seguinte já usa o novo (SC-001)", async ({ page, request }) => {
   await login(page, "/assistentes/geral/modelos");
+  await page.getByRole("combobox", { name: "Provedor de generation" }).selectOption("ollama");
   const generation = page.getByRole("combobox", { name: "Modelo de generation" });
-  await generation.fill("ollama/gemma3:1b");
+  await generation.fill("gemma3:1b");
   await page.getByRole("button", { name: "Testar o modelo de generation" }).click();
   await expect(page.getByText(/Disponível · respondeu em \d+ ms/)).toBeVisible();
   await page.getByRole("button", { name: "Salvar sobreposição" }).click();
@@ -37,8 +38,9 @@ test("troca o modelo de geração e a conversa seguinte já usa o novo (SC-001)"
 
 test("modelo fora da allowlist: a recusa da API aparece junto ao papel", async ({ page }) => {
   await login(page, "/assistentes/geral/modelos");
+  await page.getByRole("combobox", { name: "Provedor de generation" }).selectOption("openai");
   const generation = page.getByRole("combobox", { name: "Modelo de generation" });
-  await generation.fill("openai/gpt-4.1");
+  await generation.fill("gpt-4.1");
   await page.getByRole("button", { name: "Salvar sobreposição" }).click();
   await expect(page.getByRole("alert").filter({ hasText: "allowlist" })).toBeVisible();
   await expect(generation).toHaveAttribute("aria-invalid", "true");

@@ -394,3 +394,106 @@ async def test_nomes_de_funcao_com_namespace_viram_apelido_e_voltam() -> None:
     assert corpo["tools"][0]["function"]["name"] == apelido
     assert re.match(r"^[a-zA-Z0-9_-]{1,64}$", apelido)
     assert [call["name"] for call in resposta["message"].get("tool_calls", ())] == ["demo.eco"]
+
+
+# --- custo informado pelo provider (ADR-035) --------------------------------------------------------------------------
+
+USAGE_WITH_COST: dict[str, object] = {
+    "prompt_tokens": 12,
+    "completion_tokens": 3,
+    "total_tokens": 15,
+    "cost": 0.0000425,
+}
+
+
+def _rotas_com_custo(usage: Mapping[str, object]) -> dict[str, Handler]:
+    def chat(request: httpx2.Request) -> httpx2.Response:
+        if b'"stream":true' in request.content.replace(b" ", b""):
+            return sse_route(sse(delta_chunk("oi"), final_chunk(usage=usage)))(request)
+        return json_route(completion(usage=usage))(request)
+
+    return {CHAT: chat, MODELS: models_route(MODEL)}
+
+
+async def _usage_of(provider: Any, *, stream: bool) -> Any:
+    result = await provider.chat(MESSAGES, MODEL, stream=stream)
+    if not stream:
+        return result.get("usage")
+    usage = None
+    async for chunk in result:
+        usage = chunk.get("usage", usage)
+    return usage
+
+
+@pytest.mark.parametrize("stream", [False, True], ids=["completa", "streaming"])
+async def test_openrouter_pede_o_custo_em_todo_pedido(stream: bool) -> None:
+    openrouter, transporte = build(OpenRouterProvider, routes=_rotas_com_streaming())
+
+    for response_format in (formato(), None):
+        result = await openrouter.chat(MESSAGES, MODEL, response_format=response_format, stream=stream)
+        if stream:
+            async for _ in result:
+                pass
+    com, sem = transporte.bodies()
+    assert com["usage"] == {"include": True}
+    assert com["provider"] == {"require_parameters": True}
+    assert sem["usage"] == {"include": True}
+
+    openai, transporte_openai = build(OpenAIProvider, routes=_rotas_com_streaming())
+    await _usage_of(openai, stream=stream)
+    assert "usage" not in transporte_openai.bodies()[-1]
+
+
+@REMOTES
+@pytest.mark.parametrize("stream", [False, True], ids=["completa", "streaming"])
+async def test_custo_informado_chega_no_usage(cls: Any, variable: str, stream: bool) -> None:
+    provider, _ = build(cls, routes=_rotas_com_custo(USAGE_WITH_COST))
+
+    usage = await _usage_of(provider, stream=stream)
+
+    assert usage == {"prompt_tokens": 12, "completion_tokens": 3, "cost": 0.0000425}
+
+
+@pytest.mark.parametrize("stream", [False, True], ids=["completa", "streaming"])
+async def test_sem_custo_informado_o_usage_so_tem_tokens(stream: bool) -> None:
+    usage_sem_custo: dict[str, object] = {"prompt_tokens": 12, "completion_tokens": 3}
+    provider, _ = build(OpenRouterProvider, routes=_rotas_com_custo(usage_sem_custo))
+
+    assert await _usage_of(provider, stream=stream) == {"prompt_tokens": 12, "completion_tokens": 3}
+
+
+@pytest.mark.parametrize(
+    ("extra", "esperado"),
+    [
+        ({"is_byok": True, "cost": 0.001, "cost_details": {"upstream_inference_cost": 0.02}}, 0.021),
+        ({"is_byok": False, "cost": 0.001, "cost_details": {"upstream_inference_cost": 0.02}}, 0.001),
+        ({"cost": "0.001"}, None),
+        ({"cost": -1}, None),
+        ({"cost": True}, None),
+    ],
+    ids=["byok-soma-o-upstream", "sem-byok", "texto", "negativo", "booleano"],
+)
+async def test_custo_byok_e_valores_estranhos(extra: dict[str, object], esperado: float | None) -> None:
+    provider, _ = build(
+        OpenRouterProvider, routes=_rotas_com_custo({"prompt_tokens": 1, "completion_tokens": 1, **extra})
+    )
+
+    usage = await _usage_of(provider, stream=False)
+
+    assert usage.get("cost") == (pytest.approx(esperado) if esperado is not None else None)
+
+
+# --- prontidão (ADR-035) ----------------------------------------------------------------------------------------------
+
+
+@REMOTES
+async def test_ready_do_remoto_e_so_a_credencial_sem_rede(cls: Any, variable: str) -> None:
+    com_chave, transporte = build(cls)
+    sem_chave, transporte_sem = build(cls, values={})
+
+    pronto = await com_chave.ready()
+    faltando = await sem_chave.ready()
+
+    assert pronto.available and pronto.detail is None
+    assert not faltando.available and faltando.detail is not None and variable in faltando.detail
+    assert transporte.requests == [] and transporte_sem.requests == []

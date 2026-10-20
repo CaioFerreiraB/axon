@@ -4,6 +4,7 @@ contra um coletor local, fila sem bloquear e o "testar conexão"."""
 from __future__ import annotations
 
 import base64
+import json
 import threading
 import time
 from collections.abc import Iterator
@@ -72,6 +73,19 @@ def test_raiz_por_requisicao_geracao_com_inicio_e_tokens() -> None:
     assert generation.end_time - generation.start_time == 2_000_000_000
     assert tool.attributes["langfuse.observation.type"] == "tool"
     assert root.end_time - root.start_time == 5_000_000_000
+
+
+def test_custo_informado_vai_como_custo_da_geracao() -> None:
+    """ADR-035: o `cost_usd` do `model_call` vira o custo da geração; sem ele, nenhum atributo de custo."""
+    transport, exporter = _memory()
+    transport.send(to_record(started(), AT))
+    transport.send(to_record(model_call(cost_usd=0.0042), AT + timedelta(seconds=1)))
+    transport.send(to_record(model_call(), AT + timedelta(seconds=2)))
+    transport.send(to_record(finished(), AT + timedelta(seconds=3)))
+    _flush(transport)
+    generations = [span for span in exporter.get_finished_spans() if span.name == "generation"]
+    assert json.loads(generations[0].attributes["langfuse.observation.cost_details"]) == {"total": 0.0042}
+    assert "langfuse.observation.cost_details" not in generations[1].attributes
 
 
 def test_conteudo_preenche_a_geracao_pendente() -> None:

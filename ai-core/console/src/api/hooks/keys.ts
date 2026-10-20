@@ -4,6 +4,7 @@ export const keys = {
   assistants: ["assistants"] as const,
   assistant: (name: string) => ["assistants", name] as const,
   history: (name: string) => ["assistants", name, "history"] as const,
+  providers: ["providers"] as const,
   mcp: ["mcp"] as const,
   mcpHealth: (alias: string) => ["mcp", alias, "health"] as const,
   usage: (params: object) => ["usage", params] as const,

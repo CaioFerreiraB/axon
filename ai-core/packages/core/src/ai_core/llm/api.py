@@ -136,6 +136,16 @@ class ModelHealth:
     detail: str | None = None
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ProviderStatus:
+    """Um provider registrado e se está pronto para uso (ADR-035): o remoto, pela credencial; o local, se responde.
+    `detail` explica quando não está."""
+
+    name: str
+    ready: bool
+    detail: str | None = None
+
+
 class BoundModel(Protocol):
     """Cliente já ligado a um modelo: quem chama não passa `model` — ele foi resolvido e conferido."""
 
@@ -187,4 +197,8 @@ class ModelRouting(Protocol):
 
     async def check(self, policy: ModelPolicy) -> tuple[ModelHealth, ...]:
         """Verifica, sob demanda, provider e modelo de cada papel configurado (FR-009). Nunca levanta."""
+        ...
+
+    async def providers(self) -> tuple[ProviderStatus, ...]:
+        """Os providers registrados, por nome, e se cada um está pronto (ADR-035). Nunca levanta."""
         ...

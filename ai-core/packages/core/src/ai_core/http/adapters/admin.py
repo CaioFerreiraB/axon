@@ -202,6 +202,11 @@ def admin_router(seams: AdminSeams, instance: InstanceBranding) -> APIRouter:
         elapsed = (clock(request).now() - started).total_seconds() * 1000
         return {"available": health.available, "detail": health.detail, "latency_ms": round(elapsed)}
 
+    @route("GET", "/providers")
+    async def providers(request: Request, principal: Principal) -> Any:
+        """Os providers registrados e se cada um está pronto (ADR-035)."""
+        return {"data": [admin_assistants.provider_json(status) for status in await seams.models.providers()]}
+
     # --- uso e preços (009) ---------------------------------------------------------------------------------------
 
     @route("GET", "/usage")

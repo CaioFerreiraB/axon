@@ -5,20 +5,25 @@ import { useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
 
 import { fieldError } from "../../api/errors";
+import { useProviders } from "../../api/hooks/assistants";
 import { useAddPrice, usePrices, useUnpriced, useUsage } from "../../api/hooks/usage";
 import type { Price } from "../../api/schemas";
 import { formatFullDay, formatInstantDay, formatInteger, formatPrice } from "../../i18n/format";
 import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
-import { Field, TextInput } from "../../ui/Field";
+import { Field, Select, TextInput } from "../../ui/Field";
 import { Page, PageHeader } from "../../ui/Page";
 import { Panel } from "../../ui/Panel";
 import { EmptyState, LoadError, Skeleton } from "../../ui/States";
 import { Table, tableStyles as t } from "../../ui/Table";
+import { defaultProvider, joinRef, optionLabel, splitRef } from "../assistants/modelRef";
 import { addDays } from "./period";
 import styles from "./PricesPage.module.css";
 
 const DECIMAL = /^\d+([.,]\d+)?$/;
+
+/** O provider que informa o custo de cada chamada (ADR-035): o preço da tabela só cobre as chamadas sem custo. */
+const REPORTS_COST = "openrouter";
 
 type Row = { price: Price; until: string | null };
 
@@ -56,16 +61,29 @@ function PriceForm({
   unpricedCalls: (m: string) => number;
 }) {
   const add = useAddPrice();
-  const [draft, setDraft] = useState({ model, input: "", output: "", from: "" });
+  const providers = useProviders();
+  const [draft, setDraft] = useState({ ...splitRef(model), input: "", output: "", from: "" });
   const [shapeError, setShapeError] = useState<Record<string, string>>({});
   const set = (field: keyof typeof draft) => (event: { target: { value: string } }) =>
     setDraft((current) => ({ ...current, [field]: event.target.value }));
+  // Preço também vale para provider fora do ar: a lista tem todos os registrados, os prontos primeiro.
+  const provider = draft.provider || defaultProvider(providers.data);
+  const options = [...(providers.data ?? [])].sort(
+    (a, b) => Number(b.ready) - Number(a.ready) || a.name.localeCompare(b.name),
+  );
+  if (provider && !options.some((option) => option.name === provider)) {
+    options.unshift({ name: provider, ready: providers.data === undefined, detail: null });
+  }
+  const ref = joinRef({ provider, model: draft.model });
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const errors: Record<string, string> = {};
-    if (!draft.model.includes("/")) {
-      errors.model = "Use provider/modelo, como openrouter/openai/gpt-4.1-mini.";
+    if (!provider) {
+      errors.provider = "Escolha o provedor.";
+    }
+    if (!draft.model.trim()) {
+      errors.model = "Informe o modelo, como openai/gpt-4.1-mini.";
     }
     for (const field of ["input", "output"] as const) {
       if (!DECIMAL.test(draft[field].trim())) {
@@ -79,11 +97,10 @@ function PriceForm({
     if (Object.keys(errors).length > 0) {
       return;
     }
-    const [provider, ...rest] = draft.model.trim().split("/");
     add.mutate(
       {
-        provider: provider ?? "",
-        model: rest.join("/"),
+        provider,
+        model: draft.model.trim(),
         input: draft.input.trim().replace(",", "."),
         output: draft.output.trim().replace(",", "."),
         effective_from: draft.from,
@@ -93,19 +110,23 @@ function PriceForm({
   };
 
   const error = (field: string) => shapeError[field] ?? fieldError(add.error, field);
-  const calls = unpricedCalls(draft.model.trim());
+  const calls = unpricedCalls(ref);
   return (
     <Panel title="Novo preço" labelledBy="novo-preco">
       <form onSubmit={submit} noValidate>
         <div className={styles.form}>
-          <Field label="Modelo" error={error("model") ?? error("provider")}>
-            <TextInput
-              mono
-              value={draft.model}
-              onChange={set("model")}
-              placeholder="provider/modelo"
-              autoComplete="off"
-            />
+          <Field label="Provedor" error={error("provider")}>
+            <Select mono value={provider} onChange={set("provider")}>
+              {provider === "" ? <option value="">Nenhum provedor</option> : null}
+              {options.map((option) => (
+                <option key={option.name} value={option.name}>
+                  {optionLabel(option)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Modelo" error={error("model")}>
+            <TextInput mono value={draft.model} onChange={set("model")} placeholder="autor/modelo" autoComplete="off" />
           </Field>
           <Field label="Entrada (US$ / 1 M)" error={error("input")}>
             <TextInput inputMode="decimal" value={draft.input} onChange={set("input")} placeholder="0,00" />
@@ -126,7 +147,10 @@ function PriceForm({
           </div>
         </div>
         <p className={styles.formNote}>
-          {calls > 0 ? `${draft.model.trim()} foi usado sem preço em ${formatInteger(calls)} chamadas. ` : ""}
+          {calls > 0 ? `${ref} foi usado sem preço em ${formatInteger(calls)} chamadas. ` : ""}
+          {provider === REPORTS_COST
+            ? "O OpenRouter informa o custo de cada chamada; este preço só vale para chamadas sem custo informado. "
+            : ""}
           Uma data no passado recalcula o custo desde ela; preço zero tira o modelo de “sem preço”.
         </p>
       </form>

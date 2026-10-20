@@ -26,11 +26,13 @@ from fastapi.responses import RedirectResponse
 
 from ai_core.assistants.api import ModelsOverride, Principal
 from ai_core.assistants.domain.overrides import StoredOverride
+from ai_core.bootstrap.profiles import CONTROLLER_ANSWER
 from ai_core.bootstrap.settings import InMemoryConfigSource, Settings
 from ai_core.bootstrap.wiring import Platform, platform
 from ai_core.graph.adapters.clock import SystemClock
 from ai_core.identity.adapters.memory import SimulatedUpstreamOidc
 from ai_core.identity.api import AccountDraft
+from ai_core.llm.adapters.fake import ScriptedProvider
 from ai_core.llm.api import ModelRef
 from ai_core.mcp.adapters.memory import ScriptedMcpTransport, ScriptedServer
 from ai_core.mcp.api import McpServerDraft, SecurityPolicy
@@ -270,6 +272,11 @@ def main() -> None:
         config=InMemoryConfigSource(settings),
         overrides={
             "clock": SystemClock(),
+            # Os três providers de uma instalação, programados: a escolha de provedor da console os lista (ADR-035).
+            "providers": {
+                name: ScriptedProvider(name=name, content=CONTROLLER_ANSWER, deltas=("Bras", "ília"))
+                for name in ("ollama", "openai", "openrouter")
+            },
             "mcp_transports": {"http": transport, "sse": transport, "stdio": transport},
             "identity_upstream": google,
         },

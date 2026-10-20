@@ -1,13 +1,15 @@
 """Armazenamentos da 009 em Postgres, no schema `observability` (ADR-015; research R30, R31, R33).
 
-A agregação do uso é do banco: dia local por `(at AT TIME ZONE tz)::date`, chave por modelo ou por Assistant, e as
-requisições distintas por dia, por chave no período e no total — o mesmo que `domain/usage.aggregate` faz em memória.
+A agregação do uso é do banco: dia local por `(at AT TIME ZONE tz)::date`, chave por modelo ou por Assistant, a parte
+com custo informado pelo provider (ADR-035), e as requisições distintas por dia, por chave no período e no total — o
+mesmo que `domain/usage.aggregate` faz em memória.
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Final
 
 from psycopg_pool import AsyncConnectionPool
@@ -35,8 +37,8 @@ class PostgresUsageStore:
             if calls:
                 await cursor.executemany(
                     "INSERT INTO observability.model_calls (request_id, at, origin, assistant, provider, model, role, "
-                    "input_tokens, output_tokens, duration_ms, failed) "
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    "input_tokens, output_tokens, duration_ms, failed, reported_cost_usd) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                     [
                         (
                             row.request_id,
@@ -50,6 +52,7 @@ class PostgresUsageStore:
                             row.output_tokens,
                             row.duration_ms,
                             row.failed,
+                            row.reported_cost,
                         )
                         for row in calls
                     ],
@@ -84,10 +87,13 @@ class PostgresUsageStore:
         where = "at >= %(start)s AND at < %(end)s" + ("" if origin == "all" else " AND origin = %(origin)s")
         params: dict[str, Any] = {"start": start, "end": end, "tz": tz, "origin": origin}
         day = "(at AT TIME ZONE %(tz)s)::date"
+        reported = "FILTER (WHERE reported_cost_usd IS NOT NULL)"
         async with self._pool.connection() as connection:
             cursor = await connection.execute(
                 f"SELECT {day}, {key}, provider, model, count(*), COALESCE(sum(input_tokens), 0), "
-                f"COALESCE(sum(output_tokens), 0) FROM observability.model_calls WHERE {where} "
+                f"COALESCE(sum(output_tokens), 0), count(reported_cost_usd), "
+                f"COALESCE(sum(input_tokens) {reported}, 0), COALESCE(sum(output_tokens) {reported}, 0), "
+                f"COALESCE(sum(reported_cost_usd), 0) FROM observability.model_calls WHERE {where} "
                 "GROUP BY 1, 2, 3, 4 ORDER BY 1, 2, 3, 4",
                 params,
             )
@@ -100,6 +106,10 @@ class PostgresUsageStore:
                     calls=int(row[4]),
                     input_tokens=int(row[5]),
                     output_tokens=int(row[6]),
+                    reported_calls=int(row[7]),
+                    reported_input_tokens=int(row[8]),
+                    reported_output_tokens=int(row[9]),
+                    reported_cost=Decimal(row[10]),
                 )
                 for row in await cursor.fetchall()
             ]
