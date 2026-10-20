@@ -10,7 +10,7 @@ import unicodedata
 from collections.abc import Sequence
 
 from ai_core.eval.api import Evidence
-from ai_core_contracts import EvalChunk
+from axon_ai_contracts import EvalChunk
 
 
 def normalize(text: str) -> str:

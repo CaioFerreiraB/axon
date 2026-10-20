@@ -10,7 +10,7 @@ from packs_testkit import load_runtime, make_pack_class
 
 from ai_core.packs.api import CompositionError, PackToolset
 from ai_core.packs.ports import PackSettings
-from ai_core_contracts import (
+from axon_ai_contracts import (
     RETRIEVAL_TOOL_PARAMETERS,
     Chunk,
     JSONValue,

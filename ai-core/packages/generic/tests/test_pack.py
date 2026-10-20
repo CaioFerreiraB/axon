@@ -1,6 +1,6 @@
 """Identidade, manifest e catálogo do pack genérico (spec 010, T007).
 
-Só `ai_core_contracts` e o kit de testes — nada do core (SC-001). Sem `pytest-asyncio` (quickstart §5).
+Só `axon_ai_contracts` e o kit de testes — nada do core (SC-001). Sem `pytest-asyncio` (quickstart §5).
 """
 
 from __future__ import annotations
@@ -8,9 +8,9 @@ from __future__ import annotations
 import asyncio
 from importlib.metadata import version
 
-from ai_core_contracts import PackManifest
-from ai_core_contracts.testing import pack_context, tool_invocation
 from ai_generic.pack import GenericPack
+from axon_ai_contracts import PackManifest
+from axon_ai_contracts.testing import pack_context, tool_invocation
 
 EXPECTED_PARAMETERS = {
     "type": "object",
@@ -24,7 +24,7 @@ EXPECTED_PARAMETERS = {
 def test_identity_is_readable_on_the_class() -> None:
     """A 002 lê `name` e `contract_version` da classe, antes de instanciar (FR-017 da 002)."""
     assert GenericPack.name == "generic"
-    assert GenericPack.contract_version == "0.1"
+    assert GenericPack.contract_version == "0.2"
 
 
 def test_manifest_is_minimal() -> None:

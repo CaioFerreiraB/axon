@@ -2,7 +2,7 @@
 
 Contrato em specs/009-core-observability-evaluation/contracts/trace-api.md.
 
-Único módulo da 009 que outros módulos importam. Depende só da stdlib e da API pública de `ai_core_contracts`: nenhum
+Único módulo da 009 que outros módulos importam. Depende só da stdlib e da API pública de `axon_ai_contracts`: nenhum
 tipo de biblioteca de observabilidade aparece aqui (FR-013, research R1). Acrescentar um tipo de evento é acrescentar
 uma dataclass e um membro de `TraceEvent` — a assinatura de `emit` não muda.
 """
@@ -15,7 +15,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Final, Literal, Protocol
 
-from ai_core_contracts import JSONValue
+from axon_ai_contracts import JSONValue
 
 
 class TraceQueryUnavailable(RuntimeError):

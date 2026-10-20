@@ -13,7 +13,7 @@ from typing import Any, Final, Literal
 
 from ai_core.assistants.api import WIDENING_FIELDS
 from ai_core.http.domain.errors import InvalidRequest
-from ai_core_contracts import Message
+from axon_ai_contracts import Message
 
 CAPABILITY_FIELDS: Final = tuple(sorted(WIDENING_FIELDS))
 """Campos que ampliariam o que a execução pode fazer: a lista é da 003, a recusa é da borda (research R18)."""

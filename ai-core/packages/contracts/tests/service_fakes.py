@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Mapping, Sequence
 from typing import Any
 
-from ai_core_contracts import ChatChunk, ChatResponse, ToolResult, ToolSpec
+from axon_ai_contracts import ChatChunk, ChatResponse, ToolResult, ToolSpec
 
 DEFAULT_RESPONSE: ChatResponse = {"message": {"role": "assistant", "content": "pong"}, "finish_reason": "stop"}
 DEFAULT_CHUNKS: tuple[ChatChunk, ...] = ({"delta": "po"}, {"delta": "ng", "finish_reason": "stop"})

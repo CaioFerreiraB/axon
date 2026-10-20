@@ -11,7 +11,7 @@ from collections.abc import Mapping, Sequence
 from ai_core.eval.domain.metrics import ModelCallSample, Operation
 from ai_core.graph.api import FinalEvent
 from ai_core.observability.api import TraceRecord
-from ai_core_contracts import EvalChunk, EvalObservation, JSONValue
+from axon_ai_contracts import EvalChunk, EvalObservation, JSONValue
 
 
 def observe(final: FinalEvent, records: Sequence[TraceRecord]) -> EvalObservation:

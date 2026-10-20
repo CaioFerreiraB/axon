@@ -1,4 +1,4 @@
-# CI de ai-core-contracts (spec 001: FR-001, FR-017, FR-020, SC-001, SC-004).
+# CI de axon-ai-contracts (spec 001: FR-001, FR-017, FR-020, SC-001, SC-004).
 # Fica na raiz enquanto ai-core/ é subpasta deste repositório; muda de lugar na separação (antes da Fase 4).
 name: contracts
 
@@ -103,9 +103,12 @@ jobs:
           git worktree add "$RUNNER_TEMP/base" "$TAG"
           base="$RUNNER_TEMP/base/ai-core/packages/contracts"
           [ -d "$base" ] || base="$RUNNER_TEMP/base/packages/contracts"
+          # O pacote que a tag tinha: o import mudou de nome na 0.2.0 (ADR-037, FR-025).
+          old_package=$(basename "$(dirname "$(ls "$base"/src/*/__init__.py | head -n 1)")")
           old_version="${TAG#contracts-v}"
           new_version=$(uv run python -c "import tomllib; print(tomllib.load(open('packages/contracts/pyproject.toml', 'rb'))['project']['version'])")
-          uv run --isolated --no-project --with "$base" python packages/contracts/tools/api_surface.py dump --output "$RUNNER_TEMP/old.json"
+          uv run --isolated --no-project --with "$base" python packages/contracts/tools/api_surface.py dump \
+            --package "$old_package" --output "$RUNNER_TEMP/old.json"
           uv run python packages/contracts/tools/api_surface.py dump --output "$RUNNER_TEMP/new.json"
           uv run python packages/contracts/tools/api_surface.py diff "$RUNNER_TEMP/old.json" "$RUNNER_TEMP/new.json" \
             --old-version "$old_version" --new-version "$new_version"
@@ -138,7 +141,7 @@ jobs:
           [ -d "$base" ] || base="$RUNNER_TEMP/base/packages/contracts"
           old_version="${TAG#contracts-v}"
           new_version=$(uv run python -c "import tomllib; print(tomllib.load(open('packages/contracts/pyproject.toml', 'rb'))['project']['version'])")
-          same_series=$(uv run python -c "import sys; from ai_core_contracts import derive_range; print(derive_range(sys.argv[1]).contains(sys.argv[2]))" "$old_version" "$new_version")
+          same_series=$(uv run python -c "import sys; from axon_ai_contracts import derive_range; print(derive_range(sys.argv[1]).contains(sys.argv[2]))" "$old_version" "$new_version")
           if [ "$same_series" != "True" ]; then
             echo "série nova ($old_version → $new_version) — pack congelado não se aplica"
             exit 0

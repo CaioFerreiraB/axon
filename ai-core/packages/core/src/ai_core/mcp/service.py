@@ -49,7 +49,7 @@ from ai_core.mcp.ports import (
     Target,
     TransportFailure,
 )
-from ai_core_contracts import JSONValue, ToolResult, ToolSpec
+from axon_ai_contracts import JSONValue, ToolResult, ToolSpec
 
 DEFAULT_DISCOVERY_TTL: Final = timedelta(seconds=300)
 DEFAULT_FAILURE_TTL: Final = timedelta(seconds=30)

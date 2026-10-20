@@ -13,7 +13,7 @@ from typing import Final, Literal
 
 from ai_core.eval.api import Better, GoldenItem, MetricValue
 from ai_core.eval.domain.matching import first_match, found, matches
-from ai_core_contracts import EvalChunk, EvalObservation
+from axon_ai_contracts import EvalChunk, EvalObservation
 
 type Aggregate = Literal["mean", "percentiles"]
 

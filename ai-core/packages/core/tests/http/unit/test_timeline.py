@@ -27,7 +27,7 @@ from ai_core.http.domain.timeline import (
     duration,
     outcome_lines,
 )
-from ai_core_contracts import Citation
+from axon_ai_contracts import Citation
 
 pytestmark = pytest.mark.us6
 

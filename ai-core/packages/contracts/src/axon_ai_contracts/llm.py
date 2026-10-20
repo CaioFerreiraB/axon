@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Mapping, Sequence
 from typing import Literal, NotRequired, Protocol, TypedDict, overload, runtime_checkable
 
-from ai_core_contracts._freeze import JSONValue
+from axon_ai_contracts._freeze import JSONValue
 
 
 class ChatToolCall(TypedDict):

@@ -6,7 +6,7 @@ import pytest
 
 from ai_core.eval.api import Evidence
 from ai_core.eval.domain.matching import first_match, matches, normalize
-from ai_core_contracts import EvalChunk
+from axon_ai_contracts import EvalChunk
 
 pytestmark = pytest.mark.us2
 

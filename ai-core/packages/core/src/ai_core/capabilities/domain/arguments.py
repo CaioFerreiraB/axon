@@ -13,7 +13,7 @@ from typing import Any, Final
 
 from jsonschema import Draft202012Validator, exceptions, validators
 
-from ai_core_contracts import JSONValue
+from axon_ai_contracts import JSONValue
 
 _UntrustedValidator: Final[Any] = validators.extend(  # type: ignore[no-untyped-call]
     Draft202012Validator, validators={"pattern": None, "patternProperties": None}

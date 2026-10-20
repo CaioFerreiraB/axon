@@ -34,11 +34,11 @@ def _capabilities() -> PackCapabilities:
 
 def test_pack_entry_requires_error_message_when_in_error() -> None:
     with pytest.raises(ValueError):
-        PackEntry(name="x", version="1", contract_version="0.1", origin="code", status=PackStatus.ERROR)
+        PackEntry(name="x", version="1", contract_version="0.2", origin="code", status=PackStatus.ERROR)
     entry = PackEntry(
         name="x",
         version="1",
-        contract_version="0.1",
+        contract_version="0.2",
         origin="code",
         status=PackStatus.ENABLED,
         capabilities=_capabilities(),

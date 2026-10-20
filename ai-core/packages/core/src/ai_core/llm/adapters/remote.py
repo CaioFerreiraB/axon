@@ -23,7 +23,7 @@ from ai_core.llm.api import ModelCallFailed
 from ai_core.llm.domain.names import function_name
 from ai_core.llm.domain.strict import StrictPlan, StrictSchemaError, from_strict, to_strict
 from ai_core.llm.ports import ProbeResult, SecretResolver
-from ai_core_contracts import ChatChunk, ChatMessage, ChatResponse, ChatTool, ChatToolCall, JSONValue
+from axon_ai_contracts import ChatChunk, ChatMessage, ChatResponse, ChatTool, ChatToolCall, JSONValue
 
 MISSING_SENTINEL: Final = "sem-credencial"
 """O que vai ao SDK quando falta a credencial: o cliente nunca é usado nesse estado, e uma chave explícita impede o SDK

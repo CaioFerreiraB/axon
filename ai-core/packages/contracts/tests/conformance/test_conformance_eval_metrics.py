@@ -7,8 +7,8 @@ from typing import Any
 import pytest
 from packs import make_pack
 
-from ai_core_contracts import EvalItem, EvalObservation
-from ai_core_contracts.testing import check_pack
+from axon_ai_contracts import EvalItem, EvalObservation
+from axon_ai_contracts.testing import check_pack
 
 
 class Metric:

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from ai_core.graph.adapters.langgraph.state import AgentState
 from ai_core.graph.domain.transcript import ToolStep
-from ai_core_contracts import Chunk, ToolResult, TurnView
+from axon_ai_contracts import Chunk, ToolResult, TurnView
 
 
 def turn_view(state: AgentState) -> TurnView:

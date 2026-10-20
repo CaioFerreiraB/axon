@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from typing import Final
 
 from ai_core.capabilities.domain.fencing import cut
-from ai_core_contracts import Chunk
+from axon_ai_contracts import Chunk
 
 NO_RESULTS: Final = "nenhum resultado"
 OMITTED_CHUNKS: Final = "\n\n[… {count} trecho(s) omitido(s): limite de resposta]"

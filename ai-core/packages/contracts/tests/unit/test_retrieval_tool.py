@@ -6,7 +6,7 @@ from collections.abc import Mapping, Sequence
 
 import pytest
 
-from ai_core_contracts import (
+from axon_ai_contracts import (
     RETRIEVAL_TOOL_PARAMETERS,
     Chunk,
     JSONValue,

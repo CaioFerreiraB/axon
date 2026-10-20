@@ -18,7 +18,7 @@ from mcp_testkit import (
 
 from ai_core.mcp.api import UnknownServer
 from ai_core.mcp.ports import RemotePart, RemoteResult
-from ai_core_contracts import MCPClient
+from axon_ai_contracts import MCPClient
 
 pytestmark = pytest.mark.us3
 

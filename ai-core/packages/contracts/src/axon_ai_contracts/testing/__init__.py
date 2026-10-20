@@ -7,15 +7,15 @@ from __future__ import annotations
 
 from typing import Final
 
-from ai_core_contracts.testing.conformance import (
+from axon_ai_contracts.testing.conformance import (
     ConformanceReport,
     aassert_pack_conforms,
     acheck_pack,
     assert_pack_conforms,
     check_pack,
 )
-from ai_core_contracts.testing.distribution import check_contracts_requirement
-from ai_core_contracts.testing.fixtures import (
+from axon_ai_contracts.testing.distribution import check_contracts_requirement
+from axon_ai_contracts.testing.fixtures import (
     REFERENCE_TIME,
     chunk,
     pack_context,
@@ -23,8 +23,8 @@ from ai_core_contracts.testing.fixtures import (
     turn_view,
     validator_context,
 )
-from ai_core_contracts.testing.imports import check_imports
-from ai_core_contracts.testing.services import acheck_llm_provider, acheck_mcp_client
+from axon_ai_contracts.testing.imports import check_imports
+from axon_ai_contracts.testing.services import acheck_llm_provider, acheck_mcp_client
 
 ISSUE_CODES: Final[frozenset[str]] = frozenset(
     {

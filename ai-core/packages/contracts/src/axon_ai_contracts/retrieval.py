@@ -6,8 +6,8 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Final, Protocol, runtime_checkable
 
-from ai_core_contracts._freeze import JSONValue, empty_mapping, freeze_mapping, require_non_empty
-from ai_core_contracts.tools import ToolSpec
+from axon_ai_contracts._freeze import JSONValue, empty_mapping, freeze_mapping, require_non_empty
+from axon_ai_contracts.tools import ToolSpec
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

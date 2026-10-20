@@ -10,15 +10,16 @@ import importlib.util
 from collections.abc import Sequence
 from pathlib import Path
 
-from ai_core_contracts.declaration import ContractIssue
+from axon_ai_contracts.declaration import ContractIssue
 
-DEFAULT_FORBIDDEN: tuple[str, ...] = ("ai_core", "ai_generic")
+DEFAULT_FORBIDDEN: tuple[str, ...] = ("axon_ai", "axon_generic")
 
 
 def check_imports(package: str, *, forbidden: Sequence[str] = DEFAULT_FORBIDDEN) -> tuple[ContractIssue, ...]:
     """Aponta, com arquivo e linha, todo import absoluto de um módulo proibido.
 
-    O próprio pacote varrido nunca é proibido (o `ai_generic` pode importar a si mesmo). Um módulo solto é varrido
+    O próprio pacote varrido nunca é proibido (o `axon_generic` pode importar a si mesmo). A comparação é por
+    módulo, igual ou prefixo seguido de ponto: `axon_ai_contracts` nunca casa com `axon_ai`. Um módulo solto é varrido
     como um arquivo só. Levanta `ModuleNotFoundError` se o pacote não for encontrado.
     """
     top_level = package.split(".")[0]

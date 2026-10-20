@@ -1,19 +1,19 @@
-# Contrato — superfície pública de `ai_core_contracts` 0.1
+# Contrato — superfície pública de `axon_ai_contracts` 0.2
 
-Esta é a superfície que o FR-020 congela: tudo o que está em `ai_core_contracts.__all__` e em
-`ai_core_contracts.testing.__all__` ([testing-kit.md](testing-kit.md)). Símbolo fora do `__all__` é interno (prefixo `_`)
+Esta é a superfície que o FR-020 congela: tudo o que está em `axon_ai_contracts.__all__` e em
+`axon_ai_contracts.testing.__all__` ([testing-kit.md](testing-kit.md)). Símbolo fora do `__all__` é interno (prefixo `_`)
 e pode mudar sem aviso. Todo módulo começa com `from __future__ import annotations`.
 
 Campos, defaults e invariantes estão no [data-model.md](../data-model.md); aqui ficam só as assinaturas.
 
 ```python
-# ai_core_contracts/__init__.py — reexporta tudo abaixo; __all__ explícito
+# axon_ai_contracts/__init__.py — reexporta tudo abaixo; __all__ explícito
 __version__: str                      # "0.1.0"; igual aos metadados da distribuição (teste)
 
-# ai_core_contracts/_freeze.py (tipos públicos reexportados)
+# axon_ai_contracts/_freeze.py (tipos públicos reexportados)
 type JSONValue = str | int | float | bool | Sequence[JSONValue] | Mapping[str, JSONValue] | None
 
-# ai_core_contracts/pack.py
+# axon_ai_contracts/pack.py
 RETRIEVAL_FILTERS_KEY: Final = "retrieval_filters"
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -52,7 +52,7 @@ class PackBase:
     def validators(self, ctx: PackContext) -> Sequence[AnswerValidator]: ...      # ()
     def eval_metrics(self, ctx: PackContext) -> Sequence[EvalMetric]: ...         # () — 0.1.2, ADR-027
 
-# ai_core_contracts/tools.py
+# axon_ai_contracts/tools.py
 type ToolKind = Literal["retrieval", "mcp", "native"]
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -79,7 +79,7 @@ class ToolResult:
     truncated: bool = False
     error: str | None = None
 
-# ai_core_contracts/retrieval.py
+# axon_ai_contracts/retrieval.py
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Chunk:
     chunk_id: str
@@ -112,7 +112,7 @@ class NamedRetriever:
 RETRIEVAL_TOOL_PARAMETERS: Final[Mapping[str, JSONValue]]
 def retrieval_tool_spec(named: NamedRetriever) -> ToolSpec: ...
 
-# ai_core_contracts/view.py
+# axon_ai_contracts/view.py
 class Message(TypedDict):
     role: ReadOnly[str]
     content: ReadOnly[str]
@@ -141,7 +141,7 @@ class TurnView:
     own_slice: Mapping[str, JSONValue] = ...
     dependency_slices: Mapping[str, Mapping[str, JSONValue]] = ...
 
-# ai_core_contracts/validation.py
+# axon_ai_contracts/validation.py
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ValidatorContext:
     pack_name: str
@@ -160,7 +160,7 @@ class AnswerValidator(Protocol):
     name: str
     async def validate(self, view: TurnView, ctx: ValidatorContext) -> ValidationResult: ...
 
-# ai_core_contracts/declaration.py
+# axon_ai_contracts/declaration.py
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ContractIssue:
     code: str
@@ -178,7 +178,7 @@ def check_declaration(
     validators: Sequence[AnswerValidator] = (),
 ) -> tuple[ContractIssue, ...]: ...
 
-# ai_core_contracts/llm.py — provisório até a tag (R21)
+# axon_ai_contracts/llm.py — provisório até a tag (R21)
 class ChatToolCall(TypedDict):
     id: str
     name: str
@@ -230,13 +230,13 @@ class LLMProvider(Protocol):
         stream: Literal[True],
     ) -> AsyncIterator[ChatChunk]: ...
 
-# ai_core_contracts/mcp.py — provisório até a tag (R22)
+# axon_ai_contracts/mcp.py — provisório até a tag (R22)
 @runtime_checkable
 class MCPClient(Protocol):
     async def discover_tools(self, aliases: Sequence[str]) -> Sequence[ToolSpec]: ...
     async def execute(self, alias: str, tool: str, arguments: Mapping[str, JSONValue]) -> ToolResult: ...
 
-# ai_core_contracts/compat.py — ver compatibility.md
+# axon_ai_contracts/compat.py — ver compatibility.md
 class InvalidVersion(ValueError): ...
 class InvalidSpecifier(ValueError): ...
 
@@ -268,7 +268,7 @@ class Compatibility:
     installed: str
     required: str                                 # faixa efetiva, ex.: ">=0.2,<0.3"
     violated: str | None
-    message: str | None                           # "requer ai-core-contracts>=0.2, instalado 0.1.4"
+    message: str | None                           # "requer axon-ai-contracts>=0.3, instalado 0.2.1"
 
 type ChangeKind = Literal["none", "additive", "breaking"]
 type BumpKind = Literal["none", "patch", "minor", "major"]
@@ -280,7 +280,7 @@ def removal_version(since: str) -> str: ...
 def required_bump(change: ChangeKind, *, current: str) -> BumpKind: ...
 def declared_bump(previous: str, current: str) -> BumpKind: ...
 
-# ai_core_contracts/deprecation.py
+# axon_ai_contracts/deprecation.py
 class ContractDeprecationWarning(DeprecationWarning): ...
 def contract_deprecated[T](since: str, *, use_instead: str | None = None) -> Callable[[T], T]: ...
 ```
@@ -312,7 +312,7 @@ Regras: a sessão vê a Turn View da abertura (antes da geração, sem `answer`)
 anteriores; `finish().answer` é `None` só quando nada muda e `feed` liberou a resposta inteira; determinístico e sem
 modelos, como `validate`.
 
-## Avaliação: `ai_core_contracts.eval` (contratos 0.1.2 — ADR-027)
+## Avaliação: `axon_ai_contracts.eval` (contratos 0.1.2 — ADR-027)
 
 ```python
 @dataclass(frozen=True, slots=True, kw_only=True)

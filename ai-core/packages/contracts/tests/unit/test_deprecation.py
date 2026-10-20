@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from ai_core_contracts import ContractDeprecationWarning, contract_deprecated, removal_version
+from axon_ai_contracts import ContractDeprecationWarning, contract_deprecated, removal_version
 
 
 @contract_deprecated(since="0.1.0")
@@ -26,7 +26,7 @@ def test_function_warns_with_since_and_removal() -> None:
     with pytest.warns(ContractDeprecationWarning) as record:
         assert old_function() == 1
     assert (
-        str(record[0].message) == "old_function está depreciado desde ai-core-contracts 0.1.0 e será removido em 0.2.0"
+        str(record[0].message) == "old_function está depreciado desde axon-ai-contracts 0.1.0 e será removido em 0.2.0"
     )
 
 
@@ -36,7 +36,7 @@ def test_use_instead_is_appended() -> None:
 
 
 def test_class_warns_on_instantiation() -> None:
-    with pytest.warns(ContractDeprecationWarning, match="OldThing está depreciado desde ai-core-contracts 0.1.2"):
+    with pytest.warns(ContractDeprecationWarning, match="OldThing está depreciado desde axon-ai-contracts 0.1.2"):
         OldThing()
 
 

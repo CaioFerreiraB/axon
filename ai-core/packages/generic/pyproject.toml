@@ -3,15 +3,15 @@ name = "ai-generic"
 version = "0.1.0"
 description = "Pack de referência e de uso geral da plataforma Agentic AI (spec 010)."
 readme = "README.md"
-# Piso dos contratos, não o do core: um pack depende só de ai-core-contracts (spec 010, research R3).
+# Piso dos contratos, não o do core: um pack depende só de axon-ai-contracts (spec 010, research R3).
 requires-python = ">=3.12"
-dependencies = ["ai-core-contracts>=0.1,<0.2"]
+dependencies = ["axon-ai-contracts>=0.2,<0.3"]
 
 [project.entry-points."ai_core.packs"]
 generic = "ai_generic.pack:GenericPack"
 
 [tool.uv.sources]
-ai-core-contracts = { workspace = true }
+axon-ai-contracts = { workspace = true }
 
 [build-system]
 requires = ["uv_build>=0.12,<0.13"]

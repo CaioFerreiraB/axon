@@ -66,7 +66,7 @@ line-length = 120
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["ai_core_contracts", "contract_test_pack", "ai_core", "ai_generic"]
+known-first-party = ["axon_ai_contracts", "contract_test_pack", "ai_core", "ai_generic"]
 
 [tool.mypy]
 strict = true
@@ -74,38 +74,38 @@ python_version = "3.12"
 files = ["packages/contracts/src", "packages/contracts/tools", "packages/core/src", "packages/generic/src"]
 
 [tool.importlinter]
-root_packages = ["ai_core_contracts", "ai_core", "ai_generic"]
+root_packages = ["axon_ai_contracts", "ai_core", "ai_generic"]
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
 name = "contratos não dependem de frameworks do runtime"
 type = "forbidden"
-source_modules = ["ai_core_contracts"]
+source_modules = ["axon_ai_contracts"]
 forbidden_modules = ["langgraph", "langchain", "fastapi", "qdrant_client", "sqlalchemy"]
 
 [[tool.importlinter.contracts]]
 name = "runtime dos contratos não importa o kit de testes"
 type = "forbidden"
 source_modules = [
-    "ai_core_contracts._freeze",
-    "ai_core_contracts._version",
-    "ai_core_contracts.compat",
-    "ai_core_contracts.declaration",
-    "ai_core_contracts.deprecation",
-    "ai_core_contracts.llm",
-    "ai_core_contracts.mcp",
-    "ai_core_contracts.pack",
-    "ai_core_contracts.retrieval",
-    "ai_core_contracts.tools",
-    "ai_core_contracts.validation",
-    "ai_core_contracts.view",
+    "axon_ai_contracts._freeze",
+    "axon_ai_contracts._version",
+    "axon_ai_contracts.compat",
+    "axon_ai_contracts.declaration",
+    "axon_ai_contracts.deprecation",
+    "axon_ai_contracts.llm",
+    "axon_ai_contracts.mcp",
+    "axon_ai_contracts.pack",
+    "axon_ai_contracts.retrieval",
+    "axon_ai_contracts.tools",
+    "axon_ai_contracts.validation",
+    "axon_ai_contracts.view",
 ]
-forbidden_modules = ["ai_core_contracts.testing"]
+forbidden_modules = ["axon_ai_contracts.testing"]
 
 [[tool.importlinter.contracts]]
 name = "contratos não importam o core"
 type = "forbidden"
-source_modules = ["ai_core_contracts"]
+source_modules = ["axon_ai_contracts"]
 forbidden_modules = ["ai_core"]
 
 [[tool.importlinter.contracts]]

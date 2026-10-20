@@ -1,4 +1,4 @@
-# Feature Specification: Contratos públicos do núcleo (`ai-core-contracts`)
+# Feature Specification: Contratos públicos do núcleo (`axon-ai-contracts`)
 
 **Feature Branch**: `001-core-contracts`
 
@@ -6,18 +6,18 @@
 
 **Status**: Draft
 
-**Input**: Tradução de arch-v1 §5 (contratos), §6 (isolamento de estado entre packs), §7.4 (escape hatch), §30 (distribuição, versionamento, fronteiras); ADR-004, ADR-005, ADR-011, ADR-012, ADR-013.
+**Input**: Tradução de arch-v1 §5 (contratos), §6 (isolamento de estado entre packs), §7.4 (escape hatch), §30 (distribuição, versionamento, fronteiras); ADR-004, ADR-005, ADR-011, ADR-012, ADR-013. Fase 9, incremento 9.5 (2026-10-20): identidade Axon — ADR-037.
 
 ## Module Boundary *(mandatory)*
 
-- **Módulo**: `ai-core-contracts` — a única superfície que um pack enxerga do sistema.
-- **Repositório / distribuição**: repositório `ai-core` → `packages/contracts`; distribuição com versão própria (tags `contracts-vX.Y.Z`).
+- **Módulo**: `axon-ai-contracts` (import `axon_ai_contracts`) — a única superfície que um pack enxerga do sistema.
+- **Repositório / distribuição**: repositório da plataforma (`axon`, [ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md)) → workspace do core, `packages/contracts`; distribuição com versão própria (tags `contracts-vX.Y.Z`).
 - **Consome (seams)**: nenhum. Depende só da biblioteca padrão da linguagem e de `typing_extensions`.
-- **Expõe (seams)**: Contrato de pack; Turn View; Contratos de serviço (`LLMProvider`, `MCPClient`) — consumidos por 002, 004, 005, 006, 007, 010 e todas as specs `1xx`. No estilo do ADR-012, estes contratos são as portas do microkernel: packs e implementações do core são os adapters.
+- **Expõe (seams)**: Contrato de pack; Turn View; Contratos de serviço (`LLMProvider`, `MCPClient`) — consumidos por 002, 004, 005, 006, 007, 010 e todas as specs `1xx`. O nome da distribuição e do import é parte do seam: mudá-lo é quebra (US6). No estilo do ADR-012, estes contratos são as portas do microkernel: packs e implementações do core são os adapters.
 - **Depende de infraestrutura (via portas)**: nenhuma — contratos não fazem I/O.
 - **Não conhece**: runtime, motor de execução e seu estado interno, framework de grafo, HTTP, bancos, vetores, qualquer domínio.
 - **Substituição**: qualquer mudança segue semver com a convenção 0.x deslocada (FR-016): enquanto o major for 0, campo, hook ou tipo opcional novo = patch e remoção, renomeação ou mudança de semântica = minor; a partir de 1.0, aditivo = minor e breaking = major. Toda remoção passa antes por uma janela de depreciação.
-- **Insumo técnico**: [design.md](design.md); [ADR-004](../../docs/adr/ADR-004-contratos-no-repo-do-core.md), [ADR-005](../../docs/adr/ADR-005-execute-tool-unificado.md), [ADR-011](../../docs/adr/ADR-011-contratos-independentes-do-motor.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md), [ADR-014](../../docs/adr/ADR-014-politica-versoes-0x-contratos.md).
+- **Insumo técnico**: [design.md](design.md); [ADR-004](../../docs/adr/ADR-004-contratos-no-repo-do-core.md), [ADR-005](../../docs/adr/ADR-005-execute-tool-unificado.md), [ADR-011](../../docs/adr/ADR-011-contratos-independentes-do-motor.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md), [ADR-014](../../docs/adr/ADR-014-politica-versoes-0x-contratos.md), [ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md).
 
 ## Clarifications
 
@@ -33,13 +33,21 @@
 
 - Q: Como um validator que reescreve a resposta (citação inventada removida) age quando a resposta sai em streaming? → A: Pelo protocolo opcional e aditivo `StreamingValidator` (contratos `0.1.1`): `open_stream(view, ctx)` devolve uma sessão com `feed(delta) -> str` (o texto pronto para sair) e `finish() -> ValidationResult`; o fim só acrescenta ao que saiu, e o resultado é igual ao de `validate` para qualquer partição em pedaços. O kit de conformidade verifica as duas regras (ADR-024).
 
+### Session 2026-10-20
+
+- Q: Qual o nome da distribuição e do import dos contratos depois do renome da plataforma? → A: `axon-ai-contracts`, import `axon_ai_contracts` (ADR-037, item 2: no código, o prefixo `ai-` vira `axon-`, e `ai-core` vira `axon-ai`; `axon` sozinho colide com um pacote do PyPI). A pasta `packages/contracts` do workspace não muda; a pasta do workspace (`ai-core/` → `axon-ai/`) é da passada da 011.
+- Q: Que versão sai com o renome? → A: `0.2.0`. Renomear o import é quebra; pela política 0.x (FR-016, ADR-014), quebra sobe a minor. A faixa dos packs passa a `>=0.2,<0.3` e a `contract_version` de quem acompanha, a `"0.2"`. Tag `contracts-v0.2.0`, criada com o aval do mantenedor, depois das passadas do core (ADR-037, item 7).
+- Q: Há alias, reexportação ou janela de depreciação para o nome antigo? → A: Não. Corte seco (ADR-037, item 3): não há instalação nem pack de terceiro a preservar, e os dois packs existentes (`generic`, `scouting`) mudam junto. A janela de depreciação do FR-016 vale para símbolos dentro da distribuição; o renome da distribuição inteira é decisão de ADR, não de depreciação. Um pack escrito para `0.1.x` precisa de nova versão.
+- Q: Como o diff de superfície do FR-020 trata o renome, se a última tag (`contracts-v0.1.2`; a 0.1.3 não foi marcada) ainda tem o import antigo? → A: A superfície é comparada pelo nome de cada símbolo relativo à raiz do import (`TurnView`, `testing.turn_view`), não pelo nome completo; o renome da raiz e da distribuição é uma única mudança breaking ("distribuição renomeada"), que exige a minor e não conta como remoção sem depreciação. Os símbolos que existem nos dois lados são comparados normalmente. O pack congelado de `contracts-v0.1.2` não se aplica a `0.2.0` (série nova, compatibility.md §8).
+- Q: O que as mensagens e as verificações nomeiam? → A: O nome novo, sempre: a mensagem de incompatibilidade ("requer axon-ai-contracts>=0.3, instalado 0.2.0"), o aviso de depreciação, a etapa de distribuição da suíte de conformidade (que procura a dependência `axon-ai-contracts` no pacote do pack; declarar só `ai-core-contracts` é "não declara dependência de axon-ai-contracts") e a varredura de imports, cujos módulos proibidos por padrão passam aos imports novos do core e do pack de referência (`axon_ai`, `axon_generic`) — `axon_ai_contracts` continua permitido, porque a comparação é por módulo, não por prefixo de texto.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Autor de pack constrói e testa um pack sem o core (Priority: P1)
 
 Um autor de pack cria um pack novo num repositório próprio, declarando como única dependência da plataforma a distribuição de contratos. Ele implementa identidade, manifest e hooks, e roda a suíte de testes do pack sem instalar runtime, servidor HTTP, framework de grafo ou banco.
 
-**Why this priority**: É a promessa central da arquitetura (ADR-004): packs de domínio têm ciclo de vida próprio e não arrastam o core. Sem isso, reescrever o `ai-scouting` ou o core vira coordenação entre repositórios.
+**Why this priority**: É a promessa central da arquitetura (ADR-004): packs de domínio têm ciclo de vida próprio e não arrastam o core. Sem isso, reescrever o `axon-scouting` ou o core vira coordenação entre repositórios.
 
 **Independent Test**: Criar um pack mínimo num ambiente limpo com apenas os contratos instalados; a resolução de dependências contém somente os contratos e a biblioteca padrão, e os testes passam.
 
@@ -78,8 +86,8 @@ Cada pack declara a versão de contrato que implementa; a faixa de contratos que
 
 **Acceptance Scenarios**:
 
-1. **Given** contratos instalados na versão 0.1.x, **When** um pack declara `contract_version` "0.1" (faixa derivada `>=0.1,<0.2`), **Then** é considerado compatível.
-2. **Given** contratos instalados na versão 0.1.x, **When** um pack declara `contract_version` "0.2" (exige `>=0.2`), **Then** é considerado incompatível e a mensagem nomeia a restrição violada e a versão instalada: "requer ai-core-contracts>=0.2, instalado 0.1.x".
+1. **Given** contratos instalados na versão 0.2.x, **When** um pack declara `contract_version` "0.2" (faixa derivada `>=0.2,<0.3`), **Then** é considerado compatível.
+2. **Given** contratos instalados na versão 0.2.x, **When** um pack declara `contract_version` "0.3" (exige `>=0.3`), **Then** é considerado incompatível e a mensagem nomeia a restrição violada e a versão instalada: "requer axon-ai-contracts>=0.3, instalado 0.2.x".
 3. **Given** um contrato marcado como depreciado numa versão, **When** um pack o usa, **Then** recebe aviso de depreciação que nomeia a versão da depreciação e a da remoção, e continua funcionando até a próxima série de quebra (0.(N+1).0 enquanto 0.x; o próximo major a partir de 1.0).
 
 ---
@@ -115,6 +123,25 @@ Um pack que precisa de fluxo de controle próprio fornece uma rotina isolada: re
 
 ---
 
+### User Story 6 - Identidade Axon: os contratos com o nome da plataforma (Priority: P2)
+
+A plataforma passa a se chamar Axon (ADR-037). Um autor de pack declara a dependência `axon-ai-contracts`, importa `axon_ai_contracts` e implementa a `contract_version` "0.2". Tudo o que os contratos dizem a ele — incompatibilidade, depreciação, conformidade — usa o nome novo, e nada do nome antigo continua aceito. Quem mantém os contratos continua com a garantia do FR-020: o CI compara a versão nova com a última tag, ainda com o nome antigo, e exige o bump certo.
+
+**Why this priority**: Os contratos são a superfície que o pack externo consome por tag; a distribuição renomeada é o primeiro passo do renome (ADR-037, item 7) e destrava as passadas do core e dos packs. P2 porque não muda nenhum comportamento de pack, só o nome pelo qual ele é encontrado.
+
+**Independent Test**: Num ambiente limpo, instalar `axon-ai-contracts` 0.2.0 e o pack de teste (dependência `axon-ai-contracts>=0.2,<0.3`, `contract_version` "0.2"): a resolução contém só os contratos, `typing_extensions` e o pack; a suíte de conformidade passa; o diff de superfície contra a última tag (`contracts-v0.1.2`) exige a minor e aceita o 0.2.0.
+
+**Acceptance Scenarios**:
+
+1. **Given** um ambiente limpo, **When** o autor instala `axon-ai-contracts` 0.2.0, **Then** o pacote importável é `axon_ai_contracts`, com a mesma superfície pública de antes, e não existe módulo `ai_core_contracts` nesse ambiente.
+2. **Given** contratos 0.2.0 instalados, **When** um pack declara `contract_version` "0.1", **Then** é incompatível, com a mensagem "requer axon-ai-contracts<0.2, instalado 0.2.0".
+3. **Given** um pack cujo pacote declara a dependência `ai-core-contracts>=0.1,<0.2` (o nome antigo), **When** a suíte de conformidade verifica a distribuição, **Then** aponta `distribution.missing_requirement`, pedindo `axon-ai-contracts>=0.2,<0.3`.
+4. **Given** a superfície da última tag `contracts-v0.1.2` (import `ai_core_contracts`) e a do HEAD (import `axon_ai_contracts`), **When** o diff de superfície roda, **Then** relata o renome como uma única mudança breaking, sem nenhum símbolo removido sem depreciação, relata à parte só as mudanças reais de símbolo desde a tag (a chave opcional `ChatUsage.cost` da 0.1.3, que não foi marcada, e o default novo de `check_imports`), exige a minor, aceita o 0.2.0 declarado e falha se a versão declarada for 0.1.4.
+5. **Given** um pack que importa `axon_ai` (o core) ou `axon_generic`, **When** a varredura de imports roda com os módulos proibidos padrão, **Then** aponta cada import com arquivo e linha; o import de `axon_ai_contracts` não é apontado.
+6. **Given** um símbolo depreciado, **When** um pack o usa, **Then** o aviso diz "está depreciado desde axon-ai-contracts X e será removido em Y".
+
+---
+
 ### Edge Cases
 
 - Duas tools do mesmo pack com o mesmo nome local: rejeitado como manifest inválido.
@@ -126,6 +153,9 @@ Um pack que precisa de fluxo de controle próprio fornece uma rotina isolada: re
 - Pack declara versão de contrato de um major futuro: incompatível, com mensagem explícita.
 - Esquema de parâmetros de tool inválido: manifest inválido, pack não carrega.
 - Hook de preparação de contexto devolve chaves fora da própria fatia: impossível por construção (o retorno é a fatia).
+- Pack que ainda importa `ai_core_contracts` num ambiente com 0.2.0: o import falha na carga, e o pack fica em erro (002); não há módulo de compatibilidade (corte seco, ADR-037).
+- Pack que declara as duas dependências, `ai-core-contracts` e `axon-ai-contracts`: só a de `axon-ai-contracts` é verificada; a outra é dependência qualquer, fora dos contratos.
+- Diff de superfície entre duas versões com o mesmo nome: nenhuma mudança de renome é relatada (o comportamento de antes).
 
 ## Requirements *(mandatory)*
 
@@ -148,10 +178,15 @@ Um pack que precisa de fluxo de controle próprio fornece uma rotina isolada: re
 - **FR-015**: Os contratos NÃO DEVEM expor tipos do motor de execução, do framework de grafo, de HTTP ou de armazenamento.
 - **FR-016**: A distribuição DEVE seguir semver com a convenção 0.x deslocada: enquanto o major for 0, mudança aditiva (campo, hook ou tipo opcional novo; correção) sobe o patch e mudança breaking (remoção, renomeação, mudança de semântica) sobe o minor; a partir de 1.0, aditiva = minor e breaking = major. Um símbolo só pode ser removido depois de depreciado em ao menos uma versão da série compatível anterior (depreciado em 0.N.x → removível a partir de 0.(N+1).0; depreciado em X.Y → removível a partir de (X+1).0). A distribuição DEVE oferecer a regra de compatibilidade entre versão instalada e faixa declarada pelo pack.
 - **FR-017**: A fronteira "contratos não importam nada do projeto" DEVE ser verificada no CI.
-- **FR-018**: A faixa aceita por um pack DEVE ser derivada da `contract_version` declarada, pela política do FR-016 ("0.1" → `>=0.1,<0.2`; "0.1.3" → `>=0.1.3,<0.2`; "1.2" → `>=1.2,<2`). A regra de compatibilidade DEVE aceitar também faixas explícitas, e a mensagem de incompatibilidade DEVE nomear a restrição violada e a versão instalada. A suíte de conformidade de pack DEVE apontar a dependência de `ai-core-contracts`, declarada no pacote do pack, que aceite versões fora da faixa derivada.
+- **FR-018**: A faixa aceita por um pack DEVE ser derivada da `contract_version` declarada, pela política do FR-016 ("0.1" → `>=0.1,<0.2`; "0.1.3" → `>=0.1.3,<0.2`; "1.2" → `>=1.2,<2`). A regra de compatibilidade DEVE aceitar também faixas explícitas, e a mensagem de incompatibilidade DEVE nomear a restrição violada e a versão instalada. A suíte de conformidade de pack DEVE apontar a dependência de `axon-ai-contracts`, declarada no pacote do pack, que aceite versões fora da faixa derivada.
 - **FR-019**: O Pack Context DEVE conter apenas o nome do pack e a configuração já validada contra o `config_schema` do manifest; na 0.1 ele NÃO expõe serviços. Os hooks de catálogo (instrução de sistema, tools, retrievers, reranker, validators, rotina) DEVEM ser chamados uma vez, na carga do pack, e o que devolvem vale para todas as execuções; dados por execução chegam aos hooks apenas pela Turn View (e, na rotina, pelos campos declarados). O contexto entregue a validators DEVE ser um tipo próprio, que não expõe modelos, mesmo que o Pack Context ganhe serviços numa versão futura.
 - **FR-020**: O CI da distribuição DEVE, a partir da tag `contracts-v0.1.0`: (a) comparar a superfície pública — símbolos exportados, campos, tipos e defaults dos value objects, assinaturas dos Protocols — com a da última tag `contracts-v*` e falhar quando a mudança exigir um bump maior que o declarado pela política do FR-016; (b) rodar os testes de um pack de teste congelado na última tag contra a versão nova. Mudança só de semântica, sem mudança de forma, DEVE ser registrada no changelog e classificada na revisão.
 - **FR-021**: Os contratos DEVEM oferecer o protocolo opcional `StreamingValidator` (com a sessão `AnswerStream`) para validators que reescrevem a resposta em streaming; a suíte de conformidade DEVE verificar, em várias partições da resposta, que o resultado da sessão é igual ao de `validate` e que o fim só acrescenta ao texto já liberado (`validator.stream.mismatch`, `validator.stream.not_append_only`). Mudança aditiva: contratos `0.1.1` (clarificação de 2026-10-07; ADR-024).
+
+- **FR-022**: A distribuição de contratos DEVE se chamar `axon-ai-contracts`, com o pacote importável `axon_ai_contracts` (e o kit em `axon_ai_contracts.testing`), na versão `0.2.0`. NÃO DEVE existir alias, reexportação nem módulo com o nome antigo (`ai-core-contracts`, `ai_core_contracts`), nem janela de depreciação para ele: o renome é corte seco (ADR-037, clarificação de 2026-10-20).
+- **FR-023**: Toda mensagem dos contratos que nomeia a distribuição DEVE usar `axon-ai-contracts`: a de incompatibilidade (FR-018), o aviso de depreciação (FR-016) e as da etapa de distribuição da suíte de conformidade, que DEVE procurar a dependência pelo nome normalizado `axon-ai-contracts`.
+- **FR-024**: A varredura de imports do kit DEVE proibir por padrão os pacotes importáveis do core e do pack de referência com os nomes do ADR-037 (`axon_ai`, `axon_generic`), comparando por módulo (igual ou com prefixo seguido de ponto), de modo que `axon_ai_contracts` nunca seja apontado.
+- **FR-025**: O diff de superfície do FR-020 DEVE comparar os símbolos pelo nome relativo à raiz do import e tratar a mudança de distribuição ou de raiz entre a linha de base e o HEAD como uma única mudança breaking, que exige a minor enquanto 0.x e NÃO conta como remoção sem depreciação. O CI DEVE conseguir gerar a superfície da linha de base com o import que ela tinha (`ai_core_contracts` em `contracts-v0.1.2`). Textos da linha de base que citam a raiz antiga (anotações, `repr` de aliases) DEVEM ser comparados com a raiz nova.
 
 ### Key Entities
 
@@ -173,9 +208,10 @@ Um pack que precisa de fluxo de controle próprio fornece uma rotina isolada: re
 
 - **SC-001**: Um pack de exemplo resolve dependências e roda sua suíte inteira com zero dependências além dos contratos (verificado no lockfile).
 - **SC-002**: Uma reescrita completa do motor de execução (spec 005), inclusive troca do framework de grafo, é concluída com **zero** alterações nos contratos e nos packs — a suíte de conformidade de packs passa sem modificação.
-- **SC-003**: 100% dos hooks de pack do `ai-generic` e do `ai-scouting` são testáveis com fixtures de Turn View, sem subir nenhum serviço.
+- **SC-003**: 100% dos hooks de pack do `axon-generic` e do `axon-scouting` são testáveis com fixtures de Turn View, sem subir nenhum serviço.
 - **SC-004**: 100% das breaking changes de forma na superfície pública (remoção ou renomeação de símbolo exportado; mudança de campo, tipo ou default de value object; mudança de assinatura de Protocol) sem o bump correspondente falham no CI antes do merge, e o pack de teste congelado na última tag passa nos próprios testes contra toda versão da mesma série compatível (FR-020).
-- **SC-005**: `ai-generic` (010) e `ai-scouting` (101) implementam o contrato sem nenhum import do core, verificado pela checagem de fronteiras.
+- **SC-005**: `axon-generic` (010) e `axon-scouting` (101) implementam o contrato sem nenhum import do core, verificado pela checagem de fronteiras.
+- **SC-006**: Depois da passada da US6, zero ocorrências de `ai_core_contracts` ou `ai-core-contracts` no código, nos testes e na configuração do workspace e dos packs do workspace (fora dos documentos de histórico do ADR-037, item 6, e dos testes que provam o corte seco — cenários 1 e 3 da US6), e as suítes do workspace passam com os contratos 0.2.0.
 
 ## Assumptions
 
@@ -186,4 +222,5 @@ Um pack que precisa de fluxo de controle próprio fornece uma rotina isolada: re
 - `LLMProvider` e `MCPClient` ficam nos contratos para padronizar as implementações do core e permitir providers de terceiros; packs não os implementam na v1.
 - A tag `contracts-v0.1.0` existe antes da Fase 4, quando o `ai-scouting` começa em repositório próprio (arch-v1 §31).
 - Antes da tag `contracts-v0.1.0` não há linha de base: o diff de superfície pública e o pack congelado (FR-020) passam a valer a partir dela.
-- Os contratos ainda mudam nas Fases 1–3; dentro do workspace do `ai-core`, cada mudança é um PR único.
+- Os contratos ainda mudam nas Fases 1–3; dentro do workspace do core, cada mudança é um PR único.
+- US6 (ADR-037): a passada atualiza, de forma mecânica, os imports de quem consome os contratos no workspace (core, `ai-generic` e testes) e leva o pack de referência e os packs de teste à faixa `>=0.2,<0.3` e à `contract_version` "0.2", para a CI ficar verde. O nome da distribuição do pack de referência (`axon-generic`) é da passada da 010; o do core e a pasta do workspace, da 011; o `axon-scouting`, da 101, que passa a depender de `contracts-v0.2.0`. Até a tag, os contratos novos convivem com o core de nome antigo no mesmo workspace, e o import-linter continua guardando a fronteira de `ai_generic` contra `ai_core`.

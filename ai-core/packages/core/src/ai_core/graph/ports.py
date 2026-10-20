@@ -15,7 +15,7 @@ from ai_core.graph.api import ExecutionEvent, ExecutionGrant, RagSettings
 from ai_core.llm.api import ModelRouter
 from ai_core.observability.api import TraceSink
 from ai_core.packs.api import Composition, PackHooks
-from ai_core_contracts import Message
+from axon_ai_contracts import Message
 
 
 class Clock(Protocol):

@@ -27,7 +27,7 @@ from ai_core.assistants.api import Limits
 from ai_core.capabilities.api import FENCE_INSTRUCTION, ToolCall
 from ai_core.graph.api import FinalEvent, ProgressEvent, RagSettings
 from ai_core.observability.api import CoverageGate, ModelCall
-from ai_core_contracts import RETRIEVAL_FILTERS_KEY
+from axon_ai_contracts import RETRIEVAL_FILTERS_KEY
 
 pytestmark = pytest.mark.us3
 

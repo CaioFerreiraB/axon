@@ -13,12 +13,12 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal
 
-from ai_core_contracts._freeze import is_json_value
-from ai_core_contracts.compat import InvalidVersion, Version, parse_contract_version
-from ai_core_contracts.pack import PackManifest
-from ai_core_contracts.retrieval import NamedRetriever
-from ai_core_contracts.tools import ToolSpec
-from ai_core_contracts.validation import AnswerValidator
+from axon_ai_contracts._freeze import is_json_value
+from axon_ai_contracts.compat import InvalidVersion, Version, parse_contract_version
+from axon_ai_contracts.pack import PackManifest
+from axon_ai_contracts.retrieval import NamedRetriever
+from axon_ai_contracts.tools import ToolSpec
+from axon_ai_contracts.validation import AnswerValidator
 
 _PACK_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
 _LOCAL_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,47}$")

@@ -1,4 +1,4 @@
-# Contrato — kit de testes `ai_core_contracts.testing`
+# Contrato — kit de testes `axon_ai_contracts.testing`
 
 Parte pública e versionada da distribuição (R17): fixtures de Turn View, a suíte de conformidade de pack e as suítes
 mínimas dos contratos de serviço. Só stdlib;
@@ -7,7 +7,7 @@ funciona com qualquer runner. É o que SC-002, SC-003 e SC-005 usam como prova, 
 ## API
 
 ```python
-# ai_core_contracts/testing/__init__.py
+# axon_ai_contracts/testing/__init__.py
 REFERENCE_TIME: Final[datetime]           # 2026-01-01T12:00:00+00:00 — data fixa padrão das fixtures
 
 # fixtures.py — construtores determinísticos; todo argumento é só-nome e opcional
@@ -40,8 +40,9 @@ def assert_pack_conforms(pack: object, **kwargs) -> None: ...
 
 # checagens puras reutilizáveis
 def check_contracts_requirement(requirements: Sequence[str], contract_version: str) -> tuple[ContractIssue, ...]: ...
-def check_imports(package: str, *, forbidden: Sequence[str] = ("ai_core", "ai_generic")) -> tuple[ContractIssue, ...]: ...
-#   o próprio pacote varrido nunca é proibido (ex.: ai_generic importando ai_generic.x); módulo solto = um arquivo
+def check_imports(package: str, *, forbidden: Sequence[str] = ("axon_ai", "axon_generic")) -> tuple[ContractIssue, ...]: ...
+#   o próprio pacote varrido nunca é proibido (ex.: axon_generic importando axon_generic.x); módulo solto = um arquivo
+#   comparação por módulo (igual ou prefixo + "."): axon_ai_contracts nunca casa com axon_ai (0.2.0, R29)
 
 # services.py — suítes mínimas dos contratos de serviço (R21, R22); 006 e 007 rodam contra os adapters reais
 async def acheck_llm_provider(provider: object, *, model: str = "test-model") -> tuple[ContractIssue, ...]: ...
@@ -70,7 +71,7 @@ Uma etapa que falha com issue `error` e impede as seguintes (ex.: sem manifest n
 | 6 | `prepare_context` para cada view: devolve `Mapping`; valores JSON; `retrieval_filters`, se presente, é mapeamento JSON; mesma entrada duas vezes → mesma saída | `prepare_context.not_mapping`, `prepare_context.not_json`, `prepare_context.retrieval_filters.invalid`, `prepare_context.non_deterministic` |
 | 7 | Validators para cada view: devolvem `ValidationResult`; mesma entrada duas vezes → mesmo resultado | `validator.result_type`, `validator.non_deterministic` |
 | 7b | Métricas de domínio (0.1.2, ADR-027), só se o pack tem `eval_metrics`: o hook devolve sequência de `EvalMetric`, nomes não vazios e únicos, `better` em `higher`/`lower`, `deterministic` bool e `measure` síncrono | `hook.raised`, `hook.return_type`, `eval_metric.name.invalid`, `eval_metric.duplicate_name`, `eval_metric.contract` |
-| 8 | Imports do pacote do pack (AST): nenhum `ai_core`/`ai_generic` — a mensagem nomeia arquivo, linha e módulo | `imports.forbidden` |
+| 8 | Imports do pacote do pack (AST): nenhum `axon_ai`/`axon_generic` (0.2.0; na série 0.1, `ai_core`/`ai_generic`) — a mensagem nomeia arquivo, linha e módulo | `imports.forbidden` |
 | 9 | Distribuição (se `check_distribution`): regras de [compatibility.md §5](compatibility.md) | `distribution.*` |
 | — | Durante todas as etapas: `ContractDeprecationWarning` capturado | `deprecation.used` (*warning*) |
 
@@ -96,7 +97,7 @@ Invariantes de construção não viram código de issue: `ToolSpec` nativa sem h
 
 ```python
 # tests/test_conformance.py de um pack externo
-from ai_core_contracts.testing import assert_pack_conforms, turn_view
+from axon_ai_contracts.testing import assert_pack_conforms, turn_view
 from meu_pack.pack import MeuPack
 
 def test_pack_conforms():

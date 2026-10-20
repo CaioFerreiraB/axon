@@ -11,7 +11,7 @@ from typing import Any, Literal, overload
 
 from ai_core.llm.api import ModelCallFailed
 from ai_core.llm.ports import ProbeResult
-from ai_core_contracts import ChatChunk, ChatMessage, ChatResponse, ChatTool, ChatUsage, JSONValue
+from axon_ai_contracts import ChatChunk, ChatMessage, ChatResponse, ChatTool, ChatUsage, JSONValue
 
 DEFAULT_USAGE: Mapping[str, int] = {"prompt_tokens": 7, "completion_tokens": 2}
 

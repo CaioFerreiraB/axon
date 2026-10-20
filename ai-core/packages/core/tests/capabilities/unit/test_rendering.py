@@ -8,7 +8,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from ai_core.capabilities.domain.rendering import NO_RESULTS, render_chunks, render_value, render_within
-from ai_core_contracts import Chunk
+from axon_ai_contracts import Chunk
 
 pytestmark = pytest.mark.us2
 

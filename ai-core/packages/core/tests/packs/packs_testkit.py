@@ -11,7 +11,7 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from ai_core_contracts import (
+from axon_ai_contracts import (
     JSONValue,
     PackBase,
     PackContext,
@@ -35,7 +35,7 @@ GOOD_SCHEMA: Mapping[str, JSONValue] = {
 
 def make_pack_class(
     name: str | None = "good",
-    contract_version: str | None = "0.1",
+    contract_version: str | None = "0.2",
     *,
     manifest: PackManifest | Callable[[Any], PackManifest] | None = None,
     depends_on: Sequence[str] = (),
@@ -135,12 +135,12 @@ class FakeDistributions:
 
 
 GOOD_MODULE = """
-from ai_core_contracts import PackBase, PackManifest
+from axon_ai_contracts import PackBase, PackManifest
 
 
 class GoodPack(PackBase):
     name = "good"
-    contract_version = "0.1"
+    contract_version = "0.2"
     created = 0
 
     def __init__(self):

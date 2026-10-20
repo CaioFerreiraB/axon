@@ -15,7 +15,7 @@ from typing import Final
 
 from ai_core.capabilities.api import FENCE_INSTRUCTION, CatalogTool, FencedToolResult, ToolCall
 from ai_core.graph.domain.actions import CONTROLLER_INSTRUCTION, catalog_text
-from ai_core_contracts import ChatMessage, ChatToolCall, Message
+from axon_ai_contracts import ChatMessage, ChatToolCall, Message
 
 INVALID_NOTICE: Final = "A ação anterior era inválida: {reason}. Responda com uma ação válida."
 

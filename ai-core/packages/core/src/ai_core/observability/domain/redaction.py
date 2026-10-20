@@ -10,7 +10,7 @@ import re
 from collections.abc import Mapping, Sequence
 from typing import Final
 
-from ai_core_contracts import JSONValue
+from axon_ai_contracts import JSONValue
 
 REDACTED: Final = "«redigido»"
 """Marcador que substitui o valor sensível."""

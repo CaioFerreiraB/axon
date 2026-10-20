@@ -48,7 +48,7 @@ from ai_core.http.domain.openai_chunks import (
 )
 from ai_core.http.domain.timeline import Timeline
 from ai_core.http.ports import Clock, Conversation, ConversationPage, ConversationStore, RequestIds, StoredMessage
-from ai_core_contracts import Message
+from axon_ai_contracts import Message
 
 FINISH_ERROR: Final = "error"
 CONVERSATION_PREFIX: Final = "conv_"

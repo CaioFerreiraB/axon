@@ -5,7 +5,7 @@ description = "Runtime genérico da plataforma Agentic AI (monolito modular; spe
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "ai-core-contracts",
+    "axon-ai-contracts",
     "pyyaml>=6.0.2",
     "jsonschema>=4.23",
     # Spec 006 (research R4): camada compatível com OpenAI, confinada a ai_core/llm/adapters/ por import-linter.
@@ -38,7 +38,7 @@ dependencies = [
 ai-core = "ai_core.bootstrap.cli:main"
 
 [tool.uv.sources]
-ai-core-contracts = { workspace = true }
+axon-ai-contracts = { workspace = true }
 
 [build-system]
 requires = ["uv_build>=0.12,<0.13"]

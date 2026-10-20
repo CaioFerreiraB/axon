@@ -10,7 +10,7 @@ from capabilities_testkit import EMPTY_SCHEMA, Calls, mcp_tool, native, retrieva
 from ai_core.capabilities.api import CatalogConflict
 from ai_core.capabilities.domain.catalog import assemble
 from ai_core.capabilities.domain.records import PackTool
-from ai_core_contracts import ToolSpec
+from axon_ai_contracts import ToolSpec
 
 CALLS = Calls()
 ALFA = [native("alfa", "search", CALLS), native("alfa", "ecoar", CALLS)]

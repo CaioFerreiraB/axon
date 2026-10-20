@@ -7,9 +7,9 @@ from typing import Any
 import pytest
 from packs import GoodPack, make_pack
 
-from ai_core_contracts import contract_deprecated
-from ai_core_contracts.testing import check_pack
-from ai_core_contracts.testing import conformance as conformance_module
+from axon_ai_contracts import contract_deprecated
+from axon_ai_contracts.testing import check_pack
+from axon_ai_contracts.testing import conformance as conformance_module
 
 
 @contract_deprecated(since="0.1.0")
@@ -22,12 +22,12 @@ def test_deprecated_symbol_is_reported_as_warning() -> None:
     assert report.ok
     [issue] = report.issues
     assert (issue.code, issue.severity) == ("deprecation.used", "warning")
-    assert "desde ai-core-contracts 0.1.0" in issue.message and "0.2.0" in issue.message
+    assert "desde axon-ai-contracts 0.1.0" in issue.message and "0.2.0" in issue.message
 
 
 def test_distribution_requirement_is_checked(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(conformance_module, "find_distribution", lambda pack: "fake-pack")
-    monkeypatch.setattr(conformance_module, "read_requirements", lambda distribution: ["ai-core-contracts>=0.1"])
+    monkeypatch.setattr(conformance_module, "read_requirements", lambda distribution: ["axon-ai-contracts>=0.1"])
     report = check_pack(GoodPack())
     assert [issue.code for issue in report.issues] == ["distribution.range_too_wide"]
 

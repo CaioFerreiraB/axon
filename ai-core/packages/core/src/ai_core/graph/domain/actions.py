@@ -15,7 +15,7 @@ from types import MappingProxyType
 from typing import Any, Final
 
 from ai_core.capabilities.api import CatalogTool
-from ai_core_contracts import JSONValue
+from axon_ai_contracts import JSONValue
 
 CONTROLLER_INSTRUCTION: Final = (
     "Você decide o próximo passo para responder à última mensagem do usuário. Responda apenas com um objeto JSON, sem "

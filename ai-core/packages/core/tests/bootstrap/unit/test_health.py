@@ -19,7 +19,7 @@ LLAMA = ModelRef(provider="ollama", model="llama3:8b")
 
 
 def pack(name: str, status: PackStatus = PackStatus.ENABLED, error: str | None = None) -> PackEntry:
-    return PackEntry(name=name, version="0.1.0", contract_version="0.1", origin="code", status=status, error=error)
+    return PackEntry(name=name, version="0.1.0", contract_version="0.2", origin="code", status=status, error=error)
 
 
 class Ticks:

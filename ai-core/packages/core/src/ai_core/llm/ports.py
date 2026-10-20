@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
-from ai_core_contracts import LLMProvider
+from axon_ai_contracts import LLMProvider
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

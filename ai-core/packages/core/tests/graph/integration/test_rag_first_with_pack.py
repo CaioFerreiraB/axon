@@ -30,7 +30,7 @@ from ai_core.observability.api import CoverageGate, ModelCall, ToolCall, Validat
 from ai_core.packs.adapters.memory import InMemoryPackConfigSource, InMemoryPackSource
 from ai_core.packs.ports import PackSettings
 from ai_core.packs.service import PackRuntime
-from ai_core_contracts import (
+from axon_ai_contracts import (
     Chunk,
     JSONValue,
     NamedRetriever,
@@ -89,7 +89,7 @@ RETRIEVER = Retriever()
 
 class DocsPack(PackBase):
     name = "docs"
-    contract_version = "0.1"
+    contract_version = "0.2"
 
     def manifest(self) -> PackManifest:
         return PackManifest(name="docs", version="0.1.0")

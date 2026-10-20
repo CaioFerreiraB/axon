@@ -7,8 +7,8 @@ import pytest
 from ai_core.packs.api import PackCapabilities, PackEntry, PackStatus
 from ai_core.packs.domain.composition import composition_error
 from ai_core.packs.domain.hooks import apply_validation, merge_slice, scope_view
-from ai_core_contracts import ValidationResult
-from ai_core_contracts.testing import turn_view
+from axon_ai_contracts import ValidationResult
+from axon_ai_contracts.testing import turn_view
 
 
 def test_scope_view_keeps_only_own_and_declared_slices() -> None:
@@ -58,7 +58,7 @@ def _enabled(name: str, depends_on: tuple[str, ...] = ()) -> PackEntry:
     return PackEntry(
         name=name,
         version="0.1.0",
-        contract_version="0.1",
+        contract_version="0.2",
         origin="code",
         status=PackStatus.ENABLED,
         capabilities=capabilities,

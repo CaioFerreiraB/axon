@@ -6,8 +6,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
-from ai_core_contracts._freeze import JSONValue, empty_mapping, freeze_mapping, freeze_sequence, require_non_empty
-from ai_core_contracts.view import Citation, TurnView
+from axon_ai_contracts._freeze import JSONValue, empty_mapping, freeze_mapping, freeze_sequence, require_non_empty
+from axon_ai_contracts.view import Citation, TurnView
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

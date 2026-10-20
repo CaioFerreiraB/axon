@@ -1,6 +1,6 @@
 """Seams da spec 002: Pack Registry e Pack Hooks (specs/002-core-pack-runtime/contracts/pack-runtime-api.md).
 
-Único módulo da 002 que outros módulos importam. Depende só da stdlib e da API pública de `ai_core_contracts`.
+Único módulo da 002 que outros módulos importam. Depende só da stdlib e da API pública de `axon_ai_contracts`.
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Literal, Protocol
 
-from ai_core_contracts import (
+from axon_ai_contracts import (
     Citation,
     EvalMetric,
     JSONValue,

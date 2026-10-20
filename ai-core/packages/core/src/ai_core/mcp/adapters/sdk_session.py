@@ -16,7 +16,7 @@ from mcp.client.session import ClientSession
 from mcp.shared.exceptions import MCPError
 
 from ai_core.mcp.ports import OperationLimits, RemotePart, RemoteResult, RemoteTool, TransportFailure
-from ai_core_contracts import JSONValue
+from axon_ai_contracts import JSONValue
 
 MAX_PAGES: Final = 20
 """`tools/list` paginado: um servidor que nunca termina a paginação não prende a descoberta."""

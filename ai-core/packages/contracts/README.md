@@ -1,6 +1,6 @@
-# ai-core-contracts
+# axon-ai-contracts
 
-Contratos públicos do núcleo da plataforma Agentic AI: a **única** superfície que um pack enxerga
+Contratos públicos do núcleo da plataforma Axon: a **única** superfície que um pack enxerga
 ([spec 001](../../../specs/001-core-contracts/spec.md)). Só depende da biblioteca padrão e de `typing_extensions`; um pack
 que dependa só destes contratos não arrasta runtime, HTTP, framework de grafo nem banco.
 
@@ -9,13 +9,13 @@ que dependa só destes contratos não arrasta runtime, HTTP, framework de grafo 
 ```toml
 # pyproject.toml do pack
 [project]
-dependencies = ["ai-core-contracts>=0.1,<0.2"]   # nunca ai-core
+dependencies = ["axon-ai-contracts>=0.2,<0.3"]   # nunca ai-core
 
 [project.entry-points."ai_core.packs"]
 meu_pack = "meu_pack.pack:MeuPack"
 ```
 
-A faixa sai da `contract_version` que o pack declara (`"0.1"` → `>=0.1,<0.2`). A suíte de conformidade aponta dependência
+A faixa sai da `contract_version` que o pack declara (`"0.2"` → `>=0.2,<0.3`). A suíte de conformidade aponta dependência
 mais larga que isso.
 
 ## Escrevendo um pack
@@ -23,12 +23,12 @@ mais larga que isso.
 Herde de `PackBase` — todo hook opcional já devolve vazio — e defina identidade e manifest:
 
 ```python
-from ai_core_contracts import PackBase, PackContext, PackManifest, TurnView
+from axon_ai_contracts import PackBase, PackContext, PackManifest, TurnView
 
 
 class MeuPack(PackBase):
     name = "meu_pack"
-    contract_version = "0.1"
+    contract_version = "0.2"
 
     def manifest(self) -> PackManifest:
         return PackManifest(name="meu_pack", version="0.1.0", preferred_flow="chat")
@@ -46,10 +46,10 @@ class MeuPack(PackBase):
 
 ## Testando
 
-O kit `ai_core_contracts.testing` é só stdlib e funciona com qualquer runner:
+O kit `axon_ai_contracts.testing` é só stdlib e funciona com qualquer runner:
 
 ```python
-from ai_core_contracts.testing import assert_pack_conforms, turn_view
+from axon_ai_contracts.testing import assert_pack_conforms, turn_view
 from meu_pack.pack import MeuPack
 
 

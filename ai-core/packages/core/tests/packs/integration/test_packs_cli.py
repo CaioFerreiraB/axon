@@ -20,12 +20,12 @@ from ai_core.packs.api import PackConfigError
 from ai_core.packs.service import PackRuntime
 
 OLD_MODULE = """
-from ai_core_contracts import PackBase, PackManifest
+from axon_ai_contracts import PackBase, PackManifest
 
 
 class OldPack(PackBase):
     name = "velho"
-    contract_version = "0.2"
+    contract_version = "0.3"
 
     def manifest(self):
         return PackManifest(name="velho", version="1.2.0")
@@ -69,7 +69,7 @@ def test_list_mostra_nome_versao_contrato_e_status(tmp_path: Path, fake_distribu
 
     assert list_command(runtime, out) == 0
     assert len(out.getvalue().splitlines()) == len(runtime.entries())
-    assert _line(out, "good").split() == ["good", "2.0.1", "0.1", "enabled"]
+    assert _line(out, "good").split() == ["good", "2.0.1", "0.2", "enabled"]
     assert _line(out, "scouting").split()[:4] == ["scouting", "-", "-", "error"]
     assert "não instalado" in _line(out, "scouting")
 
@@ -79,7 +79,7 @@ def test_list_sai_com_zero_mesmo_com_pack_em_erro(tmp_path: Path, fake_distribut
     out = io.StringIO()
     assert list_command(runtime, out) == 0
     velho = _line(out, "velho")
-    assert "error" in velho and "requer ai-core-contracts" in velho  # a causa aparece na linha (SC-004)
+    assert "error" in velho and "requer axon-ai-contracts" in velho  # a causa aparece na linha (SC-004)
 
 
 def test_check_com_todos_bons_sai_com_zero(tmp_path: Path, fake_distributions: FakeDistributions) -> None:
@@ -97,7 +97,7 @@ def test_check_reprova_incompativel_mesmo_desabilitado(tmp_path: Path, fake_dist
     assert check_command(runtime, out) == 1
     linhas = out.getvalue().splitlines()
     assert len(linhas) == 2  # só a entrada em erro e o resumo
-    assert linhas[0].startswith("velho") and "requer ai-core-contracts>=0.2" in linhas[0]
+    assert linhas[0].startswith("velho") and "requer axon-ai-contracts>=0.3" in linhas[0]
     assert "good" not in out.getvalue()
     assert linhas[-1] == f"1 de {len(runtime.entries())} packs em erro"
 

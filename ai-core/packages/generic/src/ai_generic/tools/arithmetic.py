@@ -12,7 +12,7 @@ import math
 from collections.abc import Mapping
 from typing import Final
 
-from ai_core_contracts import JSONValue, ToolInvocation, ToolSpec
+from axon_ai_contracts import JSONValue, ToolInvocation, ToolSpec
 
 MAX_LENGTH: Final = 200
 """Tamanho máximo da expressão, já normalizada (data-model.md)."""

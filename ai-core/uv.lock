@@ -9,8 +9,8 @@ resolution-markers = [
 [manifest]
 members = [
     "ai-core",
-    "ai-core-contracts",
     "ai-generic",
+    "axon-ai-contracts",
 ]
 
 [manifest.dependency-groups]
@@ -34,8 +34,8 @@ name = "ai-core"
 version = "0.6.0rc6"
 source = { editable = "packages/core" }
 dependencies = [
-    { name = "ai-core-contracts" },
     { name = "argon2-cffi" },
+    { name = "axon-ai-contracts" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "jsonschema" },
@@ -53,8 +53,8 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "ai-core-contracts", editable = "packages/contracts" },
     { name = "argon2-cffi", specifier = ">=25.1,<26" },
+    { name = "axon-ai-contracts", editable = "packages/contracts" },
     { name = "fastapi", specifier = ">=0.141,<1" },
     { name = "httpx", specifier = ">=0.28,<1" },
     { name = "jsonschema", specifier = ">=4.23" },
@@ -71,26 +71,15 @@ requires-dist = [
 ]
 
 [[package]]
-name = "ai-core-contracts"
-version = "0.1.3"
-source = { editable = "packages/contracts" }
-dependencies = [
-    { name = "typing-extensions" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "typing-extensions", specifier = ">=4.12" }]
-
-[[package]]
 name = "ai-generic"
 version = "0.1.0"
 source = { editable = "packages/generic" }
 dependencies = [
-    { name = "ai-core-contracts" },
+    { name = "axon-ai-contracts" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "ai-core-contracts", editable = "packages/contracts" }]
+requires-dist = [{ name = "axon-ai-contracts", editable = "packages/contracts" }]
 
 [[package]]
 name = "annotated-doc"
@@ -262,6 +251,17 @@ sdist = { url = "https://files.pythonhosted.org/packages/ea/4a/853a86cffe8ad8409
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b9/21/f40745a0ae9d70d3a3be30da10a81a0fb42a14660632f764f563ab1f2d82/authlib-1.9.0-py2.py3-none-any.whl", hash = "sha256:c54c963ede35c428d126f5bb5d6f84617e91ace74d6ea9acad659c30f5ff1819", size = 265779, upload-time = "2026-10-14T07:55:09.983Z" },
 ]
+
+[[package]]
+name = "axon-ai-contracts"
+version = "0.2.0"
+source = { editable = "packages/contracts" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "typing-extensions", specifier = ">=4.12" }]
 
 [[package]]
 name = "certifi"

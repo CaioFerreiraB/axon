@@ -14,7 +14,7 @@ from ai_core.capabilities.api import CatalogConflict, CatalogTool
 from ai_core.capabilities.domain.arguments import check_schema
 from ai_core.capabilities.domain.records import PackTool
 from ai_core.capabilities.domain.write_policy import allowed_to_write
-from ai_core_contracts import NamedRetriever, NativeHandler, ToolSpec
+from axon_ai_contracts import NamedRetriever, NativeHandler, ToolSpec
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

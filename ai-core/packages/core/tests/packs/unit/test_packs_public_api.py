@@ -55,7 +55,7 @@ def test_api_imports_only_stdlib_and_contracts() -> None:
             roots.update(alias.name.split(".")[0] for alias in node.names)
         elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
             roots.add(node.module.split(".")[0])
-    assert roots <= set(sys.stdlib_module_names) | {"ai_core_contracts"}, roots
+    assert roots <= set(sys.stdlib_module_names) | {"axon_ai_contracts"}, roots
 
 
 def test_no_install_operation_is_exposed() -> None:

@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from ai_core_contracts.tools import ToolInvocation, ToolResult, ToolSpec
+from axon_ai_contracts.tools import ToolInvocation, ToolResult, ToolSpec
 
 NOW = datetime(2026, 1, 1, tzinfo=UTC)
 

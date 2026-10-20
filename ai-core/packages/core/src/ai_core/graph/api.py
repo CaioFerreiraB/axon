@@ -2,7 +2,7 @@
 
 Contrato em specs/005-core-execution-engine/contracts/execution-engine.md.
 
-Único módulo da 005 que outros módulos importam. Depende só da stdlib, de `ai_core_contracts` e do `api.py` da 003 (o
+Único módulo da 005 que outros módulos importam. Depende só da stdlib, de `axon_ai_contracts` e do `api.py` da 003 (o
 grant). **Nenhum tipo de framework de grafo, de estado interno ou de HTTP aparece aqui** — é o que o ADR-011 e o SC-001
 exigem: trocar o framework não pode mudar o que a 008 e o harness leem.
 """
@@ -17,7 +17,7 @@ from typing import Final, Literal, Protocol
 
 from ai_core.assistants.api import ExecutionGrant
 from ai_core.llm.api import ModelRole
-from ai_core_contracts import Citation, JSONValue, Message
+from axon_ai_contracts import Citation, JSONValue, Message
 
 __all__ = [
     "FLOW_AGENTIC",

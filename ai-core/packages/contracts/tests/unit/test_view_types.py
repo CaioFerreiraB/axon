@@ -4,8 +4,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from ai_core_contracts.retrieval import Chunk
-from ai_core_contracts.view import TurnView
+from axon_ai_contracts.retrieval import Chunk
+from axon_ai_contracts.view import TurnView
 
 NOW = datetime(2026, 1, 1, 12, tzinfo=UTC)
 

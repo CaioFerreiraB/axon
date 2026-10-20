@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 
-from ai_core_contracts import PackContext, TurnView, ValidatorContext
+from axon_ai_contracts import PackContext, TurnView, ValidatorContext
 
 TURN_VIEW_FIELDS = {
     "request_id",

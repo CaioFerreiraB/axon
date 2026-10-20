@@ -146,7 +146,7 @@ def pack_entry(
     return PackEntry(
         name=name,
         version="1.0.0",
-        contract_version="0.1",
+        contract_version="0.2",
         origin="code",
         status=status,
         error=error if status is not PackStatus.ENABLED else None,

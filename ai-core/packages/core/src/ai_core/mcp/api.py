@@ -17,7 +17,7 @@ from types import MappingProxyType
 from typing import Final, Literal, Protocol
 
 from ai_core.assistants.api import Conflict, ExecutionGrant, NotFound, Principal, RequestRejected
-from ai_core_contracts import JSONValue, ToolResult, ToolSpec
+from axon_ai_contracts import JSONValue, ToolResult, ToolSpec
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Vocabulário

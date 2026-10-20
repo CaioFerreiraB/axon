@@ -46,7 +46,7 @@ async def test_colecoes_dos_retrievers_dos_packs_habilitados() -> None:
         return PackEntry(
             name=name,
             version="0.1.0",
-            contract_version="0.1",
+            contract_version="0.2",
             origin="code",
             status=status,
             error=error,

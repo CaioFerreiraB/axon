@@ -34,7 +34,7 @@ def test_installed_and_enabled_pack_is_loaded(tmp_path: Path, fake_distributions
     )
     entry = runtime.entry("good")
     assert entry is not None and entry.status is PackStatus.ENABLED
-    assert (entry.version, entry.contract_version) == ("2.0.1", "0.1")
+    assert (entry.version, entry.contract_version) == ("2.0.1", "0.2")
     assert entry.capabilities is not None and entry.capabilities.system_prompt
 
 

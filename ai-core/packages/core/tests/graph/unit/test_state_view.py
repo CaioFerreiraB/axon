@@ -15,7 +15,7 @@ from ai_core.capabilities.api import FencedToolResult, ToolCall
 from ai_core.graph.adapters.langgraph.view import turn_view
 from ai_core.graph.api import ExecutionGrant
 from ai_core.graph.domain.transcript import InvalidStep, ToolStep
-from ai_core_contracts import Chunk, ToolResult
+from axon_ai_contracts import Chunk, ToolResult
 
 
 def state(**overrides: Any) -> Any:

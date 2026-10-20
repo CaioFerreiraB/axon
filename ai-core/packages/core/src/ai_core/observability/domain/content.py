@@ -11,7 +11,7 @@ from typing import Final
 
 from ai_core.observability.api import ModelExchange, TraceRecord
 from ai_core.observability.domain.redaction import redact_text
-from ai_core_contracts import JSONValue
+from axon_ai_contracts import JSONValue
 
 CONTENT_MAX: Final = 16 * 1024
 """Caracteres por mensagem e na saída; o excedente vira a marca de truncado."""

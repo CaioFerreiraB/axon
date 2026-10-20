@@ -12,7 +12,7 @@ from typing import Required
 
 from typing_extensions import ReadOnly, TypedDict
 
-from ai_core_contracts._freeze import (
+from axon_ai_contracts._freeze import (
     JSONValue,
     empty_mapping,
     freeze_mapping,
@@ -20,8 +20,8 @@ from ai_core_contracts._freeze import (
     require_aware,
     require_non_empty,
 )
-from ai_core_contracts.retrieval import Chunk
-from ai_core_contracts.tools import ToolResult
+from axon_ai_contracts.retrieval import Chunk
+from axon_ai_contracts.tools import ToolResult
 
 
 class Message(TypedDict):

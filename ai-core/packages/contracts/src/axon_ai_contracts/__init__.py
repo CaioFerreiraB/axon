@@ -1,13 +1,13 @@
-"""Contratos públicos do núcleo (`ai-core-contracts`): a única superfície que um pack enxerga.
+"""Contratos públicos do núcleo (`axon-ai-contracts`): a única superfície que um pack enxerga.
 
-A superfície pública é exatamente o `__all__` deste módulo e o de `ai_core_contracts.testing` (FR-020).
+A superfície pública é exatamente o `__all__` deste módulo e o de `axon_ai_contracts.testing` (FR-020).
 """
 
 from __future__ import annotations
 
-from ai_core_contracts._freeze import JSONValue
-from ai_core_contracts._version import __version__
-from ai_core_contracts.compat import (
+from axon_ai_contracts._freeze import JSONValue
+from axon_ai_contracts._version import __version__
+from axon_ai_contracts.compat import (
     BumpKind,
     ChangeKind,
     Compatibility,
@@ -22,9 +22,9 @@ from ai_core_contracts.compat import (
     removal_version,
     required_bump,
 )
-from ai_core_contracts.declaration import ContractIssue, check_declaration
-from ai_core_contracts.deprecation import ContractDeprecationWarning, contract_deprecated
-from ai_core_contracts.eval import (
+from axon_ai_contracts.declaration import ContractIssue, check_declaration
+from axon_ai_contracts.deprecation import ContractDeprecationWarning, contract_deprecated
+from axon_ai_contracts.eval import (
     EvalChunk,
     EvalEvidence,
     EvalItem,
@@ -32,10 +32,10 @@ from ai_core_contracts.eval import (
     EvalObservation,
     ProvidesEvalMetrics,
 )
-from ai_core_contracts.llm import ChatChunk, ChatMessage, ChatResponse, ChatTool, ChatToolCall, ChatUsage, LLMProvider
-from ai_core_contracts.mcp import MCPClient
-from ai_core_contracts.pack import RETRIEVAL_FILTERS_KEY, AgentPack, PackBase, PackContext, PackManifest
-from ai_core_contracts.retrieval import (
+from axon_ai_contracts.llm import ChatChunk, ChatMessage, ChatResponse, ChatTool, ChatToolCall, ChatUsage, LLMProvider
+from axon_ai_contracts.mcp import MCPClient
+from axon_ai_contracts.pack import RETRIEVAL_FILTERS_KEY, AgentPack, PackBase, PackContext, PackManifest
+from axon_ai_contracts.retrieval import (
     RETRIEVAL_TOOL_PARAMETERS,
     Chunk,
     NamedRetriever,
@@ -43,15 +43,15 @@ from ai_core_contracts.retrieval import (
     Retriever,
     retrieval_tool_spec,
 )
-from ai_core_contracts.tools import NativeHandler, ToolInvocation, ToolKind, ToolResult, ToolSpec
-from ai_core_contracts.validation import (
+from axon_ai_contracts.tools import NativeHandler, ToolInvocation, ToolKind, ToolResult, ToolSpec
+from axon_ai_contracts.validation import (
     AnswerStream,
     AnswerValidator,
     StreamingValidator,
     ValidationResult,
     ValidatorContext,
 )
-from ai_core_contracts.view import Citation, Message, TurnView
+from axon_ai_contracts.view import Citation, Message, TurnView
 
 __all__ = [
     "RETRIEVAL_FILTERS_KEY",

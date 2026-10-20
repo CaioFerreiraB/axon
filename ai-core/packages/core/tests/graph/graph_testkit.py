@@ -31,7 +31,7 @@ from ai_core.llm.ports import ProbeResult
 from ai_core.llm.service import ModelRoutingService
 from ai_core.observability.api import TraceEvent
 from ai_core.packs.api import Composition, Slices, StreamedValidation, ValidationOutcome, ValidatorRun
-from ai_core_contracts import ChatMessage, ChatResponse, Chunk, Citation, JSONValue, Message, TurnView, ValidationResult
+from axon_ai_contracts import ChatMessage, ChatResponse, Chunk, Citation, JSONValue, Message, TurnView, ValidationResult
 
 REQUEST_ID: Final = "req-005-1"
 ASSISTANT: Final = "geral"

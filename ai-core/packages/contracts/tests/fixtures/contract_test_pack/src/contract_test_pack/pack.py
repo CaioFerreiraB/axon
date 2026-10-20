@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-from ai_core_contracts import (
+from axon_ai_contracts import (
     RETRIEVAL_FILTERS_KEY,
     AnswerValidator,
     Chunk,
@@ -65,7 +65,7 @@ async def echo(invocation: ToolInvocation) -> object:
 
 class ContractTestPack(PackBase):
     name = "contract_test"
-    contract_version = "0.1"
+    contract_version = "0.2"
 
     def manifest(self) -> PackManifest:
         return PackManifest(

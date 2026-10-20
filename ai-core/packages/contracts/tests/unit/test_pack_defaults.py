@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from ai_core_contracts import AgentPack, PackBase, PackManifest
-from ai_core_contracts.testing import pack_context, turn_view
+from axon_ai_contracts import AgentPack, PackBase, PackManifest
+from axon_ai_contracts.testing import pack_context, turn_view
 
 
 class MinimalPack(PackBase):
     name = "minimo"
-    contract_version = "0.1"
+    contract_version = "0.2"
 
     def manifest(self) -> PackManifest:
         return PackManifest(name="minimo", version="0.1.0")

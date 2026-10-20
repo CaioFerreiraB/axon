@@ -16,7 +16,7 @@ from types import MappingProxyType
 from typing import Final, Literal, Protocol
 
 from ai_core.assistants.api import ExecutionGrant
-from ai_core_contracts import Chunk, JSONValue, ToolKind
+from axon_ai_contracts import Chunk, JSONValue, ToolKind
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Vocabulário

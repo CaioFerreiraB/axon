@@ -11,7 +11,7 @@ from collections.abc import Mapping, Sequence
 
 from ai_core.packs.api import Slices
 from ai_core.packs.domain.config import is_json
-from ai_core_contracts import JSONValue, TurnView, ValidationResult
+from axon_ai_contracts import JSONValue, TurnView, ValidationResult
 
 
 def scope_view(view: TurnView, pack: str, depends_on: Sequence[str], slices: Slices) -> TurnView:

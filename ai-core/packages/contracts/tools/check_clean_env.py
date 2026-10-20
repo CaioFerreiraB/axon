@@ -14,7 +14,7 @@ from pathlib import Path
 
 CONTRACTS_DIR = Path(__file__).resolve().parents[1]
 PACK_DIR = CONTRACTS_DIR / "tests" / "fixtures" / "contract_test_pack"
-EXPECTED = {"ai-core-contracts", "typing-extensions", "contract-test-pack"}
+EXPECTED = {"axon-ai-contracts", "typing-extensions", "contract-test-pack"}
 
 
 def _normalize(name: str) -> str:

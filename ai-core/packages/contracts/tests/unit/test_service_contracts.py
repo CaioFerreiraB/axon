@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from service_fakes import DEFAULT_CHUNKS, DEFAULT_RESPONSE, FakeLLMProvider, FakeMCPClient
 
-from ai_core_contracts import LLMProvider, MCPClient, ToolResult
+from axon_ai_contracts import LLMProvider, MCPClient, ToolResult
 
 
 def test_fakes_satisfy_the_protocols() -> None:

@@ -17,7 +17,7 @@ def registry() -> PackRegistry:
         make_good_pack("alfa"),
         make_good_pack("beta"),
         make_pack_class("desligado"),
-        make_pack_class("quebrado", "0.2"),
+        make_pack_class("quebrado", "0.3"),
         settings={
             "alfa": PackSettings(enabled=True, config=GOOD_CONFIG),
             "beta": PackSettings(enabled=True, config=GOOD_CONFIG),
@@ -53,7 +53,7 @@ def test_valid_composition_keeps_the_order(registry: PackRegistry) -> None:
     [
         (["alfa", "inexistente"], "'inexistente' não está instalado", ("inexistente",)),
         (["desligado"], "'desligado' está desabilitado", ("desligado",)),
-        (["quebrado"], "requer ai-core-contracts>=0.2", ("quebrado",)),
+        (["quebrado"], "requer axon-ai-contracts>=0.3", ("quebrado",)),
         (["alfa", "alfa"], "'alfa' aparece mais de uma vez", ("alfa",)),
     ],
 )

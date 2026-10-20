@@ -14,7 +14,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Final
 
-from ai_core_contracts import JSONValue
+from axon_ai_contracts import JSONValue
 
 OPTIONAL_KEY: Final = "x-ai-core-optional"
 """Anotação interna do esquema anotado: as propriedades cuja anulabilidade a conversão introduziu. Nunca vai ao

@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from ai_core_contracts import (
+from axon_ai_contracts import (
     Chunk,
     ContractIssue,
     JSONValue,
@@ -75,7 +75,7 @@ def retriever(name: str = "docs", impl: object | None = None) -> NamedRetriever:
 
 def issues(**kwargs: Any) -> tuple[ContractIssue, ...]:
     return check_declaration(
-        pack_name="meu_pack", contract_version="0.1", manifest=PackManifest(name="meu_pack", version="0.1.0"), **kwargs
+        pack_name="meu_pack", contract_version="0.2", manifest=PackManifest(name="meu_pack", version="0.1.0"), **kwargs
     )
 
 

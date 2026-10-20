@@ -30,7 +30,7 @@ from ai_core.graph.api import (
     ToolCallSummary,
 )
 from ai_core.http.domain.progress_text import progress_line, queue_line
-from ai_core_contracts import JSONValue
+from axon_ai_contracts import JSONValue
 
 ARGUMENTS_LIMIT: Final = 120
 """Argumentos maiores que isto saem cortados com "…": a linha é para acompanhar, não para auditar."""

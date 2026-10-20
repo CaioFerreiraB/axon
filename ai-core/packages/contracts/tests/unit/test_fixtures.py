@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from ai_core_contracts.testing import (
+from axon_ai_contracts.testing import (
     REFERENCE_TIME,
     chunk,
     pack_context,

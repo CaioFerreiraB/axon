@@ -8,7 +8,7 @@ import pytest
 from capabilities_testkit import TEXT_SCHEMA
 
 from ai_core.capabilities.domain.arguments import check_schema, validate_arguments
-from ai_core_contracts import RETRIEVAL_TOOL_PARAMETERS
+from axon_ai_contracts import RETRIEVAL_TOOL_PARAMETERS
 
 
 @pytest.mark.us1

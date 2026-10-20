@@ -8,7 +8,7 @@ from math import ceil
 import pytest
 
 from ai_core.graph.domain.budget import OMITTED, estimate_tokens, exceeds, fit_chunks, trim_results
-from ai_core_contracts import ChatMessage
+from axon_ai_contracts import ChatMessage
 
 pytestmark = pytest.mark.us2
 

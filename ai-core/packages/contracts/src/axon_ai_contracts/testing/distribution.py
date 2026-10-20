@@ -1,4 +1,4 @@
-"""Dependência de `ai-core-contracts` declarada pelo pack cabe na faixa derivada (FR-018, compatibility.md §5).
+"""Dependência de `axon-ai-contracts` declarada pelo pack cabe na faixa derivada (FR-018, compatibility.md §5).
 
 `check_contracts_requirement` é pura. `find_distribution` e `read_requirements` são a borda fina que lê metadados.
 """
@@ -9,10 +9,10 @@ import importlib.metadata
 import re
 from collections.abc import Sequence
 
-from ai_core_contracts.compat import InvalidSpecifier, InvalidVersion, Version, VersionRange, derive_range
-from ai_core_contracts.declaration import ContractIssue
+from axon_ai_contracts.compat import InvalidSpecifier, InvalidVersion, Version, VersionRange, derive_range
+from axon_ai_contracts.declaration import ContractIssue
 
-_DISTRIBUTION = "ai-core-contracts"
+_DISTRIBUTION = "axon-ai-contracts"
 _REQUIREMENT_RE = re.compile(
     r"^\s*(?P<name>[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?)\s*(?:\[[^\]]*\])?\s*(?P<rest>.*)$"
 )
@@ -89,7 +89,7 @@ def _within(declared: VersionRange, derived: VersionRange) -> str:
 
 
 def check_contracts_requirement(requirements: Sequence[str], contract_version: str) -> tuple[ContractIssue, ...]:
-    """Aponta a dependência de ai-core-contracts que aceita versões fora da faixa derivada da contract_version."""
+    """Aponta a dependência de axon-ai-contracts que aceita versões fora da faixa derivada da contract_version."""
     derived = derive_range(contract_version)
     issues: list[ContractIssue] = []
     found = False
@@ -107,7 +107,7 @@ def check_contracts_requirement(requirements: Sequence[str], contract_version: s
             issues.append(
                 ContractIssue(
                     code="distribution.direct_reference",
-                    message=f"dependência de ai-core-contracts por referência direta, sem faixa; declare {derived}",
+                    message=f"dependência de axon-ai-contracts por referência direta, sem faixa; declare {derived}",
                     subject=subject,
                 )
             )
@@ -117,7 +117,7 @@ def check_contracts_requirement(requirements: Sequence[str], contract_version: s
             issues.append(
                 ContractIssue(
                     code="distribution.range_too_wide",
-                    message=f"dependência de ai-core-contracts sem faixa aceita qualquer versão; declare {derived}",
+                    message=f"dependência de axon-ai-contracts sem faixa aceita qualquer versão; declare {derived}",
                     subject=subject,
                 )
             )
@@ -154,7 +154,7 @@ def check_contracts_requirement(requirements: Sequence[str], contract_version: s
         issues.append(
             ContractIssue(
                 code="distribution.missing_requirement",
-                message=f"o pacote do pack não declara dependência de ai-core-contracts; declare {derived}",
+                message=f"o pacote do pack não declara dependência de axon-ai-contracts; declare {derived}",
                 subject="distribution",
             )
         )

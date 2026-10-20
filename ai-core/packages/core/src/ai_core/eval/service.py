@@ -32,7 +32,7 @@ from ai_core.graph.api import (
 )
 from ai_core.observability.api import TraceQuery, TraceQueryUnavailable
 from ai_core.packs.api import PackEvalMetric, PackEvalMetrics
-from ai_core_contracts import EvalEvidence, EvalItem, EvalObservation, JSONValue
+from axon_ai_contracts import EvalEvidence, EvalItem, EvalObservation, JSONValue
 
 _RESOLVE_ERRORS: Final = (AssistantNotFound, AssistantUnavailable, RequestRejected, RateLimited)
 

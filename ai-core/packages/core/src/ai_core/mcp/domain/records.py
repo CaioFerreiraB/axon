@@ -12,7 +12,7 @@ from datetime import datetime
 from types import MappingProxyType
 
 from ai_core.mcp.api import McpServerDraft
-from ai_core_contracts import JSONValue
+from axon_ai_contracts import JSONValue
 
 
 def _frozen(mapping: Mapping[str, str]) -> Mapping[str, str]:

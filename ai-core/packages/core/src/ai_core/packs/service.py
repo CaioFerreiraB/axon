@@ -33,7 +33,7 @@ from ai_core.packs.domain.hooks import apply_validation, merge_slice, scope_view
 from ai_core.packs.domain.identity import read_identity
 from ai_core.packs.domain.stream import ChainedFilter, StreamSession
 from ai_core.packs.ports import DiscoveredPack, PackConfigSource, PackSettings, PackSource
-from ai_core_contracts import (
+from axon_ai_contracts import (
     AgentPack,
     AnswerValidator,
     EvalMetric,

@@ -94,7 +94,7 @@ def _principal() -> Any:
 
 
 def _messages() -> Any:
-    from ai_core_contracts import ChatMessage
+    from axon_ai_contracts import ChatMessage
 
     return (ChatMessage(role="user", content="qual é a capital?"),)
 

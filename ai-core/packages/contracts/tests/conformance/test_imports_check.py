@@ -9,26 +9,26 @@ from pathlib import Path
 
 import pytest
 
-from ai_core_contracts.testing import acheck_pack, check_imports
+from axon_ai_contracts.testing import acheck_pack, check_imports
 
 BAD_PACKAGE = """
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ai_core_contracts import PackBase, PackManifest
+from axon_ai_contracts import PackBase, PackManifest
 
 if TYPE_CHECKING:
-    import ai_core.graph
+    import axon_ai.graph
 
 
 def _nunca_chamada() -> None:
-    from ai_generic import prompts
+    from axon_generic import prompts
 
 
 class BadPack(PackBase):
     name = "bad"
-    contract_version = "0.1"
+    contract_version = "0.2"
 
     def manifest(self) -> PackManifest:
         return PackManifest(name="bad", version="0.1.0")
@@ -56,13 +56,23 @@ def test_forbidden_imports_are_reported_with_file_and_line(sandbox: Path) -> Non
     assert [issue.code for issue in issues] == ["imports.forbidden", "imports.forbidden"]
     subjects = [issue.subject for issue in issues]
     assert subjects == ["file:badpkg/__init__.py:9", "file:badpkg/__init__.py:13"]
-    assert "ai_core.graph" in issues[0].message
-    assert "ai_generic" in issues[1].message
+    assert "axon_ai.graph" in issues[0].message
+    assert "axon_generic" in issues[1].message
 
 
 def test_clean_package_has_no_issues(sandbox: Path) -> None:
-    _write(sandbox, "cleanpkg/__init__.py", "from ai_core_contracts import PackBase\nfrom . import sub\n")
+    _write(sandbox, "cleanpkg/__init__.py", "from axon_ai_contracts import PackBase\nfrom . import sub\n")
     _write(sandbox, "cleanpkg/sub.py", "import json\n")
+    assert check_imports("cleanpkg") == ()
+
+
+def test_contracts_are_never_forbidden(sandbox: Path) -> None:
+    """`axon_ai_contracts` começa com o texto `axon_ai`, mas é outro módulo (FR-024, US6 cenário 5)."""
+    _write(
+        sandbox,
+        "cleanpkg/__init__.py",
+        "import axon_ai_contracts\nfrom axon_ai_contracts.testing import turn_view\nimport axon_ai_contracts.eval\n",
+    )
     assert check_imports("cleanpkg") == ()
 
 
@@ -73,7 +83,7 @@ def test_package_may_import_itself(sandbox: Path) -> None:
 
 
 def test_single_module_is_scanned_as_one_file(sandbox: Path) -> None:
-    _write(sandbox, "solo.py", "import ai_core\n")
+    _write(sandbox, "solo.py", "import axon_ai\n")
     [issue] = check_imports("solo")
     assert issue.subject == "file:solo.py:1"
 

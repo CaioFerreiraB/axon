@@ -16,7 +16,7 @@ from ai_core.graph.api import FinalEvent
 from ai_core.http.domain.errors import InvalidRequest
 from ai_core.http.domain.openai_chunks import FINISH_ERROR, finish_reason
 from ai_core.http.domain.records import Conversation, StoredMessage
-from ai_core_contracts import JSONValue, Message
+from axon_ai_contracts import JSONValue, Message
 
 DEFAULT_PAGE: Final = 20
 MAX_PAGE: Final = 100

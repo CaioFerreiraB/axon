@@ -9,8 +9,8 @@ from typing import Any
 
 from packs import make_pack
 
-from ai_core_contracts import PackManifest, TurnView
-from ai_core_contracts.testing import check_pack
+from axon_ai_contracts import PackManifest, TurnView
+from axon_ai_contracts.testing import check_pack
 
 
 def _codes(pack: object) -> list[str]:

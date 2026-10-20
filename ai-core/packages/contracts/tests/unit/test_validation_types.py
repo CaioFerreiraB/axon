@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from ai_core_contracts.validation import AnswerValidator, ValidationResult, ValidatorContext
-from ai_core_contracts.view import TurnView
+from axon_ai_contracts.validation import AnswerValidator, ValidationResult, ValidatorContext
+from axon_ai_contracts.view import TurnView
 
 
 class _Validator:

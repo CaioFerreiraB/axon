@@ -9,7 +9,7 @@ from ai_core.packs.domain.identity import read_identity
 
 
 def test_identity_from_class_attributes() -> None:
-    assert read_identity("good", make_pack_class("good", "0.1")) == ("good", "0.1")
+    assert read_identity("good", make_pack_class("good", "0.2")) == ("good", "0.2")
 
 
 def test_name_must_match_entry_point() -> None:
@@ -25,7 +25,7 @@ def test_instance_only_attribute_is_not_enough() -> None:
     class InstanceOnly:
         def __init__(self) -> None:
             self.name = "good"
-            self.contract_version = "0.1"
+            self.contract_version = "0.2"
 
     assert read_identity("good", InstanceOnly) == "classe sem atributo de classe 'name'"
 

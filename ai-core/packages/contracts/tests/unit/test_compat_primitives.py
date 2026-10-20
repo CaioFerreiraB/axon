@@ -4,8 +4,8 @@ from itertools import pairwise
 
 import pytest
 
-from ai_core_contracts._version import __version__
-from ai_core_contracts.compat import (
+from axon_ai_contracts._version import __version__
+from axon_ai_contracts.compat import (
     InvalidSpecifier,
     InvalidVersion,
     Version,
@@ -100,7 +100,7 @@ def test_derive_range() -> None:
 
 
 def test_check_compatibility_uses_installed_default() -> None:
-    result = check_compatibility("0.1")
+    result = check_compatibility("0.2")
     assert result.ok
     assert result.installed == __version__
     assert result.message is None
@@ -111,7 +111,7 @@ def test_check_compatibility_message_names_violated_clause() -> None:
     assert not result.ok
     assert result.violated == ">=0.2"
     assert result.required == ">=0.2,<0.3"
-    assert result.message == "requer ai-core-contracts>=0.2, instalado 0.1.4"
+    assert result.message == "requer axon-ai-contracts>=0.2, instalado 0.1.4"
 
 
 def test_check_compatibility_accepts_explicit_range() -> None:

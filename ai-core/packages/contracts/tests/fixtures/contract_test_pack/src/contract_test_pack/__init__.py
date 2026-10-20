@@ -1,1 +1,1 @@
-"""Pack de teste dos contratos: depende só de ai-core-contracts e exercita todos os hooks."""
+"""Pack de teste dos contratos: depende só de axon-ai-contracts e exercita todos os hooks."""

@@ -36,7 +36,7 @@ from ai_core.graph.domain.actions import response_format
 from ai_core.graph.domain.budget import OMITTED, estimate_tokens
 from ai_core.graph.domain.transcript import controller_messages
 from ai_core.observability.api import ControllerDecision, ExecutionError, ExecutionFinished, ToolCall
-from ai_core_contracts import ToolResult
+from axon_ai_contracts import ToolResult
 
 pytestmark = pytest.mark.us2
 

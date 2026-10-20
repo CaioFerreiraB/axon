@@ -15,7 +15,7 @@ from packs_testkit import load_runtime, make_pack_class
 from ai_core.graph.api import FinalEvent, TokenEvent
 from ai_core.packs.api import Composition
 from ai_core.packs.ports import PackSettings
-from ai_core_contracts import TurnView, ValidationResult, ValidatorContext
+from axon_ai_contracts import TurnView, ValidationResult, ValidatorContext
 
 AVISO = "\n\nAviso."
 

@@ -17,7 +17,7 @@ from ai_core.llm.api import ModelPolicy, ModelRef
 from ai_core.mcp.api import Discovery, UnknownServer
 from ai_core.observability.api import TraceEvent
 from ai_core.packs.api import Composition
-from ai_core_contracts import (
+from axon_ai_contracts import (
     Chunk,
     JSONValue,
     NamedRetriever,

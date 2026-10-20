@@ -11,7 +11,7 @@ import json
 from typing import Final
 
 from ai_core.mcp.domain.records import RemoteResult
-from ai_core_contracts import ToolResult
+from axon_ai_contracts import ToolResult
 
 CUT_MARKER: Final = "\n[… resposta cortada: {shown} de {total} bytes]"
 

@@ -11,7 +11,7 @@ from collections.abc import Mapping
 from typing import Final
 
 from ai_core.llm.api import ModelRole
-from ai_core_contracts import JSONValue
+from axon_ai_contracts import JSONValue
 
 CONSTRAINED_ROLES: Final = frozenset({"controller"})
 """Papéis cuja saída precisa vir restrita por esquema."""

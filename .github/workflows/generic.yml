@@ -71,14 +71,14 @@ jobs:
 
           installed = sorted({re.sub(r"[-_.]+", "-", d.metadata["Name"]).lower() for d in distributions()})
           print(installed)
-          assert installed == ["ai-core-contracts", "ai-generic", "typing-extensions"], installed
+          assert installed == ["ai-generic", "axon-ai-contracts", "typing-extensions"], installed
           PY
       - name: A etapa de distribuição confere a faixa declarada
         run: |
           "$RUNNER_TEMP/clean/bin/python" - <<'PY'
           from importlib.metadata import packages_distributions
 
-          from ai_core_contracts.testing import check_pack
+          from axon_ai_contracts.testing import check_pack
           from ai_generic.pack import GenericPack
 
           # Instalação normal (não editável): o mapeamento existe, então a etapa 9 tem o que verificar.

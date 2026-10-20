@@ -5,10 +5,10 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-import ai_core_contracts
-from ai_core_contracts.testing import ISSUE_CODES
+import axon_ai_contracts
+from axon_ai_contracts.testing import ISSUE_CODES
 
-PACKAGE_DIR = Path(ai_core_contracts.__file__).resolve().parent
+PACKAGE_DIR = Path(axon_ai_contracts.__file__).resolve().parent
 SOURCES = [PACKAGE_DIR / "declaration.py", *sorted((PACKAGE_DIR / "testing").glob("*.py"))]
 
 

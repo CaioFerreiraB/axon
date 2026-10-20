@@ -1,4 +1,4 @@
-"""Versões, faixas e compatibilidade de `ai-core-contracts` (FR-016, FR-018, ADR-014).
+"""Versões, faixas e compatibilidade de `axon-ai-contracts` (FR-016, FR-018, ADR-014).
 
 Subconjunto do PEP 440 implementado só com a stdlib (research R5): o FR-001 proíbe depender de `packaging`. A gramática,
 os especificadores e as mensagens estão em specs/001-core-contracts/contracts/compatibility.md.
@@ -10,7 +10,7 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
-from ai_core_contracts._version import __version__
+from axon_ai_contracts._version import __version__
 
 type ChangeKind = Literal["none", "additive", "breaking"]
 type BumpKind = Literal["none", "patch", "minor", "major"]
@@ -222,7 +222,7 @@ def check_compatibility(requirement: str | VersionRange, *, installed: str | Non
         text = requirement.strip()
         version_range = VersionRange.parse(text) if text[:1] in "<>=!~" and text else derive_range(text)
     violated = version_range.violated_by(installed_version)
-    message = None if violated is None else f"requer ai-core-contracts{violated}, instalado {installed_text}"
+    message = None if violated is None else f"requer axon-ai-contracts{violated}, instalado {installed_text}"
     return Compatibility(
         ok=violated is None,
         installed=installed_text,

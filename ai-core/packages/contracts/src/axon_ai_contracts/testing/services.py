@@ -9,11 +9,11 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Mapping, Sequence
 from typing import cast
 
-from ai_core_contracts._freeze import JSONValue
-from ai_core_contracts.declaration import ContractIssue
-from ai_core_contracts.llm import ChatMessage, LLMProvider
-from ai_core_contracts.mcp import MCPClient
-from ai_core_contracts.tools import ToolResult, ToolSpec
+from axon_ai_contracts._freeze import JSONValue
+from axon_ai_contracts.declaration import ContractIssue
+from axon_ai_contracts.llm import ChatMessage, LLMProvider
+from axon_ai_contracts.mcp import MCPClient
+from axon_ai_contracts.tools import ToolResult, ToolSpec
 
 _PING: tuple[ChatMessage, ...] = ({"role": "user", "content": "ping"},)
 

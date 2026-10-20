@@ -12,8 +12,8 @@ from ai_core.packs.adapters.memory import InMemoryPackConfigSource, InMemoryPack
 from ai_core.packs.api import PackStatus
 from ai_core.packs.ports import DiscoveredPack, PackSettings
 from ai_core.packs.service import PackRuntime
-from ai_core_contracts import PackContext, PackManifest, ToolInvocation, ToolSpec
-from ai_core_contracts import __version__ as contracts_version
+from axon_ai_contracts import PackContext, PackManifest, ToolInvocation, ToolSpec
+from axon_ai_contracts import __version__ as contracts_version
 
 
 def _boom(*args: Any) -> NoReturn:
@@ -52,8 +52,8 @@ def _single(name: str, cls: Any) -> list[DiscoveredPack]:
 CASES = [
     (
         "incompativel",
-        _single("incompativel", make_pack_class("incompativel", "0.2")),
-        f"requer ai-core-contracts>=0.2, instalado {contracts_version}",
+        _single("incompativel", make_pack_class("incompativel", "0.3")),
+        f"requer axon-ai-contracts>=0.3, instalado {contracts_version}",
     ),
     (
         "manifesto",

@@ -34,7 +34,7 @@ from ai_core.capabilities.ports import AuditLog, Clock, PackToolSource
 from ai_core.mcp.api import McpClients, RestrictedMcpClient, UnknownServer
 from ai_core.observability.api import ExecutionError, TraceSink
 from ai_core.observability.api import ToolCall as ToolCallEvent
-from ai_core_contracts import Chunk, ToolInvocation, ToolSpec
+from axon_ai_contracts import Chunk, ToolInvocation, ToolSpec
 
 logger: Final = logging.getLogger("ai_core.capabilities")
 

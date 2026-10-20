@@ -6,7 +6,7 @@
 ## Localização
 
 ```text
-ai-core/packages/contracts/src/ai_core_contracts/
+ai-core/packages/contracts/src/axon_ai_contracts/
 ├── pack.py          # AgentPack, PackManifest, PackContext, PackRoutine
 ├── tools.py         # ToolSpec, ToolResult
 ├── view.py          # TurnView                                   [ADR-011 — substitui state.py]
@@ -198,13 +198,13 @@ class ValidationResult:
 
 | Distribuição | Repositório | Versão | Tag de exemplo |
 |---|---|---|---|
-| `ai-core-contracts` | `ai-core` | própria | `contracts-v0.1.0` |
+| `axon-ai-contracts` | `ai-core` | própria | `contracts-v0.1.0` |
 | `ai-core` e `ai-generic` | `ai-core` | única, lançados juntos | `v0.3.1` |
 | `ai-scouting` e demais packs | próprio | própria | `v0.1.4` |
 
 | Regra | |
 |---|---|
-| Semver em `ai-core-contracts` **[ADR-014]** | enquanto 0.x: aditiva = patch, breaking = minor; a partir de 1.0: aditiva = minor, breaking = major |
+| Semver em `axon-ai-contracts` **[ADR-014]** | enquanto 0.x: aditiva = patch, breaking = minor; a partir de 1.0: aditiva = minor, breaking = major |
 | Janela de depreciação **[ADR-014]** | uma série compatível: depreciado em 0.N.x sai a partir de 0.(N+1).0 |
 | `contract_version` no pack | verificada no boot (spec 002) |
 | Faixa nos packs externos | `>=0.1,<0.2` |
@@ -215,18 +215,18 @@ class ValidationResult:
 ```toml
 # ai-core/pyproject.toml
 [tool.importlinter]
-root_packages = ["ai_core_contracts", "ai_core", "ai_generic"]
+root_packages = ["axon_ai_contracts", "ai_core", "ai_generic"]
 
 [[tool.importlinter.contracts]]
 name = "contratos não importam o resto do projeto"
 type = "forbidden"
-source_modules = ["ai_core_contracts"]
+source_modules = ["axon_ai_contracts"]
 forbidden_modules = ["ai_core", "ai_generic"]
 
 [[tool.importlinter.contracts]]
 name = "contratos não dependem de frameworks do runtime"    # [ADR-011]
 type = "forbidden"
-source_modules = ["ai_core_contracts"]
+source_modules = ["axon_ai_contracts"]
 forbidden_modules = ["langgraph", "langchain", "fastapi", "qdrant_client", "sqlalchemy"]
 
 [[tool.importlinter.contracts]]
@@ -254,7 +254,7 @@ packs e os módulos do core.
 
 ## Sugestão para o plano
 
-- Uma **suíte de conformidade de pack** publicada junto dos contratos (ex.: `ai_core_contracts.testing`): fixtures de Turn View e checagens que todo pack roda. É ela que prova o SC-002.
+- Uma **suíte de conformidade de pack** publicada junto dos contratos (ex.: `axon_ai_contracts.testing`): fixtures de Turn View e checagens que todo pack roda. É ela que prova o SC-002.
 - Suítes de conformidade também para `LLMProvider` e `MCPClient`, rodadas contra cada implementação e contra os adapters simulados de teste (princípio XIII).
 - Verificação de API pública no CI (diff de símbolos exportados) para detectar breaking change (SC-004).
 - ~~Fixar a política de versões 0.x~~ — resolvido em 2026-09-15 pela clarificação da spec (FR-016) e pelo **[ADR-014]**.

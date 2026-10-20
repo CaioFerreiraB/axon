@@ -10,8 +10,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Protocol, runtime_checkable
 
-from ai_core_contracts._freeze import JSONValue
-from ai_core_contracts.tools import ToolResult, ToolSpec
+from axon_ai_contracts._freeze import JSONValue
+from axon_ai_contracts.tools import ToolResult, ToolSpec
 
 
 @runtime_checkable

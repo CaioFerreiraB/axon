@@ -7,10 +7,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-import ai_core_contracts
+import axon_ai_contracts
 
-PACKAGE_DIR = Path(ai_core_contracts.__file__).resolve().parent
-ALLOWED_ROOTS = set(sys.stdlib_module_names) | {"typing_extensions", "ai_core_contracts"}
+PACKAGE_DIR = Path(axon_ai_contracts.__file__).resolve().parent
+ALLOWED_ROOTS = set(sys.stdlib_module_names) | {"typing_extensions", "axon_ai_contracts"}
 RUNTIME_DENYLIST = {
     "os",
     "io",
@@ -74,6 +74,6 @@ def test_runtime_modules_do_no_io() -> None:
 
 
 def test_importing_contracts_does_not_load_the_testing_kit() -> None:
-    code = "import sys, ai_core_contracts; print('ai_core_contracts.testing' in sys.modules)"
+    code = "import sys, axon_ai_contracts; print('axon_ai_contracts.testing' in sys.modules)"
     completed = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
     assert completed.stdout.strip() == "False"

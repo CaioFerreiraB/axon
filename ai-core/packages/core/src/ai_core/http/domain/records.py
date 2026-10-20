@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
-from ai_core_contracts import JSONValue
+from axon_ai_contracts import JSONValue
 
 type MessageRole = Literal["user", "assistant"]
 

@@ -369,3 +369,115 @@ registro (R-A*). As demais (R*) resolvem o que o design deixou em aberto ou o qu
   `contracts-v0.1.0` classifica as quatro mudanças como aditivas (patch).
 - **Rationale** (ADR-014, ADR-024): aditivo — nenhum pack muda; quem não implementa `open_stream` continua em lote.
 - **Alternatives**: método opcional no próprio `AnswerValidator` (mudaria o protocolo de todos os validators).
+
+---
+
+## Passada de 2026-10-20: identidade Axon ([ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md); US6)
+
+Decisões pré-aprovadas pelo ADR-037 (nome, versão, corte seco, ordem das passadas); o que segue é como elas chegam aos
+contratos, sem re-pesquisa. O [ADR-038](../../docs/adr/ADR-038-marca-da-plataforma-e-marca-da-instalacao.md) (marca
+visível) não toca os contratos.
+
+### R26 — Nome da distribuição e do import
+
+- **Decision**: distribuição `axon-ai-contracts`, pacote `axon_ai_contracts` (`git mv src/ai_core_contracts
+  src/axon_ai_contracts`), kit em `axon_ai_contracts.testing`. A pasta `ai-core/packages/contracts` fica; a pasta do
+  workspace muda na passada da 011. `description` do `pyproject.toml`: "Contratos públicos do núcleo da plataforma Axon".
+  Superfície pública idêntica à de 0.1.3, símbolo a símbolo.
+- **Rationale** (ADR-037, itens 1 e 2): no código, `ai-core` vira `axon-ai` e o prefixo `ai-` vira `axon-`; `axon`
+  sozinho colide com um pacote do PyPI no import e no nome de distribuição. Mudar só o nome mantém o FR-020 legível:
+  o diff relata o renome e nada mais (R30).
+- **Alternatives**: `axon_contracts` (quebra a regra do ADR-037, que deriva os nomes de `axon-ai`); renomear também a
+  pasta `packages/contracts` para `packages/axon-ai-contracts` (nenhum outro membro do workspace leva o nome da
+  distribuição na pasta).
+
+### R27 — Versão 0.2.0 e corte seco
+
+- **Decision**: `version = "0.2.0"` (`pyproject.toml` e `_version.py`); CHANGELOG ganha a seção `0.2.0` com o renome
+  como única mudança (breaking) e a nota de que todo pack escrito para `0.1.x` precisa de nova versão
+  (`axon-ai-contracts>=0.2,<0.3`, `contract_version = "0.2"`). Nenhum módulo `ai_core_contracts`, alias, reexportação ou
+  `contract_deprecated` para o nome antigo. Um teste de fronteira afirma que `ai_core_contracts` não é importável no
+  ambiente do workspace (US6, cenário 1).
+- **Rationale** (ADR-037, itens 3 e 4; ADR-014): renomear o import é quebra, e quebra em 0.x sobe a minor. Sem
+  instalação nem pack de terceiro a preservar, um módulo de compatibilidade só carregaria código sem usuário. A janela de
+  depreciação do FR-016 é para símbolos dentro da distribuição; o renome da distribuição inteira está decidido no ADR.
+- **Alternatives**: pacote `ai_core_contracts` fino que reexporta `axon_ai_contracts` com aviso (rejeitado no ADR-037,
+  "período de transição"); `1.0.0` (o ADR-014 reserva o 1.0 para a estabilidade dos contratos, não para um renome).
+
+### R28 — Mensagens e etapa de distribuição
+
+- **Decision**: o nome `axon-ai-contracts` nas três mensagens que nomeiam a distribuição — `Compatibility.message`
+  (`requer axon-ai-contracts<cláusula>, instalado <versão>`), o aviso de depreciação (`desde axon-ai-contracts <since>`) e
+  as cinco da etapa de distribuição — e `_DISTRIBUTION = "axon-ai-contracts"` em `testing/distribution.py`. A busca
+  continua por nome normalizado (PEP 503); uma dependência de `ai-core-contracts` é uma dependência qualquer, e o pack
+  que só tem ela recebe `distribution.missing_requirement` (US6, cenário 3). Os códigos de issue não mudam.
+- **Rationale** (ADR-037, item 3): o pack que ainda aponta para o nome antigo precisa de uma mensagem que diga o nome
+  novo, e `missing_requirement` já diz ("não declara dependência de axon-ai-contracts; declare >=0.2,<0.3"). Nenhum código novo de issue: a única
+  concessão de diagnóstico do ADR-037 é a recusa das variáveis de ambiente antigas, no boot (011).
+- **Alternatives**: código novo `distribution.renamed` para o nome antigo (diagnóstico além do que o ADR concede; o
+  `missing_requirement` já nomeia a dependência certa).
+
+### R29 — Módulos proibidos por padrão na varredura de imports
+
+- **Decision**: `DEFAULT_FORBIDDEN = ("axon_ai", "axon_generic")` em `testing/imports.py`; a comparação continua por
+  módulo (igual, ou prefixo seguido de ponto), então `axon_ai_contracts` nunca casa com `axon_ai`. Os packs de teste que
+  provam `imports.forbidden` passam a importar `axon_ai` (a varredura é por AST; o módulo não precisa existir).
+- **Rationale** (ADR-037, item 2): o kit sai na tag `contracts-v0.2.0`, que só é criada depois das passadas do core
+  (011) e do pack de referência (010), quando os imports proibidos são esses. Entre a 001 e a 011, o core ainda é
+  `ai_core`, e a fronteira de `ai_generic` contra `ai_core` continua guardada pelo import-linter do workspace
+  ("o pack genérico não importa o core").
+- **Alternatives**: proibir os dois pares (`ai_core`, `ai_generic`, `axon_ai`, `axon_generic`) e limpar na 011 (carrega
+  nome antigo na superfície que o pack externo consome, só para cobrir semanas de desenvolvimento); manter
+  `ai_core`/`ai_generic` e trocar na 011 (a passada da 011 teria de mudar a superfície dos contratos, que é da 001).
+
+### R30 — Diff de superfície com renome da raiz
+
+- **Decision**: em `tools/api_surface.py`:
+  - `dump(package="axon_ai_contracts")` introspecta `package` e `package.testing`; o snapshot ganha `package` e tira o
+    nome da distribuição dos metadados instalados: `importlib.metadata.packages_distributions()` e, como o workspace
+    instala os membros em modo editável (sem `top_level` nos metadados), a distribuição de nome derivado do pacote
+    (`_` → `-`, que vale para `axon_ai_contracts` e para `ai_core_contracts`); o próprio pacote é a última reserva. CLI: `dump [--package NOME] [--output ARQUIVO]`.
+  - `classify` compara os módulos pelo nome relativo à raiz (`""`, `".testing"`) e mostra cada símbolo com o nome do
+    HEAD. Se `distribution` ou `package` diferem entre os snapshots, acrescenta **uma** mudança breaking
+    (`símbolo` = pacote novo, `detalhe` = "distribuição renomeada: ai-core-contracts (ai_core_contracts) →
+    axon-ai-contracts (axon_ai_contracts)"), sem `removed_without_deprecation`.
+  - No CI (`contracts.yml`, jobs `surface` e `frozen-pack`), o pacote da linha de base sai do próprio worktree da tag
+    (`$base/src/*/__init__.py`) e vai em `--package`; o `same_series` importa `axon_ai_contracts`.
+  - Quando a raiz muda, os textos da linha de base (anotações, `repr` de aliases e defaults) têm a raiz antiga trocada
+    pela nova, por palavra inteira, antes da comparação: o `repr` de `NativeHandler` cita `ai_core_contracts.tools`, e
+    sem isso o alias sairia como alterado.
+  A última tag é `contracts-v0.1.2` (a 0.1.3, `ChatUsage.cost`, não foi marcada). Contra ela, verificado em
+  2026-10-20: o renome (breaking), `ChatUsage['cost']` (aditiva) e `testing.check_imports` (breaking: default novo de
+  `forbidden`, R29); bump exigido `minor`, declarado `minor` (0.1.2 → 0.2.0), sem falha; com 0.1.4 declarado, falha (US6,
+  cenário 4). O pack congelado de 0.1.2 é pulado (série nova).
+- **Rationale** (ADR-037, item 4; FR-020, FR-025): comparar pelo nome completo relataria cada símbolo como removido sem
+  depreciação, e o CI falharia por uma mudança que o ADR decidiu. Comparar pelo relativo mantém a garantia em cada
+  símbolo e registra o renome uma vez. O snapshot é gerado a cada rodada pela ferramenta do HEAD, então mudar o formato
+  não exige migração.
+- **Alternatives**: pular o job `surface` nesta versão (perde a verificação de que nenhum símbolo mudou junto com o
+  nome); mapa fixo `ai_core_contracts → axon_ai_contracts` na ferramenta (nome antigo no código, contra o SC-006).
+
+### R31 — Consumidores no workspace (atualização mecânica)
+
+- **Decision**: um script de substituição no scratchpad (não versionado), do padrão mais longo ao mais curto
+  (`ai_core_contracts` antes de `ai_core`; `ai-core-contracts` antes de `ai-core`), aplicado só a código, testes e
+  configuração do workspace (`ai-core/packages/**`, `ai-core/pyproject.toml`) e aos workflows `contracts.yml` e
+  `generic.yml`; documentos de histórico (ADR-037, item 6) ficam fora. Junto:
+  - `packages/core/pyproject.toml`: dependência e fonte `axon-ai-contracts`;
+  - `packages/generic/pyproject.toml`: `axon-ai-contracts>=0.2,<0.3` (fonte do workspace) e `contract_version = "0.2"`
+    no `GenericPack`; o nome da distribuição (`axon-generic` 0.2.0) fica para a 010;
+  - `contract_version = "0.1"` → `"0.2"` nos packs de teste do core e dos contratos e no pack de teste congelado
+    (`contract_test_pack`: `axon-ai-contracts>=0.2,<0.3`), e as asserções que leem a coluna `contract_version`; os
+    testes da regra de versões que passam `installed=` explícito ficam como estão, porque testam a regra, não a versão
+    instalada;
+  - raiz do workspace: `known-first-party`, `root_packages` e contratos do import-linter com `axon_ai_contracts`;
+  - `check_clean_env.py`: `EXPECTED = {"axon-ai-contracts", "typing-extensions", "contract-test-pack"}`;
+  - `generic.yml`: a lista instalada esperada passa a `["ai-generic", "axon-ai-contracts", "typing-extensions"]`;
+  - `uv lock`.
+  O `axon-scouting` (submódulo) e a instalação continuam na tag `v0.3.0` até as passadas da 101 e da 002.
+- **Rationale** (ADR-037, item 7): a passada que renomeia uma distribuição atualiza, de forma mecânica, os imports de
+  quem a consome, para a CI ficar verde. Com a minor nova, todo pack que declara `"0.1"` fica incompatível pela própria
+  regra do FR-018; levar a faixa junto é consequência, não escolha. Os nomes do core, do pack de referência e do pack
+  de domínio são das passadas deles.
+- **Alternatives**: deixar a faixa do `ai-generic` para a 010 (o workspace não resolve: `>=0.1,<0.2` contra o membro
+  0.2.0); aplicar a substituição ao repositório inteiro (reescreveria ADRs e research executados).

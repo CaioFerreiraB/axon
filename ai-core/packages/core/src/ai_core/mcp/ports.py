@@ -23,7 +23,7 @@ from ai_core.mcp.domain.records import (
     StdioCommand,
     StoredServer,
 )
-from ai_core_contracts import JSONValue
+from axon_ai_contracts import JSONValue
 
 __all__ = [
     "CacheKey",

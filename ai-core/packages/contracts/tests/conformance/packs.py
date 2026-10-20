@@ -5,12 +5,12 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from ai_core_contracts import JSONValue, PackBase, PackContext, PackManifest, TurnView
+from axon_ai_contracts import JSONValue, PackBase, PackContext, PackManifest, TurnView
 
 
 class GoodPack(PackBase):
     name = "good"
-    contract_version = "0.1"
+    contract_version = "0.2"
 
     def manifest(self) -> PackManifest:
         return PackManifest(name="good", version="0.1.0")
@@ -19,7 +19,7 @@ class GoodPack(PackBase):
 def make_pack(
     *,
     name: str = "good",
-    contract_version: str = "0.1",
+    contract_version: str = "0.2",
     manifest: PackManifest | Callable[[Any], PackManifest] | None = None,
     **hooks: Callable[..., Any],
 ) -> PackBase:

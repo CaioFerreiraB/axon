@@ -24,7 +24,7 @@ from ai_core.graph.domain.steps import tool_summary
 from ai_core.graph.domain.transcript import InvalidStep, Step, ToolStep, controller_messages
 from ai_core.llm.api import ModelCallFailed
 from ai_core.observability.api import ControllerDecision, DecisionAction, ExecutionError
-from ai_core_contracts import RETRIEVAL_FILTERS_KEY, JSONValue
+from axon_ai_contracts import RETRIEVAL_FILTERS_KEY, JSONValue
 
 STAGE_LOAD: Final = "load_capabilities"
 STAGE_CONTROLLER: Final = "controller"

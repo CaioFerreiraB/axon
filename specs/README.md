@@ -149,7 +149,7 @@ prevista; cada uma tem adapter em memória e suíte de conformidade.
 ```mermaid
 flowchart TD
     subgraph RCORE["repositório ai-core · uv workspace · specs 0xx"]
-        C[ai-core-contracts<br/>001]
+        C[axon-ai-contracts<br/>001]
         CORE[ai-core<br/>002–009, 011, 012]
         GEN[ai-generic<br/>010]
         CON[console<br/>013 · SPA, fora do uv]
@@ -184,7 +184,7 @@ Ao criar spec nova, use o próximo número livre **dentro do bloco** (ver [CLAUD
 
 | Spec | Módulo | Distribuição / caminho | Fase | Status |
 |---|---|---|---|---|
-| [001](001-core-contracts/spec.md) | Contratos públicos | `ai-core-contracts` | 0 | Fase 0 implementada (US1–US4); `0.1.1` (ADR-024) e `0.1.2` (`ai_core_contracts.eval` e o hook opcional `eval_metrics` — [ADR-027](../docs/adr/ADR-027-metricas-de-dominio-pelo-contrato-de-pack.md)); `0.1.3` (`ChatUsage.cost` — [ADR-035](../docs/adr/ADR-035-custo-informado-pelo-provider-e-providers-prontos.md)) |
+| [001](001-core-contracts/spec.md) | Contratos públicos | `axon-ai-contracts` | 0 | Fase 0 implementada (US1–US4); `0.1.1` (ADR-024) e `0.1.2` (`.eval` e o hook opcional `eval_metrics` — [ADR-027](../docs/adr/ADR-027-metricas-de-dominio-pelo-contrato-de-pack.md)); `0.1.3` (`ChatUsage.cost` — [ADR-035](../docs/adr/ADR-035-custo-informado-pelo-provider-e-providers-prontos.md)); `0.2.0`, US6 (`axon-ai-contracts`, import `axon_ai_contracts` — [ADR-037](../docs/adr/ADR-037-a-plataforma-se-chama-axon.md)) |
 | [002](002-core-pack-runtime/spec.md) | Descoberta, carga e composição de packs + build da instalação | `ai_core/packs` | 1–4, 9 | Fase 1 implementada (US1, US2, US3 cen. 2–4); Fase 2 (US4) e Fase 3 (US3 cen. 1, Pack Toolset) implementadas; Fase 4 (US5): build da instalação no repositório `agentic-deploy` (submódulo; ADR-022); Fase 6: o seam `PackEvalMetrics` (ADR-027); Fase 7: a instalação com o perfil `webui` (Open WebUI v0.12 e Keycloak de desenvolvimento); Fase 9 especificada (US7: instalação com ou sem console, sem Keycloak) |
 | [003](003-core-assistants-access/spec.md) | Assistants, identidade e autorização | `ai_core/assistants` | 2, 3, 9 | Fase 2 implementada (US1–US7) e ligada pela 008 e pela 011; Fase 3: validação de papéis por flow (ADR-019), de `allowed_tools`/`write_tools` com namespace e da colisão alias × pack; Fase 9 especificada (US9: superfície de administração; US10: sobreposições — ADR-031, ADR-032); Fase 9: US9 implementada (superfície `admin`, audiência por superfície, admin pelo grupo, `JwksSource` em processo), US10 implementada (sobreposições de `models` e `mcp` sob `overrides`, impressão digital, histórico, seam `SystemAssistantAdmin`) |
 | [004](004-core-capability-gateway/spec.md) | Catálogo de capacidades e execução segura de tools | `ai_core/capabilities` | 3 | Fase 3 implementada (US1–US5); ligada pela 002, 003, 005 e 011 |

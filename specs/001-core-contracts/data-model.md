@@ -1,4 +1,4 @@
-# Data Model — 001 Contratos públicos (`ai-core-contracts` 0.1)
+# Data Model — 001 Contratos públicos (`axon-ai-contracts` 0.2)
 
 **Plano**: [plan.md](plan.md) · **Decisões**: [research.md](research.md) · **Assinaturas**: [contracts/python-api.md](contracts/python-api.md)
 
@@ -256,7 +256,7 @@ reordenados, cada um vindo de `documents` (verificado pela conformidade: `rerank
 |---|---|---|
 | `Version` | `release: tuple[int, ...]`, `pre: tuple[str, int] \| None`, `dev: int \| None` | subconjunto PEP 440 (R5); ordem total; `0.1 == 0.1.0` |
 | `VersionRange` | cláusulas `(operador, versão[, curinga])` | `contains(v)`; `violated_by(v)`; `str()` canônico `>=0.1,<0.2` |
-| `Compatibility` | `ok`, `installed`, `required`, `violated`, `message` | `message` = `requer ai-core-contracts<cláusula>, instalado <versão>` quando `ok` é falso |
+| `Compatibility` | `ok`, `installed`, `required`, `violated`, `message` | `message` = `requer axon-ai-contracts<cláusula>, instalado <versão>` quando `ok` é falso |
 | `ChangeKind` | `none` · `additive` · `breaking` | classificação de mudança de superfície |
 | `BumpKind` | `none` · `patch` · `minor` · `major` | `required_bump` × `declared_bump` |
 

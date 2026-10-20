@@ -9,7 +9,7 @@ from collections.abc import Mapping, Sequence
 
 from ai_core.mcp.api import SecurityPolicy
 from ai_core.mcp.domain.records import RemoteTool
-from ai_core_contracts import ToolSpec
+from axon_ai_contracts import ToolSpec
 
 
 def allowed_specs(remote: Sequence[RemoteTool], policy: SecurityPolicy) -> tuple[ToolSpec, ...]:

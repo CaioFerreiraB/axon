@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from ai_core.capabilities.api import CatalogTool
 from ai_core.graph.api import GateRoute
-from ai_core_contracts import Chunk
+from axon_ai_contracts import Chunk
 
 RETRIEVAL_KIND = "retrieval"
 

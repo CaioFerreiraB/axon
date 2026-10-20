@@ -164,4 +164,4 @@ def test_api_imports_only_stdlib_and_contracts() -> None:
             roots.update(alias.name.split(".")[0] for alias in node.names)
         elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
             roots.add(node.module.split(".")[0])
-    assert roots <= {"__future__", "collections", "dataclasses", "datetime", "decimal", "typing", "ai_core_contracts"}
+    assert roots <= {"__future__", "collections", "dataclasses", "datetime", "decimal", "typing", "axon_ai_contracts"}

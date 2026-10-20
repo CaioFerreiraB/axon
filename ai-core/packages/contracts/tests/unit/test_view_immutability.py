@@ -7,8 +7,8 @@ from collections.abc import Mapping
 
 import pytest
 
-from ai_core_contracts import JSONValue, PackBase, PackContext, PackManifest, ToolResult, TurnView
-from ai_core_contracts.testing import REFERENCE_TIME, pack_context, turn_view
+from axon_ai_contracts import JSONValue, PackBase, PackContext, PackManifest, ToolResult, TurnView
+from axon_ai_contracts.testing import REFERENCE_TIME, pack_context, turn_view
 
 
 def _mutable_data() -> dict[str, object]:
@@ -51,7 +51,7 @@ def test_fields_and_items_cannot_be_assigned() -> None:
 
 class _EchoPack(PackBase):
     name = "echo_pack"
-    contract_version = "0.1"
+    contract_version = "0.2"
 
     def manifest(self) -> PackManifest:
         return PackManifest(name="echo_pack", version="0.1.0")

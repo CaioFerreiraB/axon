@@ -1,4 +1,4 @@
-"""Testes do pack de teste: só ai_core_contracts e o kit de testes, sem nenhum componente do core (US1, SC-003).
+"""Testes do pack de teste: só axon_ai_contracts e o kit de testes, sem nenhum componente do core (US1, SC-003).
 
 Rodam sem pytest-asyncio: hooks assíncronos são chamados com `asyncio.run`.
 """
@@ -8,8 +8,8 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 
-from ai_core_contracts import RETRIEVAL_TOOL_PARAMETERS, TurnView, retrieval_tool_spec
-from ai_core_contracts.testing import (
+from axon_ai_contracts import RETRIEVAL_TOOL_PARAMETERS, TurnView, retrieval_tool_spec
+from axon_ai_contracts.testing import (
     REFERENCE_TIME,
     assert_pack_conforms,
     pack_context,

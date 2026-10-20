@@ -9,7 +9,7 @@ from collections.abc import Iterable
 
 from ai_core.capabilities.api import FencedToolResult, ToolCall
 from ai_core.graph.api import SourceRef, ToolCallSummary
-from ai_core_contracts import Chunk
+from axon_ai_contracts import Chunk
 
 
 def source_refs(chunks: Iterable[Chunk]) -> tuple[SourceRef, ...]:

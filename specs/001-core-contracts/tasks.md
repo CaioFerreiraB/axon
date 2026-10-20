@@ -224,6 +224,88 @@ constituição exige para todo seam exposto (research R21, R22)
 
 ---
 
+## Passada de 2026-10-20: identidade Axon — US6 ([ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md); research R26–R31)
+
+**Goal**: `axon-ai-contracts` 0.2.0, import `axon_ai_contracts`, mesma superfície de 0.1.3, sem nome antigo; consumidores
+do workspace atualizados de forma mecânica e CI verde.
+
+**Independent Test**: [quickstart.md §9](quickstart.md) — versão `0.2.0`, `ai_core_contracts` não importável, pack `"0.1"`
+incompatível com o nome novo, dependência antiga → `distribution.missing_requirement`, diff contra `contracts-v0.1.2`
+(a última tag) com uma mudança de renome e bump `minor` aceito.
+
+### Setup (renome mecânico — bloqueia o resto)
+
+- [X] T066 [US6] `git mv ai-core/packages/contracts/src/ai_core_contracts ai-core/packages/contracts/src/axon_ai_contracts`;
+  em `ai-core/packages/contracts/pyproject.toml`, `name = "axon-ai-contracts"`, `version = "0.2.0"` e `description`
+  "Contratos públicos do núcleo da plataforma Axon: a única superfície que um pack enxerga."; `_version.py` em `0.2.0` (R26, R27)
+- [X] T067 [US6] Script de substituição no scratchpad (não versionado), padrões do mais longo ao mais curto
+  (`ai_core_contracts` → `axon_ai_contracts`, `ai-core-contracts` → `axon-ai-contracts`), aplicado só a
+  `ai-core/packages/**` (`.py`, `.toml`, `.md`, `.txt`, `.cfg`), `ai-core/pyproject.toml`,
+  `.github/workflows/contracts.yml` e `.github/workflows/generic.yml`; nada em `docs/`, `specs/`, nos submódulos nem no
+  `ai-core/packages/contracts/CHANGELOG.md` (histórico; a T078 acrescenta a seção 0.2.0) (R31)
+- [X] T068 [US6] Faixa e `contract_version` (R31): `ai-core/packages/generic/pyproject.toml` com
+  `axon-ai-contracts>=0.2,<0.3` e a fonte do workspace; `contract_version = "0.2"` em
+  `ai-core/packages/generic/src/ai_generic/pack.py`; `ai-core/packages/contracts/tests/fixtures/contract_test_pack/pyproject.toml`
+  com `axon-ai-contracts>=0.2,<0.3` e o pack dele em `"0.2"`; `"0.1"` → `"0.2"` nos packs de teste e nas asserções de
+  `contract_version` de `ai-core/packages/core/tests/**`, `ai-core/packages/contracts/tests/**` (exceto os testes da
+  regra de versões com `installed=` explícito: `test_compat_*.py`, `test_deprecation.py`, `test_distribution_check.py`)
+  e `ai-core/packages/generic/tests/test_pack.py`; `ai-core/packages/contracts/README.md` com os nomes e a faixa novos
+- [X] T069 [US6] `uv lock` em `ai-core/`; `git grep -n "ai_core_contracts\|ai-core-contracts" -- ai-core .github`
+  só pode sobrar o que os testes do corte seco usam (T071, T072) (SC-006)
+
+### Tests (antes da implementação de T074–T076)
+
+- [X] T070 [P] [US6] `ai-core/packages/contracts/tests/surface/test_rename.py`: dois snapshots sintéticos com os mesmos
+  símbolos e `distribution`/`package` diferentes → exatamente uma `Change("breaking", ...)` com "distribuição
+  renomeada", sem `removed_without_deprecation`; `evaluate(..., old_version="0.1.3", new_version="0.2.0")` não falha;
+  com `"0.1.4"` falha; um símbolo que muda de forma junto com o renome também é relatado; mesmo nome nos dois lados →
+  nenhuma mudança de renome (US6 cenário 4, FR-025)
+- [X] T071 [P] [US6] `ai-core/packages/contracts/tests/boundary/test_no_old_name.py`: `importlib.util.find_spec("ai_core_contracts")`
+  é `None`; `importlib.metadata.version("axon-ai-contracts") == axon_ai_contracts.__version__ == "0.2.0"` (US6 cenário 1, FR-022)
+- [X] T072 [P] [US6] Nomes nas mensagens (FR-023): em `tests/unit/test_compat_rules.py`, `check_compatibility("0.1",
+  installed="0.2.0").message == "requer axon-ai-contracts<0.2, instalado 0.2.0"` (cenário 2); em
+  `tests/unit/test_distribution_check.py`, `["ai-core-contracts>=0.1,<0.2"]` com `"0.2"` → `distribution.missing_requirement`
+  com "declare axon-ai-contracts>=0.2,<0.3" na mensagem, e as duas dependências juntas → só a nova verificada (cenário 3,
+  edge case); em `tests/unit/test_deprecation.py`, a mensagem com "desde axon-ai-contracts" (cenário 6)
+- [X] T073 [P] [US6] `ai-core/packages/contracts/tests/conformance/`: o pack que prova `imports.forbidden` passa a
+  importar `axon_ai`; caso novo com `axon_generic`; caso com `import axon_ai_contracts` e `from axon_ai_contracts.testing
+  import ...` sem issue (cenário 5, FR-024)
+
+### Implementation
+
+- [X] T074 [US6] `ai-core/packages/contracts/src/axon_ai_contracts/testing/imports.py`:
+  `DEFAULT_FORBIDDEN = ("axon_ai", "axon_generic")`; docstring com `axon_generic` (R29)
+- [X] T075 [US6] Conferir que as mensagens de `compat.py`, `deprecation.py` e `testing/distribution.py`
+  (`_DISTRIBUTION = "axon-ai-contracts"`) saíram da substituição de T067 com o nome novo e as docstrings também (R28)
+- [X] T076 [US6] `ai-core/packages/contracts/tools/api_surface.py` (R30): `dump(package="axon_ai_contracts")` com
+  `package` e `package.testing`, snapshot com `package` e `distribution` lida de
+  `importlib.metadata.packages_distributions()` ou da distribuição de nome derivado do pacote (editável; reserva: o próprio `package`); `classify` por nome relativo à raiz,
+  símbolo exibido com o nome do HEAD, mais a mudança única "distribuição renomeada: <dist antiga> (<pacote antigo>) →
+  <dist nova> (<pacote novo>)"; CLI `dump --package`; `evaluate` importa `axon_ai_contracts.compat`; os testes
+  existentes de `tests/surface/` ajustados ao formato novo
+- [X] T077 [US6] `.github/workflows/contracts.yml`: jobs `surface` e `frozen-pack` descobrem o pacote da linha de base
+  em `$base/src/*/__init__.py` e o passam em `dump --package`; `same_series` com `axon_ai_contracts`; cabeçalho com
+  `axon-ai-contracts`. `.github/workflows/generic.yml`: lista instalada esperada
+  `["ai-generic", "axon-ai-contracts", "typing-extensions"]`
+- [X] T078 [US6] `ai-core/packages/contracts/CHANGELOG.md`: título `axon-ai-contracts` e seção `0.2.0` — renome da
+  distribuição e do import (breaking, ADR-037, corte seco), varredura de imports com `axon_ai`/`axon_generic`, packs
+  passam a `axon-ai-contracts>=0.2,<0.3` e `contract_version = "0.2"`; `tools/check_clean_env.py` com
+  `EXPECTED = {"axon-ai-contracts", "typing-extensions", "contract-test-pack"}`
+
+### Polish
+
+- [X] T079 [US6] Suítes (a partir de `ai-core/`): `uv sync && uv run pytest && uv run mypy && uv run ruff check packages
+  && uv run ruff format --check packages/contracts && uv run lint-imports`; `check_clean_env.py`; contratos em 3.12 fora
+  do workspace; `ai-generic` em ambiente limpo (CLAUDE.md); [quickstart.md §9](quickstart.md), inclusive o diff contra
+  `contracts-v0.1.2` (a última tag: a 0.1.3 não foi marcada)
+- [X] T080 [P] [US6] `specs/README.md`: linha da 001 (`axon-ai-contracts`, `0.2.0` com o ADR-037) e o nó do diagrama;
+  `docs/roadmap.md`, incremento 9.5: 001 feita
+
+**Dependências**: T066 → T067 → T068 → T069; T070–T073 depois de T069 e em paralelo; T074–T078 depois dos testes; T079
+por último. As tarefas T001–T065 não mudam.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

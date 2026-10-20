@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Final
 
 from ai_core.observability.api import TraceRecord
-from ai_core_contracts import JSONValue
+from axon_ai_contracts import JSONValue
 
 logger: Final = logging.getLogger("ai_core.observability")
 

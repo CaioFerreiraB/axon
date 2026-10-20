@@ -1,6 +1,6 @@
 # Contrato — versões, compatibilidade e classificação de mudanças
 
-Regras normativas de `ai_core_contracts.compat` e da ferramenta `tools/api_surface.py` (FR-016, FR-018, FR-020). Decisões
+Regras normativas de `axon_ai_contracts.compat` e da ferramenta `tools/api_surface.py` (FR-016, FR-018, FR-020). Decisões
 em [research.md](../research.md) (R4–R6, R16, R18).
 
 ## 1. Gramática de versão (subconjunto do PEP 440)
@@ -49,15 +49,15 @@ prereleases=True)` como oráculo.
 - `requirement` que começa com operador é faixa explícita; senão, é `contract_version` e a faixa é derivada.
 - `ok = faixa.contains(installed)`.
 - Se não for `ok`: `violated` = primeira cláusula violada, na ordem canônica (limite inferior antes do superior), e
-  `message = f"requer ai-core-contracts{violated}, instalado {installed}"`.
+  `message = f"requer axon-ai-contracts{violated}, instalado {installed}"`.
 
 | Instalada | Requisito | Resultado |
 |---|---|---|
 | `0.1.4` | `"0.1"` | ok |
-| `0.1.4` | `"0.2"` | `requer ai-core-contracts>=0.2, instalado 0.1.4` |
-| `0.2.0` | `"0.1"` | `requer ai-core-contracts<0.2, instalado 0.2.0` |
-| `0.2.0rc1` | `"0.1"` | `requer ai-core-contracts<0.2, instalado 0.2.0rc1` |
-| `0.1.2` | `"0.1.3"` | `requer ai-core-contracts>=0.1.3, instalado 0.1.2` |
+| `0.1.4` | `"0.2"` | `requer axon-ai-contracts>=0.2, instalado 0.1.4` |
+| `0.2.0` | `"0.1"` | `requer axon-ai-contracts<0.2, instalado 0.2.0` |
+| `0.2.0rc1` | `"0.1"` | `requer axon-ai-contracts<0.2, instalado 0.2.0rc1` |
+| `0.1.2` | `"0.1.3"` | `requer axon-ai-contracts>=0.1.3, instalado 0.1.2` |
 | `1.4.0` | `">=1.2,<2"` | ok |
 
 Requisito malformado → `InvalidVersion`/`InvalidSpecifier` (quem chama decide: a 002 marca o pack como `error`).
@@ -69,8 +69,8 @@ Entrada: os `Requires-Dist` da distribuição do pack e a `contract_version`. A 
 
 | Situação | Issue |
 |---|---|
-| Nenhum `Requires-Dist` de `ai-core-contracts` | `distribution.missing_requirement` |
-| Referência direta (`ai-core-contracts @ git+...`) sem especificador | `distribution.direct_reference` |
+| Nenhum `Requires-Dist` de `axon-ai-contracts` | `distribution.missing_requirement` |
+| Referência direta (`axon-ai-contracts @ git+...`) sem especificador | `distribution.direct_reference` |
 | Especificador fora do subconjunto | `distribution.unsupported_specifier` |
 | Conjunto aceito ⊄ faixa derivada (sem limite superior, limite inferior abaixo, etc.) | `distribution.range_too_wide` — mensagem cita a faixa derivada |
 | Conjunto aceito ∩ faixa derivada = ∅ | `distribution.range_disjoint` |
@@ -82,7 +82,7 @@ inclusão); `==V.*` e `~=` viram intervalos semiabertos; a interseção das clá
 ## 6. Depreciação
 
 - `removal_version(since)`: `0.N.x → 0.(N+1).0`; `X.Y[.Z] → (X+1).0.0` (X ≥ 1).
-- Mensagem: `"<símbolo> está depreciado desde ai-core-contracts <since> e será removido em <removal>"` + `"; use
+- Mensagem: `"<símbolo> está depreciado desde axon-ai-contracts <since> e será removido em <removal>"` + `"; use
   <use_instead>"`, quando houver.
 - Categoria: `ContractDeprecationWarning` (subclasse de `DeprecationWarning`).
 - `contract_deprecated` grava `__contract_deprecated_since__ = since` no objeto decorado; o snapshot de superfície lê
@@ -96,6 +96,7 @@ anotação conta como mudança de tipo.
 | Mudança | Classe |
 |---|---|
 | Símbolo exportado removido ou renomeado | breaking |
+| Distribuição ou raiz do import renomeada (ex.: `ai-core-contracts`/`ai_core_contracts` → `axon-ai-contracts`/`axon_ai_contracts`, ADR-037) | breaking — **uma** mudança só; os símbolos são comparados pelo nome relativo à raiz (§9) e o renome não conta como remoção sem depreciação (§8) |
 | Símbolo exportado novo | aditiva |
 | Tipo do símbolo mudou (ex.: dataclass → Protocol) | breaking |
 | Campo de dataclass removido, renomeado, com tipo ou default alterado, ou que perdeu o default | breaking |
@@ -135,7 +136,8 @@ se igual. **Falha** quando `declared < required` (ordem `none < patch < minor < 
 no ciclo (ex.: HEAD já em `0.2.0`), novas breaking changes no mesmo ciclo passam sem novo bump.
 
 **Janela de depreciação** (FR-016, ADR-014): remover um símbolo exportado cujo `deprecated_since` era nulo no snapshot
-da tag **falha**, qualquer que seja o bump declarado.
+da tag **falha**, qualquer que seja o bump declarado. O renome da distribuição (§7) não é remoção: decidido por ADR
+(ADR-037, corte seco), ele exige só a minor (FR-025).
 
 **Pack congelado** (FR-020 b): roda só se `derive_range(versão da tag).contains(versão do HEAD)` — mesma série
 compatível. Numa série nova (ex.: tag `0.1.4`, HEAD `0.2.0`), o job registra "série nova — pack congelado não se
@@ -143,8 +145,13 @@ aplica" e passa; a quebra, nesse caso, já foi validada pelo bump (§7).
 
 ## 9. Formato do snapshot
 
-JSON com chaves ordenadas: `{"distribution": "ai-core-contracts", "version": "...", "modules": {"ai_core_contracts": {...},
-"ai_core_contracts.testing": {...}}}`; cada símbolo tem `kind` (`dataclass`, `protocol`, `class`, `typeddict`,
+JSON com chaves ordenadas: `{"distribution": "axon-ai-contracts", "package": "axon_ai_contracts", "version": "...",
+"modules": {"axon_ai_contracts": {...}, "axon_ai_contracts.testing": {...}}}`. `distribution` sai dos metadados
+instalados do `package` introspectado (`dump --package`, default `axon_ai_contracts`); o CI passa o pacote que a tag
+tinha (`ai_core_contracts` até `contracts-v0.1.2`, a última marcada da série 0.1). Com a raiz
+renomeada, os textos da linha de base que a citam (anotações, `repr` de aliases e defaults) passam à raiz nova, por palavra
+inteira, antes da comparação. A comparação (§7) usa o nome do módulo **relativo** a `package`
+(raiz e `.testing`), e os símbolos aparecem no relatório com o nome do HEAD; cada símbolo tem `kind` (`dataclass`, `protocol`, `class`, `typeddict`,
 `function`, `constant`, `type_alias`), `deprecated_since` (`str` ou `null`) e os detalhes do tipo (campos, membros,
 chaves, parâmetros, anotações como texto, `repr` dos defaults). O snapshot não é versionado no git: é gerado no CI
 para a tag e para o HEAD.

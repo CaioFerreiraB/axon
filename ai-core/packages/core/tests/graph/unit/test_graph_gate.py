@@ -21,7 +21,7 @@ from ai_core.graph.domain.gate import (
     pack_of,
     retrieval_tools,
 )
-from ai_core_contracts import Chunk
+from axon_ai_contracts import Chunk
 
 pytestmark = pytest.mark.us3
 

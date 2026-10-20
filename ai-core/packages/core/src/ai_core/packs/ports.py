@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Protocol
 
-from ai_core_contracts import JSONValue
+from axon_ai_contracts import JSONValue
 
 
 def _empty_config() -> Mapping[str, JSONValue]:

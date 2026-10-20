@@ -5,8 +5,8 @@ Acrescentar ou remover símbolo público exige mudar este teste de propósito �
 
 from __future__ import annotations
 
-import ai_core_contracts
-import ai_core_contracts.testing
+import axon_ai_contracts
+import axon_ai_contracts.testing
 
 RUNTIME_API = {
     "AgentPack",
@@ -89,14 +89,14 @@ TESTING_API = {
 
 
 def test_runtime_surface_is_exactly_the_documented_one() -> None:
-    assert set(ai_core_contracts.__all__) == RUNTIME_API
+    assert set(axon_ai_contracts.__all__) == RUNTIME_API
 
 
 def test_testing_surface_is_exactly_the_documented_one() -> None:
-    assert set(ai_core_contracts.testing.__all__) == TESTING_API
+    assert set(axon_ai_contracts.testing.__all__) == TESTING_API
 
 
 def test_every_exported_name_is_importable() -> None:
-    for module in (ai_core_contracts, ai_core_contracts.testing):
+    for module in (axon_ai_contracts, axon_ai_contracts.testing):
         for name in module.__all__:
             assert hasattr(module, name), f"{module.__name__}.{name}"

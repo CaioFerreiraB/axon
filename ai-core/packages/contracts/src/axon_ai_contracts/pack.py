@@ -10,14 +10,14 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Final, Protocol, runtime_checkable
 
-from ai_core_contracts._freeze import JSONValue, empty_mapping, freeze_mapping, freeze_sequence, require_non_empty
-from ai_core_contracts.retrieval import NamedRetriever, Reranker
-from ai_core_contracts.tools import ToolSpec
-from ai_core_contracts.validation import AnswerValidator
-from ai_core_contracts.view import TurnView
+from axon_ai_contracts._freeze import JSONValue, empty_mapping, freeze_mapping, freeze_sequence, require_non_empty
+from axon_ai_contracts.retrieval import NamedRetriever, Reranker
+from axon_ai_contracts.tools import ToolSpec
+from axon_ai_contracts.validation import AnswerValidator
+from axon_ai_contracts.view import TurnView
 
 if TYPE_CHECKING:  # o módulo de avaliação importa PackContext daqui
-    from ai_core_contracts.eval import EvalMetric
+    from axon_ai_contracts.eval import EvalMetric
 
 RETRIEVAL_FILTERS_KEY: Final = "retrieval_filters"
 """Chave da fatia com os filtros que o core repassa, de forma opaca, aos retrievers do próprio pack (FR-012)."""

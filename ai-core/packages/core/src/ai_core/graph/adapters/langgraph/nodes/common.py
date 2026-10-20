@@ -18,7 +18,7 @@ from ai_core.graph.api import ExecutionIssue, GenerationOutcome, StepOutcome
 from ai_core.graph.domain.budget import Trimmed, estimate_tokens, trim_results
 from ai_core.graph.domain.transcript import generation_messages
 from ai_core.observability.api import Retrieval, RetrievedChunk, ValidationRun
-from ai_core_contracts import ChatUsage, Chunk
+from axon_ai_contracts import ChatUsage, Chunk
 
 STAGE_PREPARE = "prepare_context"
 STAGE_GENERATE = "generate"

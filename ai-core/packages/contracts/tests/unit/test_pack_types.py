@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from ai_core_contracts.pack import RETRIEVAL_FILTERS_KEY, PackContext, PackManifest
+from axon_ai_contracts.pack import RETRIEVAL_FILTERS_KEY, PackContext, PackManifest
 
 
 def test_manifest_defaults_and_freezing() -> None:

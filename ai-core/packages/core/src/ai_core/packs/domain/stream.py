@@ -11,7 +11,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from ai_core.packs.api import PackHookError, StreamedValidation, ValidatorRun
-from ai_core_contracts import AnswerStream, ValidationResult
+from axon_ai_contracts import AnswerStream, ValidationResult
 
 
 @dataclass(frozen=True, slots=True)

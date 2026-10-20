@@ -11,7 +11,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Final
 
-from ai_core_contracts import ChatMessage, JSONValue
+from axon_ai_contracts import ChatMessage, JSONValue
 
 ROUNDS: Final = 3
 

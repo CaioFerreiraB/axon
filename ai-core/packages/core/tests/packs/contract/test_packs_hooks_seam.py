@@ -11,8 +11,8 @@ from packs_testkit import load_runtime, make_pack_class
 
 from ai_core.packs.api import Composition, CompositionError, PackHookError, PackHooks, PackRegistry
 from ai_core.packs.ports import PackSettings
-from ai_core_contracts import JSONValue, PackContext, TurnView, ValidationResult, ValidatorContext
-from ai_core_contracts.testing import turn_view
+from axon_ai_contracts import JSONValue, PackContext, TurnView, ValidationResult, ValidatorContext
+from axon_ai_contracts.testing import turn_view
 
 
 def _prepare(update: Any) -> Any:

@@ -78,6 +78,8 @@ ganha uma US "Identidade Axon" pelo spec-kit, nesta ordem: 001 → 011 → 010 �
 tags `contracts-v0.2.0` e `v0.7.0-rc1` → 101 → 002 (instalação). O símbolo é desenhado no Penpot e escolhido pelo
 mantenedor antes das passadas da 012 e da 013. As specs 004–007 e 102–106 mudam só nos nomes, dentro das passadas da
 011 e da 101.
+Andamento: **001 feita** (2026-10-20) — `axon-ai-contracts` 0.2.0, import `axon_ai_contracts`, consumidores do
+workspace atualizados; ainda sem tag.
 
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 

@@ -5,7 +5,7 @@ from types import MappingProxyType
 
 import pytest
 
-from ai_core_contracts._freeze import (
+from axon_ai_contracts._freeze import (
     freeze,
     freeze_mapping,
     freeze_sequence,

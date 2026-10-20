@@ -1,4 +1,4 @@
-# Quickstart — validar `ai-core-contracts` 0.1
+# Quickstart — validar `axon-ai-contracts` 0.2
 
 Guia de validação da Fase 0 (US1–US4). Mostra como provar que a entrega funciona; o código em si sai do `tasks.md`.
 Referências: [python-api.md](contracts/python-api.md), [compatibility.md](contracts/compatibility.md),
@@ -52,7 +52,7 @@ uv pip install --python "$tmp/venv" ./packages/contracts ./packages/contracts/te
 uv pip freeze --python "$tmp/venv"
 ```
 
-**Esperado**: exatamente três distribuições — `ai-core-contracts`, `typing-extensions` e `contract-test-pack`. Nada de
+**Esperado**: exatamente três distribuições — `axon-ai-contracts`, `typing-extensions` e `contract-test-pack`. Nada de
 runtime, HTTP, grafo, banco ou vetores.
 
 ```bash
@@ -60,7 +60,7 @@ uv pip install --python "$tmp/venv" pytest
 "$tmp/venv/bin/pytest" packages/contracts/tests/fixtures/contract_test_pack/tests
 ```
 
-**Esperado**: os testes do pack passam usando só `ai_core_contracts.testing` (fixtures de Turn View e
+**Esperado**: os testes do pack passam usando só `axon_ai_contracts.testing` (fixtures de Turn View e
 `assert_pack_conforms`) — US1 cenário 2, SC-003.
 
 ## 4. Conformidade e declaração (US1 cenário 3, US2)
@@ -75,7 +75,7 @@ uv run pytest packages/contracts/tests/conformance -v
 
 | Pack de teste | Código |
 |---|---|
-| importa `ai_core` | `imports.forbidden` (arquivo, linha e módulo na mensagem) |
+| importa `axon_ai` | `imports.forbidden` (arquivo, linha e módulo na mensagem) |
 | duas tools com o mesmo nome | `tool.duplicate_name` |
 | retriever com o nome de uma tool nativa | `retriever.name_collision` |
 | retriever sem coleção | `ValueError` na construção do `NamedRetriever` → `hook.raised` no hook `retrievers` |
@@ -93,19 +93,19 @@ falsos passam em `acheck_llm_provider` e `acheck_mcp_client`, e cada variante qu
 ## 5. Compatibilidade (US3)
 
 ```bash
-uv run python -c "from ai_core_contracts import check_compatibility as c; print(c('0.1', installed='0.1.4')); print(c('0.2', installed='0.1.4').message)"
+uv run python -c "from axon_ai_contracts import check_compatibility as c; print(c('0.2', installed='0.2.1')); print(c('0.3', installed='0.2.1').message)"
 ```
 
-**Esperado**: o primeiro resultado com `ok=True`; a mensagem do segundo é `requer ai-core-contracts>=0.2, instalado
-0.1.4`. As tabelas de [compatibility.md §4](contracts/compatibility.md) viram testes parametrizados em
+**Esperado**: o primeiro resultado com `ok=True`; a mensagem do segundo é `requer axon-ai-contracts>=0.3, instalado
+0.2.1`. As tabelas de [compatibility.md §4](contracts/compatibility.md) viram testes parametrizados em
 `tests/unit/test_compat.py`.
 
-Dependência declarada (FR-018): `check_contracts_requirement(["ai-core-contracts>=0.1"], "0.1")` (uma dependência
-sem teto) devolve `distribution.range_too_wide` citando `>=0.1,<0.2`; com `["ai-core-contracts>=0.1,<0.2"]`, que é o que o
+Dependência declarada (FR-018): `check_contracts_requirement(["axon-ai-contracts>=0.2"], "0.2")` (uma dependência
+sem teto) devolve `distribution.range_too_wide` citando `>=0.2,<0.3`; com `["axon-ai-contracts>=0.2,<0.3"]`, que é o que o
 `contract_test_pack` declara, não devolve nenhuma issue.
 
 Depreciação (US3 cenário 3): o teste com um símbolo depreciado só nos testes (`since="0.1.0"`) confirma a
-`ContractDeprecationWarning` com `desde ai-core-contracts 0.1.0` e `será removido em 0.2.0`, e a issue
+`ContractDeprecationWarning` com `desde axon-ai-contracts 0.1.0` e `será removido em 0.2.0`, e a issue
 `deprecation.used` na conformidade.
 
 ## 6. Turn View (US4)
@@ -148,3 +148,34 @@ só enquanto o HEAD estiver na mesma série compatível da tag; numa série nova
 `.github/workflows/contracts.yml` (na raiz enquanto `ai-core/` for subpasta) executa as seções 1–4 e 6, em matriz
 3.12/3.13/3.14 onde há testes, e a seção 7 com a regra da tag. Um PR que muda a superfície pública sem o bump exigido
 falha antes do merge.
+
+## 9. Identidade Axon (US6, ADR-037)
+
+```bash
+uv run python -c "import axon_ai_contracts as c; print(c.__version__)"
+uv run python -c "import ai_core_contracts" 2>&1 | tail -1
+uv run python -c "from axon_ai_contracts import check_compatibility as c; print(c('0.1', installed='0.2.0').message)"
+uv run python -c "from axon_ai_contracts.testing import check_contracts_requirement as r; print([i.code for i in r(['ai-core-contracts>=0.1,<0.2'], '0.2')])"
+uv run pytest packages/contracts/tests/surface packages/contracts/tests/boundary -v
+```
+
+**Esperado**: `0.2.0`; `ModuleNotFoundError: No module named 'ai_core_contracts'` (corte seco, cenário 1); `requer
+axon-ai-contracts<0.2, instalado 0.2.0` (cenário 2); `['distribution.missing_requirement']` (cenário 3); e os testes de
+superfície e de fronteira passam, inclusive o do renome (cenário 4).
+
+Contra a última tag, como no CI (`contracts.yml`, job `surface`):
+
+```bash
+git worktree add "$tmp/base" contracts-v0.1.2   # a última tag; a 0.1.3 não foi marcada
+uv run --isolated --no-project --with "$tmp/base/ai-core/packages/contracts" python packages/contracts/tools/api_surface.py \
+  dump --package ai_core_contracts --output "$tmp/old.json"
+uv run python packages/contracts/tools/api_surface.py dump --output "$tmp/new.json"
+uv run python packages/contracts/tools/api_surface.py diff "$tmp/old.json" "$tmp/new.json" --old-version 0.1.2 --new-version 0.2.0
+git worktree remove "$tmp/base"
+```
+
+**Esperado**: três linhas — `[breaking] axon_ai_contracts: distribuição renomeada: ai-core-contracts (ai_core_contracts) →
+axon-ai-contracts (axon_ai_contracts)`, `[additive] axon_ai_contracts.ChatUsage['cost']: chave nova opcional` (0.1.3) e
+`[breaking] axon_ai_contracts.testing.check_imports: parâmetros alterados` (default de `forbidden`) —, `bump exigido:
+minor; declarado: minor` e saída 0; com `--new-version 0.1.4`,
+saída 1 ("bump declarado menor que o exigido").

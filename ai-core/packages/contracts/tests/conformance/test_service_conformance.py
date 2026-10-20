@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from service_fakes import FakeLLMProvider, FakeMCPClient
 
-from ai_core_contracts import ToolResult, ToolSpec
-from ai_core_contracts.testing import acheck_llm_provider, acheck_mcp_client
+from axon_ai_contracts import ToolResult, ToolSpec
+from axon_ai_contracts.testing import acheck_llm_provider, acheck_mcp_client
 
 
 async def _llm_codes(provider: object) -> list[str]:

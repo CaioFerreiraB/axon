@@ -1,6 +1,6 @@
 """Suíte de conformidade de pack publicada com os contratos (spec 010 FR-003, T008).
 
-Roda todas as etapas, inclusive imports (o pack não importa o core) e distribuição (a faixa de `ai-core-contracts`
+Roda todas as etapas, inclusive imports (o pack não importa o core) e distribuição (a faixa de `axon-ai-contracts`
 declarada cabe na faixa derivada da `contract_version`) — nada é desligado.
 
 Sobre a etapa de distribuição: no workspace as distribuições são instaladas em modo editável, e aí
@@ -13,8 +13,8 @@ from __future__ import annotations
 
 from importlib.metadata import packages_distributions
 
-from ai_core_contracts.testing import assert_pack_conforms, check_pack, turn_view
 from ai_generic.pack import GenericPack
+from axon_ai_contracts.testing import assert_pack_conforms, check_pack, turn_view
 
 VIEWS = (
     turn_view(question="quanto é 2+2?", answer="São 4."),
@@ -38,7 +38,7 @@ def test_report_has_no_issue() -> None:
 
 
 def test_declared_contracts_range_is_checked_when_the_distribution_is_visible() -> None:
-    """No ambiente limpo, a etapa de distribuição confere a faixa `>=0.1,<0.2` do `pyproject.toml` do pack."""
+    """No ambiente limpo, a etapa de distribuição confere a faixa `>=0.2,<0.3` do `pyproject.toml` do pack."""
     if not DISTRIBUTION_IS_VISIBLE:
         return
     report = check_pack(GenericPack(), views=list(VIEWS))

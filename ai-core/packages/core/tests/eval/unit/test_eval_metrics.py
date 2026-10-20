@@ -24,7 +24,7 @@ from ai_core.eval.domain.metrics import (
 from ai_core.eval.domain.observation import observe, operation
 from ai_core.graph.api import ExecutionIssue, FinalEvent
 from ai_core.observability.api import TraceRecord
-from ai_core_contracts import EvalChunk, EvalObservation
+from axon_ai_contracts import EvalChunk, EvalObservation
 
 pytestmark = pytest.mark.us2
 

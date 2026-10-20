@@ -9,7 +9,7 @@ from packs_testkit import GOOD_CONFIG, load_runtime, make_good_pack
 
 from ai_core.packs.api import PackStatus
 from ai_core.packs.ports import PackSettings
-from ai_core_contracts import PackContext
+from axon_ai_contracts import PackContext
 
 
 def test_enabled_pack_is_instantiated_with_its_config() -> None:
@@ -18,7 +18,7 @@ def test_enabled_pack_is_instantiated_with_its_config() -> None:
     runtime: Any = load_runtime(good, settings={"good": PackSettings(enabled=True, config=GOOD_CONFIG)})
     entry = runtime.entry("good")
     assert entry.status is PackStatus.ENABLED and entry.error is None
-    assert (entry.version, entry.contract_version, entry.origin) == ("0.1.0", "0.1", "code")
+    assert (entry.version, entry.contract_version, entry.origin) == ("0.1.0", "0.2", "code")
     assert good.created == 1
     assert [ctx.config for ctx in seen] == [GOOD_CONFIG]
     capabilities = entry.capabilities
@@ -54,7 +54,7 @@ def test_not_enabled_pack_is_disabled_and_not_instantiated(settings: dict[str, P
     runtime: Any = load_runtime(good, settings=settings)
     entry = runtime.entry("good")
     assert entry.status is PackStatus.DISABLED
-    assert entry.contract_version == "0.1" and entry.capabilities is None
+    assert entry.contract_version == "0.2" and entry.capabilities is None
     assert good.created == 0
 
 

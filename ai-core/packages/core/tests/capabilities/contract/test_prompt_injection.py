@@ -21,7 +21,7 @@ from capabilities_testkit import (
 )
 
 from ai_core.capabilities.api import ToolCall
-from ai_core_contracts import ToolResult
+from axon_ai_contracts import ToolResult
 
 pytestmark = pytest.mark.us3
 

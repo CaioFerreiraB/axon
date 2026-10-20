@@ -1,4 +1,4 @@
-# Implementation Plan: Contratos públicos do núcleo (`ai-core-contracts`)
+# Implementation Plan: Contratos públicos do núcleo (`axon-ai-contracts`)
 
 **Branch**: `001-core-contracts` | **Date**: 2026-09-15 | **Spec**: [spec.md](spec.md)
 
@@ -228,3 +228,77 @@ Reavaliado com [data-model.md](data-model.md) e [contracts/](contracts/): **PASS
 | `PackBase` ao lado do Protocol `AgentPack` (R7) | hooks opcionais (FR-003) em Python; hook novo como patch | um Protocol por hook multiplica tipos; `getattr` no core vira contrato implícito |
 | `declaration.py` dentro dos contratos (R13) | os edge cases de "manifest inválido" precisam de uma só implementação, usada pela 002 e pela conformidade | cada consumidor reimplementaria e divergiria |
 | `tools/api_surface.py` + pack congelado (R18, R19) | FR-020/SC-004 exigem detecção automática de breaking change e de bump insuficiente | revisão manual não é verificável; `griffe check` não reporta mudanças aditivas nem conhece a regra do `PackBase` |
+
+---
+
+## Passada de 2026-10-20: identidade Axon (US6; [ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md))
+
+> O plano acima é o da passada original (0.1.0, 2026-09-15) e fica como foi executado (ADR-037, item 6); os nomes
+> antigos nele se leem pela tabela do ADR-037. Esta seção é o plano da US6.
+
+**Insumos lidos**: [spec.md](spec.md) (US6, FR-022–FR-025, SC-006, clarificações de 2026-10-20), [design.md](design.md),
+ADR-014, ADR-037 e ADR-038 (sem efeito nos contratos), constituição 1.3.1. Research: R26–R31.
+
+### Summary
+
+`axon-ai-contracts` **0.2.0**: a mesma superfície de 0.1.3 sob o nome novo — distribuição `axon-ai-contracts`, import
+`axon_ai_contracts` —, sem alias nem janela de depreciação para o antigo (R26, R27). As mensagens e a etapa de
+distribuição nomeiam o nome novo (R28); a varredura de imports proíbe por padrão `axon_ai` e `axon_generic` (R29); o diff
+de superfície compara pelo nome relativo à raiz e conta o renome como uma quebra só (R30). A passada atualiza de forma
+mecânica os consumidores do workspace — core, `ai-generic`, testes, workflows — e leva os packs do workspace à faixa
+`>=0.2,<0.3` (R31). Sem tag nesta passada: `contracts-v0.2.0` sai depois da 013 (ADR-037, item 7).
+
+### Technical Context (deltas)
+
+- **Language/Version**: sem mudança (workspace 3.14; contratos `>=3.12`, CI em 3.12/3.13/3.14).
+- **Primary Dependencies**: sem mudança (só `typing_extensions`).
+- **Testing**: os testes existentes passam com o import novo; testes novos: superfície com renome
+  (`tests/surface/`), módulo antigo ausente (`tests/boundary/`), mensagens com o nome novo e dependência antiga →
+  `missing_requirement` (`tests/unit/`), imports proibidos novos (`tests/conformance/`).
+- **Scale/Scope**: ~160 arquivos tocados pela substituição mecânica; nenhum símbolo público novo, removido ou alterado.
+- Nenhum `NEEDS CLARIFICATION`.
+
+### Constitution Check (US6)
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| I. Núcleo agnóstico de domínio | ✅ | Axon é marca da plataforma, não de domínio (ADR-038, Consequências) |
+| II. Módulos substituíveis por seams | ✅ | O seam muda de nome com ADR (ADR-037), e os consumidores estão listados nele; a forma não muda (diff de superfície, R30) |
+| VII. Falha fechada e explícita | ✅ | Pack de `0.1` é incompatível com mensagem que nomeia a restrição e o nome novo; dependência antiga → `missing_requirement` (R28) |
+| XII. Simplicidade deliberada | ✅ | Sem módulo de compatibilidade (R27); a ferramenta de superfície ganha só a comparação relativa (R30) |
+| XIII. Portas e adapters | ✅ | Layout sem mudança |
+| Stack — "Versionamento" | ✅ | Constituição 1.3.1: `axon-ai-contracts`, convenção 0.x; quebra → minor (0.2.0). O CI continua barrando bump insuficiente e remoção de símbolo sem depreciação prévia: os símbolos são comparados um a um pelo nome relativo à raiz, e o renome da distribuição inteira, decidido no ADR-037 (corte seco), é uma mudança breaking própria, não remoção (FR-025, R30) |
+
+**Module boundary gate**: as mudanças de fonte da 001 ficam em `ai-core/packages/contracts/**`, na raiz do workspace
+e em `contracts.yml`; as dos consumidores são a substituição mecânica que o ADR-037 (item 7) atribui a esta passada,
+sem mudança de comportamento neles. Nenhum internal de outro módulo é usado. **Ports & adapters gate**: sem mudança.
+**Resultado**: PASS (antes e depois do design).
+
+### Project Structure (deltas)
+
+```text
+ai-core/packages/contracts/
+├── pyproject.toml              # name = "axon-ai-contracts"; version = "0.2.0"
+├── CHANGELOG.md                # seção 0.2.0 (renome, breaking)
+├── README.md                   # nomes novos
+├── src/axon_ai_contracts/      # era src/ai_core_contracts/ (git mv); mesmos módulos
+├── tools/api_surface.py        # dump --package; comparação relativa à raiz; mudança "distribuição renomeada"
+├── tools/check_clean_env.py    # EXPECTED com axon-ai-contracts
+└── tests/fixtures/contract_test_pack/   # axon-ai-contracts>=0.2,<0.3; contract_version "0.2"
+```
+
+### Seam Notes for Consumers (US6)
+
+| Consumidor | O que muda para ele |
+|---|---|
+| 002, 004–007, 009, 011 (core) | Imports `axon_ai_contracts` (mecânico, nesta passada); nenhuma forma muda |
+| 010 (`ai-generic`) | Imports, `axon-ai-contracts>=0.2,<0.3` e `contract_version = "0.2"` nesta passada; o nome `axon-generic` 0.2.0 é da 010 |
+| 101 (`ai-scouting`) | Nada até a passada da 101, que passa a `axon-ai-contracts>=0.2,<0.3` pela tag `contracts-v0.2.0` |
+| Pack de terceiro | Nenhum existe; o que existir precisa de nova versão (ADR-037, Consequências) |
+
+Os nomes do core (`ai_core`, `ai-core/`) e do pack de referência que ainda aparecem nos documentos vivos da 001
+(design.md, quickstart.md) mudam nas passadas da 011 e da 010, que os renomeiam.
+
+### Complexity Tracking (US6)
+
+Nenhuma linha nova: a comparação relativa em `api_surface.py` substitui a por nome completo, sem caminho paralelo.

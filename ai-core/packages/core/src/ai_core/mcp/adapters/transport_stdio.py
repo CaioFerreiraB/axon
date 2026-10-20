@@ -14,7 +14,7 @@ from mcp.client.stdio import StdioServerParameters, stdio_client
 
 from ai_core.mcp.adapters import sdk_session
 from ai_core.mcp.ports import OperationLimits, RemoteResult, RemoteTool, Target, TransportFailure
-from ai_core_contracts import JSONValue
+from axon_ai_contracts import JSONValue
 
 
 class StdioMcpTransport:

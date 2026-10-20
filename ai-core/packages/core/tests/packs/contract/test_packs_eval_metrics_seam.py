@@ -9,7 +9,7 @@ from packs_testkit import load_runtime, make_pack_class
 
 from ai_core.packs.api import Composition, CompositionError, PackEvalMetric, PackEvalMetrics, PackStatus
 from ai_core.packs.ports import PackSettings
-from ai_core_contracts import EvalItem, EvalObservation, PackContext
+from axon_ai_contracts import EvalItem, EvalObservation, PackContext
 
 pytestmark = pytest.mark.us2
 
@@ -53,10 +53,10 @@ def test_metricas_na_ordem_da_composicao_coletadas_uma_vez() -> None:
 def test_pack_sem_o_metodo_nao_tem_metricas() -> None:
     class SemHook:
         name = "solto"
-        contract_version = "0.1"
+        contract_version = "0.2"
 
         def manifest(self) -> Any:
-            from ai_core_contracts import PackManifest
+            from axon_ai_contracts import PackManifest
 
             return PackManifest(name="solto", version="0.1.0")
 

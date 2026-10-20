@@ -7,7 +7,7 @@ from hypothesis import strategies as st
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version as PackagingVersion
 
-from ai_core_contracts import Version, VersionRange
+from axon_ai_contracts import Version, VersionRange
 
 RELEASES = st.lists(st.integers(0, 4), min_size=1, max_size=3)
 PRE = st.none() | st.tuples(st.sampled_from(["a", "b", "rc"]), st.integers(0, 2))

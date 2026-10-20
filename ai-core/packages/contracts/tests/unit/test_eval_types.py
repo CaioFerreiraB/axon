@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 import pytest
 
-from ai_core_contracts import (
+from axon_ai_contracts import (
     AgentPack,
     Citation,
     EvalChunk,
@@ -19,7 +19,7 @@ from ai_core_contracts import (
     PackManifest,
     ProvidesEvalMetrics,
 )
-from ai_core_contracts.testing import pack_context
+from axon_ai_contracts.testing import pack_context
 
 AT = datetime(2026, 10, 7, 15, tzinfo=UTC)
 
@@ -103,7 +103,7 @@ def test_metrica_e_um_protocolo_estrutural() -> None:
 
 class Pack(PackBase):
     name = "p"
-    contract_version = "0.1"
+    contract_version = "0.2"
 
     def manifest(self) -> PackManifest:
         return PackManifest(name="p", version="0.1.0")
@@ -115,7 +115,7 @@ def test_pack_base_nao_declara_metricas_e_o_hook_e_opcional() -> None:
 
     class SemHook:
         name = "s"
-        contract_version = "0.1"
+        contract_version = "0.2"
 
         def manifest(self) -> PackManifest:
             return PackManifest(name="s", version="0.1.0")

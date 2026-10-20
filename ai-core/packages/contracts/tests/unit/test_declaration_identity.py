@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from ai_core_contracts import PackManifest
-from ai_core_contracts.declaration import check_declaration
+from axon_ai_contracts import PackManifest
+from axon_ai_contracts.declaration import check_declaration
 
 
 def _codes(**kwargs: object) -> list[str]:
     params: dict[str, object] = {
         "pack_name": "meu_pack",
-        "contract_version": "0.1",
+        "contract_version": "0.2",
         "manifest": PackManifest(name="meu_pack", version="0.1.0"),
     }
     params.update(kwargs)
@@ -78,7 +78,7 @@ def test_config_schema_structure() -> None:
 
 def test_issues_name_the_subject() -> None:
     [issue] = check_declaration(
-        pack_name="meu_pack", contract_version="0.1", manifest=PackManifest(name="outro", version="0.1.0")
+        pack_name="meu_pack", contract_version="0.2", manifest=PackManifest(name="outro", version="0.1.0")
     )
     assert issue.subject == "manifest"
     assert "outro" in issue.message and issue.severity == "error"

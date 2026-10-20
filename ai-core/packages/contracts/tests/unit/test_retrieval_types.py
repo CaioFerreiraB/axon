@@ -4,8 +4,8 @@ from collections.abc import Mapping, Sequence
 
 import pytest
 
-from ai_core_contracts._freeze import JSONValue
-from ai_core_contracts.retrieval import Chunk, NamedRetriever, Reranker, Retriever
+from axon_ai_contracts._freeze import JSONValue
+from axon_ai_contracts.retrieval import Chunk, NamedRetriever, Reranker, Retriever
 
 
 class _Retriever:

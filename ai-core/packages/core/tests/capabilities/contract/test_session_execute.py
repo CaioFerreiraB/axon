@@ -20,7 +20,7 @@ from capabilities_testkit import (
 
 from ai_core.capabilities.api import GatewayLimits, ToolCall
 from ai_core.observability.api import ToolCall as ToolCallEvent
-from ai_core_contracts import ToolResult
+from axon_ai_contracts import ToolResult
 
 pytestmark = pytest.mark.us2
 

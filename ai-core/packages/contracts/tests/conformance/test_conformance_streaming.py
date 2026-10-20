@@ -6,8 +6,8 @@ from typing import Any
 
 from packs import make_pack
 
-from ai_core_contracts import AnswerStream, StreamingValidator, TurnView, ValidationResult, ValidatorContext
-from ai_core_contracts.testing import check_pack, turn_view
+from axon_ai_contracts import AnswerStream, StreamingValidator, TurnView, ValidationResult, ValidatorContext
+from axon_ai_contracts.testing import check_pack, turn_view
 
 VIEWS = [turn_view(answer="aXbXc"), turn_view(answer=None), turn_view(answer="")]
 

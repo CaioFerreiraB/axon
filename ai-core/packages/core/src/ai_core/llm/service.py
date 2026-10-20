@@ -25,7 +25,7 @@ from ai_core.llm.domain.output import constraint_problem
 from ai_core.llm.domain.policy import ensure_allowed, resolve
 from ai_core.llm.ports import Clock, ModelProvider
 from ai_core.observability.api import ExchangeMessage, ModelCall, ModelExchange, TraceSink
-from ai_core_contracts import ChatChunk, ChatMessage, ChatResponse, ChatTool, ChatToolCall, ChatUsage, JSONValue
+from axon_ai_contracts import ChatChunk, ChatMessage, ChatResponse, ChatTool, ChatToolCall, ChatUsage, JSONValue
 
 ERROR_FINISH_REASON = "error"
 """Desfecho registrado quando a chamada falha — o trace cobre sucesso e falha (SC-002)."""

@@ -1,12 +1,14 @@
-"""Snapshot e diff da superfície pública de ai-core-contracts (FR-020, SC-004; compatibility.md §7 a §9).
+"""Snapshot e diff da superfície pública de axon-ai-contracts (FR-020, SC-004; compatibility.md §7 a §9).
 
 Uso, a partir de `ai-core/`:
 
-    uv run python packages/contracts/tools/api_surface.py dump [--output ARQUIVO]
+    uv run python packages/contracts/tools/api_surface.py dump [--package NOME] [--output ARQUIVO]
     uv run python packages/contracts/tools/api_surface.py diff ANTIGO NOVO --old-version X --new-version Y
 
 `dump` introspecta o pacote instalado; `diff` classifica as mudanças, calcula o bump exigido pela política (ADR-014) e
-sai com código 1 se o bump declarado for menor ou se um símbolo for removido sem ter sido depreciado antes.
+sai com código 1 se o bump declarado for menor ou se um símbolo for removido sem ter sido depreciado antes. Os módulos
+são comparados pelo nome relativo à raiz do import; uma raiz ou distribuição renomeada é uma mudança breaking só
+(FR-025, ADR-037).
 Anotações entram como texto: todo módulo dos contratos usa `from __future__ import annotations`.
 """
 
@@ -15,6 +17,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import importlib
+import importlib.metadata
 import inspect
 import json
 import re
@@ -28,7 +31,7 @@ from typing import Any, Literal
 
 import typing_extensions
 
-MODULES = ("ai_core_contracts", "ai_core_contracts.testing")
+PACKAGE = "axon_ai_contracts"
 EXCLUDED = frozenset({"__version__"})
 SET_CONSTANTS = frozenset({"ISSUE_CODES"})
 _QUALIFIER_RE = re.compile(r"^(?:typing_extensions\.|typing\.)?(Required|NotRequired|ReadOnly)\[(.*)\]$", re.S)
@@ -192,11 +195,27 @@ def describe(obj: object, *, name: str = "", defaults: type | None = None) -> di
     return info
 
 
-def dump(modules: tuple[str, ...] = MODULES) -> Snapshot:
-    root = importlib.import_module(modules[0])
+def _distribution_of(package: str) -> str:
+    """Nome da distribuição instalada do pacote. Editável (o workspace), não há `top_level`: vale o nome derivado."""
+    names = importlib.metadata.packages_distributions().get(package)
+    if names:
+        return names[0]
+    try:
+        return str(importlib.metadata.distribution(package.replace("_", "-")).metadata["Name"])
+    except importlib.metadata.PackageNotFoundError:
+        return package
+
+
+def dump(package: str = PACKAGE) -> Snapshot:
+    root = importlib.import_module(package)
     defaults = getattr(root, "PackBase", None)
-    snapshot: Snapshot = {"distribution": "ai-core-contracts", "version": root.__version__, "modules": {}}
-    for module_name in modules:
+    snapshot: Snapshot = {
+        "distribution": _distribution_of(package),
+        "package": package,
+        "version": root.__version__,
+        "modules": {},
+    }
+    for module_name in (package, f"{package}.testing"):
         module = importlib.import_module(module_name)
         symbols: dict[str, Any] = {}
         for name in sorted(set(module.__all__) - EXCLUDED):
@@ -356,14 +375,45 @@ def _compare_symbol(symbol: str, name: str, old: dict[str, Any], new: dict[str, 
     return changes
 
 
+def _rebased(value: Any, pattern: re.Pattern[str], package: str) -> Any:
+    """Troca a raiz antiga pela nova nos textos (anotações, `repr` de aliases e defaults) de uma linha de base."""
+    if isinstance(value, str):
+        return pattern.sub(package, value)
+    if isinstance(value, dict):
+        return {key: _rebased(item, pattern, package) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_rebased(item, pattern, package) for item in value]
+    return value
+
+
+def _relative_modules(snapshot: Snapshot) -> dict[str, dict[str, Any]]:
+    """Módulos pelo nome relativo à raiz do import: `""` para a raiz, `".testing"` para o kit."""
+    package = str(snapshot["package"])
+    return {name[len(package) :]: symbols for name, symbols in snapshot["modules"].items()}
+
+
 def classify(old: Snapshot, new: Snapshot) -> list[Change]:
-    """Mudanças entre dois snapshots, classificadas pela tabela §7 de compatibility.md."""
+    """Mudanças entre dois snapshots, classificadas pela tabela §7 de compatibility.md.
+
+    Os símbolos aparecem com o nome do HEAD. O renome da distribuição ou da raiz é uma mudança breaking só, que não
+    conta como remoção sem depreciação (§8; ADR-037).
+    """
     changes: list[Change] = []
-    for module in sorted(set(old["modules"]) | set(new["modules"])):
-        before: dict[str, Any] = old["modules"].get(module, {})
-        after: dict[str, Any] = new["modules"].get(module, {})
+    if (old["distribution"], old["package"]) != (new["distribution"], new["package"]):
+        detail = (
+            f"distribuição renomeada: {old['distribution']} ({old['package']}) → "
+            f"{new['distribution']} ({new['package']})"
+        )
+        changes.append(Change("breaking", str(new["package"]), detail))
+        # Sem isso, todo tipo que cita a raiz no texto (`NativeHandler`, anotações) sairia como alterado.
+        pattern = re.compile(rf"\b{re.escape(str(old['package']))}\b")
+        old = {**old, "modules": _rebased(old["modules"], pattern, str(new["package"]))}
+    old_modules, new_modules = _relative_modules(old), _relative_modules(new)
+    for module in sorted(set(old_modules) | set(new_modules)):
+        before: dict[str, Any] = old_modules.get(module, {})
+        after: dict[str, Any] = new_modules.get(module, {})
         for name in sorted(set(before) | set(after)):
-            symbol = f"{module}.{name}"
+            symbol = f"{new['package']}{module}.{name}"
             if name not in after:
                 undeprecated = before[name].get("deprecated_since") is None
                 changes.append(Change("breaking", symbol, "símbolo removido", removed_without_deprecation=undeprecated))
@@ -378,7 +428,7 @@ def evaluate(
     old: Snapshot, new: Snapshot, *, old_version: str | None = None, new_version: str | None = None
 ) -> Verdict:
     """Bump exigido versus declarado (compatibility.md §8). As versões saem dos snapshots, se não forem informadas."""
-    from ai_core_contracts.compat import declared_bump, required_bump
+    from axon_ai_contracts.compat import declared_bump, required_bump
 
     previous = old_version or str(old["version"])
     current = new_version or str(new["version"])
@@ -405,9 +455,10 @@ def _load(path: str) -> Snapshot:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Snapshot e diff da superfície pública de ai-core-contracts.")
+    parser = argparse.ArgumentParser(description="Snapshot e diff da superfície pública de axon-ai-contracts.")
     commands = parser.add_subparsers(dest="command", required=True)
     dump_parser = commands.add_parser("dump", help="gera o snapshot do pacote instalado")
+    dump_parser.add_argument("--package", default=PACKAGE, help=f"pacote introspectado (default: {PACKAGE})")
     dump_parser.add_argument("--output", help="arquivo de saída (default: stdout)")
     diff_parser = commands.add_parser("diff", help="classifica mudanças e confere o bump declarado")
     diff_parser.add_argument("old")
@@ -417,7 +468,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "dump":
-        text = json.dumps(dump(), sort_keys=True, indent=2, ensure_ascii=False) + "\n"
+        text = json.dumps(dump(args.package), sort_keys=True, indent=2, ensure_ascii=False) + "\n"
         if args.output:
             Path(args.output).write_text(text, encoding="utf-8")
         else:

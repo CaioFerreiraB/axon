@@ -15,7 +15,7 @@ from openai import APIConnectionError, APIStatusError, APITimeoutError, AsyncOpe
 
 from ai_core.llm.api import ModelCallFailed
 from ai_core.llm.ports import ProbeResult
-from ai_core_contracts import (
+from axon_ai_contracts import (
     ChatChunk,
     ChatMessage,
     ChatResponse,

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
-from ai_core_contracts._freeze import JSONValue, freeze, freeze_mapping, require_aware, require_non_empty
+from axon_ai_contracts._freeze import JSONValue, freeze, freeze_mapping, require_aware, require_non_empty
 
 type ToolKind = Literal["retrieval", "mcp", "native"]
 

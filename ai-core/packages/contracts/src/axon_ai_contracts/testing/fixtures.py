@@ -9,12 +9,12 @@ from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Final
 
-from ai_core_contracts._freeze import JSONValue
-from ai_core_contracts.pack import PackContext
-from ai_core_contracts.retrieval import Chunk
-from ai_core_contracts.tools import ToolInvocation, ToolResult
-from ai_core_contracts.validation import ValidatorContext
-from ai_core_contracts.view import Citation, Message, TurnView
+from axon_ai_contracts._freeze import JSONValue
+from axon_ai_contracts.pack import PackContext
+from axon_ai_contracts.retrieval import Chunk
+from axon_ai_contracts.tools import ToolInvocation, ToolResult
+from axon_ai_contracts.validation import ValidatorContext
+from axon_ai_contracts.view import Citation, Message, TurnView
 
 REFERENCE_TIME: Final = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
 

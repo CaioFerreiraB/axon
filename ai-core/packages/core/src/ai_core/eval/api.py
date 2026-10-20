@@ -1,7 +1,7 @@
 """Seam do harness de avaliação (spec 009, Fase 6): formato de conjunto dourado, formato de relatório e `EvalHarness`.
 
 Contrato em specs/009-core-observability-evaluation/contracts/eval-harness.md. Único módulo do `eval` que outros
-importam; depende só da stdlib, de `ai_core_contracts` e do `api.py` da 003 (o `Principal` da rodada). O conjunto
+importam; depende só da stdlib, de `axon_ai_contracts` e do `api.py` da 003 (o `Principal` da rodada). O conjunto
 dourado e o relatório sobrevivem a uma reescrita do harness — é o que torna as linhas de base comparáveis.
 """
 
@@ -15,7 +15,7 @@ from types import MappingProxyType
 from typing import Final, Literal, Protocol
 
 from ai_core.assistants.api import Principal
-from ai_core_contracts import JSONValue
+from axon_ai_contracts import JSONValue
 
 type Better = Literal["higher", "lower"]
 """O sentido em que a métrica melhora. `None` numa `MetricValue` = informativa, nunca regride."""

@@ -24,7 +24,7 @@ from ai_core.graph.domain.transcript import Step
 from ai_core.llm.api import ModelRouter
 from ai_core.observability.api import TraceSink
 from ai_core.packs.api import Composition, PackHooks, StreamedValidation, ValidationOutcome
-from ai_core_contracts import Citation, JSONValue, Message
+from axon_ai_contracts import Citation, JSONValue, Message
 
 
 class AgentState(TypedDict, total=False):

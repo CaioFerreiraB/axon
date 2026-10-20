@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from math import ceil
 from typing import Final
 
-from ai_core_contracts import ChatMessage
+from axon_ai_contracts import ChatMessage
 
 CHARS_PER_TOKEN: Final = 3
 MESSAGE_OVERHEAD: Final = 4

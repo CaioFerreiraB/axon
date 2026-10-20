@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 
-MODULE = "ai_core_contracts"
+MODULE = "axon_ai_contracts"
 TOOL_PATH = Path(__file__).resolve().parents[2] / "tools" / "api_surface.py"
 
 
@@ -26,7 +26,7 @@ TOOL_PATH = Path(__file__).resolve().parents[2] / "tools" / "api_surface.py"
 
 
 def snapshot(symbols: dict[str, Any], *, version: str = "0.1.0") -> dict[str, Any]:
-    return {"distribution": "ai-core-contracts", "version": version, "modules": {MODULE: symbols}}
+    return {"distribution": "axon-ai-contracts", "package": MODULE, "version": version, "modules": {MODULE: symbols}}
 
 
 def param(name: str, kind: str = "POSITIONAL_OR_KEYWORD", annotation: str | None = "str", default: str | None = None):
@@ -275,7 +275,7 @@ def test_head_already_in_new_series_accepts_more_breaking_changes(api_surface: M
 def test_removal_without_deprecation_fails_even_with_bump(api_surface: ModuleType) -> None:
     result = verdict(api_surface, {"A": BASE_DATACLASS}, {}, "0.1.4", "0.2.0")
     assert result.failed
-    assert result.undeprecated_removals == ("ai_core_contracts.A",)
+    assert result.undeprecated_removals == ("axon_ai_contracts.A",)
 
 
 # ---------------------------------------------------------------- contra o pacote real

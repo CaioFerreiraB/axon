@@ -23,7 +23,7 @@ from ai_core.mcp.adapters import sdk_session
 from ai_core.mcp.api import Scope
 from ai_core.mcp.domain.network import admit
 from ai_core.mcp.ports import DnsResolver, OperationLimits, RemoteResult, RemoteTool, Target, TransportFailure
-from ai_core_contracts import JSONValue
+from axon_ai_contracts import JSONValue
 
 Connector = Callable[..., Awaitable[httpcore2.AsyncNetworkStream]]
 """Abre o TCP num endereço já validado: `(host, port, timeout, local_address, socket_options)`."""

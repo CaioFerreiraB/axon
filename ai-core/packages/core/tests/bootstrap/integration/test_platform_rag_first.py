@@ -20,7 +20,7 @@ from fastapi.testclient import TestClient
 from ai_core.bootstrap.wiring import Platform, platform
 from ai_core.llm.adapters.fake import ScriptedProvider
 from ai_core.packs.adapters.memory import InMemoryPackSource
-from ai_core_contracts import Chunk, JSONValue, NamedRetriever, PackBase, PackContext, PackManifest
+from axon_ai_contracts import Chunk, JSONValue, NamedRetriever, PackBase, PackContext, PackManifest
 
 pytestmark = pytest.mark.us3
 
@@ -67,7 +67,7 @@ class KeepOrder:
 def docs_pack(retriever: Retriever) -> type[PackBase]:
     class DocsPack(PackBase):
         name = "docs"
-        contract_version = "0.1"
+        contract_version = "0.2"
 
         def manifest(self) -> PackManifest:
             return PackManifest(name="docs", version="0.1.0", preferred_flow="rag_first")

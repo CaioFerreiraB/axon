@@ -19,7 +19,7 @@ from ai_core.eval.adapters.memory import FixedEvalClock
 from ai_core.eval.ports import Judge
 from ai_core.eval.service import EvalService
 from ai_core.packs.adapters.memory import InMemoryPackSource
-from ai_core_contracts import (
+from axon_ai_contracts import (
     ChatChunk,
     ChatMessage,
     ChatResponse,
@@ -102,7 +102,7 @@ class Citations:
     name = "citacoes"
 
     async def validate(self, view: TurnView, ctx: Any) -> Any:
-        from ai_core_contracts import ValidationResult
+        from axon_ai_contracts import ValidationResult
 
         delivered = {chunk.chunk_id: chunk for chunk in view.generation_context}
         answer = view.answer or ""
@@ -140,7 +140,7 @@ class CurrentRate:
 def docs_pack(observed: Observed) -> type[PackBase]:
     class DocsPack(PackBase):
         name = "docs"
-        contract_version = "0.1"
+        contract_version = "0.2"
 
         def manifest(self) -> PackManifest:
             return PackManifest(name="docs", version="0.1.0", preferred_flow="rag_first")

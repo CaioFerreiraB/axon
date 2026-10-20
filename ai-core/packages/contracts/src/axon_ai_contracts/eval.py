@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal, Protocol, runtime_checkable
 
-from ai_core_contracts._freeze import (
+from axon_ai_contracts._freeze import (
     JSONValue,
     empty_mapping,
     freeze_mapping,
@@ -22,8 +22,8 @@ from ai_core_contracts._freeze import (
     require_aware,
     require_non_empty,
 )
-from ai_core_contracts.pack import PackContext
-from ai_core_contracts.view import Citation
+from axon_ai_contracts.pack import PackContext
+from axon_ai_contracts.view import Citation
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

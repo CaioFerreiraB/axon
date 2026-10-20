@@ -10,7 +10,7 @@ from typing import Any
 
 from jsonschema import Draft202012Validator, exceptions, validators
 
-from ai_core_contracts import JSONValue
+from axon_ai_contracts import JSONValue
 
 
 def is_json(value: object) -> bool:

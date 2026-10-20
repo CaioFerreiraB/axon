@@ -12,7 +12,7 @@ from typing import Any
 
 from ai_core.llm.adapters.remote import RemoteProvider
 from ai_core.llm.api import AUTO_ROUTING_PROVIDER
-from ai_core_contracts import ChatMessage, ChatTool, JSONValue
+from axon_ai_contracts import ChatMessage, ChatTool, JSONValue
 
 
 class OpenRouterProvider(RemoteProvider):

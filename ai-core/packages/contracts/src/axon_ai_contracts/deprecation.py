@@ -7,13 +7,13 @@ from collections.abc import Callable
 
 from typing_extensions import deprecated
 
-from ai_core_contracts.compat import removal_version
+from axon_ai_contracts.compat import removal_version
 
 _DEPRECATED_SINCE_ATTRIBUTE = "__contract_deprecated_since__"
 
 
 class ContractDeprecationWarning(DeprecationWarning):
-    """Uso de símbolo depreciado de `ai-core-contracts`. A suíte de conformidade o reporta como `deprecation.used`."""
+    """Uso de símbolo depreciado de `axon-ai-contracts`. A suíte de conformidade o reporta como `deprecation.used`."""
 
 
 def contract_deprecated[T](since: str, *, use_instead: str | None = None) -> Callable[[T], T]:
@@ -27,7 +27,7 @@ def contract_deprecated[T](since: str, *, use_instead: str | None = None) -> Cal
     def decorate(target: T) -> T:
         qualname = str(getattr(target, "__qualname__", getattr(target, "__name__", repr(target))))
         symbol = qualname.rsplit("<locals>.", 1)[-1]
-        message = f"{symbol} está depreciado desde ai-core-contracts {since} e será removido em {removal}"
+        message = f"{symbol} está depreciado desde axon-ai-contracts {since} e será removido em {removal}"
         if use_instead:
             message += f"; use {use_instead}"
         decorated: T = deprecated(message, category=ContractDeprecationWarning, stacklevel=2)(target)

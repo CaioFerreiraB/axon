@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Final
 
-from ai_core_contracts import TurnView, ValidationResult, ValidatorContext
+from axon_ai_contracts import TurnView, ValidationResult, ValidatorContext
 
 EMPTY_ANSWER: Final = "empty_answer"
 EMPTY_ANSWER_ISSUE: Final = "resposta vazia"

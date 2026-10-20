@@ -14,29 +14,29 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import cast
 
-from ai_core_contracts._freeze import JSONValue, is_json_value
-from ai_core_contracts.compat import check_compatibility
-from ai_core_contracts.declaration import (
+from axon_ai_contracts._freeze import JSONValue, is_json_value
+from axon_ai_contracts.compat import check_compatibility
+from axon_ai_contracts.declaration import (
     ContractIssue,
     _capability_issues,
     _identity_issues,
     _is_async_callable,
     _manifest_issues,
 )
-from ai_core_contracts.deprecation import ContractDeprecationWarning
-from ai_core_contracts.eval import EvalMetric
-from ai_core_contracts.pack import RETRIEVAL_FILTERS_KEY, AgentPack, PackManifest
-from ai_core_contracts.retrieval import Chunk, NamedRetriever, Reranker
-from ai_core_contracts.testing.distribution import (
+from axon_ai_contracts.deprecation import ContractDeprecationWarning
+from axon_ai_contracts.eval import EvalMetric
+from axon_ai_contracts.pack import RETRIEVAL_FILTERS_KEY, AgentPack, PackManifest
+from axon_ai_contracts.retrieval import Chunk, NamedRetriever, Reranker
+from axon_ai_contracts.testing.distribution import (
     check_contracts_requirement,
     find_distribution,
     read_requirements,
 )
-from ai_core_contracts.testing.fixtures import chunk, pack_context, turn_view, validator_context
-from ai_core_contracts.testing.imports import check_imports
-from ai_core_contracts.tools import ToolSpec
-from ai_core_contracts.validation import AnswerValidator, StreamingValidator, ValidationResult, ValidatorContext
-from ai_core_contracts.view import TurnView
+from axon_ai_contracts.testing.fixtures import chunk, pack_context, turn_view, validator_context
+from axon_ai_contracts.testing.imports import check_imports
+from axon_ai_contracts.tools import ToolSpec
+from axon_ai_contracts.validation import AnswerValidator, StreamingValidator, ValidationResult, ValidatorContext
+from axon_ai_contracts.view import TurnView
 
 _PACK_MEMBERS = (
     "name",
@@ -448,7 +448,7 @@ def _check_imports_step(run: _Run) -> None:
 
 
 def _check_distribution_step(run: _Run) -> None:
-    """Etapa 9: a dependência de ai-core-contracts declarada pelo pacote do pack cabe na faixa derivada."""
+    """Etapa 9: a dependência de axon-ai-contracts declarada pelo pacote do pack cabe na faixa derivada."""
     if not run.check_distribution:
         return
     distribution = find_distribution(run.pack)

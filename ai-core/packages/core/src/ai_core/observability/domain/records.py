@@ -13,7 +13,7 @@ from typing import Final
 
 from ai_core.observability.api import TraceEvent, TraceRecord
 from ai_core.observability.domain.redaction import redact_value
-from ai_core_contracts import JSONValue
+from axon_ai_contracts import JSONValue
 
 _CAMEL_BOUNDARY: Final = re.compile(r"(?<!^)(?=[A-Z])")
 _RESERVED: Final = frozenset({"at", "type", "request_id"})

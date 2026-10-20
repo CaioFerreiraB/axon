@@ -2,7 +2,7 @@
 
 Contrato em specs/006-core-llm-providers/contracts/model-router.md.
 
-Único módulo da 006 que outros módulos importam. Depende só da stdlib e da API pública de `ai_core_contracts`: nenhum
+Único módulo da 006 que outros módulos importam. Depende só da stdlib e da API pública de `axon_ai_contracts`: nenhum
 tipo de SDK de provedor ou de cliente HTTP aparece aqui (princípio XIII, research R6). Não importa o resto do próprio
 módulo — as implementações destes Protocols estão em `service.py` e em `adapters/`.
 """
@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Final, Literal, Protocol
 
-from ai_core_contracts import ChatChunk, ChatMessage, ChatResponse, ChatTool, JSONValue
+from axon_ai_contracts import ChatChunk, ChatMessage, ChatResponse, ChatTool, JSONValue
 
 type ModelRole = Literal["controller", "generation", "rerank"]
 """Papéis do ADR-008. Vocabulário fechado: o roteador nunca inventa papel nem escolhe modelo por conta própria."""

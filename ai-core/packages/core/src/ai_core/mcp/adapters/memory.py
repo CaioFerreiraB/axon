@@ -28,7 +28,7 @@ from ai_core.mcp.ports import (
     Target,
     TransportFailure,
 )
-from ai_core_contracts import JSONValue
+from axon_ai_contracts import JSONValue
 
 
 class InMemoryServerStore:
