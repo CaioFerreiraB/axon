@@ -2,7 +2,7 @@
 
 import { Link } from "react-router";
 
-import type { UsageReport } from "../../api/schemas";
+import type { Provider, UsageReport } from "../../api/schemas";
 import {
   formatChange,
   formatCompact,
@@ -14,11 +14,31 @@ import {
 } from "../../i18n/format";
 import { Icon } from "../../ui/icons";
 import { daysBetween, previousRange } from "./period";
+import { keyLabel, reportsCost } from "./series";
 import styles from "./StatStrip.module.css";
 
-type Props = { report?: UsageReport | undefined; state: "data" | "loading" | "error" };
+type Props = {
+  report?: UsageReport | undefined;
+  state: "data" | "loading" | "error";
+  providers?: Provider[] | undefined;
+  /** Modelos sem preço no período (`/prices/unpriced`): agrupado por Assistant, as linhas não são modelos. */
+  unpriced?: string[] | undefined;
+};
 
-export function StatStrip({ report, state }: Props) {
+/** Os modelos que pedem preço: os sem preço cujo provider não informa o custo (ADR-036). */
+function needingPrice(
+  report: UsageReport,
+  providers: Provider[] | undefined,
+  unpriced: string[] | undefined,
+): number | null {
+  const models =
+    report.query.by === "model"
+      ? report.totals.filter((row) => !row.priced).map((row) => keyLabel(row.key, "model"))
+      : unpriced;
+  return models ? models.filter((model) => !reportsCost(model, providers)).length : null;
+}
+
+export function StatStrip({ report, state, providers, unpriced: unpricedModels }: Props) {
   if (state !== "data" || !report) {
     const note = state === "loading" ? "Carregando…" : "Indisponível";
     return (
@@ -42,7 +62,8 @@ export function StatStrip({ report, state }: Props) {
   const input = report.totals.reduce((sum, row) => sum + row.input_tokens, 0);
   const output = report.totals.reduce((sum, row) => sum + row.output_tokens, 0);
   const days = daysBetween(query.from, query.to);
-  const unpriced = report.totals.filter((row) => !row.priced).length;
+  const unpriced = report.incomplete ? needingPrice(report, providers, unpricedModels) : 0;
+  // Ainda sem a lista de modelos sem preço (agrupado por Assistant), nenhum dos dois avisos.
   const previous = previousRange(query.from, query.to);
   const change =
     report.total_cost !== null && report.previous_total_cost !== null
@@ -63,11 +84,16 @@ export function StatStrip({ report, state }: Props) {
         ) : (
           <span className={styles.note}>Sem custo no período anterior para comparar</span>
         )}
-        {report.incomplete ? (
+        {unpriced === null ? null : unpriced > 0 ? (
           <Link to="/uso/precos" className={styles.warn}>
             <Icon name="alerta" size={14} />
             Incompleto: {plural(unpriced, "modelo sem preço", "modelos sem preço")}
           </Link>
+        ) : report.incomplete ? (
+          <span className={styles.warn}>
+            <Icon name="alerta" size={14} />
+            Parcial: há chamadas sem custo informado
+          </span>
         ) : null}
       </div>
       <div className={styles.cell}>

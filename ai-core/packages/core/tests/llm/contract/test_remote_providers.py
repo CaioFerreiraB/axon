@@ -497,3 +497,9 @@ async def test_ready_do_remoto_e_so_a_credencial_sem_rede(cls: Any, variable: st
     assert pronto.available and pronto.detail is None
     assert not faltando.available and faltando.detail is not None and variable in faltando.detail
     assert transporte.requests == [] and transporte_sem.requests == []
+
+
+def test_so_o_openrouter_informa_o_custo() -> None:
+    """ADR-036: quem informa o custo de cada chamada não tem preço de tabela."""
+    assert build(OpenRouterProvider)[0].reports_cost is True
+    assert build(OpenAIProvider)[0].reports_cost is False

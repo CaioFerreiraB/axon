@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from ai_core.http.domain.admin_common import AdminInvalid, day, decimal_text, money, only, text
+from ai_core.llm.api import ProviderStatus
 from ai_core.observability.api import InvalidQuery, Price, UsageQuery, UsageReport, UsageRow
 
 DEFAULT_DAYS = 30
@@ -68,7 +69,10 @@ def report_json(report: UsageReport) -> dict[str, Any]:
         "requests": report.requests,
         "incomplete": report.incomplete,
         "previous_total_cost": decimal_text(report.previous_total_cost),
-        "days": [{"day": d.day.isoformat(), "rows": [_row(row) for row in d.rows]} for d in report.days],
+        "days": [
+            {"day": d.day.isoformat(), "requests": d.requests, "rows": [_row(row) for row in d.rows]}
+            for d in report.days
+        ],
     }
 
 
@@ -94,6 +98,14 @@ def price_body(body: Mapping[str, Any]) -> dict[str, Any]:
         "usd_per_mtok_out": money(body, "output"),
         "effective_from": day(body.get("effective_from"), "effective_from"),
     }
+
+
+def check_price_provider(provider: str, statuses: Sequence[ProviderStatus]) -> None:
+    """Provider que informa o custo de cada chamada não tem preço de tabela (ADR-036)."""
+    if any(status.name == provider and status.reports_cost for status in statuses):
+        raise AdminInvalid(
+            f"provider: {provider} informa o custo de cada chamada; preço de tabela não se aplica", field="provider"
+        )
 
 
 def period_params(params: Mapping[str, str], *, now: datetime, default_tz: str) -> tuple[date, date]:

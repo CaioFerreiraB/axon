@@ -206,6 +206,8 @@ def test_limite_de_execucoes_simultaneas_pela_configuracao(tmp_path: Path) -> No
         async def ready(self) -> Any:
             return SimpleNamespace(available=True, detail=None)
 
+        reports_cost = False
+
     async def cenario() -> None:
         provider = Segurando()
         plataforma = platform(

@@ -63,6 +63,8 @@ async def test_agregado_por_dia_local_chave_e_requisicoes_distintas(stores: Stor
         (date(2026, 10, 14), "openrouter/a", 1, 100),
     ]
     assert agg.total_requests == 2
+    # ADR-036: a r1 usa dois modelos no dia 13 e conta uma vez; a r3 (avaliação) fica fora.
+    assert [(d.day, d.requests) for d in agg.day_requests] == [(date(2026, 10, 13), 1), (date(2026, 10, 14), 1)]
     by_assistant = await _daily(
         stores,
         UsageQuery(
@@ -71,6 +73,10 @@ async def test_agregado_por_dia_local_chave_e_requisicoes_distintas(stores: Stor
     )
     assert {(k.key, k.requests) for k in by_assistant.key_requests} == {("geral", 2), (None, 1)}
     assert by_assistant.total_requests == 3
+    assert [(d.day, d.requests) for d in by_assistant.day_requests] == [
+        (date(2026, 10, 13), 1),
+        (date(2026, 10, 14), 2),
+    ]
 
 
 async def test_custo_informado_e_somado_a_parte(stores: Stores) -> None:

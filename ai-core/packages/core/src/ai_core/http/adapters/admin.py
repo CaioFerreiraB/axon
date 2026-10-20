@@ -223,6 +223,7 @@ def admin_router(seams: AdminSeams, instance: InstanceBranding) -> APIRouter:
     @route("POST", "/prices", status=201)
     async def add_price(request: Request, principal: Principal) -> Any:
         fields = admin_usage.price_body(await json_body(request))
+        admin_usage.check_price_provider(fields["provider"], await seams.models.providers())
         return admin_usage.price_json(await seams.prices.add_price(**fields, actor=principal.subject))
 
     @route("GET", "/prices/unpriced")

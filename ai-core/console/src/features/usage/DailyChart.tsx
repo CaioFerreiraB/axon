@@ -1,6 +1,6 @@
 /**
- * Custo por dia, empilhado por modelo ou Assistant (013 FR-010, R2). SVG próprio com `d3-scale`, nas regras da
- * skill dataviz: barras de até 24 px, topo arredondado de 4 px e base reta, vão de 2 px entre segmentos, grade de
+ * Custo, requisições ou tokens por dia, empilhados por modelo ou Assistant (013 FR-010, R2). SVG próprio com
+ * `d3-scale`, nas regras da skill dataviz: barras de até 24 px, topo arredondado de 4 px e base reta, vão de 2 px entre segmentos, grade de
  * 1 px, marcos de mudança (preço novo, sobreposição gravada), dica pelo mouse e pelas setas do teclado, e a tabela
  * equivalente para leitores de tela.
  */
@@ -8,28 +8,40 @@
 import { scaleBand, scaleLinear } from "d3-scale";
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
-import { formatDayMonth, formatUsd, formatWeekdayDay } from "../../i18n/format";
-import styles from "./DailyCostChart.module.css";
-import type { DayStack, Series } from "./series";
+import { formatDayMonth, formatWeekdayDay } from "../../i18n/format";
+import styles from "./DailyChart.module.css";
+import type { DayStack, Hollow, Series } from "./series";
 
 export type Marker = { day: string; label: string };
 
 /** A legenda, no canto direito do cabeçalho do painel (desenho "Uso e custo"). */
-export function ChartLegend({ series, unpriced }: { series: Series[]; unpriced: string[] }) {
+export function ChartLegend({
+  series,
+  hollow = [],
+  note = null,
+}: {
+  series: Series[];
+  hollow?: Hollow[];
+  note?: string | null;
+}) {
   return (
     <ul className={styles.legend} aria-label="Legenda">
       {series.map((entry) => (
         <li key={entry.id} className={styles.legendItem}>
           <span className={styles.swatch} style={{ background: entry.color }} aria-hidden="true" />
           <span className={entry.id.startsWith("__") ? undefined : styles.mono}>{entry.label}</span>
+          {entry.partial ? <span>· custo parcial</span> : null}
         </li>
       ))}
-      {unpriced.map((label) => (
+      {hollow.map(({ label, note: why }) => (
         <li key={label} className={styles.legendItem}>
           <span className={`${styles.swatch} ${styles.hollow}`} aria-hidden="true" />
-          <span>{label} · sem preço, fora do custo</span>
+          <span>
+            {label} · {why}
+          </span>
         </li>
       ))}
+      {note ? <li className={styles.legendItem}>{note}</li> : null}
     </ul>
   );
 }
@@ -123,13 +135,17 @@ function barPath(x: number, y: number, width: number, height: number, roundTop: 
   ].join("");
 }
 
-export function DailyCostChart({
+export function DailyChart({
   stacks,
   series,
   markers = [],
   state = "data",
   caption,
   dayLabels = true,
+  format,
+  axisFormat,
+  integer = false,
+  emptyDay,
 }: {
   stacks: DayStack[];
   series: Series[];
@@ -138,6 +154,14 @@ export function DailyCostChart({
   caption: string;
   /** Sem relatório ainda (carregando, erro), os dias do eixo não são conhecidos e não aparecem. */
   dayLabels?: boolean;
+  /** O valor na dica e na tabela equivalente ("US$ 2,08", "1.802", "21,1 mil"). */
+  format: (value: number) => string;
+  /** O rótulo de uma marca do eixo, sem o zero. */
+  axisFormat: (value: number) => string;
+  /** Contagens: o eixo só marca inteiros. */
+  integer?: boolean;
+  /** A dica de um dia sem valor: "Sem custo neste dia". */
+  emptyDay: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(800);
@@ -215,7 +239,7 @@ export function DailyCostChart({
     [top, plotHeight, band],
   );
   const barWidth = Math.min(BAR_MAX, x.bandwidth());
-  const ticks = y.ticks(3);
+  const ticks = y.ticks(3).filter((tick) => !integer || Number.isInteger(tick));
   const labelEvery = stacks.length > 45 ? 14 : 7;
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -266,7 +290,7 @@ export function DailyCostChart({
                 y2={Math.round(y(tick)) + 0.5}
               />
               <text className={styles.axis} x={0} y={y(tick) + 4}>
-                {tick === 0 ? "0" : `US$ ${tick.toLocaleString("pt-BR")}`}
+                {tick === 0 ? "0" : axisFormat(tick)}
               </text>
             </g>
           ))}
@@ -290,7 +314,7 @@ export function DailyCostChart({
               }
               let cursor = plotHeight;
               const segments = stack.segments.map((segment, segmentIndex) => {
-                const height = Math.max(1, plotHeight - y(segment.cost));
+                const height = Math.max(1, plotHeight - y(segment.value));
                 const segmentTop = cursor - height;
                 const isTop = segmentIndex === stack.segments.length - 1;
                 const path = (
@@ -378,21 +402,22 @@ export function DailyCostChart({
           <div className={styles.tooltip} style={{ left: tooltipLeft, top: band + 96 }} role="status">
             <p className={styles.tooltipDay}>{formatWeekdayDay(activeStack.day)}</p>
             {activeStack.segments.length === 0 ? (
-              <p>Sem custo neste dia</p>
+              <p>{emptyDay}</p>
             ) : (
               [...activeStack.segments].reverse().map((segment) => (
                 <div key={segment.series.id} className={styles.tooltipRow}>
                   <span className={styles.swatch} style={{ background: segment.series.color }} aria-hidden="true" />
                   <span className={segment.series.id.startsWith("__") ? undefined : styles.mono}>
                     {segment.series.short}
+                    {segment.partial ? <span className={styles.partial}> · parcial</span> : null}
                   </span>
-                  <span>{formatUsd(segment.cost)}</span>
+                  <span>{format(segment.value)}</span>
                 </div>
               ))
             )}
             <div className={styles.tooltipTotal}>
               <span>Total</span>
-              <strong>{formatUsd(activeStack.total)}</strong>
+              <strong>{format(activeStack.total)}</strong>
             </div>
           </div>
         ) : null}
@@ -418,11 +443,9 @@ export function DailyCostChart({
                   <tr key={stack.day}>
                     <th scope="row">{formatWeekdayDay(stack.day)}</th>
                     {series.map((entry) => (
-                      <td key={entry.id}>
-                        {formatUsd(stack.segments.find((s) => s.series.id === entry.id)?.cost ?? 0)}
-                      </td>
+                      <td key={entry.id}>{format(stack.segments.find((s) => s.series.id === entry.id)?.value ?? 0)}</td>
                     ))}
-                    <td>{formatUsd(stack.total)}</td>
+                    <td>{format(stack.total)}</td>
                   </tr>
                 ))
               : null}

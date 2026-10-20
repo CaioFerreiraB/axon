@@ -329,7 +329,7 @@ def test_allowlist_us5_literal(trace: Any) -> None:
 async def test_providers_lista_por_nome_com_a_prontidao_de_cada_um(trace: Any) -> None:
     service = ModelRoutingService(
         providers={
-            "openrouter": ScriptedProvider(name="openrouter"),
+            "openrouter": ScriptedProvider(name="openrouter", reports_cost=True),
             "openai": OpenAIProvider(secrets=InMemorySecretResolver()),
             "ollama": ScriptedProvider(name="ollama", unready="provider inalcançável em http://ollama.test/v1"),
         },
@@ -343,6 +343,7 @@ async def test_providers_lista_por_nome_com_a_prontidao_de_cada_um(trace: Any) -
     assert "inalcançável" in (statuses[0].detail or "")
     assert "AI_CORE_OPENAI_API_KEY" in (statuses[1].detail or "")
     assert statuses[2].detail is None
+    assert [s.reports_cost for s in statuses] == [False, False, True]  # ADR-036
     assert trace.events == []
 
 

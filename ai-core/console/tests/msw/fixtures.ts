@@ -157,14 +157,25 @@ export const report: UsageReport = {
       cost: null,
       priced: false,
     },
+    // Parcial: só parte das chamadas do OpenRouter informou o custo (as outras são anteriores ao ADR-035).
+    {
+      key: "openrouter/z-ai/glm-5.3-flash",
+      calls: 22,
+      requests: 10,
+      input_tokens: 22902,
+      output_tokens: 8454,
+      cost: "0.007060",
+      priced: false,
+    },
   ],
-  total_cost: "33.520000",
+  total_cost: "33.527060",
   requests: 2202,
   incomplete: true,
   previous_total_cost: "31.000000",
   days: [
     {
       day: "2026-10-10",
+      requests: 300,
       rows: [
         {
           key: "openrouter/openai/gpt-4.1-mini",
@@ -174,6 +185,31 @@ export const report: UsageReport = {
           output_tokens: 1,
           cost: "2.080000",
           priced: true,
+        },
+      ],
+    },
+    // Uma requisição do agentic usa os dois modelos: 5 + 4 linhas, 6 requisições distintas.
+    {
+      day: "2026-10-11",
+      requests: 6,
+      rows: [
+        {
+          key: "openrouter/openai/gpt-4.1-mini",
+          calls: 9,
+          requests: 5,
+          input_tokens: 4000,
+          output_tokens: 1000,
+          cost: "0.500000",
+          priced: true,
+        },
+        {
+          key: "openrouter/z-ai/glm-5.3-flash",
+          calls: 8,
+          requests: 4,
+          input_tokens: 3000,
+          output_tokens: 500,
+          cost: "0.007060",
+          priced: false,
         },
       ],
     },
@@ -192,9 +228,9 @@ export const emptyReport: UsageReport = {
 
 /** Só o OpenRouter pronto: o Ollama fora do ar e a OpenAI sem chave (ADR-035). */
 export const providers: Provider[] = [
-  { name: "ollama", ready: false, detail: "provider inalcançável em http://localhost:11434/v1" },
-  { name: "openai", ready: false, detail: "sem credencial: defina AI_CORE_OPENAI_API_KEY" },
-  { name: "openrouter", ready: true, detail: null },
+  { name: "ollama", ready: false, detail: "provider inalcançável em http://localhost:11434/v1", reports_cost: false },
+  { name: "openai", ready: false, detail: "sem credencial: defina AI_CORE_OPENAI_API_KEY", reports_cost: false },
+  { name: "openrouter", ready: true, detail: null, reports_cost: true },
 ];
 
 export const prices: Price[] = [

@@ -40,6 +40,11 @@ class ModelProvider(LLMProvider, Protocol):
         local, se o endpoint responde. NUNCA levanta e NUNCA gera tokens."""
         ...
 
+    @property
+    def reports_cost(self) -> bool:
+        """O provider informa o custo de cada chamada (ADR-036): nenhum preço de tabela se cadastra para ele."""
+        ...
+
 
 class SecretResolver(Protocol):
     """Credenciais dos providers remotos (Fase 3, research R21).

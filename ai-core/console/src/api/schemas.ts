@@ -85,11 +85,13 @@ export const modelCheckSchema = z.object({
 });
 export type ModelCheck = z.infer<typeof modelCheckSchema>;
 
-/** Um provider registrado e se está pronto (ADR-035): o remoto pela credencial, o local se responde. */
+/** Um provider registrado e se está pronto (ADR-035): o remoto pela credencial, o local se responde. `reports_cost`: ele
+ * informa o custo de cada chamada, e não há preço de tabela a cadastrar (ADR-036). */
 export const providerSchema = z.object({
   name: z.string(),
   ready: z.boolean(),
   detail: z.string().nullable(),
+  reports_cost: z.boolean(),
 });
 export type Provider = z.infer<typeof providerSchema>;
 export const providerListSchema = z.object({ data: z.array(providerSchema) });
@@ -160,7 +162,8 @@ export const usageReportSchema = z.object({
   requests: z.number().int(),
   incomplete: z.boolean(),
   previous_total_cost: decimal.nullable(),
-  days: z.array(z.object({ day: z.string(), rows: z.array(usageRowSchema) })),
+  /** `requests` do dia são as distintas (ADR-036): somar as linhas por modelo contaria duas vezes. */
+  days: z.array(z.object({ day: z.string(), requests: z.number().int(), rows: z.array(usageRowSchema) })),
 });
 export type UsageReport = z.infer<typeof usageReportSchema>;
 export type UsageGrouping = UsageReport["query"]["by"];

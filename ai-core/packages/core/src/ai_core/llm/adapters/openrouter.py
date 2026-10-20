@@ -20,6 +20,7 @@ class OpenRouterProvider(RemoteProvider):
     """O mesmo nome que a regra de roteamento automático do `ModelRef` usa (research R16)."""
     DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
     CREDENTIAL = "AI_CORE_OPENROUTER_API_KEY"
+    REPORTS_COST = True
 
     def _has_model(self, model: str, ids: Sequence[str]) -> bool:
         if model in ids:

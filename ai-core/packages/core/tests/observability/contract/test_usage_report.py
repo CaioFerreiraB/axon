@@ -59,7 +59,7 @@ async def test_relatorio_soma_o_emitido_e_o_preco_recalcula(stores: Stores) -> N
     assert price.state == "current"
     report = await usage.report(query)
     assert report.total_cost == Decimal("4.000000") and not report.incomplete  # 2 + (1 + 1)
-    assert [day.day for day in report.days] == [date(2026, 10, 10), date(2026, 10, 11)]
+    assert [(day.day, day.requests) for day in report.days] == [(date(2026, 10, 10), 1), (date(2026, 10, 11), 1)]
     by_assistant = await usage.report(
         UsageQuery(start=date(2026, 10, 10), end=date(2026, 10, 11), by="assistant", origin="all")
     )

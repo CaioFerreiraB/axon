@@ -15,6 +15,7 @@ from ai_core.observability.domain.settings import DestinationSettings, LangfuseC
 from ai_core.observability.domain.usage_records import (
     DailyRequests,
     DailyTokens,
+    DayRequests,
     ExecutionRow,
     KeyRequests,
     ModelCallRow,
@@ -25,6 +26,7 @@ from ai_core.observability.domain.usage_records import (
 __all__ = [
     "DailyRequests",
     "DailyTokens",
+    "DayRequests",
     "DestinationSettings",
     "ExecutionRow",
     "KeyRequests",

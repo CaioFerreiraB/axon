@@ -1,5 +1,6 @@
 /** Tabela de preços (013 FR-011): USD por milhão de tokens, com vigência. O custo é calculado na consulta: um preço
- * com data no passado recalcula o histórico. Modelos usados sem preço aparecem destacados. */
+ * com data no passado recalcula o histórico. Modelos usados sem preço aparecem destacados. Provider que informa o
+ * custo de cada chamada (o OpenRouter) não tem preço a cadastrar (ADR-036): fica fora do formulário. */
 
 import { useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
@@ -7,23 +8,22 @@ import { useSearchParams } from "react-router";
 import { fieldError } from "../../api/errors";
 import { useProviders } from "../../api/hooks/assistants";
 import { useAddPrice, usePrices, useUnpriced, useUsage } from "../../api/hooks/usage";
-import type { Price } from "../../api/schemas";
+import type { Price, Provider } from "../../api/schemas";
 import { formatFullDay, formatInstantDay, formatInteger, formatPrice } from "../../i18n/format";
 import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
 import { Field, Select, TextInput } from "../../ui/Field";
+import { Notice } from "../../ui/Notice";
 import { Page, PageHeader } from "../../ui/Page";
 import { Panel } from "../../ui/Panel";
 import { EmptyState, LoadError, Skeleton } from "../../ui/States";
 import { Table, tableStyles as t } from "../../ui/Table";
-import { defaultProvider, joinRef, optionLabel, splitRef } from "../assistants/modelRef";
+import { defaultProvider, joinRef, optionLabel, splitRef, type ProviderOption } from "../assistants/modelRef";
 import { addDays } from "./period";
+import { reportsCost } from "./series";
 import styles from "./PricesPage.module.css";
 
 const DECIMAL = /^\d+([.,]\d+)?$/;
-
-/** O provider que informa o custo de cada chamada (ADR-035): o preço da tabela só cobre as chamadas sem custo. */
-const REPORTS_COST = "openrouter";
 
 type Row = { price: Price; until: string | null };
 
@@ -62,13 +62,15 @@ function PriceForm({
 }) {
   const add = useAddPrice();
   const providers = useProviders();
+  const priceable: Provider[] | undefined = providers.data?.filter((option) => !option.reports_cost);
   const [draft, setDraft] = useState({ ...splitRef(model), input: "", output: "", from: "" });
   const [shapeError, setShapeError] = useState<Record<string, string>>({});
   const set = (field: keyof typeof draft) => (event: { target: { value: string } }) =>
     setDraft((current) => ({ ...current, [field]: event.target.value }));
-  // Preço também vale para provider fora do ar: a lista tem todos os registrados, os prontos primeiro.
-  const provider = draft.provider || defaultProvider(providers.data);
-  const options = [...(providers.data ?? [])].sort(
+  // Preço também vale para provider fora do ar: a lista tem todos os registrados que não informam o custo, os prontos
+  // primeiro.
+  const provider = draft.provider || defaultProvider(priceable);
+  const options: ProviderOption[] = [...(priceable ?? [])].sort(
     (a, b) => Number(b.ready) - Number(a.ready) || a.name.localeCompare(b.name),
   );
   if (provider && !options.some((option) => option.name === provider)) {
@@ -111,6 +113,18 @@ function PriceForm({
 
   const error = (field: string) => shapeError[field] ?? fieldError(add.error, field);
   const calls = unpricedCalls(ref);
+  if (reportsCost(`${provider}/`, providers.data)) {
+    return (
+      <Notice
+        tone="info"
+        title={`${provider} informa o custo de cada chamada`}
+        action={{ label: "Fechar", onClick: onDone }}
+      >
+        Não há preço a cadastrar para {joinRef(splitRef(model)) || provider}: o custo vem de cada chamada. As chamadas
+        sem custo informado, como as anteriores a essa mudança, ficam como “não informado”.
+      </Notice>
+    );
+  }
   return (
     <Panel title="Novo preço" labelledBy="novo-preco">
       <form onSubmit={submit} noValidate>
@@ -148,9 +162,6 @@ function PriceForm({
         </div>
         <p className={styles.formNote}>
           {calls > 0 ? `${ref} foi usado sem preço em ${formatInteger(calls)} chamadas. ` : ""}
-          {provider === REPORTS_COST
-            ? "O OpenRouter informa o custo de cada chamada; este preço só vale para chamadas sem custo informado. "
-            : ""}
           Uma data no passado recalcula o custo desde ela; preço zero tira o modelo de “sem preço”.
         </p>
       </form>
@@ -163,11 +174,12 @@ export default function PricesPage() {
   const prefill = params.get("modelo");
   const [open, setOpen] = useState(prefill !== null);
   const prices = usePrices();
+  const providers = useProviders();
   const unpriced = useUnpriced({});
   const usage = useUsage({ by: "model", origin: "all" });
   const rows = useMemo(() => rowsOf(prices.data ?? []), [prices.data]);
   const pricedKeys = new Set(rows.map((row) => `${row.price.provider}/${row.price.model}`));
-  const missing = (unpriced.data ?? []).filter((key) => !pricedKeys.has(key));
+  const missing = (unpriced.data ?? []).filter((key) => !pricedKeys.has(key) && !reportsCost(key, providers.data));
   const callsOf = (model: string) => usage.data?.totals.find((row) => row.key === model && !row.priced)?.calls ?? 0;
 
   const close = () => {

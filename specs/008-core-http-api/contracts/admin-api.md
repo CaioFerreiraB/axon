@@ -46,7 +46,7 @@ Escritas de recursos versionados levam `version` no corpo (ou na query, no `DELE
 | `DELETE /assistants/{name}/overrides/{models\|mcp}?version=3` | — | `AssistantView` |
 | `GET /assistants/{name}/history` | — | `{"data": [{"section", "action", "payload", "version", "actor", "at"}…]}` |
 | `POST /assistants/{name}/models/check` | `{"role": "generation", "model": "openrouter/openai/gpt-4.1-mini"}` | `{"available": true, "detail": "respondeu", "latency_ms": 412}` — pela verificação de saúde do Model Router (006); modelo fora da allowlist → `422` |
-| `GET /providers` | — | `{"data": [{"name": "ollama", "ready": false, "detail": "provider inalcançável em http://localhost:11434/v1"}, {"name": "openrouter", "ready": true, "detail": null}]}` — os providers registrados, por nome, pelo `ModelRouting.providers()` da 006: o remoto pronto pela credencial, o local se responde (ADR-035) |
+| `GET /providers` | — | `{"data": [{"name": "ollama", "ready": false, "detail": "provider inalcançável em http://localhost:11434/v1", "reports_cost": false}, {"name": "openrouter", "ready": true, "detail": null, "reports_cost": true}]}` — os providers registrados, por nome, pelo `ModelRouting.providers()` da 006: o remoto pronto pela credencial, o local se responde (ADR-035); `reports_cost`, se informa o custo de cada chamada (ADR-036) |
 
 `AssistantView`:
 
@@ -77,20 +77,23 @@ Escritas de recursos versionados levam `version` no corpo (ou na query, no `DELE
  "totals": [{"key": "openrouter/openai/gpt-4.1-mini", "calls": 3118, "requests": 1802, "input_tokens": 11400000,
              "output_tokens": 1900000, "cost": "33.520000", "priced": true}],
  "total_cost": "41.870000", "incomplete": true, "previous_total_cost": "38.690000",
- "days": [{"day": "2026-09-14", "rows": [ … ]}]}
+ "days": [{"day": "2026-09-14", "requests": 61, "rows": [ … ]}]}
 ```
 
 Valores monetários como string decimal. `tz` padrão: `AI_CORE_USAGE_TIMEZONE`. `by` padrão `model`; `origin` padrão
-`production`; período padrão: últimos 30 dias no fuso.
+`production`; período padrão: últimos 30 dias no fuso. `requests` de cada dia são as requisições distintas do dia
+(ADR-036): por modelo, somar as linhas contaria duas vezes a requisição que usa dois modelos.
 
 | Rota | Corpo | Resposta |
 |---|---|---|
 | `GET /prices` | — | `{"data": [{"provider", "model", "input", "output", "effective_from", "state", "created_by", "created_at"}…]}` |
-| `POST /prices` | `{"provider": "ollama", "model": "qwen3:1.7b", "input": "0", "output": "0", "effective_from": "2026-09-14"}` | `201` + o preço |
+| `POST /prices` | `{"provider": "ollama", "model": "qwen3:1.7b", "input": "0", "output": "0", "effective_from": "2026-09-14"}` | `201` + o preço; `422` com `param: "provider"` se o provider informa o custo de cada chamada (ADR-036) |
 | `GET /prices/unpriced?from&to` | — | `{"data": ["ollama/qwen3:1.7b"]}` |
 
 O custo de uma linha é o que o provider informou nas chamadas (o OpenRouter informa) mais, pelo preço vigente, os tokens
 das chamadas sem custo informado (ADR-035). Um modelo só aparece em `unpriced` quando sobram tokens sem custo informado.
+Provider que informa o custo não ganha preço novo (ADR-036): as chamadas dele sem custo informado (anteriores ao ADR-035)
+ficam como custo não informado, e os preços já gravados continuam valendo para elas.
 
 ## Observabilidade (009)
 

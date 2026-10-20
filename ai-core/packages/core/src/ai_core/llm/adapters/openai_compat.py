@@ -8,7 +8,7 @@ o cliente HTTP só aparecem em `adapters/` (princípio XIII, research R4).
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping, Sequence
-from typing import Any, Final, Literal, overload
+from typing import Any, ClassVar, Final, Literal, overload
 
 import httpx2
 from openai import APIConnectionError, APIStatusError, APITimeoutError, AsyncOpenAI, OpenAIError
@@ -41,6 +41,9 @@ class OpenAICompatProvider:
     no hardware alvo (5 a 15 tok/s) uma resposta legítima leva minutos. `max_retries=0`: nenhuma repetição silenciosa.
     """
 
+    REPORTS_COST: ClassVar[bool] = False
+    """O endpoint informa o custo em `usage.cost` (ADR-036); a subclasse que o pede declara `True`."""
+
     def __init__(
         self,
         *,
@@ -69,6 +72,10 @@ class OpenAICompatProvider:
     @property
     def name(self) -> str:
         return self._name
+
+    @property
+    def reports_cost(self) -> bool:
+        return self.REPORTS_COST
 
     @overload
     async def chat(

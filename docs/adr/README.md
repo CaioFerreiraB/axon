@@ -40,6 +40,7 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 | [033](ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md) | Segredos configurados em runtime ficam cifrados com a chave mestra da instalação (refina o 020) | Aceita | 011, 009, 012 |
 | [034](ADR-034-trace-com-destinos-e-conteudo-opcional.md) | O trace se ramifica em destinos; conteúdo só por evento dedicado e opcional (refina o 017) | Aceita | 009, 006, 011 |
 | [035](ADR-035-custo-informado-pelo-provider-e-providers-prontos.md) | O custo informado pelo provider entra na chamada; a administração lista os providers prontos (refina o 034) | Aceita | 001, 006, 009, 008, 013 |
+| [036](ADR-036-provider-que-informa-custo-sem-preco-de-tabela.md) | Provider que informa o custo não tem preço de tabela; o relatório diz as requisições do dia (refina o 035) | Aceita | 006, 009, 008, 013 |
 
 ## Modelo para ADR novo
 

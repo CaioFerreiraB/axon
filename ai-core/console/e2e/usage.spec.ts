@@ -1,5 +1,6 @@
 /** US4 (013): 7/30/90 dias, por modelo e por Assistant, no fuso da API; "sem preço" e total incompleto; preço novo no
- * passado recalcula o custo; 90 dias pronto em menos de 2 s (SC-004). */
+ * passado recalcula o custo; 90 dias pronto em menos de 2 s (SC-004). ADR-036: custo parcial do OpenRouter sem
+ * cadastro de preço, e o gráfico em custo, requisições ou tokens. */
 
 import { expect, test } from "@playwright/test";
 
@@ -40,4 +41,33 @@ test("sem uso no período: o estado vazio explica de onde vêm os dados", async 
   await login(page, "/uso?origem=evaluation");
   await expect(page.getByText("Nenhuma chamada de modelo neste período")).toBeVisible();
   await expect(page.getByText("O uso aparece aqui assim que a primeira conversa acontecer.")).toBeVisible();
+});
+
+test("custo parcial do OpenRouter sem cadastro de preço", async ({ page }) => {
+  await login(page, "/uso");
+  const glm = page.getByRole("row", { name: /openrouter\/z-ai\/glm-5\.3-flash/ });
+  await expect(glm.getByText("Parcial")).toBeVisible();
+  await expect(glm.getByText("informado pelo provedor")).toBeVisible();
+  await expect(glm.getByRole("link", { name: "Cadastrar" })).toHaveCount(0);
+  // A sessão do provedor ainda vale: a nova carga volta do login sem formulário.
+  await page.goto("/uso/precos?modelo=openrouter/z-ai/glm-5.3-flash");
+  await expect(page.getByText("openrouter informa o custo de cada chamada")).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Provedor" })).toHaveCount(0);
+});
+
+test("o gráfico alterna entre custo, requisições e tokens, e a métrica fica na URL", async ({ page }) => {
+  await login(page, "/uso");
+  await expect(page.getByRole("img", { name: /Custo por dia/ })).toBeVisible();
+  await page.getByRole("radio", { name: "Requisições" }).click();
+  await expect(page).toHaveURL(/metrica=requisicoes/);
+  await expect(page.getByRole("heading", { name: "Requisições por dia" })).toBeVisible();
+  await expect(page.getByText("uma requisição pode usar mais de um modelo")).toBeVisible();
+  await page.getByRole("radio", { name: "Por Assistant" }).click();
+  await expect(page.getByRole("img", { name: "Requisições distintas por dia, por Assistant" })).toBeVisible();
+  await page.getByRole("radio", { name: "Tokens" }).click();
+  await page.getByRole("radio", { name: "Entrada" }).click();
+  await expect(page).toHaveURL(/metrica=tokens.*tokens=entrada|tokens=entrada.*metrica=tokens/);
+  await expect(page.getByRole("img", { name: "Tokens de entrada por dia, por Assistant" })).toBeVisible();
+  await page.getByRole("radio", { name: "Custo" }).click();
+  await expect(page).not.toHaveURL(/tokens=/);
 });

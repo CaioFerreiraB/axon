@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { placeMarkers } from "../../src/features/usage/DailyCostChart";
+import { placeMarkers } from "../../src/features/usage/DailyChart";
 
 const GAP = 6;
 

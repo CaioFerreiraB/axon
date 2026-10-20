@@ -127,7 +127,10 @@ MODELS: Final = (
     ("openrouter", "openai/gpt-4.1-mini", "geral", 120),
     ("openai", "gpt-4.1-nano", "documentos", 70),
     ("ollama", "qwen3:1.7b", "rascunho", 30),
+    ("openrouter", "z-ai/glm-5.3-flash", "geral", 20),
 )
+REPORTED_SINCE: Final = 5
+"""Dias para trás desde quando o OpenRouter informa o custo (ADR-035): antes, o GLM fica sem custo — custo parcial."""
 
 
 def _write(directory: Path) -> Settings:
@@ -249,6 +252,11 @@ async def _seed(plataforma: Platform) -> None:
                         input_tokens=rng.randint(1_500, 6_000),
                         output_tokens=rng.randint(200, 900),
                         duration_ms=float(rng.randint(300, 2_400)),
+                        reported_cost=(
+                            Decimal("0.0003")
+                            if provider == "openrouter" and model.startswith("z-ai/") and back <= REPORTED_SINCE
+                            else None
+                        ),
                     )
                 )
     await plataforma.parts["usage_store"].append(rows, [])
@@ -272,9 +280,15 @@ def main() -> None:
         config=InMemoryConfigSource(settings),
         overrides={
             "clock": SystemClock(),
-            # Os três providers de uma instalação, programados: a escolha de provedor da console os lista (ADR-035).
+            # Os três providers de uma instalação, programados: a escolha de provedor da console os lista (ADR-035), e
+            # o OpenRouter informa o custo de cada chamada (ADR-036).
             "providers": {
-                name: ScriptedProvider(name=name, content=CONTROLLER_ANSWER, deltas=("Bras", "ília"))
+                name: ScriptedProvider(
+                    name=name,
+                    content=CONTROLLER_ANSWER,
+                    deltas=("Bras", "ília"),
+                    reports_cost=name == "openrouter",
+                )
                 for name in ("ollama", "openai", "openrouter")
             },
             "mcp_transports": {"http": transport, "sse": transport, "stdio": transport},

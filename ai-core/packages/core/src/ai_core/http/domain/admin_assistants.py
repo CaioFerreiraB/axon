@@ -25,7 +25,7 @@ def models_json(roles: Mapping[ModelRole, ModelRef]) -> dict[str, str]:
 
 def provider_json(status: ProviderStatus) -> dict[str, Any]:
     """Um provider registrado e se está pronto (ADR-035): a console só oferece os prontos na escolha de modelo."""
-    return {"name": status.name, "ready": status.ready, "detail": status.detail}
+    return {"name": status.name, "ready": status.ready, "detail": status.detail, "reports_cost": status.reports_cost}
 
 
 def payload_json(payload: ModelsOverride | McpOverride | None) -> dict[str, Any] | None:

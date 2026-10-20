@@ -416,6 +416,12 @@ chamada em `usage.cost` (`ChatUsage.cost`), o adapter o lê e o pede (`usage.inc
 (coluna `reported_cost_usd`, migração `004`). O Model Router lista os providers com a prontidão de cada um
 (`providers()`; o remoto pela chave, o local se responde), exposto em `GET /admin/v1/providers`, e a console escolhe o
 provedor numa lista — no modelo por papel e no novo preço — com o modelo digitado sem o prefixo.
+Provider que informa o custo não tem preço de tabela (ADR-036, core `0.6.0rc6`): `ModelProvider.reports_cost` (o
+OpenRouter declara `True`) chega ao `ProviderStatus` e a `GET /admin/v1/providers`, e `POST /admin/v1/prices` recusa o
+preço dele com 422. A console mostra o custo parcial (selo "Parcial") na tabela e no gráfico, "Não informado" sem custo
+nenhum, e nunca "Cadastrar" para esse provider; a tabela de preços o tira do formulário. O `UsageDay` da 009 traz as
+requisições distintas do dia (`requests`), e o gráfico da tela de uso alterna entre custo, requisições e tokens (total,
+entrada, saída) — `metrica` e `tokens` na URL; por modelo, requisições numa barra só (`DailyChart`, `series.ts`).
 
 O `ai-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =

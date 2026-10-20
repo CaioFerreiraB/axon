@@ -18,6 +18,7 @@ from ai_core.observability.api import Price, UsageGrouping, UsageOrigin
 from ai_core.observability.ports import (
     DailyRequests,
     DailyTokens,
+    DayRequests,
     DestinationSettings,
     ExecutionRow,
     KeyRequests,
@@ -125,6 +126,12 @@ class PostgresUsageStore:
             )
             per_key = [KeyRequests(key=row[0], requests=int(row[1])) for row in await cursor.fetchall()]
             cursor = await connection.execute(
+                f"SELECT {day}, count(DISTINCT request_id) FROM observability.model_calls WHERE {where} "
+                "GROUP BY 1 ORDER BY 1",
+                params,
+            )
+            per_day = [DayRequests(day=row[0], requests=int(row[1])) for row in await cursor.fetchall()]
+            cursor = await connection.execute(
                 f"SELECT count(DISTINCT request_id) FROM observability.model_calls WHERE {where}", params
             )
             total = await cursor.fetchone()
@@ -132,6 +139,7 @@ class PostgresUsageStore:
             tokens=tuple(tokens),
             requests=tuple(requests),
             key_requests=tuple(sorted(per_key, key=lambda item: item.key or "")),
+            day_requests=tuple(per_day),
             total_requests=int(total[0]) if total else 0,
         )
 

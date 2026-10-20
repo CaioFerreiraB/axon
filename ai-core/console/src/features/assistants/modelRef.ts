@@ -17,7 +17,7 @@ export function joinRef({ provider, model }: RefParts): string {
   return provider && name ? `${provider}/${name}` : "";
 }
 
-export type ProviderOption = { name: string; ready: boolean; detail: string | null };
+export type ProviderOption = Pick<Provider, "name" | "ready" | "detail">;
 
 /** Os prontos, mais os que já estão em uso (`current`) mesmo sem estar prontos — a escolha nunca troca sozinha. */
 export function providerOptions(providers: Provider[] | undefined, current: string[]): ProviderOption[] {

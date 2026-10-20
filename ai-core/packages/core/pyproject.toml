@@ -1,6 +1,6 @@
 [project]
 name = "ai-core"
-version = "0.6.0rc5"
+version = "0.6.0rc6"
 description = "Runtime genérico da plataforma Agentic AI (monolito modular; specs 002–009, 011, 012)."
 readme = "README.md"
 requires-python = ">=3.14"

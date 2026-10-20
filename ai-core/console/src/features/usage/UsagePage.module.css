@@ -30,3 +30,34 @@
 .link:hover {
   text-decoration: underline;
 }
+.chartAside {
+  display: flex;
+  min-width: 0;
+  max-width: 70%;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+.metrics {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+/* Painel estreito (celular, tablet): seletores e legenda descem para baixo do título. */
+.chartPanel {
+  container-type: inline-size;
+}
+@container (max-width: 640px) {
+  .chartPanel > header {
+    flex-direction: column;
+  }
+  .chartAside {
+    max-width: 100%;
+    align-items: flex-start;
+  }
+  .metrics,
+  .chartAside ul {
+    justify-content: flex-start;
+  }
+}

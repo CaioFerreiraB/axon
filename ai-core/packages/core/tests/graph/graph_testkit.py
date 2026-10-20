@@ -294,6 +294,8 @@ class ScriptedController:
     async def ready(self) -> ProbeResult:
         return ProbeResult(available=True)
 
+    reports_cost = False
+
 
 def controller_down() -> ModelCallFailed:
     return ModelCallFailed(provider=CONTROLLER_PROVIDER, model=CONTROLLER_MODEL, reason="fora do ar")

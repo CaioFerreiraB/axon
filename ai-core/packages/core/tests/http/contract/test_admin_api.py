@@ -125,6 +125,7 @@ def _kit(
         providers={
             "openrouter": ScriptedProvider(name="openrouter", known_models=["openai/gpt-4.1-mini", "nvidia/nemotron"]),
             "ollama": ScriptedProvider(name="ollama", unready="provider inalcançável em http://ollama.test/v1"),
+            "informa": ScriptedProvider(name="informa", reports_cost=True),
         },
         trace=RecordingTraceSink(),
         clock=GraphFixedClock(CREATED),
@@ -374,10 +375,24 @@ def test_providers_com_a_prontidao_de_cada_um(kit: Kit) -> None:
     assert response.status_code == 200
     assert response.json() == {
         "data": [
-            {"name": "ollama", "ready": False, "detail": "provider inalcançável em http://ollama.test/v1"},
-            {"name": "openrouter", "ready": True, "detail": None},
+            {"name": "informa", "ready": True, "detail": None, "reports_cost": True},
+            {
+                "name": "ollama",
+                "ready": False,
+                "detail": "provider inalcançável em http://ollama.test/v1",
+                "reports_cost": False,
+            },
+            {"name": "openrouter", "ready": True, "detail": None, "reports_cost": False},
         ]
     }
+
+
+def test_preco_recusado_para_provider_que_informa_o_custo(kit: Kit) -> None:
+    """ADR-036: o custo vem de cada chamada; preço de tabela não se aplica."""
+    price = {"provider": "informa", "model": "x/y", "input": "1", "output": "2", "effective_from": "2026-09-01"}
+    refused = kit.call("POST", "/prices", body=price)
+    assert refused.status_code == 422 and _error(refused)["param"] == "provider"
+    assert kit.call("GET", "/prices").json()["data"] == []
 
 
 # --- uso e preços (009 US5) ------------------------------------------------------------------------------------------
@@ -388,6 +403,7 @@ def test_uso_preco_e_custo_calculado_na_consulta(kit: Kit) -> None:
     (row,) = before["totals"]
     assert (row["key"], row["calls"], row["input_tokens"], row["priced"]) == (MINI, 1, 1_000, False)
     assert before["incomplete"] is True and before["currency"] == "USD"
+    assert [(d["requests"], len(d["rows"])) for d in before["days"]] == [(1, 1)]
     assert kit.call("GET", "/prices/unpriced").json()["data"] == [MINI]
 
     price = {"provider": "openrouter", "model": "openai/gpt-4.1-mini", "input": "0.40", "output": "1.60"}

@@ -84,6 +84,14 @@ class DailyRequests:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class DayRequests:
+    """Requisições distintas de um dia local, de qualquer chave (ADR-036)."""
+
+    day: date
+    requests: int
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class KeyRequests:
     """Requisições distintas de uma chave no período inteiro (somar os dias contaria duas vezes a que vira a noite)."""
 
@@ -96,4 +104,5 @@ class UsageAggregate:
     tokens: tuple[DailyTokens, ...] = ()
     requests: tuple[DailyRequests, ...] = ()
     key_requests: tuple[KeyRequests, ...] = ()
+    day_requests: tuple[DayRequests, ...] = ()
     total_requests: int = 0

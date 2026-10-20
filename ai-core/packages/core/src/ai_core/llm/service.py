@@ -247,7 +247,12 @@ class ModelRoutingService:
         names = sorted(self._providers)
         results = await asyncio.gather(*(self._providers[name].ready() for name in names))
         return tuple(
-            ProviderStatus(name=name, ready=result.available, detail=result.detail)
+            ProviderStatus(
+                name=name,
+                ready=result.available,
+                detail=result.detail,
+                reports_cost=self._providers[name].reports_cost,
+            )
             for name, result in zip(names, results, strict=True)
         )
 

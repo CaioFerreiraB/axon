@@ -31,6 +31,7 @@ from ai_core.observability.domain.prices import QUANTUM, cost, effective_price
 from ai_core.observability.domain.usage_records import (
     DailyRequests,
     DailyTokens,
+    DayRequests,
     ExecutionRow,
     KeyRequests,
     ModelCallRow,
@@ -143,6 +144,7 @@ def aggregate(
     reported: dict[tuple[date, str | None, str, str], Decimal] = defaultdict(Decimal)
     daily_requests: dict[tuple[date, str | None], set[str]] = defaultdict(set)
     key_requests: dict[str | None, set[str]] = defaultdict(set)
+    day_requests: dict[date, set[str]] = defaultdict(set)
     total: set[str] = set()
     for row in calls:
         if not start <= row.at < end or (origin != "all" and row.origin != origin):
@@ -160,6 +162,7 @@ def aggregate(
             reported[group] += row.reported_cost
         daily_requests[(day, key)].add(row.request_id)
         key_requests[key].add(row.request_id)
+        day_requests[day].add(row.request_id)
         total.add(row.request_id)
     return UsageAggregate(
         tokens=tuple(
@@ -186,6 +189,7 @@ def aggregate(
             KeyRequests(key=key, requests=len(ids))
             for key, ids in sorted(key_requests.items(), key=lambda i: i[0] or "")
         ),
+        day_requests=tuple(DayRequests(day=day, requests=len(ids)) for day, ids in sorted(day_requests.items())),
         total_requests=len(total),
     )
 
@@ -267,6 +271,7 @@ def build_report(
         (entry.day, entry.key): entry.requests for entry in aggregate_.requests
     }
     key_requests: Mapping[str | None, int] = {entry.key: entry.requests for entry in aggregate_.key_requests}
+    day_requests: Mapping[date, int] = {entry.day: entry.requests for entry in aggregate_.day_requests}
     days = tuple(
         UsageDay(
             day=day,
@@ -274,6 +279,7 @@ def build_report(
                 totals.row(key, daily_requests.get((day, key), 0))
                 for key, totals in sorted(by_day[day].items(), key=lambda item: item[0] or "")
             ),
+            requests=day_requests.get(day, 0),
         )
         for day in sorted(by_day)
     )

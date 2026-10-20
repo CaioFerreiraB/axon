@@ -468,6 +468,8 @@ class UsageRow:
 class UsageDay:
     day: date
     rows: tuple[UsageRow, ...] = ()
+    requests: int = 0
+    """Requisições distintas do dia (ADR-036): somar as linhas por modelo contaria duas vezes a que usa dois."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

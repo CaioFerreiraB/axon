@@ -139,11 +139,13 @@ class ModelHealth:
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ProviderStatus:
     """Um provider registrado e se está pronto para uso (ADR-035): o remoto, pela credencial; o local, se responde.
-    `detail` explica quando não está."""
+    `detail` explica quando não está. `reports_cost`: o provider informa o custo de cada chamada, e preço de tabela não
+    se aplica a ele (ADR-036)."""
 
     name: str
     ready: bool
     detail: str | None = None
+    reports_cost: bool = False
 
 
 class BoundModel(Protocol):

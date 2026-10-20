@@ -203,6 +203,8 @@ class CitingProvider:
     async def ready(self) -> Any:
         return SimpleNamespace(available=True, detail=None)
 
+    reports_cost = False
+
 
 PACKS = "packs:\n  docs:\n    enabled: true\n"
 ASSISTANTS = f"""

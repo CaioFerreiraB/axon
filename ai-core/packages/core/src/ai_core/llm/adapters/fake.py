@@ -32,8 +32,10 @@ class ScriptedProvider:
         known_models: Sequence[str] | None = None,
         cost: float | None = None,
         unready: str | None = None,
+        reports_cost: bool = False,
     ) -> None:
         self._name = name
+        self._reports_cost = reports_cost
         self._content = content
         self._deltas = tuple(deltas)
         self._usage: ChatUsage | None = (
@@ -53,6 +55,10 @@ class ScriptedProvider:
     @property
     def name(self) -> str:
         return self._name
+
+    @property
+    def reports_cost(self) -> bool:
+        return self._reports_cost
 
     @overload
     async def chat(
