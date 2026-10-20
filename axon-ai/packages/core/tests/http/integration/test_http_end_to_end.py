@@ -1,6 +1,6 @@
 """T011 — a conversa da Fase 1 acontecendo só por HTTP (SC-002).
 
-Cinco módulos no mesmo caminho: API (008), motor (005), Pack Runtime (002) carregando o `ai-generic` (010) e Model
+Cinco módulos no mesmo caminho: API (008), motor (005), Pack Runtime (002) carregando o `axon-generic` (010) e Model
 Router (006). Só o modelo é simulado.
 """
 
@@ -114,7 +114,7 @@ def test_o_trace_da_requisicao_cobre_o_caminho_todo() -> None:
 
 
 def test_resposta_vazia_e_reprovada_pelo_validator_do_pack_sem_virar_erro_http() -> None:
-    """O validator do `ai-generic` reprova, mas reprovar é achado: a resposta sai com o apontamento, em 200."""
+    """O validator do `axon-generic` reprova, mas reprovar é achado: a resposta sai com o apontamento, em 200."""
     trace = RecordingTraceSink()
     client = _platform(provider(deltas=("",)), trace)
 

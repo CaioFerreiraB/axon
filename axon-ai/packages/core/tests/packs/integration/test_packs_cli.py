@@ -57,7 +57,7 @@ GOOD_ENABLED = "packs:\n  good:\n    enabled: true\n    config: {collection: doc
 
 
 def _line(out: io.StringIO, name: str) -> str:
-    """A linha de um pack. O ambiente de teste também tem o `ai-generic` instalado por entry point — ele aparece como
+    """A linha de um pack. O ambiente de teste também tem o `axon-generic` instalado por entry point — ele aparece como
     mais um pack, desabilitado, e é por isso que as asserções procuram pelo nome."""
     return next(line for line in out.getvalue().splitlines() if line.split()[0] == name)
 

@@ -1,4 +1,4 @@
-"""T040 — o caminho completo da US2: motor + Pack Runtime real + `ai-generic` + gateway real da 004.
+"""T040 — o caminho completo da US2: motor + Pack Runtime real + `axon-generic` + gateway real da 004.
 
 É o encontro entre 004 e 005 que a conformidade, com gateway falso, não prova: o catálogo vem do `PackRuntime`
 (seam Pack Toolset da 002), a tool nativa `calculate` do pack roda de verdade e o resultado chega cercado à geração.

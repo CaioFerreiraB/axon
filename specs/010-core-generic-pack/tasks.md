@@ -347,3 +347,84 @@ Task: "Criar tests de integração do core (T009)"
   conformidade
 - Nenhuma tarefa cria porta secundária: o pack não faz I/O (princípio XIII, plano §Ports & adapters gate)
 - Commit por tarefa ou grupo lógico
+
+---
+
+## Passada de 2026-10-20: identidade Axon — US3 ([ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md); research R22–R27)
+
+**Goal**: o pack de referência como `axon-generic` 0.2.0, pacote `axon_generic`, sem nada do nome antigo; o nome do
+pack, o manifest além da versão, o prompt, a tool, o validator e o grupo de entry point intactos; consumidores do
+workspace, CI e documentos vivos com o nome novo, e as suítes verdes.
+
+**Independent Test**: [quickstart.md, "Fase 9, incremento 9.5"](quickstart.md) — `axon-generic` 0.2.0 e
+`import ai_generic` falha; ambiente limpo com as três distribuições e o relatório sem item; carga real por entry point
+como `generic` da `axon-generic` 0.2.0; `lint-imports` com `axon_generic`.
+
+> Os IDs continuam a numeração do arquivo (a Fase 3 foi até T025).
+
+### Setup (renome mecânico — bloqueia o resto)
+
+- [X] T026 [US3] Linha de base: `git grep -nwE "ai_generic|ai-generic"` (lista a revisar na T030) e
+  `git grep -cw agentic` (602 no HEAD antes da passada; R27)
+- [X] T027 [US3] `git mv axon-ai/packages/generic/src/ai_generic axon-ai/packages/generic/src/axon_generic` (R22); apagar
+  `__pycache__` velhos se o `uv` reclamar
+- [X] T028 [US3] Aplicar `rename010.py` (scratchpad, R24 e R25) à lista fechada de arquivos: `axon-ai/pyproject.toml`;
+  `axon-ai/packages/generic/{pyproject.toml,README.md}` e os `.py` de `src/axon_generic/` e `tests/`;
+  `axon-ai/packages/core/tests/{packs/integration/test_packs_generic_entry_point.py,packs/integration/test_packs_cli.py,graph/integration/test_agentic_with_generic_pack.py,graph/integration/test_chat_with_generic_pack.py,http/integration/test_http_end_to_end.py,bootstrap/integration/test_generic_agentic_mcp.py}`;
+  `axon-ai/packages/contracts/README.md` e `axon-ai/packages/contracts/tests/conformance/test_imports_check.py`;
+  `.github/workflows/generic.yml`; `specs/001-core-contracts/design.md`, `specs/002-core-pack-runtime/design.md`,
+  `specs/005-core-execution-engine/{quickstart.md,contracts/execution-engine.md}`, `specs/008-core-http-api/quickstart.md`
+  e `specs/README.md` — nunca o `CHANGELOG.md` dos contratos, `uv.lock`, `research.md`/`plan.md`/`tasks.md`, `docs/`,
+  `specs/1xx-*`, `specs/002-core-pack-runtime/contracts/installation.md`, `CLAUDE.md` nem os submódulos
+- [X] T029 [US3] À mão (R22, R25): `axon-ai/packages/generic/pyproject.toml` com `version = "0.2.0"` e `description =
+  "Pack de referência e de uso geral da plataforma Axon (spec 010)."` (o alvo `axon_generic.pack:GenericPack` vem da
+  T028; o grupo `ai_core.packs` fica, R23); `src/axon_generic/pack.py` com `VERSION = "0.2.0"`; a clarificação da 002
+  sobre o estágio `core` da imagem (`specs/002-core-pack-runtime/spec.md`, a que cita `axon-ai-contracts`, `axon-ai` e o
+  pack) com `axon-generic`, deixando a da tag `v0.1.0`; `uv lock` em `axon-ai/`
+- [X] T030 [US3] Revisar os resíduos (R25, R27): `git grep -nwE "ai_generic|ai-generic"` fora dos caminhos excluídos da
+  T028 — sobra só o que o R25 deixa de propósito (etapa 8 do `testing-kit.md` da 001, a premissa da US6 da 001, a
+  clarificação da 002 sobre `v0.1.0`, o `Input` e os textos da US3 que nomeiam o antigo na spec da 010, e o teste da
+  T031); `git grep -n "axon_generic\.packs\|axon.packs"` sem ocorrência nova; nenhuma palavra `agentic` removida
+  (`git diff --word-diff=porcelain -U0 | grep '^-' | grep -cw agentic` = 0)
+
+### Tests
+
+- [X] T031 [P] [US3] `axon-ai/packages/generic/tests/test_generic_old_name_absent.py` (R26): `importlib.util.find_spec(
+  "ai_generic") is None` e `importlib.metadata.distribution("ai-generic")` levanta `PackageNotFoundError` (US3 cen. 1)
+- [X] T032 [P] [US3] `axon-ai/packages/core/tests/packs/integration/test_packs_generic_entry_point.py`: distribuição
+  `"axon-generic"`, `version == "0.2.0"` e `contract_version == "0.2"` (US3 cen. 3); `axon-ai/packages/generic/tests/test_pack.py`:
+  `PackManifest(name="generic", version="0.2.0")` e a versão igual à de `version("axon-generic")` (FR-009)
+- [X] T033 [P] [US3] `.github/workflows/generic.yml`, job `clean-env`: as três distribuições esperadas são
+  `["axon-ai-contracts", "axon-generic", "typing-extensions"]` e `packages_distributions().get("axon_generic") ==
+  ["axon-generic"]` (US3 cen. 2; vem da T028, conferir a ordem alfabética da lista)
+
+### Integration e verificação
+
+- [X] T034 [US3] Suítes (a partir de `axon-ai/`): `uv sync && uv run pytest && uv run mypy && uv run ruff check packages
+  && uv run ruff format --check packages && uv run lint-imports` (as três regras do pack `KEPT` com `axon_generic`, US3
+  cen. 4); `uv run python packages/contracts/tools/check_clean_env.py`; o ambiente limpo em Python 3.12 (quickstart §5:
+  `freeze` com as três distribuições e a suíte do pack verde, inclusive `test_report_has_no_issue` sem item, cen. 2)
+- [X] T035 [US3] Quickstart da US3 à mão (§13–§16): versão `0.2.0`, `import ai_generic` falha, carga real e US2
+  (`test_generic_agentic_mcp.py`, cen. 5), inspeção do entry point
+- [X] T036 [P] [US3] `specs/README.md` (linha da 010: `axon-generic`, US3) e `docs/roadmap.md` (andamento do 9.5: 010
+  feita)
+
+### Dependencies (US3)
+
+T026 → T027 → T028 → T029 → T030 (bloqueiam o resto). T031 ∥ T032 ∥ T033 depois da T030. T034 depois de tudo; T035
+depois da T034; T036 em paralelo com a T034.
+
+### Notas da execução (US3)
+
+- Antes da passada, os trechos da 001 que citam o nome antigo de propósito (`spec.md`, `quickstart.md`,
+  `contracts/compatibility.md`, `contracts/testing-kit.md`), que a substituição mecânica da 011 tinha trocado para o
+  nome novo (ex.: FR-022 citando `axon-ai-contracts` como "nome antigo"), foram restaurados linha a linha a partir da
+  versão da passada da 001. Por isso o script desta passada recebe a lista de arquivos, não a árvore (R25).
+- Com o nome novo, `axon_ai_contracts` passa a vir antes de `axon_generic` na ordem dos imports: `ruff check --fix`
+  reordenou quatro arquivos de teste do pack. A lista do job `clean-env` (`sorted`) também mudou de ordem (T033).
+- A contagem do `agentic` é por palavra (`--word-diff`): duas linhas trocadas só no nome do pack mantêm o `agentic`; o
+  total sobe de 602 só com o texto novo da US3.
+- O `uv sync` exato tirou `ai-generic` 0.1.0 do ambiente do workspace e instalou `axon-generic` 0.2.0.
+- Suítes: workspace 3114 passed, 167 skipped; mypy sem erro (269 arquivos); ruff limpo; import-linter 69 kept, 0 broken;
+  ambiente limpo 3.12 com as três distribuições, relatório "conforme" e 65 testes do pack; `check_clean_env.py` verde;
+  contratos em 3.12, 310 passed.

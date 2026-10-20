@@ -8,9 +8,9 @@ from __future__ import annotations
 import asyncio
 from importlib.metadata import version
 
-from ai_generic.pack import GenericPack
 from axon_ai_contracts import PackManifest
 from axon_ai_contracts.testing import pack_context, tool_invocation
+from axon_generic.pack import GenericPack
 
 EXPECTED_PARAMETERS = {
     "type": "object",
@@ -29,7 +29,7 @@ def test_identity_is_readable_on_the_class() -> None:
 
 def test_manifest_is_minimal() -> None:
     manifest = GenericPack().manifest()
-    assert manifest == PackManifest(name="generic", version="0.1.0")
+    assert manifest == PackManifest(name="generic", version="0.2.0")
     assert manifest.preferred_flow is None  # FR-007: também na Fase 3 — o Assistant declara o flow (R15)
     assert manifest.depends_on == ()
     assert manifest.requires_collections == ()
@@ -37,7 +37,7 @@ def test_manifest_is_minimal() -> None:
 
 
 def test_manifest_version_matches_the_distribution() -> None:
-    assert GenericPack().manifest().version == version("ai-generic")
+    assert GenericPack().manifest().version == version("axon-generic")
 
 
 def test_system_prompt_is_stable() -> None:

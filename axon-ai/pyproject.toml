@@ -4,11 +4,11 @@ members = ["packages/*"]
 
 [tool.uv.sources]
 # O pack genérico entra como dependência de desenvolvimento: o teste de carga real roda na suíte do core (010 R8).
-ai-generic = { workspace = true }
+axon-generic = { workspace = true }
 
 [dependency-groups]
 dev = [
-    "ai-generic",
+    "axon-generic",
     # Cliente de teste do framework HTTP (spec 008): a suíte exercita a app em processo, sem abrir porta.
     "httpx>=0.28",
     "pytest>=8",
@@ -66,7 +66,7 @@ line-length = 120
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["axon_ai_contracts", "contract_test_pack", "axon_ai", "ai_generic"]
+known-first-party = ["axon_ai_contracts", "contract_test_pack", "axon_ai", "axon_generic"]
 
 [tool.mypy]
 strict = true
@@ -74,7 +74,7 @@ python_version = "3.12"
 files = ["packages/contracts/src", "packages/contracts/tools", "packages/core/src", "packages/generic/src"]
 
 [tool.importlinter]
-root_packages = ["axon_ai_contracts", "axon_ai", "ai_generic"]
+root_packages = ["axon_ai_contracts", "axon_ai", "axon_generic"]
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
@@ -361,19 +361,19 @@ forbidden_modules = ["axon_ai.bootstrap"]
 [[tool.importlinter.contracts]]
 name = "o pack genérico não importa o core"
 type = "forbidden"
-source_modules = ["ai_generic"]
+source_modules = ["axon_generic"]
 forbidden_modules = ["axon_ai"]
 
 [[tool.importlinter.contracts]]
 name = "o core não importa o pack genérico"
 type = "forbidden"
 source_modules = ["axon_ai"]
-forbidden_modules = ["ai_generic"]
+forbidden_modules = ["axon_generic"]
 
 [[tool.importlinter.contracts]]
 name = "o pack genérico não importa frameworks de infraestrutura"
 type = "forbidden"
-source_modules = ["ai_generic"]
+source_modules = ["axon_generic"]
 forbidden_modules = ["yaml", "jsonschema", "fastapi", "langgraph", "langchain", "qdrant_client", "sqlalchemy"]
 
 [[tool.importlinter.contracts]]

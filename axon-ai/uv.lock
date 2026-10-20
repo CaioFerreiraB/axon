@@ -8,15 +8,15 @@ resolution-markers = [
 
 [manifest]
 members = [
-    "ai-generic",
     "axon-ai",
     "axon-ai-contracts",
+    "axon-generic",
 ]
 
 [manifest.dependency-groups]
 dev = [
-    { name = "ai-generic", editable = "packages/generic" },
     { name = "authlib", specifier = ">=1.8,<2" },
+    { name = "axon-generic", editable = "packages/generic" },
     { name = "httpx", specifier = ">=0.28" },
     { name = "hypothesis", specifier = ">=6" },
     { name = "import-linter", specifier = ">=2" },
@@ -28,17 +28,6 @@ dev = [
     { name = "types-jsonschema" },
     { name = "types-pyyaml" },
 ]
-
-[[package]]
-name = "ai-generic"
-version = "0.1.0"
-source = { editable = "packages/generic" }
-dependencies = [
-    { name = "axon-ai-contracts" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "axon-ai-contracts", editable = "packages/contracts" }]
 
 [[package]]
 name = "annotated-doc"
@@ -262,6 +251,17 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "typing-extensions", specifier = ">=4.12" }]
+
+[[package]]
+name = "axon-generic"
+version = "0.2.0"
+source = { editable = "packages/generic" }
+dependencies = [
+    { name = "axon-ai-contracts" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "axon-ai-contracts", editable = "packages/contracts" }]
 
 [[package]]
 name = "certifi"

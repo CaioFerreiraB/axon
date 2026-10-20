@@ -6,8 +6,8 @@
 
 ```text
 axon-ai/packages/generic/
-├── pyproject.toml       # distribuição ai-generic; entry point ai_core.packs
-└── src/ai_generic/
+├── pyproject.toml       # distribuição axon-generic; entry point ai_core.packs
+└── src/axon_generic/
     ├── pack.py
     ├── tools/
     └── prompts/
@@ -20,14 +20,14 @@ Pack de referência, com o mesmo formato de um pack externo: `pyproject.toml` pr
 
 ```toml
 [project]
-name = "ai-generic"
-dependencies = ["axon-ai-contracts>=0.1,<0.2"]      # faixa derivada da contract_version (ADR-014)
+name = "axon-generic"
+dependencies = ["axon-ai-contracts>=0.2,<0.3"]      # faixa derivada da contract_version (ADR-014)
 
 [tool.uv.sources]
 axon-ai-contracts = { workspace = true }            # resolve no commit local enquanto mora no workspace
 
 [project.entry-points."ai_core.packs"]
-generic = "ai_generic.pack:GenericPack"
+generic = "axon_generic.pack:GenericPack"
 ```
 
 > Atualizado na clarificação de 2026-09-17: a redação original ("mesmo commit, sem faixa") precede o
@@ -47,7 +47,7 @@ em `adapters/`, e o `pack.py` como composition root do pack.
 
 ## Questão em aberto (arch-v1 Parte IX)
 
-Com o modelo de Assistants, `ai-generic` pode não precisar existir como pack: um Assistant com `packs: []`, flow `agentic` e MCPs configurados já é "um agente genérico". Avaliar na Fase 3 se o pack agrega algo além de prompts — e, se não agregar, ele vira um Assistant e `packs/generic` sai do workspace. Nesse caso, a fixture de carregamento de pack do core precisa de outro pack mínimo.
+Com o modelo de Assistants, `axon-generic` pode não precisar existir como pack: um Assistant com `packs: []`, flow `agentic` e MCPs configurados já é "um agente genérico". Avaliar na Fase 3 se o pack agrega algo além de prompts — e, se não agregar, ele vira um Assistant e `packs/generic` sai do workspace. Nesse caso, a fixture de carregamento de pack do core precisa de outro pack mínimo.
 
 > Fechada na clarificação de 2026-10-07 (FR-005): o pack agrega a tool `calculate` e o validator `non_empty_answer`,
 > então **continua pack**, e a regra fica permanente — se um dia contiver só prompts, vira Assistant e um pack mínimo de

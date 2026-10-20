@@ -313,3 +313,119 @@ descrição da marca `us2` em `ai-core/pyproject.toml` (+= "; 010 US2 — Assist
 **Rationale**: SC-002 e a clarificação de 2026-09-17 — o core prova o pack sem caso especial no código.
 
 **Alternatives considered**: nenhum.
+
+---
+
+# Passada de 2026-10-20: identidade Axon ([ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md); US3)
+
+Decisões pré-aprovadas pelo ADR-037 (nomes, corte seco, versão, ordem das passadas); o que segue é como elas chegam ao
+pack e aos consumidores dele no workspace, sem re-pesquisa. Os R anteriores ficam como foram executados (ADR-037, item
+6); os nomes antigos neles se leem pela tabela do ADR-037.
+
+## R22 — Distribuição, pacote e versão
+
+**Decision**: `git mv packages/generic/src/ai_generic packages/generic/src/axon_generic`. Em
+`packages/generic/pyproject.toml`: `name = "axon-generic"`, `version = "0.2.0"`, `description = "Pack de referência e
+de uso geral da plataforma Axon (spec 010)."` e o alvo do entry point `generic = "axon_generic.pack:GenericPack"`. Em
+`pack.py`, `VERSION = "0.2.0"` (a docstring cita `axon-generic`); o `__init__.py` e o `README.md` do pack com os nomes
+novos. A pasta `packages/generic` fica. A faixa `axon-ai-contracts>=0.2,<0.3` e a `contract_version = "0.2"` já estão
+no lugar (passada da 001) e não mudam. O `uv.lock` é regenerado (`uv lock`), não editado.
+
+**Rationale** (ADR-037, itens 2 e 4): no código, o prefixo `ai-` vira `axon-`; a versão `0.2.0` é a do ADR, e a
+política 0.x (ADR-014) sobe a minor numa quebra — renomear a distribuição e o import é quebra para quem instala ou
+importa o pack pelo nome. A versão do manifest continua igual à da distribuição (R12, verificada em `tests/test_pack.py`).
+
+**Alternatives considered**: manter `0.1.0` (o nome muda sem a versão dizer); `0.1.1` (patch é para mudança aditiva,
+ADR-014); alias `ai_generic` reexportando `axon_generic` (o ADR-037 decide corte seco, e o pack não tem consumidor que o
+importe).
+
+## R23 — O que fica
+
+**Decision**: não mudam o nome do pack (`GenericPack.name = "generic"`, o nome do entry point, o namespace
+`generic.calculate`, `packs: [generic]`), o manifest além da versão, o prompt, a tool, o validator, os limites da tool,
+a fronteira (só os nomes nas regras) e o **grupo** do entry point, que continua `ai_core.packs` até a passada da 002
+(grupo `axon.packs`), porque é o grupo que o Pack Runtime procura hoje.
+
+**Rationale** (ADR-037, itens 5 e 7): os nomes de pack não mudam; o grupo de entry point é identificador com
+comportamento da 002 e muda na passada dela, com testes. Mudar o grupo só no pack faria o core deixar de encontrá-lo.
+
+**Alternatives considered**: trocar o grupo aqui junto com o Pack Runtime (atropela a passada da 002); anunciar o pack
+nos dois grupos (compatibilidade sem usuário, contra o corte seco).
+
+## R24 — Consumidores no workspace (mecânico)
+
+**Decision**: um script no scratchpad (não versionado) troca `ai_generic` → `axon_generic` e `ai-generic` →
+`axon-generic` (do padrão com sublinhado ao com hífen, por palavra; `ai_generic_fake` do teste da 001 vira
+`axon_generic_fake`). Escopo:
+
+- `axon-ai/pyproject.toml`: `[tool.uv.sources]`, grupo `dev`, `known-first-party`, `root_packages` e as três regras
+  do pack no import-linter;
+- `axon-ai/packages/generic/**` (código, testes, `pyproject.toml`, `README.md`);
+- a suíte do core que cita o pack: `tests/packs/integration/test_packs_generic_entry_point.py` (que passa a esperar a
+  distribuição `axon-generic` e a versão `0.2.0`, à mão) e as docstrings de `tests/graph/integration/`,
+  `tests/http/integration/`, `tests/bootstrap/integration/` e `tests/packs/integration/test_packs_cli.py`;
+- `axon-ai/packages/contracts/README.md` (exemplo de import-linter) e
+  `packages/contracts/tests/conformance/test_imports_check.py` (nome do pacote falso);
+- `.github/workflows/generic.yml` (cabeçalho e o job `clean-env`: as três distribuições esperadas e o mapeamento
+  `axon_generic` → `axon-generic`). O `core.yml` filtra por caminho (`axon-ai/packages/generic/**`), que não muda.
+
+Fora do script: `packages/contracts/CHANGELOG.md` (histórico), `uv.lock` (regenerado).
+
+**Rationale** (ADR-037, item 7): a passada que renomeia uma distribuição atualiza de forma mecânica quem a consome, para
+a CI ficar verde. O core não importa o pack (SC-001), então o único código do core que muda são testes.
+
+**Alternatives considered**: `sed` global sem escopo (alcançaria o histórico e os submódulos); deixar a suíte do core
+para a passada da 002 (a CI ficaria vermelha entre as passadas).
+
+## R25 — Documentos vivos
+
+**Decision**: o mesmo script, nos documentos vivos (ADR-037, item 6) que citam o pack: os da 010 (`design.md`,
+`data-model.md`, `quickstart.md`, `contracts/**`), `specs/001-core-contracts/design.md` (tabela de distribuições e o
+exemplo do import-linter), `specs/002-core-pack-runtime/design.md`, `specs/005-core-execution-engine/{quickstart.md,contracts/execution-engine.md}`,
+`specs/008-core-http-api/quickstart.md` e `specs/README.md`. À mão: a clarificação de `specs/002-core-pack-runtime/spec.md` sobre de onde vem o core na imagem (a
+vizinha, sobre a tag `v0.1.0`, fica); e, na 010, `contracts/generic-pack.md` e
+`data-model.md` passam a `contract_version = "0.2"` (faixa `>=0.2,<0.3`) e à versão `0.2.0`, que a passada da 001
+deixou com os valores antigos; `contracts/packaging.md` e o `quickstart.md` com a distribuição, a versão e a resolução
+esperada no ambiente limpo.
+
+Ficam como estão: `research.md`, `plan.md` e `tasks.md` executados; os textos que nomeiam o antigo de propósito
+(`specs/001-core-contracts/contracts/testing-kit.md`, "na série 0.1"; a premissa da US6 da 001, que descreve o estado
+daquela passada; a clarificação da 002 sobre a tag `v0.1.0`); as specs `1xx` (passada da 101);
+`specs/002-core-pack-runtime/contracts/installation.md` (passada da instalação); `CLAUDE.md` (fechamento); `docs/`
+(ADRs, roadmap narrativo — só a linha de andamento do 9.5 muda —, constituição e o Sync Impact Report dela).
+
+**Rationale** (ADR-037, item 6): `spec.md`, `design.md`, `contracts/`, `data-model.md` e `quickstart.md` são vivos e
+passam aos nomes novos; o histórico não se reescreve. A lição da 011: a substituição mecânica corrompeu textos da 001 que
+citavam o nome antigo de propósito (restaurados antes desta passada); aqui o script recebe a lista de arquivos, não a
+árvore.
+
+**Alternatives considered**: deixar os documentos das outras specs para as passadas delas (o nome antigo ficaria errado
+entre as passadas, e a 005 e a 008 nem têm passada de nome própria).
+
+## R26 — Teste do corte seco
+
+**Decision**: `packages/generic/tests/test_generic_old_name_absent.py` (nome único: o pytest do workspace coleta os
+testes por nome de arquivo, e `test_no_old_name.py` já existe na 001): `importlib.util.find_spec("ai_generic") is None`
+e `importlib.metadata.distribution("ai-generic")` levanta `PackageNotFoundError` (US3 cenário 1). Roda no workspace e no
+ambiente limpo. A distribuição e a versão novas já são verificadas por `tests/test_pack.py` (versão do manifest igual à
+de `axon-generic`), `tests/test_conformance.py` (etapa de distribuição no ambiente limpo, cenário 2) e pela carga real
+na suíte do core (cenário 3).
+
+**Rationale**: o corte seco é requisito (FR-009) e precisa de um verificador, como na 001 e na 011. Um `uv sync` exato
+tira a distribuição antiga do ambiente do workspace.
+
+**Alternatives considered**: só o `git grep` de resíduos (não pega uma instalação antiga no ambiente).
+
+## R27 — Verificação
+
+**Decision**: a partir de `axon-ai/`: `uv sync && uv run pytest && uv run mypy && uv run ruff check packages && uv run
+ruff format --check packages && uv run lint-imports`; o ambiente limpo em 3.12 (quickstart §5, com a resolução das três
+distribuições e a etapa de distribuição sem item); `check_clean_env.py` dos contratos. Na raiz: `git grep -nwE
+"ai_generic|ai-generic"` fora dos caminhos do R25 dá zero, e nenhuma ocorrência da palavra `agentic` sai no diff da passada
+(`git diff --word-diff=porcelain -U0 | grep '^-' | grep -cw agentic` = 0, por palavra: uma linha trocada
+que mantém o `agentic` não conta; a contagem total só cresce com o texto novo da US3 — eram 602 no
+HEAD antes da passada): o flow fica intacto.
+
+**Rationale**: SC-003 e a lição da 011 (contar o `agentic`).
+
+**Alternatives considered**: nenhuma.

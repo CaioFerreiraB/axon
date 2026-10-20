@@ -1,4 +1,4 @@
-# Data Model — 010 Pack genérico (`ai-generic`), Fase 1
+# Data Model — 010 Pack genérico (`axon-generic`), Fase 1
 
 O pack não define tipos próprios publicados: ele **instancia** os tipos do contrato 001. Este documento fixa os valores
 concretos que cada instância carrega e as regras de validação que os testes verificam.
@@ -8,17 +8,17 @@ concretos que cada instância carrega e as regras de validação que os testes v
 | Campo | Onde | Valor |
 |---|---|---|
 | nome do entry point | `pyproject.toml`, grupo `ai_core.packs` | `generic` |
-| alvo do entry point | `pyproject.toml` | `ai_generic.pack:GenericPack` |
+| alvo do entry point | `pyproject.toml` | `axon_generic.pack:GenericPack` |
 | `GenericPack.name` | atributo de classe | `"generic"` (igual ao entry point, senão a 002 marca `error`) |
-| `GenericPack.contract_version` | atributo de classe | `"0.1"` |
-| distribuição | `pyproject.toml` | `ai-generic`, versão `0.1.0`, `requires-python >=3.12` |
+| `GenericPack.contract_version` | atributo de classe | `"0.2"` (faixa `>=0.2,<0.3`; passada de 2026-10-20 da 001) |
+| distribuição | `pyproject.toml` | `axon-generic` (import `axon_generic`), versão `0.2.0`, `requires-python >=3.12` |
 
 ## `PackManifest` (manifest mínimo — FR-007)
 
 | Campo | Valor | Regra |
 |---|---|---|
 | `name` | `"generic"` | igual a `GenericPack.name`, senão a 002 marca `manifest inválido:` |
-| `version` | `"0.1.0"` | igual à versão da distribuição instalada (teste de consistência — R12) |
+| `version` | `"0.2.0"` | igual à versão da distribuição instalada (teste de consistência — R12; `0.2.0` pelo R22) |
 | `preferred_flow` | `None` | a v1 não declara preferência de flow |
 | `depends_on` | `()` | o pack não depende de outro pack |
 | `requires_collections` | `()` | o pack não usa retrieval |
@@ -90,8 +90,9 @@ O que a 002 registra depois de carregar este pack — é o que o teste de integr
 | Campo | Valor |
 |---|---|
 | `status` | `enabled` (com `enabled: true` em `packs.yaml`) |
-| `version` | `"0.1.0"` (da distribuição) |
-| `contract_version` | `"0.1"` |
+| `distribution` | `"axon-generic"` |
+| `version` | `"0.2.0"` (da distribuição) |
+| `contract_version` | `"0.2"` |
 | `system_prompt` | presente (string não vazia) |
 | tools | uma: `calculate` |
 | retrievers | nenhum |

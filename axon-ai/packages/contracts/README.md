@@ -82,7 +82,7 @@ include_external_packages = true
 name = "pack importa só os contratos"
 type = "forbidden"
 source_modules = ["meu_pack"]
-forbidden_modules = ["axon_ai", "ai_generic"]
+forbidden_modules = ["axon_ai", "axon_generic"]
 ```
 
 ## Desenvolvimento (neste workspace)

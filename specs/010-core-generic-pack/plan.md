@@ -303,3 +303,96 @@ e de [quickstart.md](quickstart.md): **PASS**.
 - VI: o parágrafo novo pede para apresentar o resultado, e o seguinte, mantido, diz que o resultado é dado — as duas
   regras convivem sem conflito.
 - XII: o data-model não ganhou entidade; a declaração do Assistant genérico é referência ao formato da 003.
+
+---
+
+# Passada de 2026-10-20: identidade Axon (US3; [ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md))
+
+> As seções acima são os planos das passadas anteriores e ficam como foram executadas (ADR-037, item 6); os nomes
+> antigos nelas se leem pela tabela do ADR-037. Esta seção é o plano da US3.
+
+**Insumos lidos**: [spec.md](spec.md) (US3, FR-009–FR-012, SC-003, clarificações de 2026-10-20), [design.md](design.md),
+ADR-037, ADR-038 (nada dele toca o pack: o pack não exibe marca), constituição 1.3.1, as passadas da 001 (faixa e
+`contract_version` do pack já em `0.2`) e da 011 (workspace `axon-ai/`, import `axon_ai`). Research: R22–R27. **Sem
+divergência do `design.md`** (só os nomes), sem ADR novo, sem mudança de seam.
+
+## Summary (US3)
+
+O pack de referência passa a `axon-generic` **0.2.0**, com o pacote `axon_generic` (R22). Fica tudo o que o operador e
+o core enxergam — o nome `generic`, o manifest além da versão, o prompt, a tool, o validator e o grupo de entry point,
+que é da 002 (R23). Os consumidores no workspace (dependência de desenvolvimento, import-linter, suíte do core, CI) e os
+documentos vivos acompanham de forma mecânica (R24, R25), e um teste novo prova o corte seco (R26). Sem tag:
+`v0.7.0-rc1` sai depois da 013.
+
+## Technical Context (US3)
+
+- **Language/Version**: sem mudança (pack `>=3.12`; workspace 3.14).
+- **Primary Dependencies**: sem mudança (`axon-ai-contracts>=0.2,<0.3`).
+- **Storage**: N/A.
+- **Testing**: as suítes existentes com os nomes novos; um teste novo do corte seco (R26); a carga real por entry point
+  na suíte do core passa a esperar `axon-generic` 0.2.0.
+- **Constraints**: zero import do core no pack (SC-001); nenhuma linha em `axon-ai/packages/core/src/` (o core não
+  conhece o pack); o grupo de entry point não muda (R23).
+- **Scale/Scope**: ~10 arquivos do pack, a raiz do workspace, ~6 testes do core, 2 arquivos da 001 (README e um teste),
+  1 workflow e ~12 documentos vivos.
+- Nenhum `NEEDS CLARIFICATION`.
+
+## Constitution Check (US3)
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| I. Núcleo agnóstico de domínio | ✅ | Nenhum texto do pack muda além de nomes; Axon é a marca da plataforma |
+| II. Módulos substituíveis por seams | ✅ | O pack só consome o contrato 001; o core continua a encontrá-lo só pelo entry point; nenhum seam muda (R23) |
+| VII. Falha fechada e explícita | ✅ | Sem alias: `ai_generic` não importa; distribuição antiga ao lado da nova cai na regra de nome duplicado da 002 (edge case) |
+| XII. Simplicidade deliberada | ✅ | Sem módulo de compatibilidade nem anúncio em dois grupos (R22, R23) |
+| XIII. Portas e adapters | ✅ | O pack continua sem I/O e sem porta; os contratos do import-linter só trocam o nome (FR-011) |
+| Stack | ✅ | Constituição 1.3.1 já cita `axon-generic` |
+
+**Module boundary gate**: `axon-ai/packages/generic/**`. Fora dele, só o que o ADR-037 (item 7) atribui à passada que
+renomeia uma distribuição: a raiz do workspace (fonte, grupo `dev`, isort, import-linter), testes do core e dos
+contratos que citam o pack, a CI e documentos vivos — nenhuma linha de `axon-ai/packages/core/src/` ou
+`axon-ai/packages/contracts/src/`. **Ports & adapters gate**: sem mudança. **Resultado**: PASS.
+
+## Project Structure (US3)
+
+```text
+axon-ai/
+├── pyproject.toml                        # axon-generic na fonte e no dev; axon_generic no isort e no import-linter
+├── uv.lock                               # regenerado
+└── packages/
+    ├── generic/
+    │   ├── pyproject.toml                # name axon-generic, 0.2.0, entry point generic = axon_generic.pack:GenericPack
+    │   ├── README.md
+    │   ├── src/axon_generic/             # era src/ai_generic/ (git mv); pack.py com VERSION = "0.2.0"
+    │   └── tests/
+    │       ├── test_*.py                 # imports axon_generic; versão de axon-generic
+    │       └── test_generic_old_name_absent.py   # novo (R26)
+    ├── contracts/
+    │   ├── README.md                     # exemplo do import-linter
+    │   └── tests/conformance/test_imports_check.py   # pacote falso axon_generic_fake
+    └── core/tests/
+        ├── packs/integration/test_packs_generic_entry_point.py   # distribuição axon-generic, versão 0.2.0
+        └── …/integration/*.py            # docstrings
+.github/workflows/generic.yml             # cabeçalho; clean-env com axon-generic
+```
+
+## Seam Notes for Consumers (US3)
+
+| Consumidor | O que muda para ele |
+|---|---|
+| 002 (Pack Runtime) | Nada no código: o pack continua no grupo `ai_core.packs`; a passada da 002 muda o grupo do Pack Runtime e o do pack juntos |
+| 003, 004, 005 | Nada: o nome `generic`, o namespace `generic.calculate` e o prompt não mudam |
+| Suíte do core | `test_packs_generic_entry_point.py` espera a distribuição `axon-generic` e a versão `0.2.0` |
+| 101 (`ai-scouting`) | Nada até a passada dela; o exemplo a copiar passa a se chamar `axon-generic` |
+| Instalação | Nada até a passada dela: o estágio `core` instala o pack de uma tag antiga |
+
+## Complexity Tracking (US3)
+
+Nenhuma linha nova.
+
+## Constitution Check — pós-design (US3)
+
+Reavaliado com [contracts/packaging.md](contracts/packaging.md), [contracts/generic-pack.md](contracts/generic-pack.md),
+[data-model.md](data-model.md) e [quickstart.md](quickstart.md) ("Fase 9, incremento 9.5"): **PASS**. O contrato de
+empacotamento troca só nomes e a versão; o do pack corrige a `contract_version` e a versão do manifest, que a passada da
+001 deixou nos valores antigos; nenhuma entidade nova.

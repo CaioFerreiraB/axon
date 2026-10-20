@@ -6,8 +6,8 @@ import asyncio
 
 import pytest
 
-from ai_generic.validators.answer import NonEmptyAnswer
 from axon_ai_contracts.testing import turn_view, validator_context
+from axon_generic.validators.answer import NonEmptyAnswer
 
 
 def _validate(answer: str | None) -> object:

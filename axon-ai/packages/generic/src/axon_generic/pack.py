@@ -8,13 +8,13 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from ai_generic.prompts import SYSTEM_PROMPT
-from ai_generic.tools.arithmetic import calculate_spec
-from ai_generic.validators.answer import NonEmptyAnswer
 from axon_ai_contracts import AnswerValidator, PackBase, PackContext, PackManifest, ToolSpec
+from axon_generic.prompts import SYSTEM_PROMPT
+from axon_generic.tools.arithmetic import calculate_spec
+from axon_generic.validators.answer import NonEmptyAnswer
 
-VERSION = "0.1.0"
-"""Versão do manifest; igual à da distribuição `ai-generic` (verificado em tests/test_pack.py)."""
+VERSION = "0.2.0"
+"""Versão do manifest; igual à da distribuição `axon-generic` (verificado em tests/test_pack.py)."""
 
 
 class GenericPack(PackBase):

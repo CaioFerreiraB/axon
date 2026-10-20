@@ -1,4 +1,4 @@
-# Quickstart — validar o `ai-generic` (Fase 1, US1)
+# Quickstart — validar o `axon-generic` (Fase 1, US1)
 
 Roteiro executável que prova a US1 inteira. Todos os comandos rodam a partir de `axon-ai/`. Nesta máquina, use
 `XDG_DATA_HOME=$HOME/.local/share` no `uv` (ver CLAUDE.md).
@@ -7,10 +7,10 @@ Roteiro executável que prova a US1 inteira. Todos os comandos rodam a partir de
 
 ```bash
 uv sync
-uv run python -c "import ai_generic, importlib.metadata as m; print(m.version('ai-generic'))"
+uv run python -c "import axon_generic, importlib.metadata as m; print(m.version('axon-generic'))"
 ```
 
-**Esperado**: `0.1.0`. O `uv sync` acrescenta `ai-generic` ao `uv.lock` como membro do workspace, sem mudança em
+**Esperado**: `0.2.0`. O `uv sync` acrescenta `axon-generic` ao `uv.lock` como membro do workspace, sem mudança em
 `members` ([research.md](research.md) R1).
 
 ## 2. O pack conforma ao contrato 001
@@ -33,7 +33,7 @@ uv run pytest packages/core/tests/packs/integration/test_packs_generic_entry_poi
 
 **Esperado**: verde. O teste usa `EntryPointPackSource` (sem distribuição falsa) e o `packs.yaml` mínimo
 (`enabled: true`), e confere a entrada no registry conforme a tabela final de [data-model.md](data-model.md): status
-`enabled`, `version` `0.1.0`, `contract_version` `0.1`, uma tool `calculate`, um validator `non_empty_answer`, nenhum
+`enabled`, distribuição `axon-generic`, `version` `0.2.0`, `contract_version` `0.2`, uma tool `calculate`, um validator `non_empty_answer`, nenhum
 retriever, `preferred_flow` ausente. Nenhum caso especial no código do core (SC-002).
 
 Inspeção manual equivalente, útil para depurar:
@@ -46,7 +46,7 @@ for ep in entry_points(group="ai_core.packs"):
 PY
 ```
 
-**Esperado**: uma linha `generic -> ai_generic.pack:GenericPack | ai-generic 0.1.0` (as distribuições falsas dos testes
+**Esperado**: uma linha `generic -> axon_generic.pack:GenericPack | axon-generic 0.2.0` (as distribuições falsas dos testes
 da 002 não aparecem: elas só existem dentro de `tmp_path`).
 
 ## 4. A tool recusa o que não é aritmética
@@ -55,7 +55,7 @@ da 002 não aparecem: elas só existem dentro de `tmp_path`).
 uv run python - <<'PY'
 import asyncio
 from axon_ai_contracts.testing import pack_context, tool_invocation
-from ai_generic.pack import GenericPack
+from axon_generic.pack import GenericPack
 
 [tool] = GenericPack().tools(pack_context("generic"))
 for expression in ["2 + 3 * 4", "10 / 4", "7 // 2", "2 ** 10", "1/0", "__import__('os').system('id')",
@@ -81,7 +81,7 @@ uv pip freeze --python "$tmp/venv/bin/python"
 rm -rf "$tmp"
 ```
 
-**Esperado**: o `freeze` lista exatamente `axon-ai-contracts`, `ai-generic` e `typing-extensions` — nada do core — e a
+**Esperado**: o `freeze` lista exatamente `axon-ai-contracts`, `axon-generic` e `typing-extensions` — nada do core — e a
 suíte do pack passa em Python 3.12, sem `pytest-asyncio` ([research.md](research.md) R3, R4).
 
 ## 6. Fronteiras, tipos e formatação
@@ -189,5 +189,54 @@ a resposta é 502.
 
 ## 12. Nada regrediu
 
-Os itens 2, 3, 5 e 7 da Fase 1: conformidade, carga real por entry point (versão `0.1.0`, R17), ambiente só com os
+Os itens 2, 3, 5 e 7 da Fase 1: conformidade, carga real por entry point (versão `0.1.0` na Fase 3, R17; `0.2.0` desde a passada de 2026-10-20), ambiente só com os
 contratos e a suíte completa do workspace.
+
+---
+
+# Fase 9, incremento 9.5 (2026-10-20): US3 — identidade Axon
+
+A partir de `axon-ai/`, com `XDG_DATA_HOME=$HOME/.local/share` nesta máquina. Decisões em [research.md](research.md)
+R22–R27; contrato em [contracts/packaging.md](contracts/packaging.md).
+
+## 13. O pack com o nome novo, sem o antigo (cenário 1)
+
+```bash
+uv sync
+uv run python -c "import axon_generic, importlib.metadata as m; print(m.version('axon-generic'))"
+uv run python -c "import ai_generic" 2>&1 | tail -1
+uv run pytest packages/generic/tests/test_generic_old_name_absent.py -v
+```
+
+**Esperado**: `0.2.0`; `ModuleNotFoundError: No module named 'ai_generic'` (corte seco); o teste do corte seco passa.
+
+## 14. Ambiente só com os contratos (cenário 2)
+
+O §5 acima, sem mudança nos comandos. **Esperado**: o `freeze` lista exatamente `axon-ai-contracts`, `axon-generic` e
+`typing-extensions`, e a suíte do pack passa em 3.12 — inclusive `test_report_has_no_issue`, que no ambiente limpo exige
+o relatório de conformidade sem nenhum item (a etapa de distribuição confere `axon-ai-contracts>=0.2,<0.3` no pacote
+`axon-generic`).
+
+## 15. O core carrega o pack pelo nome de sempre (cenários 3 e 5)
+
+```bash
+uv run pytest packages/core/tests/packs/integration/test_packs_generic_entry_point.py \
+  packages/core/tests/bootstrap/integration/test_generic_agentic_mcp.py -v
+```
+
+**Esperado**: verde. O registry mostra `generic`, distribuição `axon-generic`, versão `0.2.0`, `contract_version` `0.2`;
+o Assistant genérico da US2 responde como antes. A inspeção manual do §3 imprime
+`generic -> axon_generic.pack:GenericPack | axon-generic 0.2.0` (o grupo ainda é `ai_core.packs`, R23).
+
+## 16. Fronteiras e resíduos (cenário 4, SC-003)
+
+```bash
+uv run lint-imports
+cd .. && git grep -nwE "ai_generic|ai-generic" -- . ':!ai-scouting' ':!agentic-deploy' ':!specs/1*' \
+  ':!**/research.md' ':!**/plan.md' ':!**/tasks.md' ':!docs' ':!CLAUDE.md' ':!**/CHANGELOG.md' \
+  ':!specs/002-core-pack-runtime/contracts/installation.md' ':!**/uv.lock'
+```
+
+**Esperado**: `lint-imports` com as três regras do pack `KEPT`, agora nomeando `axon_generic`; o `git grep` só mostra o
+que o R25 deixa de propósito (a etapa 8 do kit "na série 0.1", a premissa da US6 da 001, a clarificação da 002 sobre a
+tag `v0.1.0`, o Sync Impact Report da constituição, o teste do corte seco e os textos da US3 que nomeiam o antigo).

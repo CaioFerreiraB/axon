@@ -62,7 +62,7 @@ async for event in events:
 ## Suíte de conformidade
 
 `packages/core/tests/graph/contract/test_execution_engine_seam.py`, rodando o grafo real com o Pack Runtime real, o
-pack `ai-generic` e o provider simulado da 006 (R13):
+pack `axon-generic` e o provider simulado da 006 (R13):
 
 1. execução completa emite, em ordem: progresso de `prepare_context`, progresso de `generate`, tokens, progresso de
    `validate_answer` e um `FinalEvent` — o progresso de `generate` é o "primeiro sinal" barato que a SC-004 mede;

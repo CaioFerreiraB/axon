@@ -1,4 +1,4 @@
-# Contrato — capacidades publicadas pelo `ai-generic` (v1)
+# Contrato — capacidades publicadas pelo `axon-generic` (v1)
 
 O pack não expõe seam Python. O que ele publica é o **entry point** e as capacidades que os hooks de catálogo
 devolvem. Este é o contrato observável: quem muda qualquer linha daqui muda o comportamento visível do pack para o
@@ -10,13 +10,13 @@ Tudo abaixo é consumido pela API pública de `axon_ai_contracts` (001) — nenh
 
 ```toml
 [project.entry-points."ai_core.packs"]
-generic = "ai_generic.pack:GenericPack"
+generic = "axon_generic.pack:GenericPack"
 ```
 
 ```python
 class GenericPack(PackBase):
     name = "generic"                 # igual ao nome do entry point (002 FR-017)
-    contract_version = "0.1"         # série dos contratos; deriva a faixa >=0.1,<0.2 (ADR-014)
+    contract_version = "0.2"         # série dos contratos; deriva a faixa >=0.2,<0.3 (ADR-014)
 ```
 
 `name` e `contract_version` são **atributos de classe**: o Pack Runtime os lê antes de instanciar.
@@ -24,7 +24,7 @@ class GenericPack(PackBase):
 ## `manifest()`
 
 ```python
-PackManifest(name="generic", version="0.1.0")
+PackManifest(name="generic", version="0.2.0")   # igual à versão de axon-generic
 ```
 
 Sem `preferred_flow`, `depends_on`, `requires_collections` e `config_schema`. Consequências para os consumidores:

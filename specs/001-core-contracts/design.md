@@ -199,7 +199,7 @@ class ValidationResult:
 | Distribuição | Repositório | Versão | Tag de exemplo |
 |---|---|---|---|
 | `axon-ai-contracts` | `axon-ai` | própria | `contracts-v0.1.0` |
-| `axon-ai` e `ai-generic` | `axon-ai` | única, lançados juntos | `v0.3.1` |
+| `axon-ai` e `axon-generic` | `axon-ai` | única, lançados juntos | `v0.3.1` |
 | `ai-scouting` e demais packs | próprio | própria | `v0.1.4` |
 
 | Regra | |
@@ -208,20 +208,20 @@ class ValidationResult:
 | Janela de depreciação **[ADR-014]** | uma série compatível: depreciado em 0.N.x sai a partir de 0.(N+1).0 |
 | `contract_version` no pack | verificada no boot (spec 002) |
 | Faixa nos packs externos | `>=0.1,<0.2` |
-| `ai-generic` | testado contra os contratos do mesmo commit, sem faixa |
+| `axon-generic` | testado contra os contratos do mesmo commit, sem faixa |
 
 ## Fronteiras verificadas
 
 ```toml
 # axon-ai/pyproject.toml
 [tool.importlinter]
-root_packages = ["axon_ai_contracts", "axon_ai", "ai_generic"]
+root_packages = ["axon_ai_contracts", "axon_ai", "axon_generic"]
 
 [[tool.importlinter.contracts]]
 name = "contratos não importam o resto do projeto"
 type = "forbidden"
 source_modules = ["axon_ai_contracts"]
-forbidden_modules = ["axon_ai", "ai_generic"]
+forbidden_modules = ["axon_ai", "axon_generic"]
 
 [[tool.importlinter.contracts]]
 name = "contratos não dependem de frameworks do runtime"    # [ADR-011]
@@ -232,7 +232,7 @@ forbidden_modules = ["langgraph", "langchain", "fastapi", "qdrant_client", "sqla
 [[tool.importlinter.contracts]]
 name = "core e pack genérico não se importam"
 type = "independence"
-modules = ["axon_ai", "ai_generic"]
+modules = ["axon_ai", "axon_generic"]
 ```
 
 Cada pack externo roda a mesma verificação no próprio CI, proibindo `axon_ai`.

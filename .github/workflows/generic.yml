@@ -1,4 +1,4 @@
-# CI de ai-generic (spec 010: FR-001, FR-003, FR-004, SC-001).
+# CI de axon-generic (spec 010: FR-001, FR-003, FR-004, SC-001).
 # Fica na raiz enquanto axon-ai/ é subpasta deste repositório.
 name: generic
 
@@ -71,7 +71,7 @@ jobs:
 
           installed = sorted({re.sub(r"[-_.]+", "-", d.metadata["Name"]).lower() for d in distributions()})
           print(installed)
-          assert installed == ["ai-generic", "axon-ai-contracts", "typing-extensions"], installed
+          assert installed == ["axon-ai-contracts", "axon-generic", "typing-extensions"], installed
           PY
       - name: A etapa de distribuição confere a faixa declarada
         run: |
@@ -79,10 +79,10 @@ jobs:
           from importlib.metadata import packages_distributions
 
           from axon_ai_contracts.testing import check_pack
-          from ai_generic.pack import GenericPack
+          from axon_generic.pack import GenericPack
 
           # Instalação normal (não editável): o mapeamento existe, então a etapa 9 tem o que verificar.
-          assert packages_distributions().get("ai_generic") == ["ai-generic"]
+          assert packages_distributions().get("axon_generic") == ["axon-generic"]
           report = check_pack(GenericPack())
           assert report.issues == (), report.render()
           print(report.render())

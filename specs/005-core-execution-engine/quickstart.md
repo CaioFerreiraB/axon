@@ -60,7 +60,7 @@ por `issue` reportada.
 uv run pytest packages/core/tests/graph/integration -v
 ```
 
-Esperado: o Pack Runtime real carrega o `ai-generic` pelo entry point, o `prompt` geral do pack entra como mensagem de
+Esperado: o Pack Runtime real carrega o `axon-generic` pelo entry point, o `prompt` geral do pack entra como mensagem de
 sistema, o validator `non_empty_answer` roda, e o trace da requisição tem começo, `ValidationRun` e fim. É o
 "Independent Test" que a US1 descreve.
 
@@ -125,13 +125,13 @@ uv run pytest packages/core/tests/graph/contract/test_agentic_properties.py -v
 Esperado: hypothesis não encontra roteiro que faça o motor passar do limite, perder resultado ou emitir mais de um
 `FinalEvent`.
 
-### Caminho completo com a 004 e o `ai-generic`
+### Caminho completo com a 004 e o `axon-generic`
 
 ```bash
 uv run pytest packages/core/tests/graph/integration/test_agentic_with_generic_pack.py -v
 ```
 
-Esperado: o `PackRuntime` real carrega o `ai-generic`, o `CapabilityService` real monta o catálogo `generic.calculate`,
+Esperado: o `PackRuntime` real carrega o `axon-generic`, o `CapabilityService` real monta o catálogo `generic.calculate`,
 o controller simulado pede `{"expression": "2+2"}`, a tool nativa responde dentro de `<tool_result …>`, a geração
 recebe a `FENCE_INSTRUCTION` e o resultado, e o trace tem, em ordem: `ExecutionStarted`, `ModelCall(controller)`,
 `ControllerDecision(tool)`, `ToolCall`, `ModelCall(controller)`, `ControllerDecision(answer)`, `ModelCall(generation)`,

@@ -2,7 +2,7 @@
 
 `packs: [generic]` com o MCP `demo` do `mcp.yaml`: o controller (trocado na montagem) pede a tool do servidor e depois
 responde; a geração recebe o prompt do pack e o resultado cercado. O prompt vem pelo seam `PackHooks` da 002 — o teste
-não importa `ai_generic`, e nenhuma linha do core conhece o pack (010 SC-002, research R18).
+não importa `axon_generic`, e nenhuma linha do core conhece o pack (010 SC-002, research R18).
 """
 
 from __future__ import annotations

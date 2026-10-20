@@ -13,15 +13,15 @@ from __future__ import annotations
 
 from importlib.metadata import packages_distributions
 
-from ai_generic.pack import GenericPack
 from axon_ai_contracts.testing import assert_pack_conforms, check_pack, turn_view
+from axon_generic.pack import GenericPack
 
 VIEWS = (
     turn_view(question="quanto é 2+2?", answer="São 4."),
     turn_view(question="quanto é 2+2?", answer=None),
 )
 
-DISTRIBUTION_IS_VISIBLE = "ai-generic" in (packages_distributions().get("ai_generic") or [])
+DISTRIBUTION_IS_VISIBLE = "axon-generic" in (packages_distributions().get("axon_generic") or [])
 """Verdadeiro na instalação normal (ambiente limpo); falso no workspace, onde a instalação é editável."""
 
 

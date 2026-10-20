@@ -10,7 +10,7 @@ uv sync                      # traz fastapi>=0.141,<1 e, no grupo de desenvolvim
 ```
 
 A suíte **não** abre porta TCP nem fala com rede: a app é montada em processo e exercitada pelo cliente de teste do
-framework, com o motor real, o Pack Runtime real, o `ai-generic` e o provider simulado da 006
+framework, com o motor real, o Pack Runtime real, o `axon-generic` e o provider simulado da 006
 ([research.md](research.md) R10).
 
 ## Verificação completa
@@ -56,7 +56,7 @@ sem nenhuma chamada registrada.
 uv run pytest packages/core/tests/http/integration -v
 ```
 
-Esperado: uma requisição HTTP atravessa API, motor, Pack Runtime e Model Router; o prompt do `ai-generic` entra como
+Esperado: uma requisição HTTP atravessa API, motor, Pack Runtime e Model Router; o prompt do `axon-generic` entra como
 mensagem de sistema, o validator do pack roda, e o trace da requisição — recuperado pelo identificador do cabeçalho —
 tem começo, chamada de modelo, validação e fim.
 
@@ -169,7 +169,7 @@ o terceiro recebe 503 `overloaded` com `Retry-After: 30`.
 
 **Medição (R36), 2026-10-13 — com OpenRouter, por decisão do mantenedor** (o suporte ao Ollama local fica para
 depois). `axon serve` no perfil `memory` (Ryzen 7 7700, 16 threads, 14 GB), Assistant `conversa` (flow `chat`,
-`ai-generic`), geração `openrouter/~z-ai/glm-flash-latest`, pergunta curta, streaming, `x-ai-core-store: false`, 3
+`axon-generic`), geração `openrouter/~z-ai/glm-flash-latest`, pergunta curta, streaming, `x-ai-core-store: false`, 3
 rodadas por caso, `AXON_MAX_EXECUTIONS=4`:
 
 | Simultâneas | Primeiro texto (p50 / máx) | Total (p50 / máx) |

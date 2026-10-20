@@ -1,4 +1,4 @@
-"""T015 — o caminho completo da US1: motor + Pack Runtime real + `ai-generic` real + provider simulado.
+"""T015 — o caminho completo da US1: motor + Pack Runtime real + `axon-generic` real + provider simulado.
 
 É o "Independent Test" que a própria US1 descreve, e o primeiro ponto do projeto em que quatro módulos se encontram
 (002, 005, 006, 010). Só o modelo é simulado — é isso que mantém a suíte sem rede e determinística (research R13).
@@ -94,7 +94,7 @@ async def test_o_validator_do_pack_roda_e_aparece_no_trace() -> None:
 
 
 async def test_resposta_vazia_e_reprovada_pelo_validator_do_pack() -> None:
-    """O `non_empty_answer` do `ai-generic` reprova, e a execução continua: é achado, não falha."""
+    """O `non_empty_answer` do `axon-generic` reprova, e a execução continua: é achado, não falha."""
     packs = _runtime()
     trace = RecordingTraceSink()
     llm = provider(deltas=("",))

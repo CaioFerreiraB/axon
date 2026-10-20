@@ -165,7 +165,7 @@ minha-instalacao/
 
 ```dockerfile
 FROM ghcr.io/caio/ai-core:0.3.1
-# a imagem do core já traz axon-ai-contracts e ai-generic
+# a imagem do core já traz axon-ai-contracts e axon-generic
 
 ARG PACKS="\
   ai-scouting@git+https://github.com/caio/ai-scouting@v0.1.4 \

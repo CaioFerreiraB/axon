@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from ai_generic.tools.arithmetic import (
+from axon_generic.tools.arithmetic import (
     DIVISION_BY_ZERO,
     EXPONENT_OUT_OF_RANGE,
     INVALID,

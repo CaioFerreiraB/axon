@@ -43,7 +43,7 @@ flowchart TB
 
     RUNTIME --> HOOKS["Pack Hooks<br/>(002)"]
     HOOKS --> PACKS[Packs habilitados]
-    PACKS --> P1["ai-generic (010)"]
+    PACKS --> P1["axon-generic (010)"]
     PACKS --> P2["ai-scouting (1xx)"]
 
     RUNTIME --> GW["Capability Gateway<br/>(004)"]
@@ -151,7 +151,7 @@ flowchart TD
     subgraph RCORE["repositório axon · workspace axon-ai (uv) · specs 0xx"]
         C[axon-ai-contracts<br/>001]
         CORE[axon-ai<br/>002–009, 011, 012]
-        GEN[ai-generic<br/>010]
+        GEN[axon-generic<br/>010]
         CON[console<br/>013 · SPA, fora do uv]
         C --> CORE
         C --> GEN
@@ -168,7 +168,7 @@ flowchart TD
     DEPLOY -.instala.-> SCT
 ```
 
-A seta que **não** existe: de qualquer pack para `axon-ai` — `ai-generic` incluído, mesmo morando no mesmo repositório.
+A seta que **não** existe: de qualquer pack para `axon-ai` — `axon-generic` incluído, mesmo morando no mesmo repositório.
 
 ## Blocos
 
@@ -193,7 +193,7 @@ Ao criar spec nova, use o próximo número livre **dentro do bloco** (ver [CLAUD
 | [007](007-core-mcp-integration/spec.md) | Registry e cliente MCP | `axon_ai/mcp` | 3 | Fase 3 implementada (US1–US6); ligada pela 011 e exposta pela 008 (`/v1/mcp`, `/private/v1/mcp`) |
 | [008](008-core-http-api/spec.md) | API HTTP, compat OpenAI, streaming, histórico | `axon_ai/http` | 1, 2, 3, 7, 9 | Fases 1 e 2 implementadas (US1; US2, US3, US4 Assistants, US5, US7); Fase 3: rotas de MCP do usuário e globais, desfecho por gravidade (ADR-018) e `x-should-retry`; Fase 7 (API): fila com 503 `overloaded` e `Retry-After`, progresso como raciocínio (`reasoning_content`) até o primeiro texto, pedido efêmero (`x-ai-core-store: false`) e compatibilidade com o Open WebUI v0.12 — a interface de verdade fecha na passada de encaixe da 002; timeline de status no Open WebUI (`x-ai-core-progress: status`, FR-005a); Fase 9: US9 implementada (`/admin/v1`: sessão e marca da instalação, Assistants de sistema e sobreposições, "testar modelo" pela 006, MCP globais, uso e preços, Langfuse e captura, contas, grupos e login da 012, chaves e saúde; não admin → 404 de rota inexistente, `no-store` em toda resposta) |
 | [009](009-core-observability-evaluation/spec.md) | Trace (Trace Sink) e harness de avaliação | `axon_ai/observability`, `axon_ai/eval` | 1–6, 9 | Fase 1 implementada (US1: trace e Trace Sink); Fase 6 implementada (US2–US4: harness — conjunto dourado, métricas do trace, juiz offline, linha de base, `axon eval run|compare`); Fase 9 especificada (US5–US7: uso e custo, Langfuse, conteúdo opcional — ADR-034); Fase 9 implementada (US5–US7: uso e custo por modelo e dia com preços com vigência, destino Langfuse por OTLP, captura opcional de conteúdo; verificação com um Langfuse real pendente, T070) |
-| [010](010-core-generic-pack/spec.md) | Pack genérico de referência | `ai-generic` (`packages/generic`) | 1, 3 | Fases 1 e 3 implementadas (US1, US2); FR-005 decidida: continua pack, sem flow preferido |
+| [010](010-core-generic-pack/spec.md) | Pack genérico de referência | `axon-generic` (`packages/generic`) | 1, 3, 9 | Fases 1 e 3 implementadas (US1, US2); FR-005 decidida: continua pack, sem flow preferido; Fase 9: US3 identidade Axon (`axon-generic` 0.2.0, import `axon_generic`, ADR-037) |
 | [011](011-core-bootstrap/spec.md) | Bootstrap e composition root: configuração, perfis de adapters, ordem de boot, CLI, health | `axon_ai/bootstrap` | 1, 2, 3, 7, 9 | Fases 1 e 2 implementadas (US1–US5: perfis `memory`, `persistent` e `test`, autenticação real, CLI `axon`, saúde agregada); Fase 3: registry MCP e gateway de tools nos três perfis, `agentic`, `axon audit`, saúde por servidor MCP, trocas de porta; Fase 7: `AXON_MAX_EXECUTIONS`, `AXON_QUEUE_SIZE` e `AXON_QUEUE_WAIT_MS` (admissão da 008); Fase 9 especificada (US6: identidade, administração, destinos do trace, chave mestra); Fase 9 implementada (US6): a identidade ligada (etapa `identity`, portas `identity_*`, CLI `users`/`groups`/`identity keys rotate`), as sobreposições da 003, o uso, os preços e o Langfuse da 009 nos três perfis (`AXON_LANGFUSE_*`, `AXON_USAGE_*`), a origem `evaluation` no `eval run`, os itens `trace:*` e os modelos efetivos na saúde e a superfície `/admin/v1`; Fase 9, incremento 9.5: US7 implementada (distribuição `axon-ai` 0.7.0rc1, workspace `axon-ai/`, import `axon_ai`, comando `axon` com `--version`, prefixo `AXON_` com recusa de `AI_CORE_*`, nome padrão "Axon" — [ADR-037](../docs/adr/ADR-037-a-plataforma-se-chama-axon.md), [ADR-038](../docs/adr/ADR-038-marca-da-plataforma-e-marca-da-instalacao.md)) |
 | [012](012-core-identity/spec.md) | Provedor de identidade: contas, senha, login Google, grupos, emissão de tokens OIDC | `axon_ai/identity` | 9 | Fase 9 implementada no módulo (US1–US7): protocolo OIDC, páginas, Google, contas e grupos, bloqueio, chaves em rotação, Postgres no schema `identity`; o encaixe vem nas passadas da 003, 008, 011 e 002 ([ADR-030](../docs/adr/ADR-030-a-plataforma-e-o-provedor-de-identidade.md)) |
 | [013](013-core-admin-console/spec.md) | Console de administração (SPA) | `axon-ai/console/` | 9 | Fase 9 implementada (US1–US7, [ADR-029](../docs/adr/ADR-029-console-de-administracao-propria.md)): React 19 + TypeScript, login pela 012 com PKCE e tokens só em memória, uso e custo, preços, Assistants (modelos, MCP, histórico), servidores MCP, observabilidade e acesso, temas claro e escuro; Vitest + MSW e e2e com Playwright e axe contra a plataforma em memória; nginx da instalação em `deploy/`; CI em `.github/workflows/console.yml` |
@@ -352,7 +352,7 @@ Só as specs `1xx` mudam. O core só enxerga o pack pelo contrato 001 e pelo nom
 | Números de calibração do RAG | 105, Fase 6 |
 | Multi-tenancy entre organizações | 003 — fora de escopo; instalação separada é o default |
 | Ontologia do GraphRAG | 106 (`NEEDS CLARIFICATION`) |
-| O `ai-generic` continua sendo pack? | 010 (`NEEDS CLARIFICATION`), Fase 3 |
+| O `axon-generic` continua sendo pack? | 010 (`NEEDS CLARIFICATION`), Fase 3 |
 | ~~ADR-011 (Turn View / `PackRoutine`)~~ | Aceito em 2026-09-14, com ADR-012 e ADR-013 |
 | ~~Como o harness fixa a data de referência de uma execução~~ | Resolvido em 2026-09-14: só em processo, pelo harness; a API rejeita o campo (008 FR-012) |
 | ~~Política de versões 0.x de `axon-ai-contracts`~~ | Resolvido em 2026-09-15 (`/speckit-clarify` da 001, FR-016): enquanto 0.x, aditiva = patch e breaking = minor |

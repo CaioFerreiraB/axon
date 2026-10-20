@@ -77,8 +77,8 @@ def test_contracts_are_never_forbidden(sandbox: Path) -> None:
 
 
 def test_package_may_import_itself(sandbox: Path) -> None:
-    _write(sandbox, "ai_generic_fake/__init__.py", "")
-    issues = check_imports("ai_generic_fake", forbidden=("axon_ai", "ai_generic_fake"))
+    _write(sandbox, "axon_generic_fake/__init__.py", "")
+    issues = check_imports("axon_generic_fake", forbidden=("axon_ai", "axon_generic_fake"))
     assert issues == ()
 
 
