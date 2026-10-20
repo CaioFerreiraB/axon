@@ -71,7 +71,7 @@ Uma etapa que falha com issue `error` e impede as seguintes (ex.: sem manifest n
 | 6 | `prepare_context` para cada view: devolve `Mapping`; valores JSON; `retrieval_filters`, se presente, é mapeamento JSON; mesma entrada duas vezes → mesma saída | `prepare_context.not_mapping`, `prepare_context.not_json`, `prepare_context.retrieval_filters.invalid`, `prepare_context.non_deterministic` |
 | 7 | Validators para cada view: devolvem `ValidationResult`; mesma entrada duas vezes → mesmo resultado | `validator.result_type`, `validator.non_deterministic` |
 | 7b | Métricas de domínio (0.1.2, ADR-027), só se o pack tem `eval_metrics`: o hook devolve sequência de `EvalMetric`, nomes não vazios e únicos, `better` em `higher`/`lower`, `deterministic` bool e `measure` síncrono | `hook.raised`, `hook.return_type`, `eval_metric.name.invalid`, `eval_metric.duplicate_name`, `eval_metric.contract` |
-| 8 | Imports do pacote do pack (AST): nenhum `axon_ai`/`axon_generic` (0.2.0; na série 0.1, `axon_ai`/`ai_generic`) — a mensagem nomeia arquivo, linha e módulo | `imports.forbidden` |
+| 8 | Imports do pacote do pack (AST): nenhum `axon_ai`/`axon_generic` (0.2.0; na série 0.1, `ai_core`/`ai_generic`) — a mensagem nomeia arquivo, linha e módulo | `imports.forbidden` |
 | 9 | Distribuição (se `check_distribution`): regras de [compatibility.md §5](compatibility.md) | `distribution.*` |
 | — | Durante todas as etapas: `ContractDeprecationWarning` capturado | `deprecation.used` (*warning*) |
 
