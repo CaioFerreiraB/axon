@@ -7,6 +7,10 @@
 
 **Design. Connect. Build.**
 
+[![core](https://github.com/CaioFerreiraB/axon/actions/workflows/core.yml/badge.svg?branch=main)](https://github.com/CaioFerreiraB/axon/actions/workflows/core.yml) [![contracts](https://github.com/CaioFerreiraB/axon/actions/workflows/contracts.yml/badge.svg?branch=main)](https://github.com/CaioFerreiraB/axon/actions/workflows/contracts.yml) [![generic](https://github.com/CaioFerreiraB/axon/actions/workflows/generic.yml/badge.svg?branch=main)](https://github.com/CaioFerreiraB/axon/actions/workflows/generic.yml) [![console](https://github.com/CaioFerreiraB/axon/actions/workflows/console.yml/badge.svg?branch=main)](https://github.com/CaioFerreiraB/axon/actions/workflows/console.yml)
+
+![axon-ai](https://img.shields.io/badge/axon--ai-0.7.0rc1-2563EB?style=flat) ![axon-ai-contracts](https://img.shields.io/badge/axon--ai--contracts-0.2.0-2563EB?style=flat) ![axon-generic](https://img.shields.io/badge/axon--generic-0.2.0-2563EB?style=flat) ![Python](https://img.shields.io/badge/Python-3.14_·_contratos_3.12%2B-3776AB?style=flat&logo=python&logoColor=white) ![Node](https://img.shields.io/badge/Node-24-5FA04E?style=flat&logo=nodedotjs&logoColor=white) ![spec-kit](https://img.shields.io/badge/spec--kit-1.0.6-475569?style=flat)
+
 Axon é um ambiente open source para projetar, conectar e executar sistemas agênticos.
 
 *Axon is an open-source workspace to design, connect, and run agentic systems.*
@@ -16,8 +20,8 @@ Axon é um ambiente open source para projetar, conectar e executar sistemas agê
 | Repositório | O que tem | Aqui |
 |---|---|---|
 | `axon` (este) | O SDD da plataforma (constituição, specs, ADRs, roadmap) e o código do core: contratos `axon-ai-contracts`, runtime `axon-ai` (comando `axon`), pack de referência `axon-generic` e a console de administração | `axon-ai/`, `specs/`, `docs/` |
-| `axon-scouting` | O pack de domínio escoteiro: contexto, recuperação com vigência e citação verificada, avaliação | submódulo `axon-scouting/` |
-| `axon-deploy` | A instalação de referência: imagem com o core de uma tag e os packs, compose com Postgres, Qdrant, Open WebUI e a console | submódulo `axon-deploy/` |
+| `axon-scouting` [![ci](https://github.com/CaioFerreiraB/axon-scouting/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/CaioFerreiraB/axon-scouting/actions/workflows/ci.yml) [![eval](https://github.com/CaioFerreiraB/axon-scouting/actions/workflows/eval.yml/badge.svg?branch=main)](https://github.com/CaioFerreiraB/axon-scouting/actions/workflows/eval.yml) | O pack de domínio escoteiro: contexto, recuperação com vigência e citação verificada, avaliação | submódulo `axon-scouting/` |
+| `axon-deploy` [![build](https://github.com/CaioFerreiraB/axon-deploy/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/CaioFerreiraB/axon-deploy/actions/workflows/build.yml) | A instalação de referência: imagem com o core de uma tag e os packs, compose com Postgres, Qdrant, Open WebUI e a console | submódulo `axon-deploy/` |
 
 O core não conhece domínio nenhum: um pack se anuncia no grupo de entry point `axon.packs` e depende só dos contratos.
 
