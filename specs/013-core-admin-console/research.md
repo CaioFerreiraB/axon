@@ -186,3 +186,109 @@ claro", "Console — escuro"), o `PRODUCT.md` e o contrato de direção em `.imp
     - o CSS do menu flutuante repetido em Acesso e em Servidores MCP.
 - **Rationale**: manter o desenho aprovado e as decisões R1–R13 com o que as bibliotecas e os módulos de fato fazem.
 - **Alternatives considered**: —
+
+---
+
+# Passada de 2026-10-20: identidade Axon ([ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md), [ADR-038](../../docs/adr/ADR-038-marca-da-plataforma-e-marca-da-instalacao.md), [ADR-039](../../docs/adr/ADR-039-hover-do-botao-primario-no-escuro.md); US8)
+
+Decisões pré-aprovadas pelos ADRs e pelo `DESIGN.md` ("Brand" e tokens), mais a do mantenedor de 2026-10-20 sobre o hover
+escuro (ADR-039); o que segue é como elas chegam à console, sem re-pesquisa. Os R anteriores ficam como foram executados
+(ADR-037, item 6).
+
+## R15 — Os arquivos da marca na console
+
+**Decision**: cópias de `brand-kit/svg/{axon-symbol,axon-symbol-light,axon-lockup-light,axon-lockup-dark,favicon}.svg` em
+`axon-ai/console/src/brand/`, importadas pelo Vite (com `assetsInlineLimit: 0`, saem em `/assets/` com hash, no cache
+imutável e na CSP que o nginx já tem); o favicon entra no `index.html` (`<link rel="icon" type="image/svg+xml"
+href="/src/brand/favicon.svg">`, que o Vite reescreve). O wordmark sozinho — o `DESIGN.md` pede, na barra lateral, o
+símbolo de 32px ao lado do wordmark de 12px, uma composição que o lockup, com a proporção fixa de 1,85×, não dá — é
+recortado do lockup aprovado: `brand-kit/svg/axon-wordmark-light.svg` (`#111827`) e `axon-wordmark-dark.svg` (branco),
+com o mesmo `<path>` do lockup, sem a translação, e o `viewBox` `252.38 132.47 252.12 62.78`, que enquadra a altura de x
+de 58,3 (de 135 a 193,3) e as curvas do "a", do "o" e do "n". Entram no README do `brand-kit` como "recorte do lockup,
+mesmo traço". Um teste do Vitest confere que cada arquivo da console é igual ao do `brand-kit`.
+
+**Rationale** (ADR-038, item 6): os vetores são do `brand-kit`; o recorte não redesenha nada. Imagens, em vez de SVG
+embutido, evitam ids repetidos de degradê e máscara entre instâncias (ADR-038, Consequências).
+
+**Alternatives considered**: o lockup inteiro na barra lateral (símbolo de 23px com o wordmark de 12px, fora do
+`DESIGN.md`); wordmark como texto na Mona Sans (o `DESIGN.md` diz que o wordmark não depende de fonte); `public/` do Vite
+(sem hash, fora do cache imutável do nginx).
+
+## R16 — A versão do símbolo segue o tema escolhido
+
+**Decision**: um componente `src/app/brand/Mark.tsx` renderiza as duas versões (`<img>` clara e escura) de cada arquivo, e
+o CSS mostra uma delas pelos mesmos seletores do `tokens.css` (`:root[data-theme="dark"]` e `@media (prefers-color-scheme:
+dark) { :root:not([data-theme="light"]) }`). A versão "para fundo claro" (`-light`) aparece no claro; a "para fundo
+escuro", no escuro. A imagem decorativa tem `alt=""`; a que é a marca no lugar principal tem `alt="Axon"`.
+
+**Rationale**: a console troca o tema pela escolha da pessoa (`data-theme`, FR-019), e `<picture>` com
+`prefers-color-scheme` (a solução da 012, que não tem a escolha) seguiria só o sistema. O CSS troca na hora, sem
+recarregar.
+
+**Alternatives considered**: escolher a versão em JavaScript pelo tema resolvido (um hook a mais que observa o sistema);
+um só SVG com `currentColor` (perde o degradê, que é parte da marca).
+
+## R17 — A barra lateral, o trilho e o acesso negado
+
+**Decision**: `Sidebar` lê `me.instance` (o esquema `meSchema` ganha `custom: z.boolean()`); com `me` ainda carregando,
+`{ name: "Axon", logo_url: null, custom: false }`.
+
+- **sem marca própria**: símbolo de 32px (`alt=""`), ao lado da coluna com o wordmark (altura de x de 12px, ou seja 13px de
+  altura, `alt="Axon"`) e "Console". Sem atribuição.
+- **com marca própria**: o que já existe (logotipo ou inicial de 24px e o nome) e "Console"; no fim do rodapé, depois da
+  pessoa, a atribuição: símbolo de 16px (`alt=""`) e "com Axon" em caption terciário.
+- **trilho** (abaixo de 1100px): o texto da marca já fica só para leitor de tela; o símbolo (ou o logotipo/inicial)
+  continua; a atribuição fica só com o símbolo, e "com Axon" vai para o leitor de tela.
+
+`AccessDenied` mostra o lockup (32px de altura, `alt="Axon"`), sempre: sem o grupo de administração, o `me` responde 404, e
+a console não sabe a marca da instalação. O componente `Brand` antigo (a inicial) fica só para a marca da instalação.
+
+**Rationale** (ADR-038, itens 1 e 2; `DESIGN.md`, "Brand").
+
+**Alternatives considered**: ler a marca da instalação pela descoberta OIDC no acesso negado (a descoberta não traz marca,
+e a 012 não a publica fora das páginas).
+
+## R18 — Título da aba, favicon e cor da barra do navegador
+
+**Decision**: `ui/Page.tsx` ganha o contexto `PageTitleSuffix` (padrão "Axon"); o `PageHeader`, quando o título é texto,
+põe `document.title = "<título> · <sufixo>"`; o `Shell` fornece o sufixo com `me.instance.name`. `AccessDenied` usa
+"Sem acesso · Axon"; o `index.html`, `<title>Axon</title>` até a primeira tela. `theme-color` do escuro passa a `#0b0f19`.
+
+**Rationale** (ADR-038, item 3: favicon sempre Axon): o título com o nome da instalação segue as páginas da 012
+("<página> · <nome>"), para o login e a console dizerem o mesmo nome; sem nome próprio, dá "Tela · Axon", o do plano do
+renome.
+
+**Alternatives considered**: "Tela · Axon" sempre (a console diria um nome e o login, outro).
+
+## R19 — Tokens e o hover escuro
+
+**Decision**: `src/ui/tokens.css` com os valores do `DESIGN.md` (os mesmos neutros que a 012 passou a usar, R22 dela) nos
+três blocos (claro, `data-theme="dark"`, sistema escuro), e `--acao-hover` do escuro `#1d4ed8` (ADR-039); o comentário do
+topo diz "neutros frios da marca Axon". O mesmo `--acao-hover` escuro em `identity.css` (012), e o par "texto sobre o
+hover" entra no teste de contraste da 012 e num teste novo do Vitest que lê os blocos do `tokens.css` e confere os pares
+de texto em AA nos dois temas, inclusive o hover.
+
+**Rationale** (ADR-038, item 4; ADR-039).
+
+**Alternatives considered**: nenhuma (decidido pelo mantenedor).
+
+## R20 — O pacote
+
+**Decision**: `"name": "@axon/console"` no `package.json`; `npm install --package-lock-only` atualiza o lock. Nada mais
+muda de nome: `console.theme` e o cliente `console` ficam (ADR-037, item 5).
+
+**Rationale** (ADR-037, item 2).
+
+**Alternatives considered**: nenhuma.
+
+## R21 — Verificação
+
+**Decision**: Vitest — a barra lateral sem e com marca própria (o MSW com `custom` falso e verdadeiro), o acesso negado
+com o lockup, o título da aba, a igualdade dos SVG com o `brand-kit` e o contraste dos tokens; a fixture do MSW passa a
+`{ name: "Axon", logo_url: null, custom: false }`. E2E com axe nos dois temas e na largura de tablet (os projetos que já
+existem), mais um caso que confere o título e o favicon. Capturas da barra lateral sem e com marca, claro e escuro, pelo
+Playwright do MCP. O Penpot não estava conectado em 2026-10-20; a comparação fica para quando estiver.
+
+**Rationale**: SC-005 e SC-008.
+
+**Alternatives considered**: nenhuma.

@@ -1,7 +1,7 @@
 /** SC-005 (013): nenhuma violação automática de WCAG 2.2 AA nas telas — com dados, vazio e erro —, nos dois temas e na
  * largura de tablet (os projetos do playwright.config.ts). */
 
-import { test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import { expectAccessible, login, OUTSIDER } from "./fixtures/session";
 
@@ -52,4 +52,17 @@ test("acesso negado", async ({ page }) => {
   await login(page, "/uso", OUTSIDER);
   await page.getByText("Sua conta não tem acesso à console").waitFor();
   await expectAccessible(page, "acesso negado");
+});
+
+test("a aba: favicon do símbolo Axon e o título com o nome da instalação", async ({ page }) => {
+  await login(page, "/uso");
+  await page.getByRole("heading", { name: "Uso e custo" }).waitFor();
+  await expect(page).toHaveTitle("Uso e custo · Axon");
+  const icon = page.locator('link[rel="icon"]');
+  await expect(icon).toHaveAttribute("type", "image/svg+xml");
+  const href = await icon.getAttribute("href");
+  expect(href).toBeTruthy();
+  const favicon = await page.request.get(new URL(href ?? "", page.url()).toString());
+  expect(favicon.status()).toBe(200);
+  expect(await favicon.text()).toContain('fill="#0B0F19"');
 });

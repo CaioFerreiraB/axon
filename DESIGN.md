@@ -37,7 +37,7 @@ colors:
   texto-primario-escuro: "#f1f3f7"
   texto-secundario-escuro: "#a3abbb"
   texto-terciario-escuro: "#8c94a6"
-  acao-hover-escuro: "#3882f6"
+  acao-hover-escuro: "#1d4ed8"
   acao-sutil-escuro: "#14223f"
   acao-texto-escuro: "#93b4fb"
   estado-ok-texto-escuro: "#4cc38a"
@@ -278,7 +278,7 @@ O símbolo e o lockup são os de `brand-kit/svg/` (ADR-038), vetorizados do quad
 Paleta de neutros frios (a família ink, slate, line e mist do Axon) com um azul de ação. A cor existe para dizer "aja aqui" ou "isto está bem, em atenção ou com erro", e para mais nada.
 
 ### Primary
-- **Azul de ação** (`acao-base`): botão primário, interruptor ligado, caixa marcada, cursor de texto, anel de foco no claro. No escuro o valor de fundo continua o mesmo (texto branco a 5,2:1), e só o hover clareia (`acao-hover-escuro`).
+- **Azul de ação** (`acao-base`): botão primário, interruptor ligado, caixa marcada, cursor de texto, anel de foco no claro. No escuro o valor de fundo continua o mesmo (texto branco a 5,2:1), e o hover escurece como no claro (`acao-hover-escuro`, o mesmo `#1d4ed8`, 6,7:1; ADR-039). O `axon-blue` (`#3882f6`) fica no símbolo, não como fundo de texto.
 - **Azul de texto** (`acao-texto`): links, valor sobreposto, o selo e o aviso informativos. No escuro clareia para `acao-texto-escuro`, que também é o anel de foco.
 - **Azul sutil** (`acao-sutil`): fundo do selo e do aviso informativos, do avatar de quem está logado e da seleção de texto.
 

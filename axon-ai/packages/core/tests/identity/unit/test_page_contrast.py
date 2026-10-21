@@ -1,7 +1,5 @@
-"""Contraste AA dos tokens das páginas nos dois temas (US8 cenário 4; FR-023; research R22).
-
-O hover do botão primário no escuro fica de fora: é a pendência que o mantenedor registrou para a passada da 013, que
-decide e muda os dois CSS juntos (ADR-038, item 4).
+"""Contraste AA dos tokens das páginas nos dois temas (US8 cenário 4; FR-023; research R22), inclusive o hover do botão
+primário, que no escuro escurece para `#1D4ED8` (ADR-039, decidido na passada da 013 para os dois CSS).
 """
 
 from __future__ import annotations
@@ -25,6 +23,7 @@ TEXT_PAIRS = [
     ("texto-terciario", "fundo-sutil"),
     ("acao-texto", "fundo-base"),
     ("texto-sobre-acao", "acao-base"),
+    ("texto-sobre-acao", "acao-hover"),
     ("ok-texto", "ok-fundo"),
     ("erro-texto", "erro-fundo"),
     ("foco", "fundo-base"),

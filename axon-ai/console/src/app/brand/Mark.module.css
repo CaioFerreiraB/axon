@@ -1,0 +1,26 @@
+/* A versão da marca segue o tema com os mesmos seletores do tokens.css: a escolha da pessoa (`data-theme`) e, sem ela,
+   o sistema. */
+.mark {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.mark .onLight {
+  display: block;
+}
+.mark .onDark {
+  display: none;
+}
+:global(:root[data-theme="dark"]) .mark .onLight {
+  display: none;
+}
+:global(:root[data-theme="dark"]) .mark .onDark {
+  display: block;
+}
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme="light"])) .mark .onLight {
+    display: none;
+  }
+  :global(:root:not([data-theme="light"])) .mark .onDark {
+    display: block;
+  }
+}

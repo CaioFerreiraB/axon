@@ -136,3 +136,80 @@ ai-core/console/
 ## Complexity Tracking
 
 Nenhuma violação a justificar.
+
+---
+
+# Passada de 2026-10-20: identidade Axon (US8; [ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md), [ADR-038](../../docs/adr/ADR-038-marca-da-plataforma-e-marca-da-instalacao.md), [ADR-039](../../docs/adr/ADR-039-hover-do-botao-primario-no-escuro.md))
+
+> As seções acima são os planos das passadas anteriores e ficam como foram executadas (ADR-037, item 6); os nomes
+> antigos nelas se leem pela tabela do ADR-037. Esta seção é o plano da US8.
+
+**Insumos lidos**: [spec.md](spec.md) (US8, FR-020 reescrita, FR-021–FR-023, SC-008, clarificações de 2026-10-20),
+[design.md](design.md), ADR-037, ADR-038, ADR-039 (escrito nesta passada, por decisão do mantenedor), `DESIGN.md`
+("Brand" e tokens, com o hover escuro novo), `brand-kit/svg/`, a passada da 008 (`me.instance.custom`) e a da 012 (os
+mesmos tokens e SVG nas páginas). Research: R15–R21. **Sem divergência do `design.md`** além do desenho da marca, que os
+ADRs decidem.
+
+## Summary (US8)
+
+A console mostra a marca Axon ou a da instalação pela regra do ADR-038, com os SVG do `brand-kit` (mais o recorte do
+wordmark) e a versão que segue o tema escolhido (R15–R17); o título da aba leva o nome da instalação, o favicon é o símbolo
+e a barra do navegador usa o `axon-night` (R18); os tokens passam aos do `DESIGN.md`, com o hover escuro `#1D4ED8`, nos
+dois CSS (R19); o pacote vira `@axon/console` (R20). Testes de unidade, e2e com axe e capturas (R21).
+
+## Technical Context (US8)
+
+- **Language/Version, dependências**: sem mudança; o lock do npm é regenerado só pelo nome.
+- **Testing**: Vitest (barra lateral, acesso negado, título, SVG, contraste), Playwright + axe nos três projetos, capturas.
+- **Constraints**: CSP do nginx (`img-src 'self' data:`); fronteira do ESLint (`fetch` só em `src/api/`); a marca da
+  instalação continua vindo da API.
+- Nenhum `NEEDS CLARIFICATION`.
+
+## Constitution Check (US8)
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| I. Núcleo agnóstico de domínio | ✅ | Axon é a marca da plataforma; exemplos com "Instituto Exemplo" |
+| II. Módulos substituíveis por seams | ✅ | A console só lê `me.instance` (008) e o protocolo da 012; nenhum seam novo |
+| XI. API independente da interface | ✅ | A regra de marca própria vem pronta da API (`custom`); a console só a desenha |
+| XIII. Portas e adapters | ✅ | Nada muda na fronteira: os SVG são assets, e o `me` continua em `src/api/` |
+
+**Module boundary gate**: `axon-ai/console/**`. Fora da console, o `identity.css` e o teste de contraste da 012 (ADR-039,
+os mesmos tokens), o `brand-kit` (o recorte do wordmark), o `DESIGN.md` e o `.impeccable/design.json` (o hover escuro).
+**Resultado**: PASS.
+
+## Project Structure (US8)
+
+```text
+brand-kit/svg/axon-wordmark-{light,dark}.svg         # recorte do lockup (R15); README com as linhas novas
+axon-ai/console/
+├── package.json                                     # @axon/console (R20)
+├── index.html                                       # favicon, <title>Axon</title>, theme-color #0b0f19 (R18)
+└── src/
+    ├── brand/*.svg                                  # cópias do brand-kit (R15)
+    ├── app/brand/{Mark.tsx,Mark.module.css}         # símbolo, wordmark e lockup nas duas versões (R16)
+    ├── app/Sidebar.tsx (+ .module.css)              # marca, atribuição, trilho (R17)
+    ├── app/AccessDenied.tsx                         # lockup, título (R17, R18)
+    ├── app/Shell.tsx                                # PageTitleSuffix (R18)
+    ├── ui/Page.tsx                                  # PageTitleSuffix e document.title (R18)
+    ├── ui/tokens.css                                # tokens do DESIGN.md; hover escuro (R19)
+    └── api/schemas.ts                               # instance.custom (R17)
+axon-ai/packages/core/src/axon_ai/identity/adapters/assets/identity.css   # hover escuro (R19)
+```
+
+## Seam Notes for Consumers (US8)
+
+| Consumidor | O que muda para ele |
+|---|---|
+| 008 | Nada: a console passa a ler `instance.custom`, que já existe |
+| 012 | O hover escuro do `identity.css` e o par no teste de contraste (ADR-039) |
+| Instalação | A imagem da console sai com o nome novo do pacote na passada dela; nada muda no nginx |
+
+## Complexity Tracking (US8)
+
+Nenhuma linha nova.
+
+## Constitution Check — pós-design (US8)
+
+Reavaliado com [contracts/screens.md](contracts/screens.md), [data-model.md](data-model.md) e
+[quickstart.md](quickstart.md) ("Fase 9, incremento 9.5"): **PASS**.

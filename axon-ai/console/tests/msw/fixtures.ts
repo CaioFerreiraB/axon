@@ -20,7 +20,7 @@ export const me: Me = {
   name: "Ana Souza",
   groups: ["admin", "equipe"],
   scheme: "oidc",
-  instance: { name: "Agentic", logo_url: null },
+  instance: { name: "Axon", logo_url: null, custom: false },
 };
 
 export const geral: AssistantView = {

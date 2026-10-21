@@ -43,6 +43,7 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 | [036](ADR-036-provider-que-informa-custo-sem-preco-de-tabela.md) | Provider que informa o custo não tem preço de tabela; o relatório diz as requisições do dia (refina o 035) | Aceita | 006, 009, 008, 013 |
 | [037](ADR-037-a-plataforma-se-chama-axon.md) | A plataforma se chama Axon, e os nomes técnicos seguem a marca (substitui o 021 e o 022 só nos nomes) | Aceita | todas (US nova: 001, 002, 003, 008, 009, 010, 011, 012, 013, 101) |
 | [038](ADR-038-marca-da-plataforma-e-marca-da-instalacao.md) | A marca da plataforma é Axon; a da instalação ocupa o lugar principal quando existe | Aceita | 012, 013, 008, 011 |
+| [039](ADR-039-hover-do-botao-primario-no-escuro.md) | No tema escuro, o hover do botão primário escurece, como no claro (substitui o 038 só nesse ponto) | Aceita | 013, 012 |
 
 ## Modelo para ADR novo
 

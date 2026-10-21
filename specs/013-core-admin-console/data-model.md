@@ -26,3 +26,15 @@ e a preferência de tema. Os tipos espelham [admin-api.md](../008-core-http-api/
 | Rascunho de formulário | `react-hook-form` | sobrevive à renovação de token e a um `409` até a pessoa decidir |
 | Filtros (período, agrupamento, origem, busca, aba) | parâmetros da URL | compartilháveis e voltam com o histórico do navegador |
 | Senha temporária | estado do diálogo | descartada ao fechar; nunca em cache de consulta |
+
+
+---
+
+# Passada de 2026-10-20: identidade Axon (US8; research R15–R19)
+
+| Item | Antes | Agora |
+|---|---|---|
+| `Me.instance` | `{ name, logo_url }` | `{ name, logo_url, custom }` — `custom` diz se a instalação tem marca própria (008, ADR-038) |
+| padrão enquanto o `me` carrega | `{ name: "Agentic", logo_url: null }` | `{ name: "Axon", logo_url: null, custom: false }` |
+| título da aba | "Console" | "<tela> · <instance.name>"; "Sem acesso · Axon" no acesso negado |
+| pacote | `@agentic/console` | `@axon/console` |

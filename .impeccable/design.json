@@ -532,7 +532,7 @@
       "acao-hover-escuro": {
         "role": "primary",
         "displayName": "Azul de ação (hover), tema escuro",
-        "canonical": "#3882f6",
+        "canonical": "#1d4ed8",
         "tonalRamp": [
           "#000923",
           "#022154",

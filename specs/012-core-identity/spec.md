@@ -379,7 +379,7 @@ A plataforma passa a se chamar Axon (ADR-037, ADR-038). Numa instalação sem ma
 - Os clientes são da própria instalação (Open WebUI e console); por isso não há tela de consentimento.
 - Processo único: os contadores de tentativas ficam em memória, como os de rate limit da 003.
 - Contas, sessões e chaves exigem o perfil `persistent` (Postgres). No `memory`, tudo é efêmero e a chave de assinatura
-- US8: o AA da FR-023 vale para os pares de texto e controles em repouso nos dois temas. O hover do botão primário no escuro (`#3882F6` com texto branco, 3,7:1, já assim antes) é a pendência que o mantenedor registrou para a passada da 013, que decide e muda os dois CSS juntos (ADR-038, item 4).
+- US8: o AA da FR-023 vale para os pares de texto e controles nos dois temas, inclusive o hover do botão primário: no escuro ele passou a `#1D4ED8` (texto branco a 6,7:1) pela decisão do mantenedor de 2026-10-20, no ADR-039, aplicada na passada da 013 aos dois CSS.
 - US8 (ADR-037, ADR-038): o símbolo, o lockup e o favicon vêm de `brand-kit/svg/` (aprovados pelo mantenedor) e entram nos assets das páginas; a console (013) os usa na passada dela. A instalação continua presa a uma tag antiga até a passada dela.
   muda a cada processo; serve só para desenvolvimento.
 - O Open WebUI v0.12 é cliente confidencial e guarda os tokens dele; a instalação configura a sessão dele um pouco

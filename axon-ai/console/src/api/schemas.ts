@@ -16,7 +16,7 @@ export const meSchema = z.object({
   name: z.string(),
   groups: z.array(z.string()),
   scheme: z.enum(["oidc", "api_key"]),
-  instance: z.object({ name: z.string(), logo_url: z.string().nullable() }),
+  instance: z.object({ name: z.string(), logo_url: z.string().nullable(), custom: z.boolean() }),
 });
 export type Me = z.infer<typeof meSchema>;
 

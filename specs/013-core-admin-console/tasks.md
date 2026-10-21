@@ -210,3 +210,97 @@ T005 + T006 + T008 + T014   # arquivos diferentes
 2. US2 e US3: o motivo principal da console (modelos e MCPs por Assistant).
 3. US4–US7: uso e custo, Langfuse, contas, servidores.
 4. Polish: nginx, CI e o acabamento da impeccable (revisão final e `DESIGN.md`).
+
+---
+
+## Passada de 2026-10-20: identidade Axon — US8 ([ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md), [ADR-038](../../docs/adr/ADR-038-marca-da-plataforma-e-marca-da-instalacao.md), [ADR-039](../../docs/adr/ADR-039-hover-do-botao-primario-no-escuro.md); research R15–R21)
+
+**Goal**: a console com a marca Axon ou a da instalação, favicon, título da aba, tokens do `DESIGN.md` com o hover escuro
+`#1D4ED8` (também no `identity.css`), `@axon/console`; Vitest, e2e com axe e capturas verdes.
+
+**Independent Test**: [quickstart.md, "Fase 9, incremento 9.5"](quickstart.md).
+
+### Setup
+
+- [X] T044 [US8] `brand-kit/svg/axon-wordmark-light.svg` (`fill="#111827"`) e `axon-wordmark-dark.svg` (`fill="#FFFFFF"`):
+  o `<path>` do wordmark de `axon-lockup-light.svg`, sem o `transform`, com `viewBox="252.38 132.47 252.12 62.78"`,
+  `role="img"` e `aria-label="Axon"`; duas linhas novas no `brand-kit/svg/README.md` ("recorte do lockup, mesmo traço",
+  R15). Copiar para `axon-ai/console/src/brand/` esses dois e `axon-symbol.svg`, `axon-symbol-light.svg`,
+  `axon-lockup-light.svg`, `axon-lockup-dark.svg` e `favicon.svg`
+- [X] T045 [US8] `axon-ai/console/package.json` → `"name": "@axon/console"` e `npm install --package-lock-only` (R20)
+
+### Tests (antes das T049–T054)
+
+- [X] T046 [P] [US8] `axon-ai/console/tests/app/sidebar.test.tsx` (R17, R18, R21): com o MSW do `me` em `custom: false`, a
+  barra lateral tem o símbolo, o wordmark (`alt="Axon"`) e "Console", e nenhum "com Axon"; com `custom: true` e o nome
+  "Instituto Exemplo", o nome, a inicial "I" e "com Axon"; o `document.title` de uma tela (`/uso`) é "Uso e custo ·
+  Axon" e, com nome próprio, "Uso e custo · Instituto Exemplo". `tests/msw/fixtures.ts`: `instance: { name: "Axon",
+  logo_url: null, custom: false }`
+- [X] T047 [P] [US8] `axon-ai/console/tests/app/access-denied.test.tsx`: o lockup (`alt="Axon"`) e o título "Sem acesso · Axon"
+  (cen. 4); `axon-ai/console/tests/ui/brand-assets.test.ts`: cada SVG de `src/brand/` é igual ao do `brand-kit/svg/`
+  (FR-023); `axon-ai/console/tests/ui/contrast.test.ts`: lê os três blocos de `src/ui/tokens.css` e confere ≥ 4,5:1 para
+  primário, secundário e terciário sobre `--fundo-base` e `--fundo-sutil`, `--acao-texto` sobre `--fundo-base`,
+  `--texto-sobre-acao` sobre `--acao-base` **e sobre `--acao-hover`**, os três estados sobre os fundos deles e `--foco`
+  sobre os dois fundos (FR-021)
+- [X] T048 [P] [US8] `axon-ai/packages/core/tests/identity/unit/test_page_contrast.py` (ADR-039): o par
+  `texto-sobre-acao`/`acao-hover` entra nos pares, nos dois temas; a docstring perde a exceção. Rodar T046–T048 e ver falhar
+
+### Implementation
+
+- [X] T049 [US8] `axon-ai/console/src/app/brand/Mark.tsx` e `Mark.module.css` (R16): `AxonSymbol({ size, alt })`,
+  `AxonWordmark({ height })` e `AxonLockup({ height })`, cada um com as duas `<img>` (versão para fundo claro e para fundo
+  escuro) e as classes que mostram uma delas pelos seletores de tema do `tokens.css`
+- [X] T050 [US8] `axon-ai/console/src/api/schemas.ts`: `instance: z.object({ name, logo_url, custom: z.boolean() })` (R17)
+- [X] T051 [US8] `axon-ai/console/src/app/Sidebar.tsx` e `Sidebar.module.css` (R17): o padrão `{ name: "Axon", logo_url:
+  null, custom: false }`; sem marca própria, `AxonSymbol` de 32px + coluna com `AxonWordmark` (13px) e "Console"; com marca,
+  o `Brand` de hoje + nome + "Console" e, no rodapé, `.attribution` (símbolo de 16px e "com Axon", caption terciário);
+  no trilho, "com Axon" só para leitor de tela
+- [X] T052 [US8] `axon-ai/console/src/app/AccessDenied.tsx` (R17, R18): `AxonLockup` de 32px no lugar do `Brand`, e
+  `document.title = "Sem acesso · Axon"`
+- [X] T053 [US8] Título da aba (R18): `axon-ai/console/src/ui/Page.tsx` com `PageTitleSuffix` (contexto, padrão "Axon") e o
+  efeito do `PageHeader`; `axon-ai/console/src/app/Shell.tsx` fornece `me.instance.name`; `axon-ai/console/index.html` com o
+  favicon, `<title>Axon</title>` e `theme-color` escuro `#0b0f19`
+- [X] T054 [US8] Tokens (R19): `axon-ai/console/src/ui/tokens.css` nos três blocos com os valores do `DESIGN.md` (claro:
+  `--fundo-sutil #f8fafc`, `--fundo-realce #f1f5f9`, `--borda-base #e5e7eb`, `--borda-forte #d1d5db`, `--texto-primario
+  #111827`, `--texto-secundario #556070`, `--texto-terciario #666d7c`; escuro: `--fundo-base #0b0f19`, `--fundo-sutil
+  #111724`, `--fundo-realce #1a2130`, `--borda-base #242b3a`, `--borda-forte #353d4f`, `--texto-primario #f1f3f7`,
+  `--texto-secundario #a3abbb`, `--texto-terciario #8c94a6`, `--acao-hover #1d4ed8`, `--acao-sutil #14223f`) e o
+  comentário; `axon-ai/packages/core/src/axon_ai/identity/adapters/assets/identity.css` com `--acao-hover: #1d4ed8` no
+  escuro
+
+### Integration e verificação
+
+- [X] T055 [US8] E2E (R21): `axon-ai/console/e2e/a11y.spec.ts` ganha a conferência do título ("Uso e custo · Axon") e do
+  `<link rel="icon">`; rodar `npm run e2e` (axe nos três projetos)
+- [X] T056 [US8] Suítes: na console, `npm ci && npm run typecheck && npm run lint && npm test && npm run e2e`; no core, a
+  suíte de `identity/` (o teste de contraste da 012) e o `ruff`
+- [X] T057 [US8] Capturas (R21): a barra lateral sem e com marca da instalação, claro e escuro, e o acesso negado, pelo
+  Playwright do MCP; guardar no scratchpad
+- [X] T058 [US8] Resíduos (SC-008): `git grep -nE 'Agentic|@agentic/console'` fora do histórico (e do `agentic.exemplo.org`
+  dos exemplos) só nos textos que nomeiam o antigo; nenhuma palavra `agentic` removida (`--word-diff`)
+- [X] T059 [P] [US8] `specs/README.md` (linha da 013 com a US8; o ADR-039) e `docs/roadmap.md` (andamento do 9.5: 013 feita)
+
+### Dependencies (US8)
+
+T044 → T045 → T046 ∥ T047 ∥ T048 (veem falhar) → T049 → T050 → T051 → T052 → T053 → T054 → T055 → T056 → T057 → T058; T059
+em paralelo com a T056.
+
+### Notas da execução (US8)
+
+- O hover escuro foi decidido pelo mantenedor antes da spec (`#1D4ED8`, ADR-039); `DESIGN.md` e `.impeccable/design.json`
+  (o `canonical` do token; a rampa tonal, gerada do valor antigo, ficou) acompanham.
+- `npm install --package-lock-only` tirava 345 linhas do lock (dependências opcionais de outras plataformas, por diferença
+  de versão do npm): desfeito, e só as duas linhas do nome foram trocadas à mão; `npm ci` aceita.
+- O teste de contraste da console achou o mesmo par que já reprovava na 012 (terciário sobre o fundo sutil no claro) e o
+  hover escuro; os dois passam com os tokens novos.
+- Os testes que leem arquivos (`brand-assets`, `contrast`) resolvem os caminhos por `process.cwd()`: no jsdom o
+  `import.meta.url` não é `file:`, e o `setup.ts` global exige `window`.
+- O `Mark.module.css` troca a versão pela especificidade dos seletores de tema, sem `!important`.
+- Trilho (cen. 3) e troca de tema na hora: cobertos pelo projeto `tablet` do e2e (768px, com axe) e pelas capturas; o
+  jsdom não aplica media query.
+- Nas capturas, a troca de tema logo antes do `screenshot` pega as transições de CSS no meio (item ativo e segmentado
+  com a cor do tema anterior); com uma pausa, ficam certas. Capturas no scratchpad da sessão, `capturas-013/`; a pasta
+  `.playwright-mcp/` foi apagada. O Penpot não estava conectado.
+- `agentic` removido no diff: só o nome do pacote `@agentic/console` (ADR-037), não o flow.
+- Suítes: console typecheck e lint limpos, 121 testes, e2e 42 passed e 4 skipped (o nginx, sem `CONSOLE_NGINX_URL`); core,
+  `identity/` 336 passed, 40 skipped, e ruff limpo.

@@ -13,6 +13,8 @@ as proporções do lockup foram medidos na mesma imagem. O wordmark `axon` é ge
 | `axon-lockup-dark.svg` | Símbolo + `axon` em branco, para fundo escuro |
 | `axon-lockup-light.svg` | Símbolo + `axon` em `#111827`, para fundo claro |
 | `axon-lockup-mono.svg` | Lockup em uma cor (`currentColor`) |
+| `axon-wordmark-light.svg` | Só o wordmark `axon` em `#111827`, para fundo claro: recorte do lockup, mesmo traço (`viewBox` do wordmark) |
+| `axon-wordmark-dark.svg` | Só o wordmark `axon` em branco, para fundo escuro: recorte do lockup, mesmo traço |
 | `favicon.svg` | Ladrilho `#0B0F19` com o símbolo, sem esmaecimento (legível a 16 px) |
 
 Regras:

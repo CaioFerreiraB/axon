@@ -22,3 +22,18 @@ campo do `param` (FR-001). Referência visual: Penpot, "Console — claro" e "Co
 | `/acesso/login` | `GET /login-settings`, `PUT /login-settings` | ligar e desligar o Google; copiar o endereço de retorno | sem cliente Google: opção desabilitada com a explicação; "Definido na instalação" |
 
 Formatos: números `pt-BR`; dinheiro "US$ 41,87"; tokens compactos ("21,1 M"); datas no fuso da API.
+
+
+## Marca (US8, FR-020 reescrita; ADR-038, ADR-039; research R15–R18)
+
+| Lugar | Sem marca da instalação (`instance.custom` falso) | Com marca da instalação |
+|---|---|---|
+| Barra lateral, topo | símbolo Axon de 32px + wordmark `axon` (altura de x de 12px) + "Console" | logotipo ou inicial de 24px + nome + "Console" |
+| Barra lateral, rodapé | nada | símbolo de 16px + "com Axon" (caption terciário) |
+| Trilho (< 1100px) | só o símbolo | só o logotipo ou a inicial; a atribuição só com o símbolo |
+| Acesso negado | lockup Axon (32px de altura) | lockup Axon (a console não lê o `me` sem permissão) |
+| Aba | favicon do símbolo; "<tela> · Axon" | favicon do símbolo; "<tela> · <nome da instalação>" |
+
+Cada imagem existe nas duas versões (para fundo claro e escuro), e o CSS mostra a do tema em vigor, inclusive com o tema
+escolhido na console. Tokens do `DESIGN.md`, os mesmos das páginas da 012; o hover do botão primário no escuro é
+`#1D4ED8` (ADR-039).

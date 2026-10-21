@@ -1,5 +1,5 @@
-/** A barra lateral de 240 px do desenho: marca da instalação (FR-020), navegação, tema (FR-019) e quem está na
- * sessão, com "Sair". */
+/** A barra lateral de 240 px do desenho: a marca (FR-020, ADR-038) — Axon, ou a da instalação com "com Axon" no rodapé —,
+ * navegação, tema (FR-019) e quem está na sessão, com "Sair". */
 
 import { NavLink } from "react-router";
 
@@ -10,6 +10,7 @@ import { NAV } from "../i18n/pt-BR";
 import { Button } from "../ui/Button";
 import { Icon } from "../ui/icons";
 import { Segmented } from "../ui/Segmented";
+import { AxonSymbol, AxonWordmark } from "./brand/Mark";
 import styles from "./Sidebar.module.css";
 import { useTheme, type ThemeChoice } from "./theme";
 
@@ -33,17 +34,27 @@ export function Sidebar() {
   const me = useMe().data;
   const { signOut } = useAuth();
   const [theme, setTheme] = useTheme();
-  const instance = me?.instance ?? { name: "Agentic", logo_url: null };
+  const instance = me?.instance ?? { name: "Axon", logo_url: null, custom: false };
   const admin = me?.groups.includes("admin") ? "admin" : (me?.groups[0] ?? "");
   return (
     <aside className={styles.sidebar} aria-label="Navegação da console">
-      <div className={styles.brand}>
-        <Brand name={instance.name} logoUrl={instance.logo_url} />
-        <div className={styles.brandText}>
-          <span className={styles.name}>{instance.name}</span>
-          <span className={styles.product}>Console</span>
+      {instance.custom ? (
+        <div className={styles.brand}>
+          <Brand name={instance.name} logoUrl={instance.logo_url} />
+          <div className={styles.brandText}>
+            <span className={styles.name}>{instance.name}</span>
+            <span className={styles.product}>Console</span>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className={styles.brand}>
+          <AxonSymbol size={32} />
+          <div className={styles.brandText}>
+            <AxonWordmark height={13} />
+            <span className={styles.product}>Console</span>
+          </div>
+        </div>
+      )}
       <nav className={styles.nav} aria-label="Seções">
         {NAV.map((item) => (
           <NavLink
@@ -89,6 +100,12 @@ export function Sidebar() {
               onClick={() => void signOut()}
             />
           </div>
+        ) : null}
+        {instance.custom ? (
+          <p className={styles.attribution}>
+            <AxonSymbol size={16} />
+            <span className={styles.attributionText}>com Axon</span>
+          </p>
         ) : null}
       </div>
     </aside>

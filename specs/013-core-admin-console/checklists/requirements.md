@@ -37,3 +37,41 @@
   implementação está no plano da Fase 9.
 - Escolhas tomadas sem marcador, para o `/speckit-clarify` confirmar: dashboard abre em 30 dias; senha temporária
   mostrada uma única vez; celular fora do alvo.
+
+---
+
+## Passada de 2026-10-20: US8 Identidade Axon (ADR-037, ADR-038, ADR-039)
+
+### Content Quality
+
+- [x] No implementation details (languages, frameworks, APIs)
+- [x] Focused on user value and business needs
+- [x] Written for non-technical stakeholders
+- [x] All mandatory sections completed
+
+### Requirement Completeness
+
+- [x] No [NEEDS CLARIFICATION] markers remain
+- [x] Requirements are testable and unambiguous
+- [x] Success criteria are measurable
+- [x] Success criteria are technology-agnostic (no implementation details)
+- [x] All acceptance scenarios are defined
+- [x] Edge cases are identified
+- [x] Scope is clearly bounded
+- [x] Dependencies and assumptions identified
+
+### Feature Readiness
+
+- [x] All functional requirements have clear acceptance criteria
+- [x] User scenarios cover primary flows
+- [x] Feature meets measurable outcomes defined in Success Criteria
+- [x] No implementation details leak into specification
+
+### Notes
+
+- Iteração 1: todos os itens passam. FR-020 (reescrita) → cenários 1 a 5; FR-021 → cenário 6; FR-022 → SC-008; FR-023 →
+  cenários 1, 2 e 4 (os arquivos mostrados são os do `brand-kit`).
+- A única decisão que não vinha dos ADRs anteriores — o hover escuro — foi do mantenedor (pergunta antes de escrever a US)
+  e virou o ADR-039; está na sessão de clarificações.
+- O título "<tela> · <nome da instalação>" segue as páginas da 012 em vez do "Tela · Axon" do plano do renome, para a
+  console e o login dizerem o mesmo nome; com a instalação sem nome próprio, dá "Tela · Axon".

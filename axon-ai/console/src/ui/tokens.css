@@ -1,17 +1,17 @@
-/* Tokens da console — os do desenho aprovado no Penpot ("Fundamentos"), os mesmos das páginas da identidade (012).
-   Neutros de grafite, um azul de ação, verde/âmbar/vermelho só para estado e as séries validadas pela skill dataviz.
+/* Tokens da console — os do DESIGN.md (ADR-038, ADR-039), os mesmos das páginas da identidade (012). Neutros frios da
+   marca Axon, um azul de ação, verde/âmbar/vermelho só para estado e as séries validadas pela skill dataviz.
    Claro por padrão; escuro pelo sistema ou pela escolha da pessoa (`data-theme` na raiz, 013 FR-019). */
 
 :root {
   color-scheme: light;
   --fundo-base: #ffffff;
-  --fundo-sutil: #fafafa;
-  --fundo-realce: #f4f4f5;
-  --borda-base: #e8e8ea;
-  --borda-forte: #d4d4d8;
-  --texto-primario: #18181b;
-  --texto-secundario: #5f5f66;
-  --texto-terciario: #74747c;
+  --fundo-sutil: #f8fafc;
+  --fundo-realce: #f1f5f9;
+  --borda-base: #e5e7eb;
+  --borda-forte: #d1d5db;
+  --texto-primario: #111827;
+  --texto-secundario: #556070;
+  --texto-terciario: #666d7c;
   --texto-sobre-acao: #ffffff;
   --acao-base: #2563eb;
   --acao-hover: #1d4ed8;
@@ -64,22 +64,23 @@
   --barra-lateral: 240px;
 }
 
-/* O escuro: quase preto com cinzas frios. A ação mantém #2563EB (texto branco a 5,2:1); o realce de texto clareia.
+/* O escuro: o axon-night com cinzas frios. A ação mantém #2563EB (texto branco a 5,2:1), e o hover escurece como no claro
+   (#1D4ED8, 6,7:1; ADR-039); o realce de texto clareia.
    O bloco se repete: um para a escolha explícita, outro para o sistema quando a pessoa não escolheu o claro. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --fundo-base: #0a0a0b;
-  --fundo-sutil: #111113;
-  --fundo-realce: #1a1a1d;
-  --borda-base: #26262a;
-  --borda-forte: #34343a;
-  --texto-primario: #ededef;
-  --texto-secundario: #a0a0a8;
-  --texto-terciario: #8a8a93;
+  --fundo-base: #0b0f19;
+  --fundo-sutil: #111724;
+  --fundo-realce: #1a2130;
+  --borda-base: #242b3a;
+  --borda-forte: #353d4f;
+  --texto-primario: #f1f3f7;
+  --texto-secundario: #a3abbb;
+  --texto-terciario: #8c94a6;
   --texto-sobre-acao: #ffffff;
   --acao-base: #2563eb;
-  --acao-hover: #3b82f6;
-  --acao-sutil: #13213d;
+  --acao-hover: #1d4ed8;
+  --acao-sutil: #14223f;
   --acao-texto: #93b4fb;
   --estado-ok-texto: #4cc38a;
   --estado-ok-fundo: #0f2a1c;
@@ -102,18 +103,18 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --fundo-base: #0a0a0b;
-    --fundo-sutil: #111113;
-    --fundo-realce: #1a1a1d;
-    --borda-base: #26262a;
-    --borda-forte: #34343a;
-    --texto-primario: #ededef;
-    --texto-secundario: #a0a0a8;
-    --texto-terciario: #8a8a93;
+    --fundo-base: #0b0f19;
+    --fundo-sutil: #111724;
+    --fundo-realce: #1a2130;
+    --borda-base: #242b3a;
+    --borda-forte: #353d4f;
+    --texto-primario: #f1f3f7;
+    --texto-secundario: #a3abbb;
+    --texto-terciario: #8c94a6;
     --texto-sobre-acao: #ffffff;
     --acao-base: #2563eb;
-    --acao-hover: #3b82f6;
-    --acao-sutil: #13213d;
+    --acao-hover: #1d4ed8;
+    --acao-sutil: #14223f;
     --acao-texto: #93b4fb;
     --estado-ok-texto: #4cc38a;
     --estado-ok-fundo: #0f2a1c;

@@ -9,7 +9,8 @@
 **Input**: Pedido do mantenedor (2026-10-13): interface gráfica simples para aplicar configurações — login por usuário
 e senha ou Google; modelos e MCPs de cada Assistant, sobrepondo o `assistants.yaml` quando a flag do YAML permite;
 dashboard de requisições, tokens e custo por modelo e por dia; Langfuse; ajustes de login; instalação com ou sem a
-interface. ADR-029, ADR-031, ADR-032, ADR-033, ADR-034.
+interface. ADR-029, ADR-031, ADR-032, ADR-033, ADR-034. Fase 9, incremento 9.5 (2026-10-20): identidade Axon —
+ADR-037, ADR-038, ADR-039.
 
 ## Module Boundary *(mandatory)*
 
@@ -30,13 +31,23 @@ interface. ADR-029, ADR-031, ADR-032, ADR-033, ADR-034.
   [ADR-031](../../docs/adr/ADR-031-superficie-de-administracao.md),
   [ADR-032](../../docs/adr/ADR-032-assistants-de-sistema-sobrepostos-em-runtime.md),
   [ADR-033](../../docs/adr/ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md),
-  [ADR-034](../../docs/adr/ADR-034-trace-com-destinos-e-conteudo-opcional.md).
+  [ADR-034](../../docs/adr/ADR-034-trace-com-destinos-e-conteudo-opcional.md),
+  [ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md), [ADR-038](../../docs/adr/ADR-038-marca-da-plataforma-e-marca-da-instalacao.md),
+  [ADR-039](../../docs/adr/ADR-039-hover-do-botao-primario-no-escuro.md).
 
 ## Clarifications
 
 ### Session 2026-10-13
 
 - Q: A console (e a página de login, que usa o mesmo visual) deve ter tema escuro? → A: Claro e escuro. A console abre no tema do sistema operacional e tem um botão para trocar, lembrado no navegador; a página de login da 012 segue o tema do sistema.
+
+### Session 2026-10-20
+
+- Q: Que marca a console mostra depois do renome (ADR-038)? → A: Sem marca da instalação — o `instance.custom` do `me` é falso —, a barra lateral mostra o símbolo Axon de 32px, o wordmark `axon` e a legenda "Console". Com marca da instalação, o nome e o logotipo dela ocupam esse lugar, e o rodapé da barra leva o símbolo de 16px e "com Axon". No trilho de ícones (abaixo de 1100px), só o símbolo, ou só o logotipo ou a inicial da instalação. A tela de acesso negado mostra sempre o lockup Axon: quem não administra não lê o `me`, e a console não sabe a marca da instalação.
+- Q: O que a aba do navegador mostra? → A: O favicon é sempre o símbolo Axon (ADR-038, item 3). O título é "<tela> · <nome da instalação>" ("Axon" por padrão), como nas páginas de login da 012; a barra do navegador no celular usa `#0B0F19` no tema escuro.
+- Q: As cores da console mudam? → A: Sim. Os tokens passam aos do `DESIGN.md` (ADR-038, item 4), iguais aos das páginas da 012. No tema escuro, o hover do botão primário escurece para `#1D4ED8`, como no claro, em vez do `axon-blue`, que dava 3,69:1 com o texto branco — decisão do mantenedor de 2026-10-20 (ADR-039), que vale também para as páginas da 012.
+- Q: De onde vêm o símbolo e o wordmark? → A: Do `brand-kit/svg/` aprovado (ADR-038, item 6). O wordmark sozinho, que a barra lateral usa ao lado do símbolo, é um recorte do lockup aprovado: o mesmo traço, só com o enquadramento do wordmark; ele entra no `brand-kit` ao lado dos outros arquivos.
+- Q: O pacote da console muda de nome? → A: Sim: `@axon/console` (era `@agentic/console`; ADR-037, item 2). Nenhum outro identificador da console muda: a chave `console.theme` do armazenamento do navegador e o cliente OIDC `console` ficam (ADR-037, item 5).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -203,6 +214,25 @@ edição.
 
 ---
 
+### User Story 8 - Identidade Axon: a console com a marca da plataforma (Priority: P2)
+
+A plataforma passa a se chamar Axon (ADR-037, ADR-038). O admin de uma instalação sem marca própria vê o símbolo e o wordmark Axon na barra lateral; o de uma instalação com marca vê a marca da organização e, discreto no rodapé, "com Axon". A aba mostra o símbolo Axon e o nome da tela. As cores seguem a marca nos dois temas, sem perder contraste, inclusive ao passar o mouse no botão primário.
+
+**Why this priority**: É a tela que o operador mais vê; sem a passada, a console continuaria dizendo "Agentic". P2 porque nenhuma função muda.
+
+**Independent Test**: Abrir a console com o `me` sem marca própria e ver o símbolo, o wordmark e "Console"; com nome próprio, ver o nome e "com Axon" no rodapé; conferir o favicon, o título e o contraste AA nas telas, nos dois temas.
+
+**Acceptance Scenarios**:
+
+1. **Given** uma instalação sem marca própria, **When** o admin abre a console, **Then** a barra lateral mostra o símbolo Axon, o wordmark `axon` e "Console", e nenhuma atribuição no rodapé.
+2. **Given** uma instalação com nome próprio ou logotipo, **When** o admin abre a console, **Then** a barra lateral mostra o nome e o logotipo (ou a inicial) da instalação e, no rodapé, o símbolo Axon pequeno e "com Axon".
+3. **Given** a janela abaixo de 1100px, **When** a barra vira trilho de ícones, **Then** a marca aparece só como símbolo (ou logotipo/inicial), e o nome continua disponível para leitor de tela.
+4. **Given** uma pessoa sem o grupo de administração, **When** entra, **Then** a tela de acesso negado mostra o lockup Axon.
+5. **Given** qualquer tela, **When** o navegador mostra a aba, **Then** o ícone é o símbolo Axon e o título é "<tela> · <nome da instalação>".
+6. **Given** as telas nos temas claro e escuro, **When** a verificação automática de acessibilidade roda, **Then** não há violação de WCAG 2.2 AA, e o texto do botão primário atende AA também no hover, nos dois temas.
+
+---
+
 ### Edge Cases
 
 - Dois admins editam o mesmo Assistant: quem salva por último recebe aviso de que houve mudança, pode recarregar e não
@@ -215,6 +245,9 @@ edição.
 - Lista longa de usuários ou de preços: busca e paginação.
 - Dados de uso com fuso diferente do navegador: a console mostra o fuso da API, não o do navegador.
 - Tela estreita (tablet): todas as funções continuam acessíveis; o layout se reorganiza.
+- `me` ainda carregando: a barra lateral mostra o símbolo Axon (sem atribuição) até a resposta chegar, e o título usa "Axon".
+- Instalação com logotipo e sem nome próprio: o logotipo com o nome padrão no lugar principal, e "com Axon" no rodapé (há marca da instalação).
+- Troca de tema pela console (claro/escuro/sistema): o símbolo e o wordmark trocam de versão na hora, sem recarregar.
 
 ## Requirements *(mandatory)*
 
@@ -266,8 +299,18 @@ edição.
   administre o mesmo (ADR-029).
 - **FR-019**: A console DEVE ter tema claro e tema escuro: abre no tema do sistema operacional e oferece a troca manual,
   lembrada no navegador (a única preferência guardada nele). Os dois temas DEVEM atender à FR-017.
-- **FR-020**: A console DEVE mostrar o nome e, se houver, o logotipo da instalação, os mesmos da página de login (012),
-  lidos da API; sem eles, o nome neutro da plataforma.
+- **FR-020**: A console DEVE mostrar a marca pela regra do ADR-038, lida da API (`me.instance`, com `custom`): sem marca da
+  instalação, o símbolo Axon, o wordmark `axon` e a legenda "Console" na barra lateral; com nome próprio ou logotipo, eles
+  no lugar principal e o símbolo Axon pequeno com "com Axon" no rodapé da barra. A tela de acesso negado DEVE mostrar o
+  lockup Axon. O favicon DEVE ser sempre o símbolo Axon, e o título da aba, "<tela> · <nome da instalação>" (reescrita em
+  2026-10-20).
+- **FR-021**: Os tokens de cor da console DEVEM ser os do `DESIGN.md`, iguais aos das páginas da 012, e o hover do botão
+  primário no tema escuro DEVE usar `#1D4ED8` (ADR-039); o texto do botão primário DEVE atender AA em repouso e no hover,
+  nos dois temas.
+- **FR-022**: O pacote da console DEVE se chamar `@axon/console` (ADR-037). A chave de tema do navegador (`console.theme`)
+  e o cliente OIDC (`console`) NÃO DEVEM mudar.
+- **FR-023**: Os arquivos do símbolo, do lockup, do wordmark e do favicon DEVEM ser os do `brand-kit/svg/`, sem
+  redesenho; o wordmark sozinho é um recorte do lockup aprovado, com o mesmo traço.
 
 ### Key Entities
 
@@ -294,6 +337,7 @@ edição.
 - **SC-006**: Nenhum segredo (chave do Langfuse, senha) aparece na tela depois de salvo, e nenhum token nem dado
   administrativo fica no armazenamento persistente do navegador — só a preferência de tema.
 - **SC-007**: Uma pessoa sem o grupo de administração não recebe nenhum dado administrativo em nenhuma tela.
+- **SC-008**: Em 100% das telas, nos dois temas, a marca segue a FR-020 e o contraste atende AA (inclusive o hover do botão primário); zero ocorrências de "Agentic" e de `@agentic/console` no código, nos testes e nos documentos vivos da console (fora do histórico do ADR-037, item 6).
 
 ## Assumptions
 
@@ -303,3 +347,4 @@ edição.
   protocolo da 012.
 - Usuários comuns não usam a console; Assistants e MCPs próprios continuam pela API pública.
 - O visual é desenhado antes da implementação e aprovado pelo mantenedor (design.md).
+- US8 (ADR-037, ADR-038, ADR-039): a mudança do hover escuro vale também para as páginas da 012, que usam os mesmos tokens; a passada da 013 muda os dois CSS e os dois testes de contraste. O Penpot não estava conectado em 2026-10-20; a verificação visual segue o `DESIGN.md`.

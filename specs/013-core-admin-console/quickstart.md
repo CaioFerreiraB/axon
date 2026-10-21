@@ -45,3 +45,20 @@ O `vite dev` repassa os mesmos prefixos do nginx para `http://127.0.0.1:8000`.
 ## 4. Imagem e instalação
 
 Na passada da 002: build da imagem `console` e o `scripts/check-console` contra o compose.
+
+
+---
+
+## Fase 9, incremento 9.5 (2026-10-20): US8 — a console com a marca Axon
+
+A partir de `axon-ai/console/`, com `source ~/.nvm/nvm.sh && nvm use`. Decisões em [research.md](research.md) R15–R21.
+
+```bash
+npm ci && npm run typecheck && npm run lint && npm test
+npx playwright install chromium && npm run e2e
+```
+
+**Esperado**: verde — a barra lateral com o símbolo, o wordmark e "Console" sem marca própria, e com a marca da
+instalação e "com Axon" quando há; o acesso negado com o lockup; o título "<tela> · <nome>"; os SVG iguais aos do
+`brand-kit`; os pares de texto em AA nos dois temas, inclusive o hover do botão primário; o axe sem violação nos três
+projetos (claro, escuro, tablet). Capturas da barra lateral sem e com marca, nos dois temas (R21).

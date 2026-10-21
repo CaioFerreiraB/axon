@@ -1,8 +1,11 @@
-import type { ReactNode } from "react";
+import { createContext, useContext, useEffect, type ReactNode } from "react";
 import { Link } from "react-router";
 
 import { Icon } from "./icons";
 import styles from "./Page.module.css";
+
+/** O nome depois do título da tela na aba: o da instalação, "Axon" por padrão (013 FR-020, research R18). */
+export const PageTitleSuffix = createContext("Axon");
 
 export function Page({ children }: { children: ReactNode }) {
   return <div className={styles.page}>{children}</div>;
@@ -21,6 +24,12 @@ export function PageHeader({
   actions?: ReactNode;
   back?: { to: string; label: string };
 }) {
+  const suffix = useContext(PageTitleSuffix);
+  useEffect(() => {
+    if (typeof title === "string") {
+      document.title = `${title} · ${suffix}`;
+    }
+  }, [title, suffix]);
   return (
     <header className={styles.header}>
       <div className={styles.headings}>
