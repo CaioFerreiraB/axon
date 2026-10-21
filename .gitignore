@@ -29,3 +29,11 @@ build/
 # impeccable: estado local da skill (cache do detector e páginas de decisão)
 .impeccable/hook.cache.json
 .impeccable/questions/
+
+# graphify: relatório de custo local e cache de extração (o grafo em graphify-out/ é versionado)
+graphify-out/cost.json
+graphify-out/cache/
+# backups datados, caminho absoluto da máquina e estado da CLI
+graphify-out/20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]/
+graphify-out/.graphify_root
+graphify-out/.cloud-cta-shown

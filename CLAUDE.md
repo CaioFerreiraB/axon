@@ -474,3 +474,33 @@ AXON_TEST_POSTGRES_DSN=postgresql://postgres:pg@localhost:55432/postgres uv run 
 ```
 
 Nesta máquina, rode o `uv` com `XDG_DATA_HOME=$HOME/.local/share` (o VSCode snap aponta o XDG para uma pasta que some).
+
+## graphify
+
+O repositório tem um grafo de conhecimento em `graphify-out/` (nós centrais, comunidades e relações entre arquivos),
+versionado para todos. Os submódulos `axon-scouting/` e `axon-deploy/` ficam fora dele (`.graphifyignore`); cada um
+tem o próprio repositório.
+
+Preparação, uma vez por máquina e por clone:
+- A CLI é pré-requisito — sem ela, os hooks de `.claude/settings.json` (`graphify hook-guard`) dão erro a cada
+  leitura ou busca: `XDG_DATA_HOME=$HOME/.local/share uv tool install "graphifyy[gemini]"` (o pacote tem dois "y").
+- `graphify hook install` em cada clone (refaz o grafo no commit e no checkout); depois de `git pull` ou merge,
+  `graphify update .`.
+- A extração completa (código local por tree-sitter; specs, ADRs e docs pelo Gemini) é `graphify extract . --backend
+  gemini`, com `GEMINI_API_KEY` no ambiente (no `~/.profile`, nunca no repositório). O `/graphify .` dentro do Claude
+  Code usa o modelo da sessão, não o Gemini.
+
+Regras:
+- Com `graphify-out/graph.json` presente, rode `graphify query "<pergunta>"` antes do primeiro grep, busca ou leitura
+  de código-fonte numa pergunta sobre o código, e repita esta regra no prompt de todo subagente que explore código.
+  Leia arquivos crus só nas linhas que o grafo ou uma leitura anterior já localizou. Use `graphify path "<A>" "<B>"`
+  para relações e `graphify explain "<conceito>"` para conceitos pontuais — devolvem um subgrafo, em geral bem menor que
+  o `GRAPH_REPORT.md` ou a saída de um grep.
+- Se `graphify-out/wiki/index.md` existir, use-o para a navegação ampla, em vez de percorrer o código.
+- Leia `graphify-out/GRAPH_REPORT.md` só numa revisão ampla da arquitetura ou quando query/path/explain não bastarem.
+- Depois de mudar código, rode `graphify update .` para manter o grafo atual (só AST, sem custo de API).
+- O `graphify-out/graph.json` versionado (~16 MB) é reescrito inteiro a cada build: diff grande dele num PR é esperado.
+  Não o aponte como ruído nem sugira pular a reconstrução ou os hooks. Para o histórico não crescer a cada commit, ele
+  só é commitado de tempos em tempos (no fechamento de uma fase ou incremento); no dia a dia, o grafo local fica atual
+  pelo `graphify update .` e pelos hooks, sem entrar no commit. O `graphify hook install` também instala o merge driver
+  do `graph.json` (união dos dois lados); sem ele, num conflito, aceite qualquer lado e rode `graphify update .`.
