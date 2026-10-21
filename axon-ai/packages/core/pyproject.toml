@@ -5,7 +5,7 @@ description = "Runtime genérico da plataforma Axon (monolito modular; specs 002
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "axon-ai-contracts",
+    "axon-ai-contracts>=0.2.1,<0.3",
     "pyyaml>=6.0.2",
     "jsonschema>=4.23",
     # Spec 006 (research R4): camada compatível com OpenAI, confinada a axon_ai/llm/adapters/ por import-linter.

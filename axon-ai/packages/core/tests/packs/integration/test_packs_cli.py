@@ -1,4 +1,5 @@
-"""T034 — `packs list` e `packs check` (US4; contracts/cli.md) sobre a carga real: entry points e `packs.yaml` em disco.
+"""T034 — `packs list`, `packs check` e `packs prepare` (US4; contracts/cli.md) sobre a carga real: entry points e
+`packs.yaml` em disco.
 
 Os comandos leem o mesmo registry que o boot monta, pela mesma rotina de carga — por isso `check` reprova exatamente o
 que o servidor marcaria como erro (research R15, R16).
@@ -13,8 +14,9 @@ from pathlib import Path
 import pytest
 from packs_testkit import GOOD_MODULE, FakeDistributions
 
-from axon_ai.packs.adapters.cli import check_command, config_error_command, list_command
+from axon_ai.packs.adapters.cli import check_command, config_error_command, list_command, prepare_command
 from axon_ai.packs.adapters.config_yaml import YamlPackConfigSource
+from axon_ai.packs.adapters.data_dirs import LocalPackDataDirs
 from axon_ai.packs.adapters.entry_points import EntryPointPackSource
 from axon_ai.packs.api import PackConfigError
 from axon_ai.packs.service import PackRuntime
@@ -128,3 +130,73 @@ def test_packs_yaml_malformado_sai_com_dois(
     err = io.StringIO()
     assert config_error_command(caught.value, err) == 2
     assert str(caught.value) in err.getvalue()
+
+
+BROKEN_PREPARE_MODULE = """
+from axon_ai_contracts import PackBase, PackManifest
+
+
+class BrokenPack(PackBase):
+    name = "quebra"
+    contract_version = "0.2"
+
+    def manifest(self):
+        return PackManifest(name="quebra", version="0.1.0")
+
+    def prepare(self, ctx):
+        raise ConnectionError("falha ao baixar o modelo")
+"""
+
+
+def _preparation(tmp_path: Path, fake: FakeDistributions, packs_yaml: str) -> PackRuntime:
+    fake.add(
+        "dist-good",
+        version="2.0.1",
+        entry_points={"good": "cli_good_mod:GoodPack"},
+        modules={"cli_good_mod": GOOD_MODULE},
+    )
+    fake.add(
+        "dist-quebra",
+        version="0.1.0",
+        entry_points={"quebra": "cli_broken_mod:BrokenPack"},
+        modules={"cli_broken_mod": BROKEN_PREPARE_MODULE},
+    )
+    config = tmp_path / "packs.yaml"
+    config.write_text(textwrap.dedent(packs_yaml), encoding="utf-8")
+    return PackRuntime(EntryPointPackSource(), YamlPackConfigSource(config), LocalPackDataDirs(tmp_path / "dados"))
+
+
+def test_prepare_com_packs_bons_sai_com_zero(tmp_path: Path, fake_distributions: FakeDistributions) -> None:
+    """US4 cen. 3 (ADR-041): o diretório de cada habilitado é criado e impresso."""
+    out, err = io.StringIO(), io.StringIO()
+    runtime = _preparation(tmp_path, fake_distributions, GOOD_ENABLED + "  generic:\n    enabled: true\n")
+
+    assert prepare_command(runtime, out, err) == 0
+    assert out.getvalue().splitlines() == [
+        f"generic  ok  {tmp_path / 'dados' / 'generic'}",
+        f"good     ok  {tmp_path / 'dados' / 'good'}",
+        "2 packs preparados",
+    ]
+    assert (tmp_path / "dados" / "good").is_dir() and (tmp_path / "dados" / "generic").is_dir()
+    assert err.getvalue() == ""
+
+
+def test_prepare_com_pack_que_falha_sai_com_um(tmp_path: Path, fake_distributions: FakeDistributions) -> None:
+    """US4 cen. 4: o pack que falhou é nomeado com a causa, e o outro é preparado."""
+    out = io.StringIO()
+    runtime = _preparation(tmp_path, fake_distributions, GOOD_ENABLED + "  quebra:\n    enabled: true\n")
+
+    assert prepare_command(runtime, out, io.StringIO()) == 1
+    linhas = out.getvalue().splitlines()
+    assert linhas[0].split()[:2] == ["good", "ok"]
+    assert linhas[1].split()[:2] == ["quebra", "error"]
+    assert "prepare levantou ConnectionError: falha ao baixar o modelo" in linhas[1]
+    assert linhas[-1] == "1 de 2 packs falharam no preparo"
+    assert (tmp_path / "dados" / "good").is_dir()
+
+
+def test_prepare_com_packs_yaml_malformado_sai_com_dois(tmp_path: Path, fake_distributions: FakeDistributions) -> None:
+    err = io.StringIO()
+    runtime = _preparation(tmp_path, fake_distributions, "packs: [good]\n")
+    assert prepare_command(runtime, io.StringIO(), err) == 2
+    assert err.getvalue().startswith("packs.yaml inválido:")

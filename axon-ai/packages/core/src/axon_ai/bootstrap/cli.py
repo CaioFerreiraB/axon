@@ -212,6 +212,17 @@ def _packs(action: Callable[[PackRegistry, TextIO], int]) -> Handler:
     return run
 
 
+def _packs_prepare(args: argparse.Namespace, io: Io) -> int:
+    """Como `packs list|check`, mas sem carregar o registry: o preparo para na configuração validada (ADR-041, R54)."""
+    built = _boot(args, io, until=STAGE_ADAPTERS)
+    if built is None:
+        return EXIT_FAILURE
+    try:
+        return packs_cli.prepare_command(pack_runtime(built.parts), io.out, io.err)
+    finally:
+        built.aclose()
+
+
 # --- assistants validate (003) ----------------------------------------------------------------------------------------
 
 
@@ -598,6 +609,9 @@ COMMANDS: Final[tuple[Command, ...]] = (
     Command(path=("serve",), help="sobe a plataforma e serve a API", run=_serve),
     Command(path=("packs", "list"), help="lista os packs e o estado de cada um", run=_packs(packs_cli.list_command)),
     Command(path=("packs", "check"), help="reprova pack em erro (código 1)", run=_packs(packs_cli.check_command)),
+    Command(
+        path=("packs", "prepare"), help="prepara os dados de cada pack habilitado (só no build)", run=_packs_prepare
+    ),
     Command(path=("assistants", "validate"), help="valida as referências dos Assistants", run=_assistants_validate),
     Command(
         path=("keys", "create"),

@@ -590,3 +590,32 @@ T093 → T094 ∥ T095 ∥ T096 ∥ T097 → T098 → T099 → T100 → T101.
   padrão é decisão do mantenedor.
 - Resíduos (T100): só o roteiro de migração do README, os segredos da CI e o passo 3b; as duas remoções da palavra
   `agentic` são o domínio dos e-mails de desenvolvimento, e o flow `agentic` do `geral` fica.
+
+---
+
+## Passada de 2026-10-21: o pack prepara os próprios dados — US4 cen. 3–5 ([ADR-041](../../docs/adr/ADR-041-o-pack-prepara-os-proprios-dados-no-build.md); research R62–R65)
+
+**Goal**: `axon packs prepare` prepara cada pack habilitado no próprio `data_dir`; a carga entrega o `data_dir` sem
+chamar o hook.
+
+**Independent Test**: [quickstart.md, "Fase 9 (2026-10-21): `packs prepare`"](quickstart.md).
+
+- [X] T102 [US4] Testes primeiro: `tests/packs/contract/test_packs_data_dirs.py`, `test_packs_prepare_seam.py`, a linha
+  da carga em `test_packs_registry_seam.py` e os casos 7–8 de `tests/packs/integration/test_packs_cli.py` (veem falhar)
+- [X] T103 [US4] `ports.py`: `PackDataDirs`; `adapters/data_dirs.py`: `LocalPackDataDirs` (R62)
+- [X] T104 [US4] `api.py`: `PreparedPack` e `PackDataPreparation`; `service.py`: `data_dirs` no construtor, `_configured`
+  comum à carga e ao preparo, `prepare_data()` e `data_dir` no `PackContext` da carga (R63, R64)
+- [X] T105 [US4] `adapters/cli.py`: `prepare_command` (R65); `pyproject.toml` do core com `axon-ai-contracts>=0.2.1,<0.3`
+- [X] T106 [P] [US4] Documentos vivos: `data-model.md` (o `LoadedPack` com `data_dir`) e o quickstart
+
+### Dependencies (prepare)
+
+001 T081–T083 → T102 → T103 → T104 → T105; T106 em paralelo; a 011 (T083 dela) registra o comando.
+
+### Notas da execução (prepare)
+
+- A T102 falhou na coleta, como esperado (porta, seam e comando inexistentes).
+- `test_packs_public_api.py` passou a listar `PreparedPack` e `PackDataPreparation` (e `Path` entre os auxiliares).
+- O comando `axon packs prepare` real, com o `generic`: `generic ok <raiz>/generic`, `1 packs preparados`, saída 0; o
+  `packs check` em seguida, `1 packs ok`; `packs.yaml` malformado, saída 2.
+- Suítes do workspace: 3326 passed, 193 skipped; mypy sem erro (270 arquivos); ruff limpo; import-linter 69 kept.

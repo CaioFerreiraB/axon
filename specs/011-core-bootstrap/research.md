@@ -836,3 +836,26 @@ saudável — contra a FR-012 (o mesmo resultado na API e na linha de comando). 
 **Alternatives considered**: um método público só de leitura das chaves na 012 (mudaria o módulo dono por uma
 necessidade da composition root); omitir o item `identity` na linha de comando (esconderia uma chave que não abre com
 a chave mestra, que é exatamente o que o item existe para mostrar).
+
+---
+
+# Passada de 2026-10-21: o pack prepara os próprios dados ([ADR-041](../../docs/adr/ADR-041-o-pack-prepara-os-proprios-dados-no-build.md); FR-028)
+
+## R54 — `AXON_PACKS_DATA_DIR` e o registro de `packs prepare`
+
+**Decision**: `Settings.packs_data_dir: Path | None` lido de `AXON_PACKS_DATA_DIR` por `_path` (vazio = ausente, como
+`AXON_PACKS_FILE`); sem validação de existência nem de caminho absoluto. `pack_runtime(parts)` (`wiring.py`) passa
+`LocalPackDataDirs(settings.packs_data_dir)` ao `PackRuntime` — o mesmo nos três perfis, porque o diretório é do
+operador, não um armazenamento que o perfil troca. Em `bootstrap/cli.py`, `packs prepare` entra na lista de registro
+com o mesmo boot dos `packs list|check` (`until=STAGE_ADAPTERS`) e chama `packs_cli.prepare_command` sobre o runtime
+**não carregado**; a mensagem de `PackConfigError` sai pelo mesmo `config_error_command` (2). `axon serve` não muda.
+
+**Rationale** (ADR-041, itens 2–4): a raiz é configuração de instalação, como o caminho do `packs.yaml`; o build e o
+runtime a leem da mesma variável, então o caminho que o pack recebe é o mesmo. A existência do diretório não é
+conferida no boot porque `data_dir` sem conteúdo é assunto do pack (ele falha na carga com mensagem própria, e o boot
+segue, princípio VII). Um caminho relativo é aceito (útil no desenvolvimento) e resolvido pelo processo, como os outros
+caminhos da configuração.
+
+**Alternatives considered**: um default (`/opt/axon-data`; amarraria a plataforma ao layout de uma imagem, e o
+desenvolvimento passaria a escrever fora do repositório); exigir caminho absoluto (diferente de todos os outros caminhos
+da configuração, sem ganho); criar o diretório no boot (contraria o somente leitura em runtime).

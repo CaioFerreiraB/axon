@@ -9,9 +9,11 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import inspect
+import tempfile
 import warnings
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import cast
 
 from axon_ai_contracts._freeze import JSONValue, is_json_value
@@ -25,7 +27,7 @@ from axon_ai_contracts.declaration import (
 )
 from axon_ai_contracts.deprecation import ContractDeprecationWarning
 from axon_ai_contracts.eval import EvalMetric
-from axon_ai_contracts.pack import RETRIEVAL_FILTERS_KEY, AgentPack, PackManifest
+from axon_ai_contracts.pack import RETRIEVAL_FILTERS_KEY, AgentPack, PackContext, PackManifest, PreparesData
 from axon_ai_contracts.retrieval import Chunk, NamedRetriever, Reranker
 from axon_ai_contracts.testing.distribution import (
     check_contracts_requirement,
@@ -78,6 +80,7 @@ class _Run:
     config: Mapping[str, JSONValue]
     views: Sequence[TurnView] | None
     check_distribution: bool
+    data_dir: Path | None = None
     issues: list[ContractIssue] = field(default_factory=list)
     pack_name: str = "?"
     manifest: PackManifest | None = None
@@ -183,7 +186,7 @@ def _views(run: _Run) -> Sequence[TurnView]:
 
 def _call_catalog_hook(run: _Run, hook: str) -> tuple[bool, object]:
     try:
-        return True, getattr(run.agent, hook)(pack_context(run.pack_name, run.config))
+        return True, getattr(run.agent, hook)(pack_context(run.pack_name, run.config, data_dir=run.data_dir))
     except Exception as error:
         run.add(_raised(hook, error))
         return False, None
@@ -215,6 +218,30 @@ async def _check_reranker(run: _Run, reranker: object) -> None:
                 subject="reranker",
             )
         )
+
+
+def _check_prepare(run: _Run) -> None:
+    """Etapa 3b (ADR-041), só se o pack tem `prepare`: síncrono, devolve `None` e não levanta em duas chamadas
+    seguidas no mesmo diretório — a segunda é a prova de idempotência que um build com cache precisa."""
+    if not isinstance(run.pack, PreparesData) or run.data_dir is None:
+        return
+    if inspect.iscoroutinefunction(run.pack.prepare):
+        run.add(
+            ContractIssue(code="hook.not_sync", message="prepare precisa ser síncrono (def)", subject="hook:prepare")
+        )
+        return
+    run.data_dir.mkdir(parents=True, exist_ok=True)
+    context = pack_context(run.pack_name, run.config, data_dir=run.data_dir)
+    prepare: Callable[[PackContext], object] = run.pack.prepare  # o pack pode devolver algo, e isso é o que se confere
+    for _ in range(2):
+        try:
+            result = prepare(context)
+        except Exception as error:
+            run.add(_raised("prepare", error))
+            return
+        if result is not None:
+            run.add(_return_type("prepare", result, "None"))
+            return
 
 
 async def _check_catalog(run: _Run) -> None:
@@ -293,7 +320,7 @@ def _check_eval_metrics(run: _Run, metrics: object) -> None:
 async def _check_prepare_context(run: _Run) -> None:
     """Etapa 6: atualização rasa da própria fatia, em JSON, com `retrieval_filters` válido e determinística."""
     subject = "hook:prepare_context"
-    context = pack_context(run.pack_name, run.config)
+    context = pack_context(run.pack_name, run.config, data_dir=run.data_dir)
     for view in _views(run):
         try:
             first = await run.agent.prepare_context(view, context)
@@ -469,6 +496,7 @@ def _check_distribution_step(run: _Run) -> None:
 async def _run_steps(run: _Run) -> None:
     if not (_check_shape(run) and _check_identity(run) and _check_manifest(run)):
         return
+    _check_prepare(run)
     await _check_catalog(run)
     await _check_prepare_context(run)
     await _check_validators(run)
@@ -497,12 +525,20 @@ async def acheck_pack(
     config: Mapping[str, JSONValue] | None = None,
     views: Sequence[TurnView] | None = None,
     check_distribution: bool = True,
+    data_dir: Path | None = None,
 ) -> ConformanceReport:
-    """Roda a suíte de conformidade contra um pack instanciado."""
+    """Roda a suíte de conformidade contra um pack instanciado.
+
+    `data_dir` é onde a etapa de preparo chama `prepare` e o que os hooks seguintes recebem no `PackContext`; sem ele,
+    `<temporário>/<nome do pack>`, apagado no fim.
+    """
     run = _Run(pack=pack, config=config or {}, views=views, check_distribution=check_distribution)
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always", ContractDeprecationWarning)
-        await _run_steps(run)
+    with tempfile.TemporaryDirectory(prefix="axon-pack-data-") as scratch:
+        name = getattr(pack, "name", None)
+        run.data_dir = data_dir or Path(scratch) / (name if isinstance(name, str) and name else "pack")
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", ContractDeprecationWarning)
+            await _run_steps(run)
     _report_deprecations(run, caught)
     return ConformanceReport(pack_name=run.pack_name, issues=tuple(run.issues))
 
@@ -513,12 +549,15 @@ def check_pack(
     config: Mapping[str, JSONValue] | None = None,
     views: Sequence[TurnView] | None = None,
     check_distribution: bool = True,
+    data_dir: Path | None = None,
 ) -> ConformanceReport:
     """Versão síncrona de `acheck_pack`, para testes sem loop de eventos."""
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        return asyncio.run(acheck_pack(pack, config=config, views=views, check_distribution=check_distribution))
+        return asyncio.run(
+            acheck_pack(pack, config=config, views=views, check_distribution=check_distribution, data_dir=data_dir)
+        )
     raise RuntimeError("check_pack não roda dentro de um loop de eventos em execução; use `await acheck_pack(...)`")
 
 
@@ -528,8 +567,11 @@ async def aassert_pack_conforms(
     config: Mapping[str, JSONValue] | None = None,
     views: Sequence[TurnView] | None = None,
     check_distribution: bool = True,
+    data_dir: Path | None = None,
 ) -> None:
-    report = await acheck_pack(pack, config=config, views=views, check_distribution=check_distribution)
+    report = await acheck_pack(
+        pack, config=config, views=views, check_distribution=check_distribution, data_dir=data_dir
+    )
     if not report.ok:
         raise AssertionError(report.render())
 
@@ -540,7 +582,8 @@ def assert_pack_conforms(
     config: Mapping[str, JSONValue] | None = None,
     views: Sequence[TurnView] | None = None,
     check_distribution: bool = True,
+    data_dir: Path | None = None,
 ) -> None:
-    report = check_pack(pack, config=config, views=views, check_distribution=check_distribution)
+    report = check_pack(pack, config=config, views=views, check_distribution=check_distribution, data_dir=data_dir)
     if not report.ok:
         raise AssertionError(report.render())

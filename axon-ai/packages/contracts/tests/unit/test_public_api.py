@@ -41,6 +41,7 @@ RUNTIME_API = {
     "PackBase",
     "PackContext",
     "PackManifest",
+    "PreparesData",
     "ProvidesEvalMetrics",
     "RETRIEVAL_FILTERS_KEY",
     "RETRIEVAL_TOOL_PARAMETERS",

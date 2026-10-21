@@ -183,3 +183,18 @@ python3 scripts/check-webui.py
 **Esperado**: o `check-build.sh` termina em OK, com o passo 3b recusando `AI_CORE_PROFILE → AXON_PROFILE`; o compose
 mostra o projeto `axon`; o login do Open WebUI diz "Continuar com Axon"; o `check-webui.py` passa (as listas de `ana` e
 `bia`, uma mensagem com 200 e a timeline); a console responde na porta dela.
+
+## Fase 9 (2026-10-21): `packs prepare` (US4 cen. 3–5, ADR-041)
+
+A partir de `axon-ai/`:
+
+```bash
+uv run pytest packages/core/tests/packs/contract/test_packs_prepare_seam.py \
+  packages/core/tests/packs/contract/test_packs_data_dirs.py packages/core/tests/packs/integration/test_packs_cli.py -v
+tmp=$(mktemp -d) && printf 'packs:\n  generic:\n    enabled: true\n' > "$tmp/packs.yaml"
+AXON_PACKS_FILE="$tmp/packs.yaml" AXON_PACKS_DATA_DIR="$tmp/data" uv run axon packs prepare; echo "saída $?"
+ls "$tmp/data"; rm -rf "$tmp"
+```
+
+**Esperado**: as suítes verdes; `generic  ok  <tmp>/data/generic`, `1 packs preparados`, `saída 0`; e `generic` em
+`ls` (o `axon-generic` não tem dados — herda o `prepare` que não faz nada —, mas o diretório é criado igual).

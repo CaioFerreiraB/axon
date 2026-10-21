@@ -65,6 +65,7 @@ from axon_ai.observability.adapters import postgres_schema as observability_sche
 from axon_ai.observability.ports import Origin
 from axon_ai.observability.service import DestinationService, TraceService, UsageService
 from axon_ai.packs.adapters.config_yaml import YamlPackConfigSource
+from axon_ai.packs.adapters.data_dirs import LocalPackDataDirs
 from axon_ai.packs.adapters.memory import InMemoryPackConfigSource
 from axon_ai.packs.api import PackStatus
 from axon_ai.packs.service import PackRuntime
@@ -279,12 +280,13 @@ def _packs(ctx: BootContext) -> None:
 
 def pack_runtime(parts: Mapping[str, Any]) -> PackRuntime:
     """O Pack Registry, ainda não carregado: `packs list` e `packs check` o carregam para distinguir `packs.yaml`
-    malformado (código 2) de pack em erro."""
+    malformado (código 2) de pack em erro, e `packs prepare` não o carrega. Os diretórios de dados vêm da mesma raiz
+    nos três perfis: são do operador, não um armazenamento que o perfil troca (ADR-041, R54)."""
     settings: Settings = parts["settings"]
     config = (
         YamlPackConfigSource(settings.packs_file) if settings.packs_file is not None else InMemoryPackConfigSource({})
     )
-    return PackRuntime(parts["pack_source"], config)
+    return PackRuntime(parts["pack_source"], config, LocalPackDataDirs(settings.packs_data_dir))
 
 
 MCP_LOGGER: Final = "mcp"

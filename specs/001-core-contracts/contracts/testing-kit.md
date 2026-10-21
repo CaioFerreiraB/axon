@@ -17,7 +17,8 @@ def turn_view(*, request_id: str = "req-test", assistant: str = "test-assistant"
               own_slice=None, dependency_slices=None) -> TurnView: ...
 def chunk(chunk_id: str = "doc#1", *, text: str = "", score: float = 1.0, document: str = "doc",
           version=None, status=None, section=None, page=None, metadata=None) -> Chunk: ...
-def pack_context(pack_name: str, config: Mapping[str, JSONValue] | None = None) -> PackContext: ...
+def pack_context(pack_name: str, config: Mapping[str, JSONValue] | None = None, *,
+                 data_dir: Path | None = None) -> PackContext: ...   # data_dir: 0.2.1
 def validator_context(pack_name: str, config: Mapping[str, JSONValue] | None = None) -> ValidatorContext: ...
 def tool_invocation(arguments: Mapping[str, JSONValue] | None = None, *, request_id: str = "req-test",
                     reference_time: datetime = REFERENCE_TIME) -> ToolInvocation: ...
@@ -33,7 +34,8 @@ class ConformanceReport:
 
 async def acheck_pack(pack: object, *, config: Mapping[str, JSONValue] | None = None,
                       views: Sequence[TurnView] | None = None,
-                      check_distribution: bool = True) -> ConformanceReport: ...
+                      check_distribution: bool = True,
+                      data_dir: Path | None = None) -> ConformanceReport: ...   # data_dir: 0.2.1
 def check_pack(pack: object, **kwargs) -> ConformanceReport: ...      # asyncio.run; RuntimeError se já houver loop
 async def aassert_pack_conforms(pack: object, **kwargs) -> None: ...  # AssertionError com report.render()
 def assert_pack_conforms(pack: object, **kwargs) -> None: ...
@@ -55,6 +57,9 @@ ISSUE_CODES: Final[frozenset[str]]        # todos os códigos abaixo; entra no s
 - `config`: configuração do pack para montar o `PackContext` (os hooks de catálogo são chamados uma vez, como na carga).
 - `views`: Turn Views usadas em `prepare_context` e nos validators; default = `[turn_view()]` com `own_slice` vazio e
   `dependency_slices` só com os packs de `manifest.depends_on` (fatias vazias).
+- `data_dir` (0.2.1): diretório em que a etapa 3b chama `prepare`, e que os hooks seguintes recebem no `PackContext`;
+  default = `<temporário>/<nome do pack>`, criado e apagado pela suíte. Um autor com o dado já baixado (um modelo em
+  cache) passa o próprio diretório e prova a idempotência sobre ele.
 - `check_distribution=False`: só para packs do workspace do core, testados contra os contratos do mesmo commit (010 FR-004).
 
 ## O que `acheck_pack` verifica, em ordem
@@ -66,6 +71,7 @@ Uma etapa que falha com issue `error` e impede as seguintes (ex.: sem manifest n
 | 1 | Forma: `isinstance(pack, AgentPack)`; `prepare_context` e `validate`/`search`/`rerank` assíncronos | `hook.missing`, `hook.not_async` |
 | 2 | Identidade: nome (`^[a-z][a-z0-9_]{0,31}$`), `contract_version` (`X.Y[.Z]`) e compatível com a versão instalada | `pack.name.invalid`, `pack.contract_version.invalid`, `pack.contract_version.incompatible` |
 | 3 | Manifest: tipo, nome igual ao do pack, versão válida, `preferred_flow` não vazio, `depends_on` sem repetição e sem o próprio nome, `requires_collections` sem repetição, `config_schema` estruturalmente válido | `manifest.type`, `manifest.name_mismatch`, `manifest.version.invalid`, `manifest.preferred_flow.invalid`, `manifest.self_dependency`, `manifest.duplicate_dependency`, `manifest.duplicate_collection`, `manifest.config_schema.invalid` |
+| 3b | Preparo de dados (0.2.1, ADR-041), só se o pack tem `prepare`: o diretório é criado e `prepare` é chamado **duas vezes** seguidas nele; síncrono, devolve `None` e não levanta em nenhuma das duas (idempotência) | `hook.not_sync`, `hook.raised`, `hook.return_type` |
 | 4 | Catálogo — hooks chamados **uma vez** com o `PackContext`; exceção ou tipo errado; `rerank` assíncrono e, chamado com três chunks de fixture e `top_k=2`, devolve no máximo 2, todos vindos da entrada (FR-007) | `hook.raised`, `hook.return_type`, `hook.not_async`, `reranker.contract` |
 | 5 | Declaração — `check_declaration` (R13): tools só nativas, com handler assíncrono, nomes válidos e únicos, `parameters` com `type: "object"`; retrievers com nome válido e único, sem colisão com tools e com `search` assíncrono; validators com nome válido e único e `validate` assíncrono | `tool.not_native`, `tool.name.invalid`, `tool.duplicate_name`, `tool.parameters.invalid`, `tool.handler.not_async`, `retriever.name.invalid`, `retriever.duplicate_name`, `retriever.name_collision`, `validator.name.invalid`, `validator.duplicate_name`, `hook.not_async` |
 | 6 | `prepare_context` para cada view: devolve `Mapping`; valores JSON; `retrieval_filters`, se presente, é mapeamento JSON; mesma entrada duas vezes → mesma saída | `prepare_context.not_mapping`, `prepare_context.not_json`, `prepare_context.retrieval_filters.invalid`, `prepare_context.non_deterministic` |

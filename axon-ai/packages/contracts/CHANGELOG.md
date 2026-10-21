@@ -4,6 +4,21 @@ Política de versões: [ADR-014](../../../docs/adr/ADR-014-politica-versoes-0x-c
 aditiva sobe o patch e breaking sobe o minor. Mudança só de semântica, sem mudança de forma, é registrada aqui e
 classificada na revisão (FR-020).
 
+## 0.2.1 — não lançada
+
+O pack prepara os próprios dados no build ([ADR-041](../../../docs/adr/ADR-041-o-pack-prepara-os-proprios-dados-no-build.md);
+spec 001, FR-026 e FR-027). Aditiva: nenhum pack muda; quem implementa `prepare` ou lê `data_dir` pede
+`axon-ai-contracts>=0.2.1,<0.3`.
+
+### Adicionado
+
+- `PreparesData`: protocolo opcional com `prepare(ctx: PackContext) -> None`, síncrono e idempotente, chamado só no
+  build da instalação (`axon packs prepare`); `PackBase.prepare` não faz nada. O `AgentPack` não muda.
+- `PackContext.data_dir: Path | None = None`: o diretório do pack que a plataforma entrega, o mesmo no build e em
+  runtime; `None` sem raiz de dados.
+- Kit: `pack_context(..., data_dir=)`; `acheck_pack` e variantes aceitam `data_dir`; etapa 3b chama `prepare` duas vezes
+  no mesmo diretório (temporário por default) e os hooks seguintes o recebem; código `hook.not_sync`.
+
 ## 0.2.0 — não lançada
 
 Identidade Axon ([ADR-037](../../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md); spec 001, US6). As seções abaixo

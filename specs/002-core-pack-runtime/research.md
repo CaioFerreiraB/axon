@@ -806,3 +806,63 @@ nomes antigos neles se leem pela tabela do ADR-037. A instalação (US7) tem pas
   com a seção "Fase 9, incremento 9.5"; `quickstart.md` com o roteiro.
 - **Rationale**: SC-009; a prova do Open WebUI é a que pegou o defeito do JWKS na Fase 7.
 - **Alternatives**: nenhuma.
+
+## Passada de 2026-10-21: o pack prepara os próprios dados ([ADR-041](../../docs/adr/ADR-041-o-pack-prepara-os-proprios-dados-no-build.md); US4 cen. 3–5)
+
+Decisões pré-aprovadas pelo ADR-041 (o comando, quem o chama, `data_dir`, códigos); o que segue é como elas chegam ao
+Pack Runtime, sem re-pesquisa. A instalação (o `Dockerfile` chamando `axon packs prepare`, ADR-042) é outra passada, no
+`axon-deploy`.
+
+### R62 — A porta `PackDataDirs`
+
+- **Decision**: porta secundária em `ports.py`, com `path(pack) -> Path | None` (`<raiz>/<pack>`, sem tocar o disco) e
+  `create(pack) -> Path | None` (`mkdir(parents=True, exist_ok=True)`); `None` nos dois sem raiz. Um adapter,
+  `LocalPackDataDirs(root: Path | None)` em `adapters/data_dirs.py`, que a 011 monta nos três perfis com
+  `AXON_PACKS_DATA_DIR`. `PackRuntime(source, config_source, data_dirs=None)`: sem a porta, nenhuma raiz — a assinatura
+  de antes continua valendo para as suítes. Um nome de pack é sempre um segmento seguro (001: `^[a-z][a-z0-9_]{0,31}$`,
+  conferido antes de chegar à porta), então a porta não sanitiza.
+- **Rationale** (princípio XIII, CLAUDE.md regra 7): criar diretório é I/O, e `service.py` não toca o sistema de
+  arquivos. A porta só existe para isso; um adapter em memória fingiria um diretório que o pack vai de fato abrir, então a
+  conformidade roda o adapter real contra `tmp_path`.
+- **Alternatives**: `Path.mkdir` no `service.py` (I/O fora de porta); criar o diretório no adapter de CLI e passar o
+  caminho ao serviço (o serviço precisaria confiar que o chamador criou, e a carga calcula o mesmo caminho por outro
+  lugar).
+
+### R63 — `prepare_data`: até a configuração validada, sem catálogo
+
+- **Decision**: seam `PackDataPreparation` em `api.py` (`prepare_data() -> Sequence[PreparedPack]`), implementado pelo
+  `PackRuntime`. Lê a configuração (`PackConfigError` propaga), descobre, e para cada pack **habilitado**, em ordem de
+  nome: duplicado ou não instalado → `error` com a mensagem da carga; senão import, identidade, compatibilidade,
+  instanciação, manifest e `config_schema` pelos mesmos passos de `_load_one`/`_instantiate` (fatorados num
+  `_configured` comum); depois `data_dirs.create(nome)`, e então `prepare(PackContext(pack_name, config, data_dir))` se o
+  pack o tiver. `prepare` coroutine function → `error` "prepare precisa ser síncrono" sem chamar; exceção →
+  `"prepare levantou <Tipo>: <mensagem>"`; o retorno não é conferido (o kit da 001 confere). Falha de criação do
+  diretório (`OSError`) → `error` com a causa. Nenhuma ordem por `depends_on` e nenhuma cascata: o `prepare` produz
+  arquivos, não fatias. `prepare_data` não marca o registry como carregado.
+- **Rationale** (ADR-041, itens 3 e 4): os hooks de catálogo do scouting constroem o embedder, que abre o modelo que o
+  `prepare` baixa — rodar o catálogo antes falharia exatamente o pack que precisa do comando. Os mesmos passos da carga
+  garantem a mesma mensagem para o mesmo defeito no `prepare` e no `check`.
+- **Alternatives**: `load()` e depois `prepare` dos `enabled` (o catálogo falha antes do preparo); chamar o `prepare`
+  dentro de `load()` quando houver uma flag (o boot passaria a ter um caminho com rede, contra o item 4).
+
+### R64 — `data_dir` na carga
+
+- **Decision**: `_instantiate` monta `PackContext(pack_name, config, data_dir=data_dirs.path(nome))` — o mesmo contexto
+  para catálogo e `prepare_context`; `ValidatorContext` sem mudança. A carga nunca chama `create` nem `prepare` (em
+  runtime o diretório é somente leitura, ADR-041 item 4).
+- **Rationale** (ADR-041, item 2): o caminho é o mesmo no build e em runtime porque as duas pontas o calculam pela mesma
+  porta, com a mesma raiz.
+- **Alternatives**: `data_dir` só quando o diretório existir (o pack não distinguiria "sem raiz" de "não preparado" — e
+  a mensagem do pack sobre o segundo é a útil).
+
+### R65 — O comando, os testes e a dependência dos contratos
+
+- **Decision**: `prepare_command(preparation, out, err)` em `adapters/cli.py`: chama `prepare_data()`;
+  `PackConfigError` → `config_error_command` (2); senão uma linha por pack (nome, `ok`/`error`, diretório ou causa, com
+  `-` sem raiz) e o resumo `M packs preparados` (0) ou `F de M packs falharam no preparo` (1). A 011 o registra (011
+  R54). O core passa a depender de `axon-ai-contracts>=0.2.1,<0.3` (usa `PackContext.data_dir`). Testes:
+  `tests/packs/contract/test_packs_prepare_seam.py` (as linhas da tabela do contrato), a linha da carga em
+  `test_packs_registry_seam.py`, `tests/packs/contract/test_packs_data_dirs.py` (porta) e os casos 7 e 8 de
+  `tests/packs/integration/test_packs_cli.py`, com distribuições falsas. O `axon-generic` não muda (herda o default).
+- **Rationale**: o padrão do `packs check` (R15, R16): o comando é função sobre o seam, e quem monta é a 011.
+- **Alternatives**: —

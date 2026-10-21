@@ -29,6 +29,7 @@ class PackManifest:
 class PackContext:
     pack_name: str
     config: Mapping[str, JSONValue] = ...        # default: mapeamento vazio
+    data_dir: Path | None = None                 # 0.2.1, ADR-041: <raiz>/<pack>; None sem raiz de dados
 
 @runtime_checkable
 class AgentPack(Protocol):
@@ -51,6 +52,12 @@ class PackBase:
     def reranker(self, ctx: PackContext) -> Reranker | None: ...                  # None
     def validators(self, ctx: PackContext) -> Sequence[AnswerValidator]: ...      # ()
     def eval_metrics(self, ctx: PackContext) -> Sequence[EvalMetric]: ...         # () — 0.1.2, ADR-027
+    def prepare(self, ctx: PackContext) -> None: ...                              # nada — 0.2.1, ADR-041
+
+@runtime_checkable
+class PreparesData(Protocol):
+    """Hook opcional (0.2.1, ADR-041): arquivos de que o pack precisa em runtime, produzidos no build."""
+    def prepare(self, ctx: PackContext) -> None: ...                              # síncrono; idempotente
 
 # axon_ai_contracts/tools.py
 type ToolKind = Literal["retrieval", "mcp", "native"]

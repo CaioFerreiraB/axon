@@ -1,14 +1,18 @@
-"""Pack Runtime: carga do registry (research R5) e implementação dos seams Pack Registry e Pack Hooks.
+"""Pack Runtime: carga do registry (research R5) e implementação dos seams Pack Registry, Pack Hooks e do preparo de
+dados (ADR-041).
 
-Montado pela composition root (spec 011) com uma `PackSource` e uma `PackConfigSource`; `load()` roda uma vez, no boot.
+Montado pela composition root (spec 011) com uma `PackSource`, uma `PackConfigSource` e, opcionalmente, os
+`PackDataDirs`; `load()` roda uma vez, no boot. `prepare_data()` roda só no comando `packs prepare`, nunca no boot.
 """
 
 from __future__ import annotations
 
 import dataclasses
+import inspect
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import cast
 
 from axon_ai.packs.api import (
@@ -20,6 +24,7 @@ from axon_ai.packs.api import (
     PackHookError,
     PackStatus,
     PackTool,
+    PreparedPack,
     RetrieverCapability,
     Slices,
     StreamedValidation,
@@ -32,7 +37,7 @@ from axon_ai.packs.domain.dependencies import dependency_errors
 from axon_ai.packs.domain.hooks import apply_validation, merge_slice, scope_view
 from axon_ai.packs.domain.identity import read_identity
 from axon_ai.packs.domain.stream import ChainedFilter, StreamSession
-from axon_ai.packs.ports import DiscoveredPack, PackConfigSource, PackSettings, PackSource
+from axon_ai.packs.ports import DiscoveredPack, PackConfigSource, PackDataDirs, PackSettings, PackSource
 from axon_ai_contracts import (
     AgentPack,
     AnswerValidator,
@@ -84,11 +89,14 @@ def _items(value: object) -> tuple[object, ...] | None:
 
 
 class PackRuntime:
-    """Implementa `PackRegistry` e `PackHooks` (axon_ai.packs.api)."""
+    """Implementa `PackRegistry`, `PackHooks` e `PackDataPreparation` (axon_ai.packs.api)."""
 
-    def __init__(self, source: PackSource, config_source: PackConfigSource) -> None:
+    def __init__(
+        self, source: PackSource, config_source: PackConfigSource, data_dirs: PackDataDirs | None = None
+    ) -> None:
         self._source = source
         self._config_source = config_source
+        self._data_dirs = data_dirs
         self._entries: dict[str, PackEntry] = {}
         self._loaded: dict[str, LoadedPack] = {}
         self._is_loaded = False
@@ -100,14 +108,11 @@ class PackRuntime:
         if self._is_loaded:
             raise RuntimeError("o Pack Registry já foi carregado; mudar packs ou configuração exige restart")
         settings = self._config_source.load()
-        found: dict[str, list[DiscoveredPack]] = {}
-        for discovered in self._source.discover():
-            found.setdefault(discovered.name, []).append(discovered)
+        found = self._discover()
         entries: dict[str, PackEntry] = {}
         for name, candidates in found.items():
             if len(candidates) > 1:
-                distributions = ", ".join(sorted(candidate.distribution for candidate in candidates))
-                entries[name] = self._failed(name, f"nome duplicado: '{name}' registrado por {distributions}")
+                entries[name] = self._failed(name, _duplicated(name, candidates))
                 continue
             entry, loaded = self._load_one(candidates[0], settings.get(name, PackSettings()))
             entries[name] = entry
@@ -119,6 +124,15 @@ class PackRuntime:
         self._apply_dependency_errors(entries)
         self._entries = dict(sorted(entries.items()))
         self._is_loaded = True
+
+    def _discover(self) -> dict[str, list[DiscoveredPack]]:
+        found: dict[str, list[DiscoveredPack]] = {}
+        for discovered in self._source.discover():
+            found.setdefault(discovered.name, []).append(discovered)
+        return found
+
+    def _data_dir(self, name: str) -> Path | None:
+        return self._data_dirs.path(name) if self._data_dirs is not None else None
 
     @staticmethod
     def _failed(name: str, message: str, *, version: str | None = None, contract: str | None = None) -> PackEntry:
@@ -139,14 +153,7 @@ class PackRuntime:
     def _load_one(self, discovered: DiscoveredPack, settings: PackSettings) -> tuple[PackEntry, LoadedPack | None]:
         contract_version: str | None = None
         try:
-            try:
-                target = discovered.load()
-            except Exception as error:
-                raise _PackLoadError(f"falha ao importar: {type(error).__name__}: {error}") from error
-            identity = read_identity(discovered.name, target)
-            if isinstance(identity, str):
-                raise _PackLoadError(identity)
-            _, contract_version = identity
+            target, contract_version = self._identified(discovered)
             self._check_contract(contract_version)
             if not settings.enabled:
                 return self._entry(discovered, contract_version, PackStatus.DISABLED), None
@@ -156,6 +163,18 @@ class PackRuntime:
                 discovered.name, str(error), version=discovered.version, contract=contract_version
             ), None
         return self._entry(discovered, contract_version, PackStatus.ENABLED, capabilities=_capabilities(loaded)), loaded
+
+    @staticmethod
+    def _identified(discovered: DiscoveredPack) -> tuple[object, str]:
+        """Importa a classe e lê a identidade; a compatibilidade é conferida à parte, já com a versão em mãos."""
+        try:
+            target = discovered.load()
+        except Exception as error:
+            raise _PackLoadError(f"falha ao importar: {type(error).__name__}: {error}") from error
+        identity = read_identity(discovered.name, target)
+        if isinstance(identity, str):
+            raise _PackLoadError(identity)
+        return target, identity[1]
 
     @staticmethod
     def _check_contract(contract_version: str) -> None:
@@ -186,6 +205,31 @@ class PackRuntime:
         )
 
     def _instantiate(self, name: str, target: object, contract_version: str, settings: PackSettings) -> LoadedPack:
+        pack, manifest = self._configured(name, target, contract_version, settings)
+        context = PackContext(pack_name=name, config=settings.config, data_dir=self._data_dir(name))
+        loaded = _collect_catalog(pack, manifest, context)
+        declaration = [
+            issue
+            for issue in check_declaration(
+                pack_name=name,
+                contract_version=contract_version,
+                manifest=manifest,
+                tools=loaded.tools,
+                retrievers=loaded.retrievers,
+                validators=loaded.validators,
+            )
+            if issue.severity == "error"
+        ]
+        if declaration:
+            raise _PackLoadError("declaração inválida: " + "; ".join(issue.message for issue in declaration))
+        return loaded
+
+    @staticmethod
+    def _configured(
+        name: str, target: object, contract_version: str, settings: PackSettings
+    ) -> tuple[AgentPack, PackManifest]:
+        """Instância, manifest válido e configuração conferida contra o `config_schema`: o que a carga e o preparo
+        fazem antes de qualquer hook (research R63)."""
         assert isinstance(target, type)
         try:
             instance = target()
@@ -208,23 +252,39 @@ class PackRuntime:
         problem = config_error(settings.config, manifest.config_schema)
         if problem is not None:
             raise _PackLoadError(problem)
-        context = PackContext(pack_name=name, config=settings.config)
-        loaded = _collect_catalog(pack, manifest, context)
-        declaration = [
-            issue
-            for issue in check_declaration(
-                pack_name=name,
-                contract_version=contract_version,
-                manifest=manifest,
-                tools=loaded.tools,
-                retrievers=loaded.retrievers,
-                validators=loaded.validators,
-            )
-            if issue.severity == "error"
-        ]
-        if declaration:
-            raise _PackLoadError("declaração inválida: " + "; ".join(issue.message for issue in declaration))
-        return loaded
+        return pack, manifest
+
+    # ------------------------------------------------------------------------------------------------ preparo de dados
+
+    def prepare_data(self) -> tuple[PreparedPack, ...]:
+        """Seam `PackDataPreparation` (ADR-041, research R63): cada pack habilitado, em ordem de nome, até a
+        configuração validada; então o diretório e o hook `prepare`. Sem catálogo, sem `depends_on`, sem cascata — o
+        preparo produz arquivos, não fatias. Não marca o registry como carregado."""
+        settings = self._config_source.load()
+        found = self._discover()
+        enabled = sorted(name for name, pack_settings in settings.items() if pack_settings.enabled)
+        return tuple(self._prepare_one(name, found.get(name, []), settings[name]) for name in enabled)
+
+    def _prepare_one(self, name: str, candidates: Sequence[DiscoveredPack], settings: PackSettings) -> PreparedPack:
+        data_dir = self._data_dir(name)
+        try:
+            if not candidates:
+                raise _PackLoadError("não instalado")
+            if len(candidates) > 1:
+                raise _PackLoadError(_duplicated(name, candidates))
+            target, contract_version = self._identified(candidates[0])
+            self._check_contract(contract_version)
+            pack, _ = self._configured(name, target, contract_version, settings)
+            if self._data_dirs is not None:
+                try:
+                    data_dir = self._data_dirs.create(name)
+                except OSError as error:
+                    raise _PackLoadError(f"falha ao criar o diretório de dados {data_dir}: {error}") from error
+            _call_prepare(pack, PackContext(pack_name=name, config=settings.config, data_dir=data_dir))
+        except _PackLoadError as error:
+            logger.error("preparo do pack %r falhou: %s", name, error)
+            return PreparedPack(name=name, data_dir=data_dir, error=str(error))
+        return PreparedPack(name=name, data_dir=data_dir)
 
     # ------------------------------------------------------------------------------------------------ Pack Registry
 
@@ -371,6 +431,24 @@ class PackRuntime:
         """A sequência de validators da composição: pack a pack, na ordem de cada um."""
         members = self._members(composition)
         return [(name, loaded, validator) for name, loaded in members for validator in loaded.validators]
+
+
+def _duplicated(name: str, candidates: Sequence[DiscoveredPack]) -> str:
+    distributions = ", ".join(sorted(candidate.distribution for candidate in candidates))
+    return f"nome duplicado: '{name}' registrado por {distributions}"
+
+
+def _call_prepare(pack: AgentPack, context: PackContext) -> None:
+    """O hook opcional `prepare` (001, ADR-041): pack sem ele não tem dados; síncrono, ou nem é chamado."""
+    prepare = getattr(pack, "prepare", None)
+    if prepare is None:
+        return
+    if inspect.iscoroutinefunction(prepare):
+        raise _PackLoadError("prepare precisa ser síncrono")
+    try:
+        prepare(context)
+    except Exception as error:
+        raise _PackLoadError(f"prepare levantou {type(error).__name__}: {error}") from error
 
 
 def _call(pack: AgentPack, hook: str, *args: object) -> object:

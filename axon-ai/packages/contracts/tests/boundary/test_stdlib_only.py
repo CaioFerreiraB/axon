@@ -31,7 +31,7 @@ RUNTIME_DENYLIST = {
 def _imports(path: Path) -> list[tuple[int, str]]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     found: list[tuple[int, str]] = []
-    for node in ast.walk(tree):
+    for node in _executed_nodes(tree):
         if isinstance(node, ast.Import):
             found.extend((node.lineno, alias.name) for alias in node.names)
         elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
@@ -39,6 +39,24 @@ def _imports(path: Path) -> list[tuple[int, str]]:
             if node.module == "importlib":
                 found.extend((node.lineno, f"importlib.{alias.name}") for alias in node.names)
     return found
+
+
+def _is_type_checking(node: ast.AST) -> bool:
+    return isinstance(node, ast.If) and (
+        (isinstance(node.test, ast.Name) and node.test.id == "TYPE_CHECKING")
+        or (isinstance(node.test, ast.Attribute) and node.test.attr == "TYPE_CHECKING")
+    )
+
+
+def _executed_nodes(tree: ast.AST) -> list[ast.AST]:
+    """Os nós da árvore, menos o corpo dos blocos `if TYPE_CHECKING:` — imports só de tipo não rodam (R32)."""
+    pending, nodes = [tree], []
+    while pending:
+        node = pending.pop()
+        nodes.append(node)
+        children = node.orelse if _is_type_checking(node) else list(ast.iter_child_nodes(node))  # type: ignore[attr-defined]
+        pending.extend(children)
+    return nodes
 
 
 def _python_files() -> list[Path]:

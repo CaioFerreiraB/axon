@@ -97,7 +97,9 @@ da execução. `prepare` devolve o mapeamento novo; packs sem fatia começam com
 ## Estado interno (`service.py`, não exposto)
 
 `LoadedPack`: entrada, instância, `PackContext`, `ValidatorContext`, manifest e o catálogo coletado uma vez na carga
-(`system_prompt`, tools, retrievers, reranker, validators).
+(`system_prompt`, tools, retrievers, reranker, validators). O `PackContext` traz `data_dir = <raiz>/<nome>` pela porta
+`PackDataDirs`, ou `None` sem raiz (ADR-041, R64). O preparo (`prepare_data`, R63) não monta `LoadedPack`: para na
+instância com a configuração validada e devolve um `PreparedPack` por pack habilitado.
 
 ## Ciclo de vida de um pack na carga (R5)
 
