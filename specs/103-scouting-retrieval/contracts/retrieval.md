@@ -2,7 +2,7 @@
 
 Dono: 103. Consumidores: o pack (101 US5, que os publica) e, através dele, o core (005 no `rag_first`, 004 na tool do
 loop agêntico). Implementam os contratos `Retriever` e `Reranker` da 001; a única dependência interna é
-`ai_scouting.rag.index.api` (102). Decisões em [research.md](../research.md); tipos em [data-model.md](../data-model.md).
+`axon_scouting.rag.index.api` (102). Decisões em [research.md](../research.md); tipos em [data-model.md](../data-model.md).
 
 ```python
 class ScoutingRetriever:                                     # rag/retrieval/retriever.py — implementa Retriever (001)

@@ -301,3 +301,61 @@ Reavaliado com as seções "Fase 5" de [data-model.md](data-model.md), [contract
 [contracts/packaging.md](contracts/packaging.md) e [quickstart.md](quickstart.md): **PASS**. A configuração tem regra
 para cada combinação inválida (VII); o prompt cobre as prioridades, a citação pelo id, o caminho sem trechos e a
 vigência (IX); o único efeito fora do pack — o ADR-026 — está atribuído à passada da 005.
+
+---
+
+# Passada de 2026-10-20: identidade Axon (US6; [ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md))
+
+> As seções acima são os planos das passadas anteriores e ficam como foram executadas (ADR-037, item 6); os nomes
+> antigos nelas se leem pela tabela do ADR-037. Esta seção é o plano da US6.
+
+**Insumos lidos**: [spec.md](spec.md) (US6, FR-013–FR-017, SC-005, clarificações de 2026-10-20), [design.md](design.md),
+ADR-037, as passadas da 001 (contratos 0.2.0), da 002 (grupo `axon.packs`), da 011 (`axon_ai`, `AXON_*`, comando `axon`,
+recusa de `AI_CORE_*`) e o release (tag `v0.7.0-rc1`, repositório `axon`). Research: R25–R31. **Sem divergência do
+`design.md`** além dos nomes; sem ADR novo.
+
+**Summary**: o pack passa a `axon-scouting` 0.4.0 (`axon_scouting`, `axon-scouting-corpus`, grupo `axon.packs`, contratos
+0.2 pela tag `v0.7.0-rc1`; R25), recusa `AI_SCOUTING_*` na carga e na CLI (R26), e a integração, a CI, o job de avaliação
+e as specs 101–106 acompanham pela substituição mecânica (R27–R29); testes novos para a recusa e os nomes (R30).
+
+**Technical Context**: sem mudança de linguagem nem de dependência de domínio; o lock é regenerado pelas fontes novas.
+Comportamento novo só em `pack.py` (a recusa). Nenhum `NEEDS CLARIFICATION`.
+
+**Constitution Check (US6)**
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| I. Núcleo agnóstico de domínio | ✅ | O domínio continua só no pack; o core não muda nesta passada |
+| II. Módulos substituíveis por seams | ✅ | O pack só consome o contrato 001 (0.2) e o grupo `axon.packs` |
+| VII. Falha fechada e explícita | ✅ | `AI_SCOUTING_*` recusada na carga e na CLI, com o nome novo e sem o valor (R26) |
+| XII. Simplicidade deliberada | ✅ | A recusa é uma regra de prefixo, sem lista nem alias (R26) |
+| XIII. Portas e adapters | ✅ | O ambiente continua lido só no `pack.py` (composition root); as camadas do import-linter só trocam o nome |
+
+**Module boundary gate**: o repositório `axon-scouting` inteiro e os documentos vivos das specs 101–106; no `axon`, o
+ponteiro do submódulo. **Resultado**: PASS.
+
+**Project Structure (US6)**
+
+```text
+axon-scouting/                      # submódulo ai-scouting/ no axon até o fechamento
+├── pyproject.toml                  # axon-scouting 0.4.0, axon.packs, contratos e core pela v0.7.0-rc1 (R25)
+├── uv.lock                         # regenerado
+├── src/axon_scouting/              # era src/ai_scouting/ (git mv)
+│   └── pack.py                     # VERSION, contract_version, AXON_SCOUTING_*, legacy_environment (R25, R26)
+├── tests/test_legacy_environment.py  # novo (R30)
+├── tests/integration/*.py          # axon_ai, AXON_*, comando axon (R28)
+└── .github/workflows/{ci,eval}.yml # nomes novos (R28)
+```
+
+**Seam Notes for Consumers (US6)**
+
+| Consumidor | O que muda para ele |
+|---|---|
+| Core (002) | Descobre o pack pelo grupo `axon.packs`, com `contract_version` "0.2" |
+| Operador | `AXON_SCOUTING_*` e `axon-scouting-corpus`; as antigas são recusadas com o nome novo |
+| Instalação | Passa ao pack 0.4.0 e aos nomes novos na passada dela |
+
+**Complexity Tracking (US6)**: nenhuma linha nova (a recusa é a concessão prevista no ADR-037).
+
+**Constitution Check — pós-design (US6)**: reavaliado com [quickstart.md](quickstart.md) ("Fase 9, incremento 9.5"):
+**PASS**.

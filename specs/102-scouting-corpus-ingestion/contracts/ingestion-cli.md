@@ -1,6 +1,6 @@
-# Contrato — CLI `ai-scouting-corpus`
+# Contrato — CLI `axon-scouting-corpus`
 
-Script da distribuição (`[project.scripts] ai-scouting-corpus = "ai_scouting.pack:corpus_cli"`): o `pack.py` compõe os
+Script da distribuição (`[project.scripts] axon-scouting-corpus = "axon_scouting.pack:corpus_cli"`): o `pack.py` compõe os
 adapters; `rag/ingestion/adapters/cli.py` faz argumentos e saída. Decisões em [research.md](../research.md) R10, R13,
 R15, R17.
 
@@ -8,10 +8,10 @@ R15, R17.
 
 | Variável | Default | Uso |
 |---|---|---|
-| `AI_SCOUTING_QDRANT_URL` | `http://localhost:6333` | servidor Qdrant |
-| `AI_SCOUTING_QDRANT_API_KEY` | — | opcional; nunca aparece em saída nem em erro |
-| `AI_SCOUTING_INDEX` | `scouting` | nome do índice (alias) |
-| `AI_SCOUTING_EMBEDDING_DIR` | — | diretório com `model.onnx` e `tokenizer.json`; obrigatório em `ingest` e `reindex` |
+| `AXON_SCOUTING_QDRANT_URL` | `http://localhost:6333` | servidor Qdrant |
+| `AXON_SCOUTING_QDRANT_API_KEY` | — | opcional; nunca aparece em saída nem em erro |
+| `AXON_SCOUTING_INDEX` | `scouting` | nome do índice (alias) |
+| `AXON_SCOUTING_EMBEDDING_DIR` | — | diretório com `model.onnx` e `tokenizer.json`; obrigatório em `ingest` e `reindex` |
 
 ## Subcomandos
 

@@ -17,7 +17,7 @@ conjunto dourado
 A data de referência torna cada item reproduzível: revogar um documento depois da curadoria não muda o resultado de
 itens antigos. Sem ela, o mesmo caso passaria hoje e falharia amanhã, sem mudança de código. O harness fixa essa data
 chamando o motor em processo; a API HTTP não aceita data de referência (008 FR-012). Por isso a avaliação roda dentro de
-uma imagem de instalação com `ai-core` e `ai-scouting` (`ai-core eval run …`), sem que o pack dependa do `ai-core`.
+uma imagem de instalação com `axon-ai` e `axon-scouting` (`axon eval run …`), sem que o pack dependa do `axon-ai`.
 
 Começar pequeno: 30–50 perguntas reais do domínio escoteiro valem mais que 500 sintéticas.
 

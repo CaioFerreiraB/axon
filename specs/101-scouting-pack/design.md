@@ -2,10 +2,10 @@
 
 > Insumo técnico pré-aprovado para `/speckit-plan`. Origem: arch-v1 §11, §13, §19, §30; ADR-006, ADR-012, ADR-013.
 
-## Repositório `ai-scouting`
+## Repositório `axon-scouting`
 
 ```text
-ai-scouting/src/ai_scouting/
+axon-scouting/src/axon_scouting/
 ├── pack.py              # 101 — ScoutingPack; composition root do pack (instancia adapters de 102/103 pela configuração)
 ├── context/             # 101 — prepare_scouting_context (determinístico, puro) + léxico
 ├── prompts/             # 101
@@ -19,7 +19,7 @@ ai-scouting/src/ai_scouting/
 ```
 
 Cada subpasta corresponde a uma spec. Os submódulos se enxergam só pelos contratos de 001 (`Retriever`, `Reranker`,
-`AnswerValidator`) e pelo `api.py` do índice (102). Regras de import (import-linter no CI do `ai-scouting`, ADR-012):
+`AnswerValidator`) e pelo `api.py` do índice (102). Regras de import (import-linter no CI do `axon-scouting`, ADR-012):
 
 - `rag/retrieval` e `rag/graph` importam de `rag/index` só o `api.py`;
 - `context/` e `validators/` não importam `rag`;
@@ -29,24 +29,24 @@ Cada subpasta corresponde a uma spec. Os submódulos se enxergam só pelos contr
 ## Declaração
 
 ```toml
-# ai-scouting/pyproject.toml
+# axon-scouting/pyproject.toml
 [project]
-name = "ai-scouting"
+name = "axon-scouting"
 version = "0.1.4"
-dependencies = ["ai-core-contracts>=0.1,<0.2"]   # nunca ai-core
+dependencies = ["axon-ai-contracts>=0.1,<0.2"]   # nunca axon-ai
 
-[project.entry-points."ai_core.packs"]
-scouting = "ai_scouting.pack:ScoutingPack"
+[project.entry-points."axon.packs"]
+scouting = "axon_scouting.pack:ScoutingPack"
 
 [tool.uv.sources]
-ai-core-contracts = { git = "https://github.com/caio/ai-core", tag = "contracts-v0.1.0", subdirectory = "packages/contracts" }
+axon-ai-contracts = { git = "https://github.com/caio/axon-ai", tag = "contracts-v0.1.0", subdirectory = "packages/contracts" }
 ```
 
 Em desenvolvimento e CI, os contratos vêm da tag no repositório do core; na instalação, já estão na imagem base.
 
 > Atualizado em 2026-10-07 ([ADR-021](../../docs/adr/ADR-021-workspace-ai-core-permanece-no-repositorio-da-plataforma.md)):
-> o repositório do core é o `agentic-app`, então a fonte é `{ git = "ssh://git@github.com/CaioFerreiraB/agentic-app.git",
-> tag = "contracts-v0.1.0", subdirectory = "ai-core/packages/contracts" }`. A versão `0.1.4` acima é ilustrativa; o pack
+> o repositório do core é o `axon`, então a fonte é `{ git = "ssh://git@github.com/CaioFerreiraB/axon.git",
+> tag = "contracts-v0.1.0", subdirectory = "axon-ai/packages/contracts" }`. A versão `0.1.4` acima é ilustrativa; o pack
 > começa em `0.1.0` ([research.md](research.md) R2, R4).
 
 ## Code pack

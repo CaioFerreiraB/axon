@@ -102,7 +102,11 @@ da marca com AA (menos o hover escuro, pendente na 013); cookie `axon_session`, 
 negado com o lockup, favicon e título "<tela> · <nome>", tokens da marca; o hover escuro passou a `#1D4ED8` nos dois CSS
 (ADR-039); `@axon/console`.
 **Release** (2026-10-20) — repositórios renomeados no GitHub (`axon`, `axon-deploy`, `axon-scouting`), `main` em `b1efccb` com a
-CI verde, tags `contracts-v0.2.0` e `v0.7.0-rc1`, com o aval do mantenedor. Próximo: a 101 (no submódulo) e a instalação.
+CI verde, tags `contracts-v0.2.0` e `v0.7.0-rc1`, com o aval do mantenedor.
+**101 feita** (2026-10-21) — `axon-scouting` 0.4.0 (import `axon_scouting`, CLI `axon-scouting-corpus`, grupo
+`axon.packs`, `contract_version` "0.2"), contratos e core pela `v0.7.0-rc1`; variáveis `AXON_SCOUTING_*`, e qualquer
+`AI_SCOUTING_*` no ambiente faz a carga e a CLI recusarem, nomeando a nova; integração, CI e `eval.yml` com `axon`,
+`AXON_*` e `axon eval run`; specs 102–106 só nos nomes. Próximo: a instalação (002, `axon-deploy`).
 
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 

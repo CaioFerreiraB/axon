@@ -6,7 +6,7 @@ que o domínio exige a mais. Estas regras valem para a semente e para a versão 
 
 ## Arquivo
 
-`ai-scouting/eval/golden.yaml`, com `version: 1`, `name` (`scouting-semente` até a curadoria) e `assistant: scouting`.
+`axon-scouting/eval/golden.yaml`, com `version: 1`, `name` (`scouting-semente` até a curadoria) e `assistant: scouting`.
 
 ```yaml
 # Conjunto SEMENTE PROVISÓRIO (spec 105, clarificação 1): perguntas escritas a partir do corpus, sem curadoria.
@@ -64,5 +64,5 @@ resposta que mudou com uma nova versão de documento ganha um item novo com a da
 |---|---|---|
 | 1 | regras 1–7 sobre `eval/golden.yaml`, só com os contratos | `tests/eval/test_golden.py` |
 | 2 | um conjunto com documento fora do catálogo é recusado, nomeando item e documento | `tests/eval/test_golden.py` |
-| 3 | regra 8: `ai-core eval run` com a semente, `invalid` vazio no relatório | `tests/integration/test_eval.py` (grupo `platform`) |
+| 3 | regra 8: `axon eval run` com a semente, `invalid` vazio no relatório | `tests/integration/test_eval.py` (grupo `platform`) |
 | 4 | o job `eval` roda a semente contra a linha de base sem regressão | `.github/workflows/eval.yml` |

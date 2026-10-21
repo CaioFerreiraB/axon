@@ -1,6 +1,6 @@
 # Quickstart — validar os validators da 104 (Fase 4, esqueleto)
 
-Dentro de `ai-scouting/`, com `XDG_DATA_HOME=$HOME/.local/share`. Regras em [data-model.md](data-model.md); contrato em
+Dentro de `axon-scouting/`, com `XDG_DATA_HOME=$HOME/.local/share`. Regras em [data-model.md](data-model.md); contrato em
 [contracts/validators.md](contracts/validators.md).
 
 ## 1. Testes dos validators
@@ -16,8 +16,8 @@ uv run pytest tests/test_citations.py tests/test_integrity.py tests/test_notice.
 ```bash
 uv run python -c "
 import asyncio
-from ai_core_contracts.testing import chunk, turn_view, validator_context
-from ai_scouting.validators import CitationIntegrityValidator, ValidityNoticeValidator
+from axon_ai_contracts.testing import chunk, turn_view, validator_context
+from axon_scouting.validators import CitationIntegrityValidator, ValidityNoticeValidator
 ctx = [chunk('man-pio-2023#4.2', document='Manual Pioneiro', version='2023', status='substituído'),
        chunk('man-pio-2026#4.2', document='Manual Pioneiro', version='2026', status='vigente')]
 view = turn_view(answer='A regra mudou [[man-pio-2026#4.2]]; antes era outra [[ MAN-PIO-2023#4.2 ]] [[inventado#1]].',

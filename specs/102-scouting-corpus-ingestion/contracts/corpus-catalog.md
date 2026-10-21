@@ -1,7 +1,7 @@
 # Contrato — catálogo do corpus (`corpus.yaml`)
 
 Arquivo do curador; a única fonte dos metadados e da relação de substituição (clarificação 1). Mora no repositório do
-`ai-scouting`, em `corpus/corpus.yaml`, com os PDFs ao lado, referenciados por caminho relativo (clarificação de
+`axon-scouting`, em `corpus/corpus.yaml`, com os PDFs ao lado, referenciados por caminho relativo (clarificação de
 2026-10-08). Decisões em
 [research.md](../research.md) R3 e R4; tipos em [data-model.md](../data-model.md).
 

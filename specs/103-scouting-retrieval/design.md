@@ -5,7 +5,7 @@
 ## Localização
 
 ```text
-ai-scouting/src/ai_scouting/rag/retrieval/
+axon-scouting/src/axon_scouting/rag/retrieval/
 ├── domain/          # montagem de IndexFilters, boost por metadado (vigência, tipo, especificidade) — puro
 ├── retriever.py     # implementa Retriever (contrato 001) sobre ChunkIndex (api.py de rag/index, 102)
 ├── reranker.py      # v1: fusão + boost (puro); implementa Reranker (contrato 001)

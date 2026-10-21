@@ -7,9 +7,9 @@ ASCII minúsculo com `_`.
 
 | Campo | Valor | Origem |
 |---|---|---|
-| Distribuição | `ai-scouting` 0.1.0; 0.2.0 a partir da Fase 5 | R4, R20 |
-| Pacote | `ai_scouting` | design.md |
-| Entry point | `scouting = "ai_scouting.pack:ScoutingPack"` em `ai_core.packs` | FR-002 |
+| Distribuição | `axon-scouting` 0.1.0; 0.2.0 a partir da Fase 5 | R4, R20 |
+| Pacote | `axon_scouting` | design.md |
+| Entry point | `scouting = "axon_scouting.pack:ScoutingPack"` em `axon.packs` | FR-002 |
 | `ScoutingPack.name` | `"scouting"` | FR-002 |
 | `ScoutingPack.contract_version` | `"0.1"` | R2 (faixa `>=0.1,<0.2`) |
 
@@ -114,7 +114,7 @@ Nenhum. A derivação é função de (pergunta, dia de referência, léxico); a 
 | `embedding_dir` | string não vazia | — | obrigatório com `e5`; com `model.onnx` e `tokenizer.json` dentro |
 | `default_limit`, `max_limit` | inteiro ≥ 1 | 5, 30 | `1 ≤ default_limit ≤ max_limit` (`RetrievalConfig` da 103) |
 
-Fora do esquema: a chave do Qdrant, só em `AI_SCOUTING_QDRANT_API_KEY` (FR-012). `additionalProperties: false`.
+Fora do esquema: a chave do Qdrant, só em `AXON_SCOUTING_QDRANT_API_KEY` (FR-012). `additionalProperties: false`.
 
 ## Capacidades publicadas (US5, FR-010)
 

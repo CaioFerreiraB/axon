@@ -11,7 +11,7 @@
 ## Module Boundary *(mandatory)*
 
 - **Módulo**: Scouting GraphRAG — retriever que combina grafo de conhecimento e busca vetorial, atrás do mesmo contrato de retriever.
-- **Repositório / distribuição**: `ai-scouting` → `src/ai_scouting/rag/graph/`.
+- **Repositório / distribuição**: `axon-scouting` → `src/axon_scouting/rag/graph/`.
 - **Consome (seams)**: contrato `Retriever` e `Chunk` — 001; Índice do scouting (modelo + porta `ChunkIndex`) — 102 (proveniência e trechos de suporte); pode compor o retriever de 103.
 - **Expõe (seams)**: um `Retriever` alternativo — consumido por 101 por configuração.
 - **Depende de infraestrutura (via portas)**: armazenamento do grafo de conhecimento; extração assistida por modelo, apenas offline.
@@ -73,7 +73,7 @@ Cada relação guarda de onde veio. Relações presentes na fonte são distingui
 
 ### Measurable Outcomes
 
-- **SC-001**: Trocar o retriever do pack para GraphRAG exige só configuração no `ai-scouting`; 0 mudanças no core.
+- **SC-001**: Trocar o retriever do pack para GraphRAG exige só configuração no `axon-scouting`; 0 mudanças no core.
 - **SC-002**: 100% das relações têm proveniência e tipo de origem.
 
 ## Assumptions

@@ -11,7 +11,7 @@
 ## Module Boundary *(mandatory)*
 
 - **Módulo**: Scouting Citations — validators determinísticos que garantem que toda citação existe no contexto da geração e que fontes não vigentes são sinalizadas.
-- **Repositório / distribuição**: `ai-scouting` → `src/ai_scouting/validators/`.
+- **Repositório / distribuição**: `axon-scouting` → `src/axon_scouting/validators/`.
 - **Consome (seams)**: `AnswerValidator`, `ValidationResult` e Turn View — 001 (em especial o conjunto de chunks entregues à geração); modelo de chunk indexado (valores de status de vigência) — 102.
 - **Expõe (seams)**: validators `citation_integrity` e `validity_notice` — consumidos pelo pack (101) e executados pelo core.
 - **Depende de infraestrutura (via portas)**: nenhuma — validators são funções puras sobre a Turn View.

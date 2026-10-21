@@ -28,7 +28,7 @@ Os campos da 009 (`id`, `question`, `reference_time`, `expected_documents`, `ref
 | `effective_from`, `effective_until` | texto ISO entre aspas (`"2022-01-01"`) | igualdade com o início / fim da vigência derivada, em ISO |
 | `include_superseded`, `previous_version` | bool | igualdade |
 
-## Métricas de domínio (`ai_scouting/eval/metrics.py`, R2)
+## Métricas de domínio (`axon_scouting/eval/metrics.py`, R2)
 
 | Classe | `name` | `better` | `deterministic` | `measure(item, observation)` |
 |---|---|---|---|---|
@@ -40,7 +40,7 @@ Item histórico = `extra.context` com `include_superseded` ou `previous_version`
 `effective_from` e `effective_until` (US1 cen. 2). Pergunta que a derivação da 101 lê como histórica também precisa
 declarar o marcador e as datas.
 
-## Arquivos de avaliação (`ai-scouting/eval/`, R6)
+## Arquivos de avaliação (`axon-scouting/eval/`, R6)
 
 | Arquivo | Conteúdo |
 |---|---|

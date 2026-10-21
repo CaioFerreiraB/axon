@@ -1,6 +1,6 @@
 # Contrato — `retrieval_filters` do pack `scouting` (101 → 103)
 
-Interno ao repositório `ai-scouting`: produzido pela derivação de contexto (101) em `prepare_context`, consumido pelo
+Interno ao repositório `axon-scouting`: produzido pela derivação de contexto (101) em `prepare_context`, consumido pelo
 retriever da 103 (Fase 5), que o recebe do core pelo campo `filters` do contrato `Retriever` (001 — só da fatia do
 próprio pack, nunca do modelo). Decisões em [research.md](../research.md) R8 e R12.
 

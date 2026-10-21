@@ -1,6 +1,6 @@
 # Quickstart — 102 Corpus Ingestion (Fase 5)
 
-Roteiro de verificação. Tudo roda dentro de `ai-scouting/` (submódulo); nesta máquina, com
+Roteiro de verificação. Tudo roda dentro de `axon-scouting/` (submódulo); nesta máquina, com
 `XDG_DATA_HOME=$HOME/.local/share`. Contratos: [chunk-index](contracts/chunk-index.md),
 [corpus-catalog](contracts/corpus-catalog.md), [ingestion-cli](contracts/ingestion-cli.md).
 
@@ -28,9 +28,9 @@ exigem servidor Qdrant ou o modelo e5 aparecem como pulados.
 ## 2. Conformidade contra o servidor Qdrant
 
 ```bash
-docker run -d --rm --name ai-scouting-qd -p 56333:6333 qdrant/qdrant:v1.19.2
-AI_SCOUTING_TEST_QDRANT_URL=http://localhost:56333 uv run pytest tests/rag/index
-docker stop ai-scouting-qd
+docker run -d --rm --name axon-scouting-qd -p 56333:6333 qdrant/qdrant:v1.19.2
+AXON_SCOUTING_TEST_QDRANT_URL=http://localhost:56333 uv run pytest tests/rag/index
+docker stop axon-scouting-qd
 ```
 
 Esperado: os mesmos casos de conformidade, agora contra o servidor (é o que o job `qdrant` da CI roda).
@@ -38,8 +38,8 @@ Esperado: os mesmos casos de conformidade, agora contra o servidor (é o que o j
 ## 3. Modelo e5 de verdade
 
 ```bash
-uv run ai-scouting-corpus model fetch ~/.cache/ai-scouting/e5-small
-AI_SCOUTING_EMBEDDING_DIR=~/.cache/ai-scouting/e5-small uv run pytest tests/rag/index -k e5
+uv run axon-scouting-corpus model fetch ~/.cache/axon-scouting/e5-small
+AXON_SCOUTING_EMBEDDING_DIR=~/.cache/axon-scouting/e5-small uv run pytest tests/rag/index -k e5
 ```
 
 Esperado: `model fetch` baixa ~490 MB e confere os sha256 da revisão fixada (rodar de novo não baixa); a suíte do
@@ -49,13 +49,13 @@ mais perto dele do que de um trecho de outro tema (sanidade, não calibração).
 ## 4. Ingestão ponta a ponta com um corpus sintético
 
 ```bash
-docker run -d --rm --name ai-scouting-qd -p 56333:6333 qdrant/qdrant:v1.19.2
-export AI_SCOUTING_QDRANT_URL=http://localhost:56333 AI_SCOUTING_EMBEDDING_DIR=~/.cache/ai-scouting/e5-small
+docker run -d --rm --name axon-scouting-qd -p 56333:6333 qdrant/qdrant:v1.19.2
+export AXON_SCOUTING_QDRANT_URL=http://localhost:56333 AXON_SCOUTING_EMBEDDING_DIR=~/.cache/axon-scouting/e5-small
 uv run python tests/fixtures/make_corpus.py /tmp/corpus-demo      # PDFs sintéticos + corpus.yaml (manual 2023/2026, norma, rascunho)
-uv run ai-scouting-corpus ingest /tmp/corpus-demo/corpus.yaml       # código 0; build publicado
-uv run ai-scouting-corpus ingest /tmp/corpus-demo/corpus.yaml       # tudo "reaproveitado"; mesmos ids (SC-002)
-uv run ai-scouting-corpus status                                    # 1 vigente por linhagem (SC-003)
-uv run ai-scouting-corpus original 'norma-teste-1#art42@p3'         # texto original da página (FR-009)
+uv run axon-scouting-corpus ingest /tmp/corpus-demo/corpus.yaml       # código 0; build publicado
+uv run axon-scouting-corpus ingest /tmp/corpus-demo/corpus.yaml       # tudo "reaproveitado"; mesmos ids (SC-002)
+uv run axon-scouting-corpus status                                    # 1 vigente por linhagem (SC-003)
+uv run axon-scouting-corpus original 'norma-teste-1#art42@p3'         # texto original da página (FR-009)
 ```
 
 Depois, quebre o catálogo de propósito — tire o `title` de uma entrada e declare uma segunda versão vigente — e rode
@@ -67,9 +67,9 @@ Depois, quebre o catálogo de propósito — tire o `title` de uma entrada e dec
 2. Escrever o `corpus.yaml` de rascunho com versões e datas tiradas dos próprios documentos e o `source_url` de cada
    arquivo ([formato](contracts/corpus-catalog.md)).
 3. **O curador revisa o catálogo.**
-4. `uv run ai-scouting-corpus ingest corpus/corpus.yaml` contra o Qdrant local.
+4. `uv run axon-scouting-corpus ingest corpus/corpus.yaml` contra o Qdrant local.
 
-Desde 2026-10-08 o resultado mora no repositório do `ai-scouting`, em `corpus/` (catálogo e PDFs, git normal).
+Desde 2026-10-08 o resultado mora no repositório do `axon-scouting`, em `corpus/` (catálogo e PDFs, git normal).
 
 Esperado: nenhuma rejeição; o relatório mostra unidades normativas reconhecidas no POR, no estatuto e na resolução
 (nenhum aviso de "normativo sem unidade"); `status` com uma vigente por linhagem; amostra de chunks normativos com o
@@ -80,7 +80,7 @@ corpus real.
 ### Ensaio de 2026-10-08 (antes da revisão do curador)
 
 Catálogo de rascunho em `~/corpus-ueb/corpus.yaml` (POR 2025 v2.1, Estatuto 2024, Resolução CAN 08/2021, "Escotistas
-em Ação — Ramo Lobinho" 2ª ed.), ingerido num índice de ensaio (`AI_SCOUTING_INDEX=ueb-ensaio`), máquina de
+em Ação — Ramo Lobinho" 2ª ed.), ingerido num índice de ensaio (`AXON_SCOUTING_INDEX=ueb-ensaio`), máquina de
 desenvolvimento x86 com o e5 em CPU — **não** é o hardware alvo.
 
 | Medida | Resultado |

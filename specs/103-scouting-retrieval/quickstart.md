@@ -1,6 +1,6 @@
 # Quickstart — 103 Scouting Retrieval (Fase 5)
 
-Roteiro de verificação dentro de `ai-scouting/`, com `XDG_DATA_HOME=$HOME/.local/share`. Contrato:
+Roteiro de verificação dentro de `axon-scouting/`, com `XDG_DATA_HOME=$HOME/.local/share`. Contrato:
 [retrieval.md](contracts/retrieval.md).
 
 ## 1. Suíte padrão
@@ -20,7 +20,7 @@ Pré-requisito: o índice `scouting` ingerido a partir de `corpus/corpus.yaml` (
 (cen. 2) é verificada.
 
 ```bash
-export AI_SCOUTING_QDRANT_URL=http://localhost:56333 AI_SCOUTING_EMBEDDING_DIR=~/.cache/ai-scouting/e5-small
+export AXON_SCOUTING_QDRANT_URL=http://localhost:56333 AXON_SCOUTING_EMBEDDING_DIR=~/.cache/axon-scouting/e5-small
 uv run python tests/rag/retrieval/sanity.py
 ```
 

@@ -44,7 +44,7 @@ flowchart TB
     RUNTIME --> HOOKS["Pack Hooks<br/>(002)"]
     HOOKS --> PACKS[Packs habilitados]
     PACKS --> P1["axon-generic (010)"]
-    PACKS --> P2["ai-scouting (1xx)"]
+    PACKS --> P2["axon-scouting (1xx)"]
 
     RUNTIME --> GW["Capability Gateway<br/>(004)"]
     GW --> MCPC["Cliente MCP (007)"]
@@ -158,8 +158,8 @@ flowchart TD
         CON -.HTTP.-> CORE
     end
 
-    subgraph RSCT["repositório ai-scouting · specs 1xx"]
-        SCT[ai-scouting]
+    subgraph RSCT["repositório axon-scouting · specs 1xx"]
+        SCT[axon-scouting]
     end
 
     C -->|faixa semver| SCT
@@ -175,7 +175,7 @@ A seta que **não** existe: de qualquer pack para `axon-ai` — `axon-generic` i
 | Bloco | Repositório | Conteúdo |
 |---|---|---|
 | `0xx` | `axon-ai` (uv workspace) | contratos, runtime, API, pack genérico, deploy |
-| `1xx` | `ai-scouting` | pack de domínio escoteiro |
+| `1xx` | `axon-scouting` | pack de domínio escoteiro |
 | `2xx`+ | um repositório por pack | packs futuros (ex.: `financial`) |
 
 Ao criar spec nova, use o próximo número livre **dentro do bloco** (ver [CLAUDE.md](../CLAUDE.md)).
@@ -197,12 +197,12 @@ Ao criar spec nova, use o próximo número livre **dentro do bloco** (ver [CLAUD
 | [011](011-core-bootstrap/spec.md) | Bootstrap e composition root: configuração, perfis de adapters, ordem de boot, CLI, health | `axon_ai/bootstrap` | 1, 2, 3, 7, 9 | Fases 1 e 2 implementadas (US1–US5: perfis `memory`, `persistent` e `test`, autenticação real, CLI `axon`, saúde agregada); Fase 3: registry MCP e gateway de tools nos três perfis, `agentic`, `axon audit`, saúde por servidor MCP, trocas de porta; Fase 7: `AXON_MAX_EXECUTIONS`, `AXON_QUEUE_SIZE` e `AXON_QUEUE_WAIT_MS` (admissão da 008); Fase 9 especificada (US6: identidade, administração, destinos do trace, chave mestra); Fase 9 implementada (US6): a identidade ligada (etapa `identity`, portas `identity_*`, CLI `users`/`groups`/`identity keys rotate`), as sobreposições da 003, o uso, os preços e o Langfuse da 009 nos três perfis (`AXON_LANGFUSE_*`, `AXON_USAGE_*`), a origem `evaluation` no `eval run`, os itens `trace:*` e os modelos efetivos na saúde e a superfície `/admin/v1`; Fase 9, incremento 9.5: US7 implementada (distribuição `axon-ai` 0.7.0rc1, workspace `axon-ai/`, import `axon_ai`, comando `axon` com `--version`, prefixo `AXON_` com recusa de `AI_CORE_*`, nome padrão "Axon" — [ADR-037](../docs/adr/ADR-037-a-plataforma-se-chama-axon.md), [ADR-038](../docs/adr/ADR-038-marca-da-plataforma-e-marca-da-instalacao.md)) |
 | [012](012-core-identity/spec.md) | Provedor de identidade: contas, senha, login Google, grupos, emissão de tokens OIDC | `axon_ai/identity` | 9 | Fase 9 implementada no módulo (US1–US7): protocolo OIDC, páginas, Google, contas e grupos, bloqueio, chaves em rotação, Postgres no schema `identity`; o encaixe vem nas passadas da 003, 008, 011 e 002 ([ADR-030](../docs/adr/ADR-030-a-plataforma-e-o-provedor-de-identidade.md)); Fase 9, incremento 9.5: US8 identidade Axon (lockup ou "com Axon", favicon, tokens da marca, cookie `axon_session`, rótulos `axon-ai/identity/…`, ADR-037, ADR-038) |
 | [013](013-core-admin-console/spec.md) | Console de administração (SPA) | `axon-ai/console/` | 9 | Fase 9 implementada (US1–US7, [ADR-029](../docs/adr/ADR-029-console-de-administracao-propria.md)): React 19 + TypeScript, login pela 012 com PKCE e tokens só em memória, uso e custo, preços, Assistants (modelos, MCP, histórico), servidores MCP, observabilidade e acesso, temas claro e escuro; Vitest + MSW e e2e com Playwright e axe contra a plataforma em memória; nginx da instalação em `deploy/`; CI em `.github/workflows/console.yml`; Fase 9, incremento 9.5: US8 identidade Axon (símbolo e wordmark ou a marca da instalação com "com Axon", favicon, título, tokens da marca, hover escuro do ADR-039, `@axon/console`) |
-| [101](101-scouting-pack/spec.md) | Pack scouting: composição, contexto determinístico, prompts | `ai_scouting/pack.py`, `context/`, `prompts/` | 4, 5 | Fases 4 e 5 implementadas (US1–US5) no submódulo `ai-scouting` (ADR-021): pack com `rag_first`, coleção `scouting`, `config_schema` e a recuperação da 103 e os validators da 104 publicados; 0.3.0 com as métricas da 105 |
-| [102](102-scouting-corpus-ingestion/spec.md) | Ingestão, chunking estrutural, modelo de vigência, índice | `ai_scouting/rag/ingestion/`, `rag/index/` | 5 | Fase 5 implementada (US1–US5): seam `ChunkIndex` com Qdrant (build atrás de alias) e memória, e5-small em ONNX, BM25, CLI `ai-scouting-corpus`; corpus inicial em `ai-scouting/corpus/` |
-| [103](103-scouting-retrieval/spec.md) | Retrieval híbrido e rerank | `ai_scouting/rag/retrieval/` | 5 | Fase 5 implementada (US1–US5): `ScoutingRetriever` (score = similaridade densa, ADR-025), `MetadataReranker` (desempate sem pesos), tool `search_docs`; publicados pelo pack (US5 da 101) |
-| [104](104-scouting-citations/spec.md) | Citações, proveniência e aviso de vigência | `ai_scouting/validators/` | 4–5 | Implementada: `citation_integrity` e `validity_notice`, publicados pelo pack na Fase 5 (US5 da 101) |
-| [105](105-scouting-evaluation/spec.md) | Conjunto dourado e calibração do domínio | `ai_scouting/eval/` | 6 | Fase 6, infraestrutura implementada (US1, US2 sobre a semente provisória) no `ai-scouting` 0.3.0: métricas `context_accuracy`, `current_document_rate` e `validity_notice_rate` pelo hook `eval_metrics` (ADR-027), `eval/` com a semente, a configuração e a linha de base, workflow `eval`; US3–US5 (calibração, embedding, modelo local) depois da curadoria |
-| [106](106-scouting-graphrag/spec.md) | GraphRAG (futuro) | `ai_scouting/rag/graph/` | 8 | Draft (futuro) |
+| [101](101-scouting-pack/spec.md) | Pack scouting: composição, contexto determinístico, prompts | `axon_scouting/pack.py`, `context/`, `prompts/` | 4, 5, 9 | Fases 4 e 5 implementadas (US1–US5) no submódulo `axon-scouting` (ADR-021): pack com `rag_first`, coleção `scouting`, `config_schema` e a recuperação da 103 e os validators da 104 publicados; 0.3.0 com as métricas da 105; Fase 9, incremento 9.5: US6 identidade Axon (`axon-scouting` 0.4.0, import `axon_scouting`, `axon-scouting-corpus`, `AXON_SCOUTING_*` com recusa de `AI_SCOUTING_*`, contratos 0.2 e core pela `v0.7.0-rc1`, ADR-037) |
+| [102](102-scouting-corpus-ingestion/spec.md) | Ingestão, chunking estrutural, modelo de vigência, índice | `axon_scouting/rag/ingestion/`, `rag/index/` | 5 | Fase 5 implementada (US1–US5): seam `ChunkIndex` com Qdrant (build atrás de alias) e memória, e5-small em ONNX, BM25, CLI `axon-scouting-corpus`; corpus inicial em `axon-scouting/corpus/` |
+| [103](103-scouting-retrieval/spec.md) | Retrieval híbrido e rerank | `axon_scouting/rag/retrieval/` | 5 | Fase 5 implementada (US1–US5): `ScoutingRetriever` (score = similaridade densa, ADR-025), `MetadataReranker` (desempate sem pesos), tool `search_docs`; publicados pelo pack (US5 da 101) |
+| [104](104-scouting-citations/spec.md) | Citações, proveniência e aviso de vigência | `axon_scouting/validators/` | 4–5 | Implementada: `citation_integrity` e `validity_notice`, publicados pelo pack na Fase 5 (US5 da 101) |
+| [105](105-scouting-evaluation/spec.md) | Conjunto dourado e calibração do domínio | `axon_scouting/eval/` | 6 | Fase 6, infraestrutura implementada (US1, US2 sobre a semente provisória) no `axon-scouting` 0.3.0: métricas `context_accuracy`, `current_document_rate` e `validity_notice_rate` pelo hook `eval_metrics` (ADR-027), `eval/` com a semente, a configuração e a linha de base, workflow `eval`; US3–US5 (calibração, embedding, modelo local) depois da curadoria |
+| [106](106-scouting-graphrag/spec.md) | GraphRAG (futuro) | `axon_scouting/rag/graph/` | 8 | Draft (futuro) |
 
 ## Seams
 
@@ -234,7 +234,7 @@ secundárias (armazenamento, relógio, segredos…) não são seams: são intern
 | **Trace** + **Eval Harness** (formato de conjunto dourado e formato de relatório) | 009 | 008 (id de requisição), 105, CI | Consulta de trace por requisição; execução de conjuntos dourados, com data de referência por item, métricas lidas do trace e linha de base (`axon eval run|compare`, Fase 6) |
 | **Usage Report** + **Price Book** + **Trace Destinations** | 009 | 008 | Uso por dia, modelo e Assistant com custo calculado na consulta — o informado pelo provider vence a tabela ([ADR-035](../docs/adr/ADR-035-custo-informado-pelo-provider-e-providers-prontos.md)); tabela de preços com vigência; destinos do trace (Langfuse, captura de conteúdo) e de onde vem cada ajuste (Fase 9, [ADR-034](../docs/adr/ADR-034-trace-com-destinos-e-conteudo-opcional.md)) |
 | **API HTTP** | 008 | clientes externos (Open WebUI, console 013) | Superfícies `/v1`, `/private/v1` e `/admin/v1` ([ADR-031](../docs/adr/ADR-031-superficie-de-administracao.md)) |
-| **Índice do scouting** (modelo de chunk indexado + porta `ChunkIndex`) | 102 | 103, 106; 104 (só o modelo) | Contrato interno do `ai-scouting`; o schema do Qdrant é detalhe do adapter |
+| **Índice do scouting** (modelo de chunk indexado + porta `ChunkIndex`) | 102 | 103, 106; 104 (só o modelo) | Contrato interno do `axon-scouting`; o schema do Qdrant é detalhe do adapter |
 
 A **composition root (011)** não expõe seam: ela consome o `api.py`, o `service.py` e os `adapters/` de todos os módulos
 do core para construí-los e injetá-los, e oferece os pontos de entrada do processo (`axon serve`, CLI).
@@ -258,7 +258,7 @@ flowchart LR
         C012[012 identidade]
         C013[013 console]
     end
-    subgraph SCT["ai-scouting (1xx)"]
+    subgraph SCT["axon-scouting (1xx)"]
         S101[101 pack]
         S102[102 ingestão]
         S103[103 retrieval]
@@ -340,7 +340,7 @@ só pelo seam *Execution Engine* e pelos nomes de flow.
 
 Só a [005](005-core-execution-engine/spec.md) muda. O que precisa continuar verdadeiro: a assinatura do seam *Execution Engine* (entrada = Execution Grant + requisição; saída = fluxo de eventos) e o uso exclusivo dos seams de 002, 004, 006 e 009. Nomes de nós, forma do estado e até o framework de grafo são livres (ADR-011). Na prática, reescrever o grafo é trocar `axon_ai/graph/adapters/langgraph/`; `api.py`, `domain/` (portão, limites, ação, orçamento) e seus testes permanecem (ADR-012). Se os **nomes de flow** mudarem, `axon assistants validate` aponta as referências pendentes em assistants e em `preferred_flow` de packs — é dado, não código.
 
-### Caso: reescrever o `ai-scouting`
+### Caso: reescrever o `axon-scouting`
 
 Só as specs `1xx` mudam. O core só enxerga o pack pelo contrato 001 e pelo nome de flow preferido. É possível trocar uma parte isolada — por exemplo, o retrieval (103) por GraphRAG (106) — sem tocar em 101, 104 ou 102, porque o retriever é consumido pelo contrato `Retriever` e a citação depende apenas dos `chunk_id` entregues à geração. Trocar a base de vetores ou o modelo de embedding é trocar um adapter do índice (102), sem mexer em 103.
 

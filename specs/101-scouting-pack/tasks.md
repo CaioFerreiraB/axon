@@ -478,3 +478,77 @@ Task: "tests/integration/test_platform.py (T012)"
   import-linter
 - Nenhuma tarefa cria porta secundária: a 101 não faz I/O (plano, gate de portas)
 - Hooks assíncronos são testados com `asyncio.run`, sem `pytest-asyncio`
+
+---
+
+## Passada de 2026-10-20: identidade Axon — US6 ([ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md); research R25–R31)
+
+**Goal**: `axon-scouting` 0.4.0 (`axon_scouting`, `axon-scouting-corpus`, grupo `axon.packs`, contratos 0.2 e core pela
+`v0.7.0-rc1`), recusa de `AI_SCOUTING_*`, integração, CI e avaliação com os nomes novos, specs 101–106 nos nomes.
+
+**Independent Test**: [quickstart.md, "Fase 9, incremento 9.5"](quickstart.md).
+
+### Setup (no repositório `axon-scouting`, submódulo `ai-scouting/`)
+
+- [X] T063 [US6] Linha de base: `git grep -cw agentic` no submódulo e nas specs 101–106; `git mv src/ai_scouting
+  src/axon_scouting` (R25)
+- [X] T064 [US6] Aplicar `rename101.py` (scratchpad, R27) à lista de arquivos de texto versionados do submódulo (menos
+  `uv.lock`) e aos documentos vivos de `specs/101-*` a `specs/106-*` (`spec.md`, `design.md`, `data-model.md`,
+  `quickstart.md`, `contracts/**`) — nunca `research.md`, `plan.md`, `tasks.md`, `checklists/`; protegendo
+  `AGENTIC_APP_DEPLOY_KEY`, os nomes de submódulo da CI e a palavra `agentic`
+- [X] T065 [US6] À mão (R25): `pyproject.toml` (`version = "0.4.0"`, `description`, `axon-ai-contracts>=0.2,<0.3`, fontes
+  `ssh://git@github.com/CaioFerreiraB/axon.git` tag `v0.7.0-rc1` com `axon-ai/packages/{contracts,core}`, grupo
+  `platform` com `axon-ai`); `src/axon_scouting/pack.py` (`VERSION = "0.4.0"`, `contract_version = "0.2"`); `uv lock`
+
+### Tests (antes da T068)
+
+- [X] T066 [P] [US6] `tests/test_legacy_environment.py` (R30): `legacy_environment` sem antigas → `None`; com
+  `AI_SCOUTING_INDEX`, `AI_SCOUTING_FOO` e `AI_SCOUTING_QDRANT_URL=""` → uma linha por variável em ordem, sem valor; com
+  `MY_AI_SCOUTING_X` e `AI_SCOUTINGX` → `None`; antiga e nova juntas → recusa; `ScoutingPack().retrievers(...)` com
+  `AI_SCOUTING_INDEX` no ambiente → `ValueError` citando `AXON_SCOUTING_INDEX`; `corpus_cli()` com `status` e a variável
+  antiga → `SystemExit(2)` e a mensagem; `find_spec("ai_scouting") is None`
+- [X] T067 [P] [US6] `tests/test_pack.py`: versão `0.4.0` igual à de `version("axon-scouting")` e `contract_version == "0.2"`;
+  `tests/integration/*.py`: a limpeza do ambiente com `("AXON_", "AI_CORE_", "AI_SCOUTING_")` (R28). Rodar T066 e ver falhar
+
+### Implementation
+
+- [X] T068 [US6] `src/axon_scouting/pack.py` (R26): `LEGACY_PREFIX`, `PREFIX`, `legacy_environment`, a chamada no início de
+  `retrievers()` e de `corpus_cli()`; `API_KEY_VARIABLE = "AXON_SCOUTING_QDRANT_API_KEY"` e as demais variáveis (vêm da
+  T064); docstrings
+
+### Integration e verificação
+
+- [X] T069 [US6] CI e avaliação (R28): conferir `.github/workflows/ci.yml` (`AXON_SCOUTING_TEST_QDRANT_URL`, comentários com
+  `axon`) e `eval.yml` (`AXON_SCOUTING_*`, `AXON_PROFILE`, `AXON_PACKS_FILE`, `AXON_ASSISTANTS_FILE`, `axon eval run`,
+  `axon-scouting-corpus`, filtros `src/axon_scouting/**`)
+- [X] T070 [US6] Suítes (R31): `uv sync && uv run pytest && uv run mypy && uv run ruff check && uv run ruff format --check &&
+  uv run lint-imports`; ambiente limpo em 3.12 (`uv pip install . pytest fpdf2`; `pytest tests --ignore=tests/integration`);
+  `uv run --python 3.14 --group platform pytest tests/integration`; `tests/rag/index` contra um Qdrant local com
+  `AXON_SCOUTING_TEST_QDRANT_URL`
+- [X] T071 [US6] Quickstart da US6 à mão (CLI com a variável nova e com a antiga) e resíduos (SC-005): `git grep -nE
+  'ai_scouting|ai-scouting|AI_SCOUTING_|ai_core|ai-core|AI_CORE_'` fora do histórico só na recusa e nos testes dela; nenhuma
+  palavra `agentic` removida (`--word-diff`)
+- [X] T072 [US6] Commit no `axon-scouting`; no `axon`, o ponteiro do submódulo e os documentos (specs 101–106,
+  `specs/README.md` com a US6 da 101, `docs/roadmap.md`) num commit — os pushes só com o aval do mantenedor
+
+### Dependencies (US6)
+
+T063 → T064 → T065 → T066 ∥ T067 (veem falhar) → T068 → T069 → T070 → T071 → T072.
+
+### Notas da execução (US6)
+
+- Linha de base (T063): `agentic` no pack 26, nas specs 1xx 83; nenhuma ocorrência do flow `agentic` removida ao fim
+  (`--word-diff`, só o nome do repositório e da instalação).
+- A regra `ai_core → axon_ai` não vale para a extensão da resposta, que a 008 chama de `x_axon`: o `test_rag.py` saiu
+  da substituição com `x_axon_ai` e foi corrigido; o caminho do comando no `test_eval.py` também (`axon`, não `axon-ai`).
+- O link para o arquivo do ADR-021 no `design.md` foi preservado (o nome do arquivo de um ADR aceito não muda).
+- `contracts/packaging.md` ganhou a seção "Fase 9 (2026-10-20)" com o estado atual; as seções das fases anteriores
+  descrevem o que valia então. Os submódulos da tag `v0.7.0-rc1` ainda se chamam `ai-scouting` e `agentic-deploy`, então
+  o `update = none` da CI segue com esses nomes até a tag seguinte ao fechamento.
+- Suítes (T070): padrão 570 passed, 8 skipped; mypy, ruff check, ruff format e lint-imports (10 kept) limpos; ambiente
+  limpo em 3.12 com `axon-ai-contracts` 0.2.0: 570 passed, 5 skipped; plataforma (3.14, `v0.7.0-rc1`): 9 passed; índice
+  contra Qdrant v1.19.2 local: 130 passed, 4 skipped, e os 4 do e5 com o modelo em cache: 4 passed.
+- CLI à mão (T071): `AXON_SCOUTING_INDEX=teste … status` → "índice teste: nenhum build publicado", 0; com
+  `AI_SCOUTING_INDEX` e `AI_SCOUTING_QDRANT_API_KEY` → as duas linhas de recusa, sem o valor, 2.
+- Fora do repositório, a mudar à mão: `~/.config/ai-core/` (o quickstart passou a `~/.config/axon/`, com variáveis
+  `AXON_*`) e `~/.cache/ai-scouting/e5-small` (`~/.cache/axon-scouting/e5-small`).

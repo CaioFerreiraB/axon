@@ -1,7 +1,7 @@
 # Quickstart — 105 Scouting Evaluation, Fase 6 (infraestrutura e semente)
 
 Roteiro de validação. Contratos em [contracts/](contracts/); decisões em [research.md](research.md). Tudo dentro de
-`ai-scouting/`, com `XDG_DATA_HOME=$HOME/.local/share` nesta máquina.
+`axon-scouting/`, com `XDG_DATA_HOME=$HOME/.local/share` nesta máquina.
 
 ## 1. Suíte padrão (só os contratos)
 
@@ -19,7 +19,7 @@ métricas; `lint-imports` mantém o `eval` entre `pack` e os demais.
 uv run --python 3.14 --group platform pytest tests/integration
 ```
 
-Esperado: `ai-core eval run` (em subprocesso) roda a semente sem item inválido; uma rodada, com o Qdrant embutido e o
+Esperado: `axon eval run` (em subprocesso) roda a semente sem item inválido; uma rodada, com o Qdrant embutido e o
 embedder de teste, traz `scouting:context_accuracy`, `scouting:current_document_rate` e `scouting:validity_notice_rate` no
 relatório.
 
@@ -27,11 +27,11 @@ relatório.
 
 ```bash
 docker run -d --rm --name eval-qdrant -p 6333:6333 qdrant/qdrant:v1.19.2
-uv run ai-scouting-corpus model fetch .cache/e5
-AI_SCOUTING_QDRANT_URL=http://localhost:6333 AI_SCOUTING_EMBEDDING_DIR=.cache/e5 \
-  uv run ai-scouting-corpus ingest corpus/corpus.yaml
-AI_CORE_PROFILE=test AI_CORE_PACKS_FILE=eval/packs.yaml AI_CORE_ASSISTANTS_FILE=eval/assistants.yaml \
-  uv run --python 3.14 --group platform ai-core eval run \
+uv run axon-scouting-corpus model fetch .cache/e5
+AXON_SCOUTING_QDRANT_URL=http://localhost:6333 AXON_SCOUTING_EMBEDDING_DIR=.cache/e5 \
+  uv run axon-scouting-corpus ingest corpus/corpus.yaml
+AXON_PROFILE=test AXON_PACKS_FILE=eval/packs.yaml AXON_ASSISTANTS_FILE=eval/assistants.yaml \
+  uv run --python 3.14 --group platform axon eval run \
     --golden eval/golden.yaml --baseline eval/baseline.json --report .cache/report.json
 echo $?   # 0
 ```
@@ -69,8 +69,8 @@ Mesmo comando do passo 3 com `--update-baseline`; com regressão, só com `--for
 ## 5. Rodada manual com modelo real (fora da CI)
 
 ```bash
-AI_CORE_PROFILE=memory AI_CORE_PACKS_FILE=eval/packs.yaml AI_CORE_ASSISTANTS_FILE=eval/assistants.yaml \
-  uv run --python 3.14 --group platform ai-core eval run \
+AXON_PROFILE=memory AXON_PACKS_FILE=eval/packs.yaml AXON_ASSISTANTS_FILE=eval/assistants.yaml \
+  uv run --python 3.14 --group platform axon eval run \
     --golden eval/golden.yaml --judge openrouter/<modelo> --report .cache/real.json --annotate "máquina, RAM"
 ```
 
@@ -80,6 +80,6 @@ conjunto for a semente (FR-001).
 
 ## 6. CI
 
-Num PR que muda `corpus/`, `src/ai_scouting/{rag,prompts,context,eval}/`, `pack.py`, `eval/`, `pyproject.toml` ou
+Num PR que muda `corpus/`, `src/axon_scouting/{rag,prompts,context,eval}/`, `pack.py`, `eval/`, `pyproject.toml` ou
 `uv.lock`, o job `eval` roda o passo 3 com Qdrant de serviço e o e5 do cache; o relatório fica como artefato. Um PR que
 só muda `README.md` não dispara o job.

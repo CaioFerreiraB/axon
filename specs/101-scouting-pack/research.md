@@ -381,3 +381,108 @@ medido na 105.
 **Rationale**: o corpus é todo institucional; uma marca sem valor diferente seria peso morto.
 
 **Alternatives considered**: campo `institutional` já (clarificação 3, B).
+
+---
+
+# Passada de 2026-10-20: identidade Axon ([ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md); US6)
+
+Decisões pré-aprovadas pelo ADR-037 (nomes, corte seco com a recusa de `AI_SCOUTING_*`, versão, tag); o que segue é como
+elas chegam ao pack, sem re-pesquisa. Os R anteriores ficam como foram executados (ADR-037, item 6).
+
+## R25 — Distribuição, pacote, CLI e versão
+
+**Decision**: no repositório `axon-scouting`, `git mv src/ai_scouting src/axon_scouting`; `pyproject.toml` com `name =
+"axon-scouting"`, `version = "0.4.0"`, `description = "Pack de domínio escoteiro da plataforma Axon (specs 1xx em
+axon)."`, `dependencies` com `axon-ai-contracts>=0.2,<0.3`, o script `axon-scouting-corpus`, o entry point
+`[project.entry-points."axon.packs"] scouting = "axon_scouting.pack:ScoutingPack"`, o grupo `platform` com `axon-ai`, e as
+fontes `axon-ai-contracts` e `axon-ai` de `ssh://git@github.com/CaioFerreiraB/axon.git`, tag `v0.7.0-rc1`, subdiretórios
+`axon-ai/packages/contracts` e `axon-ai/packages/core`. `pack.py`: `VERSION = "0.4.0"`, `contract_version = "0.2"`. O
+`uv.lock` é regenerado (`uv lock`).
+
+**Rationale** (ADR-037, itens 2 e 4): o pack segue a regra dos nomes (`ai-` → `axon-`) e sobe a minor por quebra (nome,
+dependência e grupo novos). A série 0.2 dos contratos tem tudo o que a 0.1.2 tinha (métricas de domínio, `eval`), então
+`contract_version` "0.2" basta. Contratos e core da mesma tag (R22): o `uv` não aceita duas fontes para os contratos.
+
+**Alternatives considered**: `contract_version` "0.2.0" (mais estreito sem necessidade); manter a `v0.3.0` (contratos
+0.1, grupo antigo: o core novo não acharia o pack).
+
+## R26 — A recusa de `AI_SCOUTING_*`
+
+**Decision**: em `pack.py`, `LEGACY_PREFIX: Final = "AI_SCOUTING_"`, `PREFIX: Final = "AXON_SCOUTING_"` e a função pura
+`legacy_environment(environ: Mapping[str, str]) -> str | None`, que devolve `None` sem variáveis antigas ou a mensagem
+"variáveis com o nome antigo (ADR-037): renomeie" seguida de uma linha `AI_SCOUTING_X → AXON_SCOUTING_X` por variável, em
+ordem alfabética, sem valor. Uso: no início de `retrievers()` (a carga; `ValueError` com a mensagem, e o pack fica em erro
+pelo Pack Runtime) e no início de `corpus_cli()` (imprime `erro: <mensagem>` na saída de erro e sai com `cli.FAILED`,
+antes de compor qualquer coisa). A regra é o prefixo exato, vazia ou não, conhecida ou não, e vale com a nova definida.
+As variáveis novas são `AXON_SCOUTING_QDRANT_URL`, `AXON_SCOUTING_QDRANT_API_KEY`, `AXON_SCOUTING_INDEX`,
+`AXON_SCOUTING_EMBEDDING_DIR` e, nas suítes, `AXON_SCOUTING_TEST_QDRANT_URL`.
+
+**Rationale** (ADR-037, item 3: "o pack recusa `AI_SCOUTING_*`, com uma mensagem que cita a variável nova"; a mesma
+forma da recusa de `AI_CORE_*` no boot, 011 R48). O hook de recuperação é onde o pack lê o ambiente na carga.
+
+**Alternatives considered**: recusar em `read_config` (é pura sobre o `config` do `packs.yaml`, não lê o ambiente);
+ignorar as antigas (subiria com os defaults em silêncio).
+
+## R27 — A substituição mecânica
+
+**Decision**: um script no scratchpad aplica, no repositório `axon-scouting` (código, testes, configuração, CI, `README`,
+`eval/`, `corpus/`, menos `uv.lock`) e nos documentos vivos das specs 101–106 (`spec.md`, `design.md`, `data-model.md`,
+`quickstart.md`, `contracts/**`), do mais específico ao mais geral: `ai_core_contracts` → `axon_ai_contracts`,
+`ai-core-contracts` → `axon-ai-contracts`, `ai_core.packs` → `axon.packs`, `ai-scouting-corpus` → `axon-scouting-corpus`,
+`ai_scouting` → `axon_scouting`, `ai-scouting` → `axon-scouting`, `AI_SCOUTING_` → `AXON_SCOUTING_`, `ai_generic` →
+`axon_generic`, `ai-generic` → `axon-generic`, o comando `ai-core <subcomando>` → `axon`, `ai_core` → `axon_ai`, `AI_CORE_`
+→ `AXON_`, `ai-core` → `axon-ai`, `CaioFerreiraB/agentic-app` → `CaioFerreiraB/axon`, `agentic-app` → `axon` (repositório
+da plataforma), "Plataforma Agentic AI"/"Agentic AI" → "Axon"; e os cabeçalhos `x-ai-core-*` → `x-axon-*` se aparecerem.
+Protegidos: a palavra `agentic` sozinha (o flow), o nome do segredo `AGENTIC_APP_DEPLOY_KEY` da CI, os testes da recusa
+(R26, R30) e as linhas de limpeza de ambiente das integrações, que passam a limpar os dois prefixos (R28). Fora: `research`,
+`plan`, `tasks`, `checklists` (histórico), os submódulos do repositório da plataforma.
+
+**Rationale** (ADR-037, itens 6 e 7; a lição da 011: lista fechada de arquivos e conferência dos resíduos).
+
+**Alternatives considered**: `sed` global (alcançaria o histórico e o nome do segredo).
+
+## R28 — Integração, CI e avaliação
+
+**Decision**: a integração (`tests/integration/`) importa `axon_ai.bootstrap.*`, define `AXON_PACKS_FILE` e
+`AXON_ASSISTANTS_FILE` e, antes de montar a plataforma, limpa do ambiente tanto `AXON_` quanto `AI_CORE_` e `AI_SCOUTING_`
+(a plataforma e o pack recusam os antigos, então um ambiente de desenvolvimento com eles quebraria a suíte por outro
+motivo); `test_eval.py` chama o comando `axon`. A CI (`ci.yml`) e o `eval.yml` trocam os nomes (`AXON_SCOUTING_*`,
+`AXON_PROFILE`, `axon eval run`, `axon-scouting-corpus`), e os comentários citam o repositório `axon`; o segredo
+`AGENTIC_APP_DEPLOY_KEY` e os nomes dos submódulos (`ai-scouting`, `agentic-deploy`, que são nomes de submódulo do
+`.gitmodules` da plataforma até o fechamento) ficam.
+
+**Rationale** (ADR-037, item 7).
+
+**Alternatives considered**: renomear o segredo (exige recadastrar a chave no GitHub, fora do código).
+
+## R29 — Specs 102–106
+
+**Decision**: só os nomes, pelo script do R27, nos documentos vivos; nenhum FR muda.
+
+**Rationale** (ADR-037, item 7: "Specs 102–106 mudam só nos nomes, dentro da passada da 101").
+
+**Alternatives considered**: nenhuma.
+
+## R30 — Testes
+
+**Decision**: `tests/test_legacy_environment.py`: `legacy_environment` com `{}` e com só `AXON_SCOUTING_*` → `None`; com
+`AI_SCOUTING_INDEX`, `AI_SCOUTING_FOO` (desconhecida) e `AI_SCOUTING_QDRANT_URL=""` → uma linha por variável, em ordem,
+sem valor; com `MY_AI_SCOUTING_X` e `AI_SCOUTINGX` → `None`; com a antiga e a nova juntas → recusa; `retrievers()` com
+`AI_SCOUTING_INDEX` no ambiente levanta `ValueError` com `AXON_SCOUTING_INDEX`; a CLI (`corpus_cli` com `sys.argv` de
+`status`) sai com 2 e a mesma mensagem; `importlib.util.find_spec("ai_scouting") is None`. `test_pack.py` confere a versão
+`0.4.0` igual à de `axon-scouting` e `contract_version` "0.2". A conformidade (`test_conformance.py`) com os contratos 0.2.
+
+**Rationale**: FR-013 a FR-015.
+
+**Alternatives considered**: nenhuma.
+
+## R31 — Verificação e entrega
+
+**Decision**: no `axon-scouting`: `uv run pytest && uv run mypy && uv run ruff check && uv run ruff format --check && uv
+run lint-imports`; a suíte em 3.12 no ambiente limpo; `uv run --python 3.14 --group platform pytest tests/integration`
+(com a tag `v0.7.0-rc1`); a suíte do índice contra um Qdrant local (`AXON_SCOUTING_TEST_QDRANT_URL`); resíduos e a palavra
+`agentic`. Commit no `axon-scouting`; o push dele e o do ponteiro do submódulo no `axon` só com o aval do mantenedor.
+
+**Rationale**: SC-005; regra das ações externas.
+
+**Alternatives considered**: nenhuma.

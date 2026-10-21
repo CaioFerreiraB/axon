@@ -11,7 +11,7 @@
 ## Module Boundary *(mandatory)*
 
 - **Módulo**: Corpus Ingestion — transforma documentos institucionais em chunks indexados com estrutura, metadados e vigência, preservando o texto original.
-- **Repositório / distribuição**: `ai-scouting` → `src/ai_scouting/rag/ingestion/` (pipeline offline, não roda no caminho da requisição) e `src/ai_scouting/rag/index/` (seam do índice e seus adapters).
+- **Repositório / distribuição**: `axon-scouting` → `src/axon_scouting/rag/ingestion/` (pipeline offline, não roda no caminho da requisição) e `src/axon_scouting/rag/index/` (seam do índice e seus adapters).
 - **Consome (seams)**: forma de `Chunk` — 001.
 - **Expõe (seams)**: **Índice do scouting** — modelo de chunk indexado (schema, metadados, modelo de vigência, identificadores estáveis, versão do índice) e porta de consulta `ChunkIndex` (busca híbrida com filtros) — consumido por 103 e 106; o modelo (valores de status de vigência) também por 104.
 - **Depende de infraestrutura (via portas)**: base de vetores, modelo de embedding, armazenamento do texto original.
@@ -31,7 +31,7 @@
 
 ### Session 2026-10-08
 
-- Q: Onde ficam o catálogo e os PDFs do corpus — fora do repositório do pack, como dizem as clarificações 1 e 5? → A: No repositório do `ai-scouting`, em `corpus/`, no git normal (sem LFS): o corpus inicial tem ~33 MB, e o maior arquivo, 24 MB, fica bem abaixo dos 100 MB por arquivo do GitHub. Cada entrada do catálogo traz `source_url`, o link oficial do arquivo, que vai para o registro do documento no índice. Substitui o "fora do repositório do pack" das clarificações 1 e 5.
+- Q: Onde ficam o catálogo e os PDFs do corpus — fora do repositório do pack, como dizem as clarificações 1 e 5? → A: No repositório do `axon-scouting`, em `corpus/`, no git normal (sem LFS): o corpus inicial tem ~33 MB, e o maior arquivo, 24 MB, fica bem abaixo dos 100 MB por arquivo do GitHub. Cada entrada do catálogo traz `source_url`, o link oficial do arquivo, que vai para o registro do documento no índice. Substitui o "fora do repositório do pack" das clarificações 1 e 5.
 
 ## User Scenarios & Testing *(mandatory)*
 

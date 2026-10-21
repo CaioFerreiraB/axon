@@ -1,6 +1,6 @@
 # Contrato — validators `citation_integrity` e `validity_notice` (Fase 4)
 
-Implementam `AnswerValidator` da 001 em `ai_scouting.validators`. **Não publicados** pelo pack na Fase 4 (FR-008): a
+Implementam `AnswerValidator` da 001 em `axon_scouting.validators`. **Não publicados** pelo pack na Fase 4 (FR-008): a
 101 os liga no `pack.py` na Fase 5, nesta ordem — `citation_integrity`, depois `validity_notice`. Regras em
 [data-model.md](../data-model.md); decisões em [research.md](../research.md).
 

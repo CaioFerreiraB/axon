@@ -1,28 +1,28 @@
-# Quickstart — validar o `ai-scouting` (Fase 4: US1, US2, US3)
+# Quickstart — validar o `axon-scouting` (Fase 4: US1, US2, US3)
 
-A partir da raiz do `agentic-app`. Nesta máquina, rode o `uv` com `XDG_DATA_HOME=$HOME/.local/share`. Decisões em
+A partir da raiz do `axon`. Nesta máquina, rode o `uv` com `XDG_DATA_HOME=$HOME/.local/share`. Decisões em
 [research.md](research.md); contratos em [contracts/](contracts/).
 
 ## 0. Pré-requisitos
 
 ```bash
-git submodule update --init ai-scouting          # o pack é o submódulo ai-scouting/ (ADR-021)
-ssh -T git@github.com                             # o uv busca os contratos no agentic-app (privado) por SSH
+git submodule update --init axon-scouting          # o pack é o submódulo axon-scouting/ (ADR-021)
+ssh -T git@github.com                             # o uv busca os contratos no axon (privado) por SSH
 ```
 
-**Esperado**: `ai-scouting/` com o código; o SSH autentica a sua conta.
+**Esperado**: `axon-scouting/` com o código; o SSH autentica a sua conta.
 
 ## 1. A suíte padrão roda só com os contratos
 
 ```bash
-cd ai-scouting
+cd axon-scouting
 uv sync --locked
 uv run pytest -v
 ```
 
 **Esperado**: conformidade, pack, prompt, léxico, derivação, períodos e pureza verdes; `tests/integration` pulado
-("ai_core não instalado"). Nenhum pacote `ai_core` no ambiente (`uv pip list | grep ai-core` mostra só
-`ai-core-contracts`).
+("axon_ai não instalado"). Nenhum pacote `axon_ai` no ambiente (`uv pip list | grep axon-ai` mostra só
+`axon-ai-contracts`).
 
 ## 2. Ambiente limpo em 3.12 (SC-003, Independent Test de distribuição)
 
@@ -41,8 +41,8 @@ uv pip install --python "$tmp/venv/bin/python" . pytest
 uv run pytest tests/test_derivation.py tests/test_periods.py -v
 uv run python -c "
 from datetime import UTC, datetime
-from ai_core_contracts.testing import pack_context, turn_view
-from ai_scouting.pack import ScoutingPack
+from axon_ai_contracts.testing import pack_context, turn_view
+from axon_scouting.pack import ScoutingPack
 import asyncio, json
 view = turn_view(question='Quais competências do Pioneiro estão relacionadas à liderança?',
                  reference_time=datetime(2026, 10, 7, 12, tzinfo=UTC))
@@ -72,19 +72,19 @@ uv run --python 3.14 --group platform pytest tests/integration -v
 
 **Esperado**: o pack carrega pelo entry point, `enabled`, versão `0.1.0`, contrato `0.1`; a plataforma compõe o prompt
 do pack para o Assistant `scouting` (seam `PackHooks`); a conversa (`flow: chat`) responde 200. O teste só usa a
-superfície da 011 para packs externos — variáveis `AI_CORE_*` e `platform(profile="test")`.
+superfície da 011 para packs externos — variáveis `AXON_*` e `platform(profile="test")`.
 
 ## 6. Conversa manual com um modelo de verdade (opcional)
 
-Com os arquivos de `~/.config/ai-core/` (servidor local): em `packs.yaml`, acrescente `scouting: { enabled: true }`; em
+Com os arquivos de `~/.config/axon/` (servidor local): em `packs.yaml`, acrescente `scouting: { enabled: true }`; em
 `assistants.yaml`, um Assistant `scouting` no formato dos outros, com `flow: chat` e `packs: [scouting]`.
 
 ```bash
-set -a; . ~/.config/ai-core/openrouter.env; . ~/.config/ai-core/dev.env; set +a
-uv run --python 3.14 --group platform ai-core packs list
-uv run --python 3.14 --group platform ai-core serve
+set -a; . ~/.config/axon/openrouter.env; . ~/.config/axon/dev.env; set +a
+uv run --python 3.14 --group platform axon packs list
+uv run --python 3.14 --group platform axon serve
 # noutro terminal:
-curl -s http://127.0.0.1:8000/private/v1/chat/completions -H "Authorization: Bearer $AI_CORE_DEV_API_KEY" \
+curl -s http://127.0.0.1:8000/private/v1/chat/completions -H "Authorization: Bearer $AXON_DEV_API_KEY" \
   -H 'Content-Type: application/json' \
   -d '{"model":"scouting","messages":[{"role":"user","content":"Qual resolução define a idade do Ramo Pioneiro?"}]}' \
   | jq -r '.choices[0].message.content'
@@ -94,13 +94,13 @@ curl -s http://127.0.0.1:8000/private/v1/chat/completions -H "Authorization: Bea
 consultado, **não** cita número de resolução nem trecho, e recomenda confirmar na fonte oficial (US1 cen. 4). É
 verificação de comportamento, não teste automatizado — medir é da 105 (princípio X).
 
-## 7. CI do `ai-scouting` (uma vez)
+## 7. CI do `axon-scouting` (uma vez)
 
 ```bash
-ssh-keygen -t ed25519 -N '' -C ai-scouting-ci -f /tmp/ai-scouting-ci
-gh repo deploy-key add /tmp/ai-scouting-ci.pub --repo CaioFerreiraB/agentic-app --title ai-scouting-ci   # só leitura
-gh secret set AGENTIC_APP_DEPLOY_KEY --repo CaioFerreiraB/ai-scouting < /tmp/ai-scouting-ci
-rm /tmp/ai-scouting-ci /tmp/ai-scouting-ci.pub
+ssh-keygen -t ed25519 -N '' -C axon-scouting-ci -f /tmp/axon-scouting-ci
+gh repo deploy-key add /tmp/axon-scouting-ci.pub --repo CaioFerreiraB/axon --title axon-scouting-ci   # só leitura
+gh secret set AGENTIC_APP_DEPLOY_KEY --repo CaioFerreiraB/axon-scouting < /tmp/axon-scouting-ci
+rm /tmp/axon-scouting-ci /tmp/axon-scouting-ci.pub
 ```
 
 **Esperado**: os quatro jobs do `ci.yml` (lint, test em 3.12 e 3.14, clean-env, platform) verdes no primeiro push.
@@ -129,8 +129,25 @@ Esperado: uma pergunta coberta pelo corpus sintético responde 200, com **uma** 
 
 ## 10. Conversa real (opcional)
 
-Com o índice `scouting` do corpus real (102 quickstart §5), o e5 em `~/.cache/ai-scouting/e5-small` e um modelo de
+Com o índice `scouting` do corpus real (102 quickstart §5), o e5 em `~/.cache/axon-scouting/e5-small` e um modelo de
 geração (Ollama ou OpenRouter): `packs.yaml` com `config: {qdrant_url: http://localhost:56333, embedding_dir:
-~/.cache/ai-scouting/e5-small}`, Assistant `scouting` concedendo a coleção `scouting`, `ai-core serve`, e as perguntas do
+~/.cache/axon-scouting/e5-small}`, Assistant `scouting` concedendo a coleção `scouting`, `axon serve`, e as perguntas do
 quickstart da 103. Esperado: respostas com `[n]` e a lista de citações; para "receita de bolo de cenoura", o portão
 escala ou a resposta vem com a ressalva de "nenhum documento oficial" e a marca de não fundamentada.
+
+---
+
+## Fase 9, incremento 9.5 (2026-10-20): US6 — o pack com o nome Axon
+
+Dentro do submódulo (o repositório `axon-scouting`; a pasta `ai-scouting/` no `axon` até o fechamento do renome, que a passa a `axon-scouting/`).
+Decisões em [research.md](research.md) R25–R31.
+
+```bash
+uv sync && uv run pytest && uv run mypy && uv run ruff check && uv run lint-imports
+uv run --python 3.14 --group platform pytest tests/integration
+AXON_SCOUTING_INDEX=teste uv run axon-scouting-corpus status        # usa o índice "teste"
+AI_SCOUTING_INDEX=teste uv run axon-scouting-corpus status; echo $?   # recusa: AI_SCOUTING_INDEX → AXON_SCOUTING_INDEX, 2
+```
+
+**Esperado**: verde; a integração carrega `scouting` pelo grupo `axon.packs` da plataforma `v0.7.0-rc1`, com
+`contract_version` "0.2", e a conversa cita o corpus; a CLI recusa a variável antiga com o nome novo e sem o valor.

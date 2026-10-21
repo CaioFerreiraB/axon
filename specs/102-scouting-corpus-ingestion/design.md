@@ -5,7 +5,7 @@
 ## Localização
 
 ```text
-ai-scouting/src/ai_scouting/rag/
+axon-scouting/src/axon_scouting/rag/
 ├── index/                  # seam "Índice do scouting" — consumido por 103, 104 (modelo) e 106
 │   ├── api.py              # IndexedChunk, IndexFilters, IndexVersion, ChunkIndex (Protocol)
 │   └── adapters/

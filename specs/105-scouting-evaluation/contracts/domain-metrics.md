@@ -1,12 +1,12 @@
 # Contrato — métricas de domínio do scouting (Fase 6)
 
 Decisões em [research.md](../research.md) R2, R3 e R10; tipos em [data-model.md](../data-model.md). Implementam
-`EvalMetric` do contrato 001 (`ai_core_contracts.eval`, ADR-027) e são declaradas pelo `pack.py` em `eval_metrics(ctx)`,
+`EvalMetric` do contrato 001 (`axon_ai_contracts.eval`, ADR-027) e são declaradas pelo `pack.py` em `eval_metrics(ctx)`,
 nesta ordem. O harness da 009 as reporta como `scouting:<nome>`.
 
 ## Superfície
 
-| Classe (`ai_scouting.eval`) | `name` | `better` | `deterministic` |
+| Classe (`axon_scouting.eval`) | `name` | `better` | `deterministic` |
 |---|---|---|---|
 | `ContextAccuracy` | `context_accuracy` | `higher` | `True` |
 | `CurrentDocumentRate` | `current_document_rate` | `higher` | `True` |

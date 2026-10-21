@@ -1,14 +1,14 @@
 # Contrato — seam *Índice do scouting* e portas do índice
 
 Dono: 102. Consumidores do seam: 103 e 106 (`ChunkIndex` e o modelo); 104 (só os valores de `ValidityStatus`). Interno
-ao repositório `ai-scouting` — não é seam do core. Decisões em [research.md](../research.md) R5, R12, R14, R16;
+ao repositório `axon-scouting` — não é seam do core. Decisões em [research.md](../research.md) R5, R12, R14, R16;
 tipos em [data-model.md](../data-model.md).
 
-## Seam — `ai_scouting.rag.index.api`
+## Seam — `axon_scouting.rag.index.api`
 
 Publica: `ValidityStatus`, `STATUS_LABELS`, `DocumentType`, `NORMATIVE_TYPES`, `BRANCHES`, `IndexedChunk`,
 `IndexFilters`, `EmbeddingModel`, `IndexVersion`, `IndexUnavailable`, `IndexMismatch`, `ChunkIndex`. Importa só stdlib e
-`ai_core_contracts` (para `Chunk`).
+`axon_ai_contracts` (para `Chunk`).
 
 ```python
 class ChunkIndex(Protocol):
@@ -49,7 +49,7 @@ class IndexMismatch(Exception):
 | indisponível | índice inexistente → `IndexUnavailable`, não lista vazia |
 | conversão | `to_chunk()` cumpre o `Chunk` da 001 (`document` = título; `page` = página inicial) |
 
-## Portas secundárias — `ai_scouting.rag.index.ports`
+## Portas secundárias — `axon_scouting.rag.index.ports`
 
 ```python
 class Embedder(Protocol):
@@ -85,11 +85,11 @@ class DocumentStore(Protocol):
 
 | Porta | Real | Em memória | Suíte |
 |---|---|---|---|
-| `Embedder` | `E5Embedder` (`adapters/e5.py`) | `HashingEmbedder` (`adapters/memory.py`) | dimensão = `model().dimensions`; norma 1; determinismo; `embed_query(t) != embed_passages([t])[0]` (prefixos do e5); o real só com `AI_SCOUTING_EMBEDDING_DIR` |
+| `Embedder` | `E5Embedder` (`adapters/e5.py`) | `HashingEmbedder` (`adapters/memory.py`) | dimensão = `model().dimensions`; norma 1; determinismo; `embed_query(t) != embed_passages([t])[0]` (prefixos do e5); o real só com `AXON_SCOUTING_EMBEDDING_DIR` |
 | `SparseEncoder` | `Bm25Encoder` (`adapters/bm25.py`) | o mesmo (puro) | ids estáveis entre execuções; "Art. 42" contém o termo de `42`; acentos dobrados; pergunta com peso 1 por termo |
 | `IndexWriter` + `DocumentStore` | `QdrantIndex` (`adapters/qdrant.py`) | `MemoryIndex` (`adapters/memory.py`) | publicar troca o que `ChunkIndex` vê de uma vez; `copy` preserva vetores e reescreve vigência; `discard` não afeta o publicado; `original` devolve as páginas da faixa do chunk |
 
 O `QdrantIndex` implementa as três (`ChunkIndex`, `IndexWriter`, `DocumentStore`) sobre o mesmo cliente assíncrono e
 recebe `Embedder` e `SparseEncoder` na construção — com eles codifica a pergunta e confere a FR-012 a cada busca. Alvos
 da suíte: `MemoryIndex`; `QdrantIndex` no modo local (`AsyncQdrantClient(location=":memory:")`, sempre); `QdrantIndex`
-contra servidor quando `AI_SCOUTING_TEST_QDRANT_URL` existe (job `qdrant` da CI, imagem `qdrant/qdrant:v1.19.2`).
+contra servidor quando `AXON_SCOUTING_TEST_QDRANT_URL` existe (job `qdrant` da CI, imagem `qdrant/qdrant:v1.19.2`).

@@ -11,7 +11,7 @@
 ## Module Boundary *(mandatory)*
 
 - **Módulo**: Scouting Retrieval — busca híbrida na coleção do scouting, com filtros de vigência e de contexto, e reordenação dos candidatos.
-- **Repositório / distribuição**: `ai-scouting` → `src/ai_scouting/rag/retrieval/`.
+- **Repositório / distribuição**: `axon-scouting` → `src/axon_scouting/rag/retrieval/`.
 - **Consome (seams)**: contratos `Retriever`, `Reranker`, `Chunk` — 001; Índice do scouting (modelo + porta `ChunkIndex`) — 102; filtros publicados pela preparação de contexto — 101 (repassados pelo core de forma opaca).
 - **Expõe (seams)**: um `Retriever` (exposto também como tool `scouting.search_docs`) e um `Reranker` — consumidos pelo pack (101) e, através dele, pelo core.
 - **Depende de infraestrutura (via portas)**: nenhuma direta — o índice é consultado pela porta de 102. Um reranker hospedado (v2) ou local (v3), quando existir, entra como adapter.
@@ -134,7 +134,7 @@ Os filtros de ramo e tipos de documento publicados por 101 restringem a busca.
 - **SC-001**: 0 chunks não vigentes em resultados de busca default no conjunto dourado.
 - **SC-002**: recall@k no conjunto dourado atinge a meta definida após a linha de base da Fase 6.
 - **SC-003**: O rerank v1 não adiciona atraso perceptível à resposta no hardware alvo.
-- **SC-004**: Trocar o reranker (v1 → v2 → v3) exige só configuração/implementação no `ai-scouting`, nenhuma mudança no core.
+- **SC-004**: Trocar o reranker (v1 → v2 → v3) exige só configuração/implementação no `axon-scouting`, nenhuma mudança no core.
 
 ## Assumptions
 

@@ -11,9 +11,9 @@
 ## Module Boundary *(mandatory)*
 
 - **Módulo**: Scouting Evaluation — conteúdo do conjunto dourado do domínio, métricas de domínio e as decisões de calibração tomadas com base nele.
-- **Repositório / distribuição**: `ai-scouting` → `src/ai_scouting/eval/`.
+- **Repositório / distribuição**: `axon-scouting` → `src/axon_scouting/eval/`.
 - **Consome (seams)**: Eval Harness e formato de conjunto dourado — 009; o Assistant `scouting` ponta a ponta, pelo harness em processo sobre o Execution Engine — o único caminho que fixa a data de referência (008 FR-012) — sem conhecer internals.
-- **Expõe (seams)**: conjunto dourado versionado e métricas de domínio (ex.: taxa de documento vigente) — consumidos pelo harness (009) e pelo CI do `ai-scouting`.
+- **Expõe (seams)**: conjunto dourado versionado e métricas de domínio (ex.: taxa de documento vigente) — consumidos pelo harness (009) e pelo CI do `axon-scouting`.
 - **Depende de infraestrutura (via portas)**: nenhuma além do Eval Harness (009), que executa os itens.
 - **Não conhece**: implementação de retrieval, chunking ou flows — mede comportamento, não estrutura.
 - **Substituição**: o conjunto dourado sobrevive a qualquer reescrita do pack — é justamente o que prova que a reescrita não piorou.
@@ -24,7 +24,7 @@
 ### Session 2026-10-13
 
 - Q: Com a curadoria e a calibração adiadas pelo mantenedor, o que a 105 entrega agora, antes do conjunto dourado curado? → A: A infraestrutura — métricas de domínio no pack, validação do conjunto contra o catálogo do corpus, o comando de avaliação e o CI — com um **conjunto semente provisório** de 8 a 12 perguntas escritas a partir dos documentos do corpus, marcado como provisório e sem nenhuma decisão de calibração tomada sobre ele. A US2 registra a linha de base da semente; as US3–US5 (calibração, embedding, modelo local) esperam a curadoria, que substitui a semente pelas 30–50 perguntas reais.
-- Q: O que o CI do `ai-scouting` roda com o conjunto de avaliação, e quando? → A: Um job `eval` disparado quando mudam `corpus/`, `rag/`, `prompts/`, `pack.py`, `eval/` ou as dependências: Qdrant de serviço, e5 em cache por sha256, ingestão do corpus real e `ai-core eval run` com o gerador simulado do perfil `test` (sem modelo pago, sem juiz), comparando com a linha de base da semente — só as métricas determinísticas barram.
+- Q: O que o CI do `axon-scouting` roda com o conjunto de avaliação, e quando? → A: Um job `eval` disparado quando mudam `corpus/`, `rag/`, `prompts/`, `pack.py`, `eval/` ou as dependências: Qdrant de serviço, e5 em cache por sha256, ingestão do corpus real e `axon eval run` com o gerador simulado do perfil `test` (sem modelo pago, sem juiz), comparando com a linha de base da semente — só as métricas determinísticas barram.
 - Q: Como o pack mede o "acerto da derivação de contexto" (ramo, temas, tipos de documento e vigência da 101), se o harness só vê o que a execução produziu? → A: O item declara o esperado em `extra.context` (ramo, temas, tipos, vigência — só os campos declarados contam); a métrica do pack refaz a derivação pura da 101 para a pergunta e a data do item e devolve a fração de campos que casam; item sem `extra.context` não conta. Métrica determinística; nenhuma mudança no core.
 
 ## User Scenarios & Testing *(mandatory)*
@@ -120,7 +120,7 @@ Os modelos locais candidatos são comparados em qualidade em português, confiab
 - **FR-002**: O conjunto DEVE incluir perguntas de consulta histórica e de fontes normativas.
 - **FR-003**: O pack DEVE fornecer as métricas de domínio, pelo hook `eval_metrics` do contrato 001 (ADR-027): taxa de documento vigente e acerto da derivação de contexto. O acerto da derivação compara o contexto esperado que o item declara em `extra.context` (ramo, temas, tipos de documento, vigência; só os campos declarados) com a derivação da 101 refeita para a pergunta e a data do item, e vale a fração de campos que casam; item sem `extra.context` não conta.
 - **FR-004**: Toda decisão de calibração DEVE ter relatório antes/depois registrado.
-- **FR-005**: O CI do `ai-scouting` DEVE rodar o conjunto em mudanças de chunking, prompt, retriever ou modelo — um job disparado por mudanças em `corpus/`, `rag/`, `prompts/`, `pack.py`, `eval/` ou nas dependências, com Qdrant de serviço, o e5 em cache por sha256, a ingestão do corpus real e o gerador simulado do perfil `test` (sem modelo pago nem juiz), comparando com a linha de base; só as métricas determinísticas barram. Rodadas com modelo real e juiz são manuais.
+- **FR-005**: O CI do `axon-scouting` DEVE rodar o conjunto em mudanças de chunking, prompt, retriever ou modelo — um job disparado por mudanças em `corpus/`, `rag/`, `prompts/`, `pack.py`, `eval/` ou nas dependências, com Qdrant de serviço, o e5 em cache por sha256, a ingestão do corpus real e o gerador simulado do perfil `test` (sem modelo pago nem juiz), comparando com a linha de base; só as métricas determinísticas barram. Rodadas com modelo real e juiz são manuais.
 - **FR-006**: Todo item DEVE fixar a data de referência da execução (ADR-013), para que o resultado não mude quando documentos forem revogados ou substituídos depois da curadoria.
 
 ### Key Entities
@@ -139,5 +139,5 @@ Os modelos locais candidatos são comparados em qualidade em português, confiab
 ## Assumptions
 
 - As perguntas da versão curada vêm de dúvidas reais de escotistas e dirigentes, coletadas pelo mantenedor, depois do desenvolvimento; até lá vale a semente provisória (FR-001).
-- A avaliação roda dentro de uma imagem de instalação que contém o `ai-core` e o `ai-scouting` (ex.: `ai-core eval run`); o `ai-scouting` continua dependendo só de `ai-core-contracts`. Na Fase 6 a CI e o mantenedor rodam pelo grupo `platform`; a imagem ganha o core com o harness numa passada de encaixe da 002 (research R9).
+- A avaliação roda dentro de uma imagem de instalação que contém o `axon-ai` e o `axon-scouting` (ex.: `axon eval run`); o `axon-scouting` continua dependendo só de `axon-ai-contracts`. Na Fase 6 a CI e o mantenedor rodam pelo grupo `platform`; a imagem ganha o core com o harness numa passada de encaixe da 002 (research R9).
 - Faixas iniciais: 20–30 candidatos, 3–8 após rerank, 300–600 tokens para narrativo.

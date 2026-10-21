@@ -1,6 +1,6 @@
 # Contrato — o pack `scouting` na Fase 4 (capacidades publicadas)
 
-Implementa o contrato de pack da 001 (`PackBase`), descoberto pelo entry point `ai_core.packs` como qualquer pack
+Implementa o contrato de pack da 001 (`PackBase`), descoberto pelo entry point `axon.packs` como qualquer pack
 externo. Decisões em [research.md](../research.md); entidades em [data-model.md](../data-model.md).
 
 ## Identidade e manifest
@@ -44,7 +44,7 @@ Tools, retrievers, reranker e validators — os defaults de `PackBase` valem. Os
 
 | # | Verificação | Onde |
 |---|---|---|
-| 1 | `assert_pack_conforms` com todas as etapas — inclusive imports (nada de `ai_core`/`ai_generic`) e distribuição (faixa declarada) — e relatório sem nenhum item na instalação normal | `tests/test_conformance.py`, job `clean-env` |
+| 1 | `assert_pack_conforms` com todas as etapas — inclusive imports (nada de `axon_ai`/`axon_generic`) e distribuição (faixa declarada) — e relatório sem nenhum item na instalação normal | `tests/test_conformance.py`, job `clean-env` |
 | 2 | identidade legível na classe; manifest mínimo; versão do manifest = versão da distribuição | `tests/test_pack.py` |
 | 3 | casos de aceite da US2 e da US3 e os casos de borda de ramo e de período | `tests/test_derivation.py`, `tests/test_periods.py` |
 | 4 | invariantes do léxico | `tests/test_lexicon.py` |
