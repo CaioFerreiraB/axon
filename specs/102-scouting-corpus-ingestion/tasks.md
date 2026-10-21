@@ -516,5 +516,5 @@ Task: "ingestion/adapters/pdfium.py (T033)"
   composição no `pack.py`; `ORT_DISABLE_TELEMETRY` no adapter do e5 (R24)
 - [X] T060 O artefato do corpus real com o e5 em `src/axon_scouting/data/index/` (413 trechos); o workflow `eval`
   confere o determinismo (R25)
-- [ ] T061 Os vetores do `pplx` no artefato (`ingest --embedder pplx`), com chamadas pagas ao OpenRouter — com o aval
-  do mantenedor
+- [X] T061 Os vetores do `pplx` no artefato (`reindex --embedder pplx`, com o aval do mantenedor): os mesmos 413
+  trechos, o conjunto de 1024 dimensões ao lado do e5; 9 s; artefato com 4,1 MB

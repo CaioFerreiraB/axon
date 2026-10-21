@@ -228,5 +228,6 @@ T011 eval/packs.yaml + eval/assistants.yaml
 
 - [X] T019 `eval/packs.yaml` sobre o artefato; `eval/packs-pplx.yaml`; workflow `eval` sem Qdrant; rodada local igual à
   linha de base
-- [ ] T020 A comparação `e5` × `pplx` (`axon eval compare`), depois da T061 da 102 — com o aval do mantenedor para as
-  chamadas pagas
+- [X] T020 A comparação `e5` × `pplx` (`axon eval compare`, perfil `test`, conjunto semente): recall@5 e recall@20
+  0,889 nos dois, MRR 0,722 (e5) e 0,833 (pplx), `context_accuracy` 0,9 e `current_document_rate` 1,0 nos dois; as
+  duas rodadas sem regressão contra a base. Semente provisória: nada se decide; o default segue `e5` até a curadoria
