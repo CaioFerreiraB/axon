@@ -27,6 +27,10 @@
 - Q: Como o reranker v1 aplica o "reforço por metadados" (vigência, ramo, tipo) sobre os candidatos da fusão? → A: Como desempate, sem pesos: mantém a ordem da fusão e, entre candidatos empatados nela, prefere o vigente, depois o específico do ramo pedido, depois o de um tipo que a pergunta sugeriu; corta em N. Nenhum peso numérico na v1 (princípio X) — reforço com pesos entra se a 105 medir ganho.
 - Q: O que a 103 faz com os temas (`topics`) publicados pela 101, se o índice da 102 não guarda tema nos chunks? → A: Ignora na v1: os temas seguem na fatia da 101 (a 105 mede a derivação), mas não filtram nem reforçam a busca. Expandir a consulta acoplaria a 103 ao léxico da 101; etiquetar na ingestão mudaria a 102 sem medição.
 
+### Session 2026-10-21
+
+- Q: Com qual modelo a pergunta é codificada depois do [ADR-043](../../docs/adr/ADR-043-indice-do-scouting-gerado-no-desenvolvimento.md)? → A: Com o embedder da configuração do pack (`e5`, `pplx` ou `hashing`), o mesmo dos vetores carregados do artefato; a combinação errada é `IndexMismatch`, como antes. Falha do embedder remoto (sem a chave, provedor fora) é falha da recuperação: o `rag_first` encerra sem gerar (005). O retriever não muda.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Busca híbrida com fusão na própria base (Priority: P1)
@@ -121,6 +125,7 @@ Os filtros de ramo e tipos de documento publicados por 101 restringem a busca.
 - **FR-007**: Indisponibilidade da coleção DEVE gerar erro explícito.
 - **FR-008**: Quantidades DEVEM ser configuráveis e calibradas pela spec 105: a 103 configura quantos trechos devolve quando o chamador não diz (`default_limit`) e o teto do que aceita (`max_limit`); o número de candidatos e o N após o rerank chegam do chamador (`top_k` — a 005 no `rag_first`).
 - **FR-009**: Os temas (`topics`) recebidos nos filtros NÃO DEVEM restringir nem reforçar a busca na v1; o retriever usa só vigência, ramo e tipos de documento.
+- **FR-010**: A busca DEVE codificar a pergunta com o embedder escolhido na configuração do pack, e uma falha dele DEVE chegar ao core como falha da recuperação, sem resultado parcial.
 
 ### Key Entities
 

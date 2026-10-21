@@ -504,3 +504,17 @@ Task: "ingestion/adapters/pdfium.py (T033)"
   `HashingEmbedder`/`E5Embedder`, `MemoryParser`/`PdfiumParser`; o `Bm25Encoder` é puro e serve aos dois papéis
 - Nenhum número é calibrado aqui: janela, BM25 e modelo são provisórios e vão na versão do índice (princípio X)
 - O corpus real nunca entra no repositório; os testes usam só PDFs gerados
+
+---
+
+## Passada de 2026-10-21: o índice gerado no desenvolvimento ([ADR-043](../../docs/adr/ADR-043-indice-do-scouting-gerado-no-desenvolvimento.md); research R21–R25)
+
+- [X] T057 `domain/artifact.py` e `adapters/artifact.py` (`ArtifactIndex`); `MemoryStorage.put`/`export`; alvo
+  `artefato` na suíte de conformidade e `tests/rag/index/test_artifact.py` (R21, R22)
+- [X] T058 [P] `adapters/openrouter.py` e `tests/rag/index/test_openrouter.py` (R23)
+- [X] T059 CLI: `ServiceOptions`, `--embedder`/`--dir`, `load-qdrant`; `copy_index` e a porta `IndexExport`;
+  composição no `pack.py`; `ORT_DISABLE_TELEMETRY` no adapter do e5 (R24)
+- [X] T060 O artefato do corpus real com o e5 em `src/axon_scouting/data/index/` (413 trechos); o workflow `eval`
+  confere o determinismo (R25)
+- [ ] T061 Os vetores do `pplx` no artefato (`ingest --embedder pplx`), com chamadas pagas ao OpenRouter — com o aval
+  do mantenedor

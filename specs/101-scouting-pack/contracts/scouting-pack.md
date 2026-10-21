@@ -91,3 +91,24 @@ Frases fixas: "escot", "[[", "id:", "nenhum documento oficial", "fonte oficial",
 | 7 | `assert_pack_conforms` com `config={"qdrant_path": …, "embedder": "hashing"}` | `tests/test_conformance.py` |
 | 8 | configuração: defaults, exclusividade, `e5` sem arquivos, limites; chave fora de mensagens | `tests/test_pack.py` |
 | 9 | US5 ponta a ponta: `rag_first`, uma chamada de modelo, citação `[1]` com proveniência | `tests/integration/test_rag.py` (grupo `platform`, core `v0.2.0`) |
+
+## Desde 2026-10-21: `prepare`, índice em memória e o embedder escolhido (ADR-041, ADR-043; research R32–R34)
+
+Pack `0.5.0`, `contract_version` "0.2.1".
+
+| Campo do `config` | Default | Vale com |
+|---|---|---|
+| `store` | `memory` | — (`memory` ou `qdrant`) |
+| `index_dir` | o artefato do pacote (`axon_scouting/data/index`) | `store: memory` |
+| `qdrant_url` / `qdrant_path` / `index` | `http://localhost:6333` / — / `scouting` | `store: qdrant` |
+| `embedder` | `e5` | — (`e5`, `pplx` ou `hashing`) |
+| `embedding_dir` | `data_dir/e5-small` (obrigatório sem `data_dir`) | `embedder: e5` |
+| `default_limit` / `max_limit` | 5 / 30 | — |
+
+| Hook | Comportamento |
+|---|---|
+| `prepare(ctx)` | com `e5`, baixa o modelo fixado em `embedding_dir` (ou `data_dir/e5-small`), idempotente; com `pplx` ou `hashing`, nada; sem `data_dir` nem `embedding_dir`, recusa nomeando `AXON_PACKS_DATA_DIR` |
+| `retrievers(ctx)` | `memory`: `ArtifactIndex` sobre o artefato (sem `manifest.json` → erro de carga); `qdrant`: `QdrantIndex`; a pergunta é codificada pelo embedder da configuração |
+
+Segredos, só do ambiente: `AXON_SCOUTING_QDRANT_API_KEY` (Qdrant) e `AXON_SCOUTING_EMBEDDING_API_KEY` (`pplx`; exigida
+só na codificação).

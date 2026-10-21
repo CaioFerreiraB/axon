@@ -286,3 +286,9 @@ Task: "tests/rag/retrieval/test_reranker.py — US4 (T016)"
 - `rag.retrieval` só importa stdlib, `ai_core_contracts` e `rag.index.api` — o import-linter (T001) barra o resto
 - Nenhum peso numérico no rerank (princípio X); quantidades são `RetrievalConfig`
 - O retriever nunca lê o relógio: as datas vêm nos filtros da 101 (FR-002)
+
+---
+
+## Passada de 2026-10-21 ([ADR-043](../../docs/adr/ADR-043-indice-do-scouting-gerado-no-desenvolvimento.md); research R12)
+
+- [X] T025 Nada a mudar no retriever; a composição do embedder é da 101 (T073) e a prova, da integração do `rag_first`

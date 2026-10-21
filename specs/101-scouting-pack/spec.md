@@ -48,6 +48,12 @@
 - Q: Que variáveis de ambiente o pack lê, e o que acontece com as antigas? → A: `AXON_SCOUTING_QDRANT_URL`, `AXON_SCOUTING_QDRANT_API_KEY`, `AXON_SCOUTING_INDEX`, `AXON_SCOUTING_EMBEDDING_DIR` e, nas suítes, `AXON_SCOUTING_TEST_QDRANT_URL` (eram `AI_SCOUTING_*`). Corte seco com diagnóstico (ADR-037, item 3): qualquer variável cujo nome comece com `AI_SCOUTING_`, conhecida ou não, vazia ou não, faz o pack recusar — na carga, ao montar a recuperação (o pack fica em erro, com a mensagem na introspecção), e na CLI do corpus (sai com erro de configuração). A mensagem tem uma linha por variável, com o nome antigo e o novo, nunca o valor.
 - Q: O que acompanha na integração com a plataforma e na CI? → A: A integração (grupo `platform`) usa o import `axon_ai`, as variáveis `AXON_*` e o comando `axon`; a CI e o job de avaliação usam os nomes novos (`axon eval run`, `AXON_PROFILE`, `AXON_SCOUTING_*`). O nome do segredo da chave de leitura do repositório da plataforma na CI fica: renomeá-lo exige recadastrar a chave, e é configuração do GitHub, não código. As specs 102–106 mudam só nos nomes, nesta passada.
 
+### Session 2026-10-21
+
+- Q: Como o pack obtém o modelo do e5 numa instalação que não conhece pack ([ADR-041](../../docs/adr/ADR-041-o-pack-prepara-os-proprios-dados-no-build.md))? → A: Pelo hook `prepare`, no build (`axon packs prepare`): com o embedder `e5`, baixa a revisão fixada, conferindo os sha256, em `embedding_dir` ou, sem ele, em `data_dir/e5-small`; o que já está presente e íntegro não é baixado de novo. Com `pplx` ou `hashing`, não faz nada. O `embedding_dir` sai da configuração obrigatória: o default é `data_dir/e5-small`, e só sem `data_dir` (desenvolvimento e suítes) ele continua obrigatório com o e5.
+- Q: O que a configuração do pack escolhe depois do [ADR-043](../../docs/adr/ADR-043-indice-do-scouting-gerado-no-desenvolvimento.md)? → A: O índice e o modelo. `store: memory` (default) carrega o artefato do pacote (ou o de `index_dir`) em memória; `store: qdrant` usa o Qdrant (`qdrant_url` ou `qdrant_path`, `index`), e esses campos só valem com ele. `embedder: e5 | pplx | hashing` (default `e5`); a pergunta é codificada com o mesmo modelo dos vetores, e a combinação errada é recusada na busca. A chave do `pplx` vem só de `AXON_SCOUTING_EMBEDDING_API_KEY`, e a falta dela aparece na busca, não na carga — o `packs check` do build não tem segredos.
+- Q: Que versões saem? → A: O pack `0.5.0` (a configuração muda de default: sem Qdrant), com `contract_version` "0.2.1" e `axon-ai-contracts>=0.2.1,<0.3`, resolvidos pela tag `v0.7.0-rc4`.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Pack carregado e respondendo com instruções de domínio (Priority: P1)
@@ -178,7 +184,9 @@ A plataforma passa a se chamar Axon (ADR-037). O operador instala `axon-scouting
 - **FR-015**: As variáveis de ambiente do pack DEVEM usar o prefixo `AXON_SCOUTING_`. A presença de qualquer variável que comece com `AI_SCOUTING_` DEVE fazer o pack recusar a carga da recuperação e a CLI do corpus recusar a execução, com uma linha por variável que nomeia a antiga e a nova, sem o valor (ADR-037, item 3).
 - **FR-016**: A integração com a plataforma, a CI e o job de avaliação DEVEM usar os nomes novos da plataforma (`axon_ai`, `AXON_*`, comando `axon`) e resolver contratos e core pela tag `v0.7.0-rc1` do repositório `axon`.
 - **FR-017**: Os documentos vivos das specs 101–106 DEVEM usar os nomes novos (ADR-037, item 6); o histórico fica.
-
+- **FR-018**: O pack DEVE implementar o hook `prepare` ([ADR-041](../../docs/adr/ADR-041-o-pack-prepara-os-proprios-dados-no-build.md)): com o embedder `e5`, baixar o modelo fixado em `embedding_dir` ou `data_dir/e5-small`, de forma idempotente; com outro embedder, não fazer nada. Sem `data_dir` nem `embedding_dir`, o `e5` DEVE ser recusado nomeando `AXON_PACKS_DATA_DIR`.
+- **FR-019**: A configuração DEVE oferecer `store` (`memory`, default, ou `qdrant`), `index_dir` (só com `memory`; default, o artefato do pacote) e `embedder` (`e5`, `pplx` ou `hashing`); campos do Qdrant fora de `store: qdrant` e `index_dir` fora de `store: memory` DEVEM ser recusados nomeando o campo. Com `memory`, a carga DEVE recusar um diretório sem artefato ([ADR-043](../../docs/adr/ADR-043-indice-do-scouting-gerado-no-desenvolvimento.md)).
+- **FR-020**: A chave do embedder remoto DEVE vir só de `AXON_SCOUTING_EMBEDDING_API_KEY`; a carga NÃO DEVE exigi-la, e nenhuma mensagem DEVE trazer o valor.
 
 ### Key Entities
 

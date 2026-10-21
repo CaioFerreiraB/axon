@@ -166,3 +166,16 @@ da 005, o N do rerank e o limiar do portão.
 **Rationale**: decisões das specs donas, que só precisam saber o que a 103 entrega.
 
 **Alternatives considered**: nenhum.
+
+---
+
+## Passada de 2026-10-21 ([ADR-043](../../docs/adr/ADR-043-indice-do-scouting-gerado-no-desenvolvimento.md))
+
+## R12 — O embedder da pergunta
+
+- **Decision**: nada muda no `ScoutingRetriever`: ele recebe o `ChunkIndex` composto pelo `pack.py` (101 R33), que já
+  codifica a pergunta com o embedder dos vetores. A `EmbeddingUnavailable` do `pplx` atravessa o `search` como exceção, e
+  o gateway da 004 a devolve como recuperação com erro — o `rag_first` encerra sem gerar.
+- **Rationale** (ADR-043, itens 3 e 5): o seam do índice esconde o modelo; a 103 só precisava não engolir a exceção, e
+  não engole.
+- **Alternatives**: degradar para o esparso sem o denso (mudaria a fusão e esconderia a falha).
