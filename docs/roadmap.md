@@ -100,7 +100,9 @@ do mantenedor), extensão `x_axon`, OpenAPI "Axon" e `me.instance.custom` (ADR-0
 da marca com AA (menos o hover escuro, pendente na 013); cookie `axon_session`, realm `axon`, rótulos `axon-ai/identity/…`.
 **013 feita** (2026-10-20) — barra lateral com o símbolo e o wordmark Axon ou a marca da instalação e "com Axon", acesso
 negado com o lockup, favicon e título "<tela> · <nome>", tokens da marca; o hover escuro passou a `#1D4ED8` nos dois CSS
-(ADR-039); `@axon/console`. Próximo: as tags (com o aval do mantenedor e os repositórios renomeados antes).
+(ADR-039); `@axon/console`.
+**Release** (2026-10-20) — repositórios renomeados no GitHub (`axon`, `axon-deploy`, `axon-scouting`), `main` em `b1efccb` com a
+CI verde, tags `contracts-v0.2.0` e `v0.7.0-rc1`, com o aval do mantenedor. Próximo: a 101 (no submódulo) e a instalação.
 
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 
