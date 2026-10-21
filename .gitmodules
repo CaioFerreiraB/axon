@@ -1,6 +1,6 @@
-[submodule "ai-scouting"]
-	path = ai-scouting
+[submodule "axon-scouting"]
+	path = axon-scouting
 	url = git@github.com:CaioFerreiraB/axon-scouting.git
-[submodule "agentic-deploy"]
-	path = agentic-deploy
+[submodule "axon-deploy"]
+	path = axon-deploy
 	url = git@github.com:CaioFerreiraB/axon-deploy.git

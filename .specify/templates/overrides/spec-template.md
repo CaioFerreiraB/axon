@@ -11,16 +11,16 @@
 ## Module Boundary *(mandatory)*
 
 <!--
-  PROJECT OVERRIDE (agentic-app): esta seção é obrigatória — princípios II e XIII da constituição.
+  PROJECT OVERRIDE (axon): esta seção é obrigatória — princípios II e XIII da constituição.
   Consulte specs/README.md para o catálogo de seams e os blocos de numeração
-  (0xx = ai-core, 1xx = ai-scouting, 2xx+ = packs futuros).
+  (0xx = axon-ai, 1xx = axon-scouting, 2xx+ = packs futuros).
   Uma spec NUNCA referencia internals de outro módulo — só seams (o api.py do módulo dono).
   A linha "Depende de infraestrutura" lista, em termos agnósticos, o que o módulo aciona fora de si;
   as portas e os adapters concretos ficam na seção "Portas e adapters" do design.md (ADR-012).
 -->
 
 - **Módulo**: [nome do módulo e responsabilidade em uma frase]
-- **Repositório / distribuição**: [ex.: ai-core → packages/core/src/ai_core/<modulo>/; ai-scouting]
+- **Repositório / distribuição**: [ex.: axon-ai → packages/core/src/axon_ai/<modulo>/; axon-scouting]
 - **Consome (seams)**: [seam — spec dona]
 - **Expõe (seams)**: [seam — quem consome]
 - **Depende de infraestrutura (via portas)**: [armazenamento, rede, tempo, segredos, trace… — ou "nenhuma", se o módulo não faz I/O]

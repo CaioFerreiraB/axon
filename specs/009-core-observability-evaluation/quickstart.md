@@ -156,7 +156,7 @@ o conjunto dourado com item inválido; a comparação com tolerância e direçã
 `test` e um pack de teste — todas as métricas do relatório, a métrica de domínio do pack, a regressão proposital
 barrada (saída 1), o juiz simulado com média e variância (contracts/eval-harness.md, verificações 1–7).
 
-Com uma instalação real (o `agentic-deploy` com o índice ingerido e um modelo de geração):
+Com uma instalação real (o `axon-deploy` com o índice ingerido e um modelo de geração):
 
 ```bash
 axon eval run --golden golden.yaml --assistant scouting --judge openrouter/<modelo> --report base.json

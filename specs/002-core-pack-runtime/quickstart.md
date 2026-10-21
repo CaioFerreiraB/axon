@@ -106,8 +106,7 @@ do registro pela 011 (US4).
 
 ## 8. Build da instalação (US5, Fase 4)
 
-Dentro de `agentic-deploy/` (submódulo, que passa a `axon-deploy/` no fechamento do renome; `git submodule update
---init agentic-deploy`), com o agente SSH carregando uma chave que lê o `axon` e o `axon-scouting`. Contrato em [contracts/installation.md](contracts/installation.md).
+Dentro de `axon-deploy/` (submódulo; `git submodule update --init axon-deploy`), com o agente SSH carregando uma chave que lê o `axon` e o `axon-scouting`. Contrato em [contracts/installation.md](contracts/installation.md).
 
 ```bash
 scripts/check-build.sh
@@ -158,7 +157,7 @@ grupo antigo); a lista mostra `generic  0.2.0  0.2  enabled`.
 ### Resíduos (SC-008)
 
 ```bash
-cd .. && git grep -nw "ai_core\.packs" -- . ':!ai-scouting' ':!agentic-deploy' ':!specs/1*' ':!**/research.md' \
+cd .. && git grep -nw "ai_core\.packs" -- . ':!axon-scouting' ':!axon-deploy' ':!specs/1*' ':!**/research.md' \
   ':!**/plan.md' ':!**/tasks.md' ':!docs' ':!CLAUDE.md' ':!specs/002-core-pack-runtime/contracts/installation.md'
 ```
 
@@ -167,7 +166,7 @@ cd .. && git grep -nw "ai_core\.packs" -- . ':!ai-scouting' ':!agentic-deploy' '
 
 ## Fase 9, incremento 9.5 (2026-10-20): a instalação com os nomes da Axon (US7 cen. 6)
 
-Dentro do submódulo da instalação (o repositório `axon-deploy`; a pasta `agentic-deploy/` até o fechamento do renome),
+Dentro do submódulo da instalação (o repositório `axon-deploy`, na pasta `axon-deploy/`),
 com o agente SSH lendo o `axon` e o `axon-scouting`. Decisões em [research.md](research.md) R56–R61.
 
 ```bash
@@ -177,7 +176,7 @@ sed -i 's/^AI_SCOUTING_/AXON_SCOUTING_/; s/^AI_CORE_/AXON_/' .env
 COMPOSE_PROFILES=webui,console docker compose up -d --build
 docker compose ls                                         # o projeto axon
 scripts/dev-users.sh
-docker compose run --rm -v ../ai-scouting/corpus:/corpus:ro axon axon-scouting-corpus ingest /corpus/corpus.yaml
+docker compose run --rm -v ../axon-scouting/corpus:/corpus:ro axon axon-scouting-corpus ingest /corpus/corpus.yaml
 python3 scripts/check-webui.py
 ```
 

@@ -232,7 +232,7 @@ o Assistant genérico da US2 responde como antes. A inspeção manual do §3 imp
 
 ```bash
 uv run lint-imports
-cd .. && git grep -nwE "ai_generic|ai-generic" -- . ':!ai-scouting' ':!agentic-deploy' ':!specs/1*' \
+cd .. && git grep -nwE "ai_generic|ai-generic" -- . ':!axon-scouting' ':!axon-deploy' ':!specs/1*' \
   ':!**/research.md' ':!**/plan.md' ':!**/tasks.md' ':!docs' ':!CLAUDE.md' ':!**/CHANGELOG.md' \
   ':!specs/002-core-pack-runtime/contracts/installation.md' ':!**/uv.lock'
 ```

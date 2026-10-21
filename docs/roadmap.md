@@ -110,8 +110,11 @@ CI verde, tags `contracts-v0.2.0` e `v0.7.0-rc1`, com o aval do mantenedor.
 **Instalação feita** (2026-10-21) — `axon-deploy` com o projeto `axon` fixo no compose, serviço `axon`, Postgres `axon`,
 `/etc/axon`, `AXON_*`, o core `v0.7.0-rc1` e o `axon-scouting` 0.4.0; Open WebUI com `x-axon-*` e o nome Axon; clientes
 com as audiências `axon`/`axon-admin`; `check-build.sh` prova a recusa de `AI_CORE_*`; instalação local recriada (corpus
-reingerido) e `check-webui.py` verde. Próximo: o fechamento (submódulos em `axon-scouting/` e `axon-deploy/`,
-`CLAUDE.md`, templates, README, pasta local e memória).
+reingerido) e `check-webui.py` verde.
+**Fechamento** (2026-10-21) — os submódulos passaram a `axon-scouting/` e `axon-deploy/` (caminho e nome), o `CLAUDE.md`
+e os overrides de template aos nomes da Axon, e a raiz ganhou um `README.md` com o lockup, a descrição e o mapa dos
+repositórios; a CI do pack marca os nomes novos de submódulo para as próximas tags. **O incremento 9.5 está completo.**
+Fica à mão, por último: a pasta local do repositório e a memória do Claude Code.
 
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 

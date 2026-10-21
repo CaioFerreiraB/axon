@@ -81,4 +81,5 @@ Identidade Axon (US6, research R25–R28; ADR-037):
   `axon_ai_contracts.*`.
 - A CI e o `eval.yml` usam `AXON_SCOUTING_*`, `AXON_PROFILE`, `AXON_PACKS_FILE`, `AXON_ASSISTANTS_FILE`, `axon eval run`
   e `axon-scouting-corpus`. O segredo continua `AGENTIC_APP_DEPLOY_KEY`, e os submódulos da tag `v0.7.0-rc1` ainda se
-  chamam `ai-scouting` e `agentic-deploy`, então o `update = none` segue com esses nomes até a tag seguinte.
+  chamam `ai-scouting` e `agentic-deploy`; no fechamento do renome eles passaram a `axon-scouting` e `axon-deploy`, e
+  os jobs marcam os quatro nomes até o pack passar a uma tag com os nomes novos.

@@ -139,7 +139,7 @@ escala ou a resposta vem com a ressalva de "nenhum documento oficial" e a marca 
 
 ## Fase 9, incremento 9.5 (2026-10-20): US6 — o pack com o nome Axon
 
-Dentro do submódulo (o repositório `axon-scouting`; a pasta `ai-scouting/` no `axon` até o fechamento do renome, que a passa a `axon-scouting/`).
+Dentro do submódulo (o repositório `axon-scouting`, na pasta `axon-scouting/` do `axon`).
 Decisões em [research.md](research.md) R25–R31.
 
 ```bash

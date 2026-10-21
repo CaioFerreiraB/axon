@@ -56,7 +56,7 @@ Slugs em português também evitam colisão com os prefixos da plataforma repass
 
 ## Instalação
 
-Estágio `console-build` no `agentic-deploy/Dockerfile` (`node:24-bookworm-slim`, `npm ci && npm run build`) e estágio
+Estágio `console-build` no `axon-deploy/Dockerfile` (`node:24-bookworm-slim`, `npm ci && npm run build`) e estágio
 `console` (`nginx-unprivileged`, sistema de arquivos somente leitura). O nginx:
 
 - serve a SPA com fallback para `index.html`; cache imutável para os arquivos com hash, `no-cache` no `index.html`;

@@ -4,7 +4,7 @@
 
 **Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
 
-**Architecture inputs** *(PROJECT OVERRIDE — agentic-app)*: before filling Technical Context, READ
+**Architecture inputs** *(PROJECT OVERRIDE — axon)*: before filling Technical Context, READ
 `/specs/[###-feature-name]/design.md` (including its "Portas e adapters" section) and every ADR listed
 in the spec's Module Boundary, plus ADR-012 (architectural style). Decisions recorded there are
 **pre-approved**: carry them into this plan and into `research.md` as
@@ -87,21 +87,21 @@ specs/[###-feature]/
 <!--
   ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
   for this feature, using the real repository paths from design.md
-  (e.g. ai-core/packages/contracts/..., ai-core/packages/core/src/ai_core/graph/...,
-  ai-scouting/src/ai_scouting/rag/...). The delivered plan must not include Option labels.
+  (e.g. axon-ai/packages/contracts/..., axon-ai/packages/core/src/axon_ai/graph/...,
+  axon-scouting/src/axon_scouting/rag/...). The delivered plan must not include Option labels.
 -->
 
 ```text
 # Standard module layout (principle XIII, ADR-012) — replace <module> and the file names
 # with the real paths from design.md; drop ports.py/adapters/ only if the module does no I/O.
-ai-core/packages/core/src/ai_core/<module>/
+axon-ai/packages/core/src/axon_ai/<module>/
 ├── api.py        # seams this module exposes (primary ports) + published value objects
 ├── domain/       # pure, deterministic policies — no I/O
 ├── ports.py      # secondary ports (Protocol): storage, clock, secrets, trace, network
 ├── service.py    # implements api.py by orchestrating domain/ and the ports
 └── adapters/     # infrastructure: memory.py, postgres.py, http.py, cli.py, ...
 
-ai-core/packages/core/tests/<module>/
+axon-ai/packages/core/tests/<module>/
 ├── contract/     # conformance suites: exposed seams + each secondary port (in-memory and real adapter)
 ├── unit/         # domain/ (pure) and service.py wired with in-memory adapters
 └── integration/  # real adapters against real infrastructure
