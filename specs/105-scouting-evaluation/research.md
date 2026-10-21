@@ -167,3 +167,17 @@ Qwen3 1.7B, Gemma 4 E2B) ficam como estão.
 **Rationale**: clarificação 1.
 
 **Alternatives**: nenhum.
+
+---
+
+## Passada de 2026-10-21 ([ADR-043](../../docs/adr/ADR-043-indice-do-scouting-gerado-no-desenvolvimento.md))
+
+## R12 — Eval sobre o artefato e a comparação dos modelos
+
+- **Decision**: `eval/packs.yaml` só com `embedding_dir: .cache/e5` (o default é o artefato em memória); `eval/packs-
+  pplx.yaml` com `embedder: pplx`; o workflow `eval` sem o serviço Qdrant e sem a ingestão, mas conferindo que o
+  artefato espelha o corpus (102 R25). A linha de base não muda: rodada local com o artefato e o e5 deu exatamente as
+  métricas da base (recall@5 0,8889, MRR 0,7222, `scouting:context_accuracy` 0,9).
+- **Rationale** (ADR-043, item 7): o embedder é configuração do pack, que vale para a instalação; a comparação são duas
+  rodadas, cada uma com o próprio `packs.yaml`, e não dois Assistants — a leitura do ADR que o harness da 009 permite.
+- **Alternatives**: dois packs com nomes diferentes (o mesmo código instalado duas vezes).

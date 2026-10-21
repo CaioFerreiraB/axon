@@ -479,6 +479,17 @@ arquivo montado, na rede externa `AXON_PROXY_NETWORK` com os apelidos `axon-api`
 `compose.local.yml` para a máquina do operador e o workflow de release. A prova é `axon-deploy/scripts/check-build.sh`
 (imagens base, o modelo sobre elas, o incompatível recusado), que só lê o `axon`.
 
+O índice do scouting vem com o pack (ADR-043; 101 R32–R34, 102 R21–R25): a ingestão roda no desenvolvimento e grava o
+artefato em `axon-scouting/src/axon_scouting/data/index/` (`manifest.json`, `chunks.jsonl`, `documents.jsonl` e
+`vectors/<modelo>-<impressão digital>.f32`, um conjunto por modelo; 413 trechos, 2,5 MB com o e5), commitado e
+distribuído no pacote; o `ArtifactIndex` o carrega em memória sobre o `MemoryIndex` (as mesmas fórmulas — o eval dá os
+números do Qdrant). Pack `0.5.0` (contratos 0.2.1 pela `v0.7.0-rc4`): `store: memory` (default) ou `qdrant`,
+`index_dir`, `embedder: e5 | pplx | hashing` — o `pplx` é o `perplexity/pplx-embed-v1-0.6b` pelo OpenRouter, com a
+chave `AXON_SCOUTING_EMBEDDING_API_KEY`, exigida só na codificação —, e o `prepare` baixa o e5 em `data_dir/e5-small`
+só quando ele é o escolhido. CLI: `ingest`/`reindex --embedder e5|pplx --dir`, `status`, `original`, `load-qdrant` (o
+artefato num Qdrant, sem PDF nem modelo) e `model fetch`. O workflow `eval` roda sem Qdrant e confere que o artefato
+espelha o corpus; a comparação dos modelos é `eval/packs-pplx.yaml` + `axon eval compare`.
+
 O `axon-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
 true }`, suíte de conformidade nos próprios testes e zero import do core (import-linter, nas duas direções). Ele é

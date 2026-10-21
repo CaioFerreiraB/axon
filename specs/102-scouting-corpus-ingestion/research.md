@@ -458,3 +458,75 @@ portão de cobertura da 005 e o reforço da 103 precisam considerar.
 **Rationale**: são decisões das specs donas (101, 103, 002/deploy, 005), que só precisam saber o que o índice entrega.
 
 **Alternatives considered**: nenhum.
+
+---
+
+# Passada de 2026-10-21: o índice gerado no desenvolvimento ([ADR-043](../../docs/adr/ADR-043-indice-do-scouting-gerado-no-desenvolvimento.md))
+
+Decisões pré-aprovadas pelo ADR-043 (artefato, vetores por modelo, índice em memória, embedder remoto, Qdrant como
+opção); o que segue é como elas chegam ao índice e à ingestão, sem re-pesquisa.
+
+## R21 — O formato do artefato
+
+**Decision**: `domain/artifact.py` (puro, só stdlib): `Manifest` (formato 1, índice, build, chunking, esparso,
+`built_at`, sha256 de `chunks.jsonl` e `documents.jsonl`, e os `ModelVectors` — modelo, arquivo, sha256),
+`vectors_file` (`vectors/<nome>-<12 da impressão digital>.f32`: dois pesos com o mesmo nome não dividem arquivo) e
+`pack_vectors`/`unpack_vectors` (float32 little-endian, pelo `array`). Trechos e documentos usam o JSON do payload do
+Qdrant (`points.py`), o trecho com o vetor esparso ao lado; trechos em ordem de `chunk_id`, documentos de `doc_key`,
+uma linha cada — o diff no git é legível. No corpus real: 413 trechos, 2,5 MB com os vetores do e5.
+
+**Rationale** (ADR-043, itens 1 e 2): o texto e o esparso uma vez só; o denso por modelo, em binário (o JSON dos
+vetores do e5 passaria de 1,5 MB). float32 é a precisão em que os modelos produzem.
+
+**Alternatives**: `.npy` (o domínio não importa o numpy); um artefato por modelo (rejeitado no ADR).
+
+## R22 — `ArtifactIndex`
+
+**Decision**: adapter que implementa `ChunkIndex`, `IndexWriter` e `DocumentStore` sobre o `MemoryIndex` (mesmas
+fórmulas), com o `MemoryStorage` ganhando `put` e `export`. Lê o manifesto quando o carimbo do arquivo (mtime, tamanho)
+muda e recarrega o build publicado (outra instância pode ter publicado); carrega os vetores do modelo da instância ou,
+sem eles, os do primeiro conjunto (a busca então dá `IndexMismatch`). Builds em memória até `publish`, que grava num
+diretório irmão e troca por `rename`, preservando os outros modelos (FR-014). `export` devolve o build com os vetores do
+modelo, para o `copy_index`. Roda na suíte de conformidade como o alvo `artefato` (com `multi_model`: um leitor do
+modelo antigo continua buscando com os próprios vetores preservados).
+
+**Rationale** (ADR-043, item 4): reaproveitar o `MemoryIndex` é o que garante as mesmas fórmulas; confirmado no
+corpus real — o eval da 105 dá os mesmos números que no Qdrant.
+
+**Alternatives**: um índice em memória próprio (duplicaria cosseno, IDF e RRF).
+
+## R23 — `OpenRouterEmbedder`
+
+**Decision**: `adapters/openrouter.py`, só biblioteca padrão (`urllib`, em outra thread): `POST <base>/embeddings` com
+`model`, `input` e `encoding_format: float`, lotes de 64, reordenação por `index`, normalização L2; `EmbeddingModel`
+`openrouter/perplexity/pplx-embed-v1-0.6b`, impressão digital `perplexity/pplx-embed-v1-0.6b:1024:l2`, 1024 dimensões.
+Sem a chave, a construção passa e a codificação levanta `EmbeddingUnavailable`; HTTP de erro, rede fora e resposta sem
+os vetores certos também — sem a chave na mensagem.
+
+**Rationale** (ADR-043, itens 2 e 5): o modelo remoto não tem arquivo para hashear; a impressão digital é o que precisa
+ser igual na ingestão e na pergunta. Sem dependência nova.
+
+**Alternatives**: o SDK da OpenAI (dependência a mais para uma chamada).
+
+## R24 — A CLI e o `copy_index`
+
+**Decision**: `ServiceOptions(needs_model, embedder, directory)` substitui o booleano da `Composition`, que ganha
+`load_qdrant`; `--embedder` (`e5`/`pplx`) e `--dir` nos comandos do artefato; `load-qdrant` chama
+`copy_index(source: IndexExport, writer)` do serviço da ingestão (porta `IndexExport` em `ports.py`). O `pack.py`
+compõe o `ArtifactIndex` sobre `PACKAGED_INDEX` ou `--dir`, com uma instância do embedder para o índice e o serviço.
+`ingest --embedder pplx` sem a chave é erro de configuração (2). O onnxruntime recebe `ORT_DISABLE_TELEMETRY=1` no
+próprio adapter do e5 (era da imagem da instalação, que deixou de conhecer pack — 002 R66).
+
+**Rationale** (ADR-043, item 4 e Consequências: a CLI passa a gerar o artefato).
+
+**Alternatives**: um comando `export` separado (dois passos para o mesmo resultado).
+
+## R25 — Determinismo e CI
+
+**Decision**: o workflow `eval` reingere o corpus num diretório temporário e compara `chunks.jsonl` e `documents.jsonl`
+com os commitados (`cmp`); sem Qdrant de serviço. Verificado localmente: reingerir dá os mesmos arquivos byte a byte,
+inclusive os vetores do e5.
+
+**Rationale**: o artefato commitado precisa ser o que o corpus produz; o CI pega um commit do corpus sem reingestão.
+
+**Alternatives**: gerar o artefato no CI e publicar como asset (o ADR deixa para quando passar de dezenas de MB).

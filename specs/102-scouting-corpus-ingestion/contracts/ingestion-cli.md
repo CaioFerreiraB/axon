@@ -52,3 +52,20 @@ duração: 4m12s
 
 Com rejeição, o relatório lista só os problemas (todos), agrupados por entrada e por linhagem, e termina em
 "nada foi aplicado".
+
+## Desde 2026-10-21: o artefato do índice (ADR-043; research R21–R25)
+
+`ingest`, `reindex`, `status` e `original` trabalham sobre o artefato, com duas opções:
+
+| Opção | Default | Significado |
+|---|---|---|
+| `--embedder e5\|pplx` | `e5` | o modelo denso da codificação (e dos vetores lidos); `pplx` exige `AXON_SCOUTING_EMBEDDING_API_KEY` ao codificar |
+| `--dir <dir>` | o artefato do pacote | o diretório do artefato |
+
+| Subcomando novo | Efeito | Saída |
+|---|---|---|
+| `load-qdrant [--embedder] [--dir]` | publica no Qdrant de `AXON_SCOUTING_QDRANT_URL` (índice `AXON_SCOUTING_INDEX`) um build igual ao do artefato, com os vetores do modelo; tudo ou nada, sem PDF nem modelo | o build publicado |
+
+O artefato (`manifest.json`, `chunks.jsonl`, `documents.jsonl`, `vectors/<modelo>-<impressão digital>.f32`) guarda um
+conjunto de vetores por modelo; publicar com um modelo preserva os outros quando ainda cobrem todo trecho com o mesmo
+texto. `AXON_SCOUTING_QDRANT_URL` passa a valer só no `load-qdrant`.

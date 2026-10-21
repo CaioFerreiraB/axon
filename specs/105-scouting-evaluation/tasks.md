@@ -221,3 +221,13 @@ T011 eval/packs.yaml + eval/assistants.yaml
 4. Polish: documentação, verificação completa e, com aprovação, commit, push e a CI.
 5. Depois desta lista (fora dela): a passada de encaixe da 002 no `agentic-deploy` (`CORE_REF=v0.3.0`, pack 0.3.0) e,
    depois do desenvolvimento, a curadoria — que troca a semente e destrava US3–US5.
+
+---
+
+## Passada de 2026-10-21 ([ADR-043](../../docs/adr/ADR-043-indice-do-scouting-gerado-no-desenvolvimento.md); research R12)
+
+- [X] T019 `eval/packs.yaml` sobre o artefato; `eval/packs-pplx.yaml`; workflow `eval` sem Qdrant; rodada local igual à
+  linha de base
+- [X] T020 A comparação `e5` × `pplx` (`axon eval compare`, perfil `test`, conjunto semente): recall@5 e recall@20
+  0,889 nos dois, MRR 0,722 (e5) e 0,833 (pplx), `context_accuracy` 0,9 e `current_document_rate` 1,0 nos dois; as
+  duas rodadas sem regressão contra a base. Semente provisória: nada se decide; o default segue `e5` até a curadoria

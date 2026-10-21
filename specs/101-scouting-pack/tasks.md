@@ -552,3 +552,15 @@ T063 → T064 → T065 → T066 ∥ T067 (veem falhar) → T068 → T069 → T07
   `AI_SCOUTING_INDEX` e `AI_SCOUTING_QDRANT_API_KEY` → as duas linhas de recusa, sem o valor, 2.
 - Fora do repositório, a mudar à mão: `~/.config/ai-core/` (o quickstart passou a `~/.config/axon/`, com variáveis
   `AXON_*`) e `~/.cache/ai-scouting/e5-small` (`~/.cache/axon-scouting/e5-small`).
+
+---
+
+## Passada de 2026-10-21: o pack prepara o e5 e carrega o índice do pacote ([ADR-041](../../docs/adr/ADR-041-o-pack-prepara-os-proprios-dados-no-build.md), [ADR-043](../../docs/adr/ADR-043-indice-do-scouting-gerado-no-desenvolvimento.md); research R32–R34)
+
+- [X] T073 `pack.py`: `prepare`, `read_config(config, data_dir, require_model)`, `store`/`index_dir`/`embedder: pplx`,
+  `_embedder` e a carga do `ArtifactIndex`; `contract_version` "0.2.1", versão `0.5.0`, contratos pela `v0.7.0-rc4`
+  (R32, R33)
+- [X] T074 [P] Testes de configuração, do pack e do `prepare`; conformidade sobre o artefato do pacote; integração do
+  `rag_first` sobre um artefato (R34)
+- [X] T075 [P] `README.md` do pack (instalação sem serviço, os dois embedders), `eval/packs.yaml` sem Qdrant e
+  `eval/packs-pplx.yaml`

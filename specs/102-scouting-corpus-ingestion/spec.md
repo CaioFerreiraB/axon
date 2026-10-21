@@ -33,6 +33,13 @@
 
 - Q: Onde ficam o catálogo e os PDFs do corpus — fora do repositório do pack, como dizem as clarificações 1 e 5? → A: No repositório do `axon-scouting`, em `corpus/`, no git normal (sem LFS): o corpus inicial tem ~33 MB, e o maior arquivo, 24 MB, fica bem abaixo dos 100 MB por arquivo do GitHub. Cada entrada do catálogo traz `source_url`, o link oficial do arquivo, que vai para o registro do documento no índice. Substitui o "fora do repositório do pack" das clarificações 1 e 5.
 
+### Session 2026-10-21
+
+- Q: Onde a ingestão roda e o que ela produz depois do [ADR-043](../../docs/adr/ADR-043-indice-do-scouting-gerado-no-desenvolvimento.md)? → A: No desenvolvimento ou no CI do pack, nunca na instalação. Ela grava o **artefato do índice**, dado do pacote Python: os trechos com metadados e termos esparsos, os registros de documento com o texto original e um manifesto com a versão — e um conjunto de vetores densos por modelo. Atualizar o corpus é lançar uma versão nova do pack.
+- Q: Como o artefato guarda mais de um modelo? → A: Os trechos e os ids não dependem do modelo (a ingestão é determinística); cada modelo tem o próprio arquivo de vetores, com nome, impressão digital, dimensões e sha256 no manifesto. Uma ingestão codifica com um modelo (`--embedder e5|pplx`) e preserva os vetores dos outros para os trechos cujo texto não mudou; um conjunto que deixaria algum trecho sem vetor sai do artefato até o `reindex` daquele modelo.
+- Q: Qual o segundo modelo, e como ele se compara ao e5? → A: `perplexity/pplx-embed-v1-0.6b`, pelo OpenRouter (1024 dimensões, normalizado na ingestão e na pergunta, sem prefixo), com a chave `AXON_SCOUTING_EMBEDDING_API_KEY`. Ele substitui o `bge-m3` pelo Ollama como próximo candidato; a escolha é do eval da 105. Default: `e5`.
+- Q: E o Qdrant? → A: Opção para corpus grande: `axon-scouting-corpus load-qdrant` carrega o artefato num Qdrant (sem PDF nem modelo), e o pack o usa com `store: qdrant` (101). O índice de produção é o artefato em memória, com as fórmulas do `MemoryIndex` (RRF sobre denso e esparso).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Curador ingere um documento (Priority: P1)
@@ -133,6 +140,10 @@ O texto original de cada documento permanece armazenado e recuperável; chunks s
 - **FR-010**: A reindexação DEVE ser idempotente e registrar a versão do índice (estratégia de chunking + modelo de embedding, identificado pelo nome e pela impressão digital dos pesos).
 - **FR-011**: A ingestão DEVE ler os metadados do catálogo do corpus — uma entrada por documento, com arquivo (caminho relativo ao catálogo), `document_id` da linhagem, versão, tipo, título, ramo, jurisdição, datas de vigência, a versão que ele substitui (`supersedes`) e, opcional, o link oficial do arquivo (`source_url`) — e DEVE rejeitar a entrada sem metadado obrigatório, listando os campos faltantes. Qualquer rejeição impede a execução inteira: nada é aplicado e o índice publicado fica como estava.
 - **FR-012**: A busca DEVE codificar a pergunta com o mesmo modelo de embedding (e o mesmo codificador esparso) registrado na versão do índice; com um diferente, a busca DEVE ser recusada, e a falha DEVE nomear os dois (falha fechada, princípio VII).
+- **FR-013**: A ingestão DEVE gravar o artefato do índice ([ADR-043](../../docs/adr/ADR-043-indice-do-scouting-gerado-no-desenvolvimento.md)) — `manifest.json`, `chunks.jsonl`, `documents.jsonl` e `vectors/<modelo>.f32` — num diretório (default, o do pacote), com publicação de uma vez e integridade conferida por sha256 na carga; o mesmo corpus e o mesmo modelo DEVEM produzir os mesmos arquivos, salvo o manifesto.
+- **FR-014**: O artefato DEVE guardar um conjunto de vetores por modelo, sobre os mesmos trechos; publicar com um modelo DEVE preservar os vetores dos outros quando cobrem todo trecho com o mesmo texto, e retirá-los quando não cobrem. Cada leitor DEVE carregar só os vetores do próprio modelo, e a busca com um modelo ausente DEVE ser `IndexMismatch`.
+- **FR-015**: O sistema DEVE oferecer o embedder remoto `pplx` pelo OpenRouter, com a chave do pack, vetores normalizados e falha explícita (sem a chave, provedor fora, resposta inesperada), sem nunca pôr a chave numa mensagem.
+- **FR-016**: A CLI DEVE oferecer `--embedder` e `--dir` em `ingest`, `reindex`, `status` e `original`, e `load-qdrant`, que publica no Qdrant um build igual ao do artefato, tudo ou nada.
 
 ### Key Entities
 

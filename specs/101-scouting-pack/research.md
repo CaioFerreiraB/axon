@@ -486,3 +486,50 @@ run lint-imports`; a suíte em 3.12 no ambiente limpo; `uv run --python 3.14 --g
 **Rationale**: SC-005; regra das ações externas.
 
 **Alternatives considered**: nenhuma.
+
+---
+
+## Passada de 2026-10-21: o pack prepara o e5 e carrega o índice do pacote ([ADR-041](../../docs/adr/ADR-041-o-pack-prepara-os-proprios-dados-no-build.md), [ADR-043](../../docs/adr/ADR-043-indice-do-scouting-gerado-no-desenvolvimento.md))
+
+Decisões pré-aprovadas pelos ADRs (hook `prepare`, artefato do índice, embedder escolhido pela configuração); o que
+segue é como elas chegam ao `pack.py`, sem re-pesquisa.
+
+## R32 — O hook `prepare`
+
+**Decision**: `ScoutingPack.prepare(ctx)` recusa `AI_SCOUTING_*` (como a carga), lê a configuração com
+`read_config(ctx.config, ctx.data_dir, require_model=False)` e, só com o `e5`, chama o `fetch` do adapter (que já era
+idempotente e conferia os sha256) no `embedding_dir` resolvido. `read_config` ganhou `data_dir` (default do
+`embedding_dir`: `data_dir/e5-small`) e `require_model` (a carga exige `model.onnx` e `tokenizer.json`; o `prepare`, que
+vai baixá-los, não). `contract_version = "0.2.1"`; dependência `axon-ai-contracts>=0.2.1,<0.3` pela tag `v0.7.0-rc4`.
+
+**Rationale** (ADR-041, Consequências; ADR-043, item 6): o `model fetch` da instalação vira o hook do pack; o caminho
+do modelo deixa de ser repetido no `packs.yaml` e no ambiente da CLI.
+
+**Alternatives**: baixar também com `pplx` (a imagem carregaria 470 MB sem uso).
+
+## R33 — `store`, `index_dir` e `embedder`
+
+**Decision**: `SCOUTING_CONFIG_SCHEMA` ganha `store` (`memory`/`qdrant`) e `index_dir`, e o `embedder` ganha `pplx`.
+`ScoutingConfig` traz `store` e `index_dir`; `qdrant_url`/`qdrant_path` ficam `None` com `memory`. A carga com
+`memory` monta o `ArtifactIndex` da 102 sobre `PACKAGED_INDEX` (`axon_scouting/data/index`, dado do pacote) ou
+`index_dir` e recusa um diretório sem `manifest.json`; com `qdrant`, o `QdrantIndex` de antes. O embedder sai de
+`_embedder(config, environ)`: `E5Embedder`, `OpenRouterEmbedder(AXON_SCOUTING_EMBEDDING_API_KEY)` ou `HashingEmbedder`.
+Pack `0.5.0`.
+
+**Rationale** (ADR-043, itens 3 a 5): o índice de produção é em memória; o Qdrant fica como opção; a chave lida na
+construção, mas exigida só na codificação, deixa o `packs check` passar no build sem segredos.
+
+**Alternatives**: inferir `store: qdrant` de `qdrant_url` presente (duas maneiras de dizer a mesma coisa); recusar a
+carga sem a chave do `pplx` (reprovaria o build da instalação).
+
+## R34 — Testes e verificação
+
+**Decision**: `tests/test_config.py` (defaults sem Qdrant, exclusividades, `data_dir`), `tests/test_pack.py` (índice em
+memória por um artefato no `tmp_path`, artefato ausente, `pplx` sem chave, `prepare` com o download trocado por um falso)
+e a conformidade do kit 0.2.1 sobre o artefato do pacote (a etapa 3b chama o `prepare`, que com `hashing` não faz
+nada). A integração do `rag_first` (`tests/integration/test_rag.py`) passa a publicar num artefato; as outras duas
+seguem no Qdrant embutido com `store: qdrant`.
+
+**Rationale**: cada FR novo com um teste; o caminho de produção (artefato) na prova ponta a ponta.
+
+**Alternatives**: —
