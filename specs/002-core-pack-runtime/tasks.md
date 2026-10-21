@@ -531,3 +531,62 @@ T085 → T086 (vê falhar) → T087 → T088 ∥ T089 → T090 → T091; T092 em
 - Suítes: workspace 3119 passed, 167 skipped (os 5 testes novos); mypy sem erro; ruff limpo (um travessão na docstring
   do teste novo virou "1 a 4", RUF002); import-linter 69 kept; ambiente limpo 3.12 com `generic` em `axon.packs` e 65
   testes do pack; `check_clean_env.py` verde; `axon packs list` com o `generic` habilitado: `generic 0.2.0 0.2 enabled`.
+
+## Passada de 2026-10-20: a instalação com os nomes da Axon — US7 cen. 6 ([ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md); research R56–R61)
+
+**Goal**: o `axon-deploy` com os nomes da Axon (projeto `axon`, serviço `axon`, imagens, caminhos, banco, variáveis,
+cabeçalhos, audiências), o core da `v0.7.0-rc1` e o pack `axon-scouting` 0.4.0; o corte seco provado no build; a
+migração documentada.
+
+**Independent Test**: [quickstart.md, "Fase 9, incremento 9.5: a instalação"](quickstart.md).
+
+### Setup (no repositório `axon-deploy`, submódulo `agentic-deploy/`)
+
+- [X] T093 [US7] Aplicar `rename_deploy.py` (scratchpad, R56) aos arquivos versionados do submódulo e ao
+  `config/identity.local.yaml` do operador (fora do git), protegendo os segredos `AGENTIC_APP_DEPLOY_KEY` e
+  `AI_SCOUTING_DEPLOY_KEY`; conferir o diff (serviço e comando `axon`, distribuição `axon-ai` só nos caminhos
+  `axon-ai/packages` e `axon-ai/console`, Postgres `axon`)
+
+### Implementation
+
+- [X] T094 [US7] À mão (R56, R57): `Dockerfile` (`CORE_REF=v0.7.0-rc1`, `PACKS` no commit da passada da 101, exemplo de
+  build com `axon:local`); `docker-compose.yml` (`name: axon`, `WEBUI_NAME: Axon`)
+- [X] T095 [P] [US7] `packages/incompatible-pack` (R58): `axon-ai-contracts>=0.2,<0.4`, grupo `axon.packs`,
+  `contract_version = "0.3"`
+- [X] T096 [P] [US7] `scripts/check-build.sh` (R60): passo 3b, a imagem com `AI_CORE_PROFILE=memory` falha e cita
+  `AI_CORE_PROFILE → AXON_PROFILE`
+- [X] T097 [P] [US7] `README.md` (R59): `CORE_REF` atual, "Vindo dos nomes antigos" e os segredos da CI
+
+### Integration e verificação
+
+- [X] T098 [US7] `scripts/check-build.sh` verde (R61)
+- [X] T099 [US7] Instalação recriada no modo `webui,console` (R59, R61): `.env` migrado, `docker compose up -d --build`,
+  `scripts/dev-users.sh`, ingestão do corpus, `python3 scripts/check-webui.py`, a console em `CONSOLE_HOST_PORT`
+- [X] T100 [US7] Resíduos (SC-009) e nenhuma palavra `agentic` (o flow) removida; documentos vivos da 002
+  (`contracts/installation.md` e a instalação no `design.md` e no `quickstart.md` §8) nos nomes novos
+- [X] T101 [US7] Commit no `axon-deploy`; no `axon`, o ponteiro e os documentos (002, `specs/README.md`,
+  `docs/roadmap.md`) — os pushes só com o aval do mantenedor
+
+### Dependencies (instalação)
+
+T093 → T094 ∥ T095 ∥ T096 ∥ T097 → T098 → T099 → T100 → T101.
+
+### Notas da execução (instalação)
+
+- `check-build.sh` (T098): build da `v0.7.0-rc1` com `axon-scouting` 0.4.0 (`da678f9`); `generic 0.2.0 0.2 enabled` e
+  `scouting 0.4.0 0.2 enabled`; o modelo em `/opt/axon-scouting/e5-small`; os três Assistants validam; o passo 3b recusa
+  `AI_CORE_PROFILE → AXON_PROFILE`; sem `uv`, `pip` nem `ensurepip`; o incompatível sai `error  requer
+  axon-ai-contracts>=0.3, instalado 0.2.0`. OK.
+- Instalação recriada (T099): projeto `agentic-deploy` derrubado (volumes antigos mantidos, para o mantenedor apagar), o
+  `.env` migrado só nos nomes, projeto `axon` com 5 serviços e todas as etapas do boot `ok`; `dev-users.sh` com
+  `ana@axon.local` e `bia@axon.local`; a ingestão deu os mesmos 413 chunks; o Open WebUI se apresenta como "Axon (Open
+  WebUI)" e o provedor como "Axon"; a console responde na porta do `.env`.
+- O modelo dos Assistants do `config/assistants.yaml` (`nvidia/nemotron-3-super-120b-a12b:free`) estava fora do ar no
+  OpenRouter (o único endpoint, da Nvidia, com status -5 e uptime 0 nos últimos 30 min): toda chamada voltava 404 do
+  provider, e o Open WebUI mostrava resposta vazia. Para a prova, uma sobreposição temporária (`geral`, `scouting`) e
+  uma troca local do `interno` para `nvidia/nemotron-3.5-super-vl:free`; com ela, `check-webui.py` passou inteiro (as
+  listas por usuário, uma execução com 200, efêmero, a timeline) e o `scouting` respondeu citando o POR (regra 12, p. 20,
+  vigente). Depois, as sobreposições foram removidas, o YAML voltou e as chaves de teste foram revogadas: trocar o modelo
+  padrão é decisão do mantenedor.
+- Resíduos (T100): só o roteiro de migração do README, os segredos da CI e o passo 3b; as duas remoções da palavra
+  `agentic` são o domínio dos e-mails de desenvolvimento, e o flow `agentic` do `geral` fica.

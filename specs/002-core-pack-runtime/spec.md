@@ -47,6 +47,9 @@
 - Q: O que acontece com um pack que ainda se anuncia só no grupo antigo? → A: Corte seco (ADR-037, item 3): o Pack Runtime não o descobre. Se ele está habilitado em `packs.yaml`, aparece como `error: não instalado`, a regra que já existe para pack habilitado e ausente — o boot conclui e `axon packs check` sai com código não zero. Não há diagnóstico próprio para o grupo antigo: a única concessão de diagnóstico do ADR-037 é a recusa das variáveis de ambiente antigas (011 e 101), e procurar no grupo antigo seria código de compatibilidade sem usuário.
 - Q: Quem acompanha a troca do grupo nesta passada? → A: Os packs do workspace e quem os simula, de forma mecânica (ADR-037, item 7): o pack de referência `axon-generic` (sem versão nova: a `0.2.0` ainda não saiu em tag), o pack de teste dos contratos e o exemplo do README dos contratos, as distribuições falsas da suíte do core e os documentos vivos da 002 e da 010. O pack de domínio troca o grupo na passada da 101, junto com a dependência da tag nova do core; até lá ele continua preso à tag antiga, e os dois não se encontram no mesmo ambiente. A instalação (US7) muda na passada dela.
 - Q: Os subcomandos de packs mudam? → A: Não nesta passada: `axon packs list` e `axon packs check` já existem sob a raiz `axon` desde a passada da 011; a saída e os códigos de saída são os mesmos.
+- Q: Que nomes a instalação de referência passa a usar (passada da instalação, US7)? → A: Os da tabela do ADR-037: o projeto do compose se chama `axon`, fixo no arquivo (não depende mais da pasta), o serviço da plataforma é `axon`, as imagens são `axon:local` e `axon-console:local`, a configuração fica em `/etc/axon`, os segredos em `/run/secrets/axon`, o banco e o usuário do Postgres são `axon`, e a imagem constrói o core da tag `v0.7.0-rc1` do repositório `axon` e o pack `axon-scouting` 0.4.0 do repositório de mesmo nome. A conexão do Open WebUI manda `x-axon-store` e `x-axon-progress`, o Open WebUI se apresenta como Axon e o botão de login usa o nome da instalação, "Axon" por padrão. Os clientes `open-webui` e `console` recebem as audiências `axon` e `axon-admin`.
+- Q: O que acontece com uma instalação local que já existia? → A: É recriada (ADR-037, item 3): como o nome do projeto muda, os volumes novos nascem vazios — contas, chaves e conversas recomeçam, e o corpus é reingerido; os volumes antigos ficam até o operador apagá-los. Um `.env` com as variáveis antigas (`AI_CORE_*`, `AI_SCOUTING_*`) não sobe em silêncio: a plataforma e o pack recusam e nomeiam a variável nova. O guia da instalação traz o roteiro de migração.
+- Q: Os segredos da CI da instalação mudam de nome? → A: Não. Os nomes dos segredos das chaves de leitura (`AGENTIC_APP_DEPLOY_KEY`, `AI_SCOUTING_DEPLOY_KEY`) são configuração do GitHub, não código; renomeá-los exigiria recadastrar as chaves, sem ganho (a mesma decisão da 101).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -173,6 +176,11 @@ entra pelo login da plataforma; depois subir com a console e entrar nela com o a
    imagem da plataforma, e nenhuma credencial fica numa camada da imagem.
 5. **Given** a instalação sem console com as variáveis do Langfuse, **When** a plataforma sobe, **Then** os traces vão ao
    Langfuse sem nenhuma configuração por tela.
+6. **Given** a instalação com os nomes da Axon (ADR-037), **When** o operador a sobe a partir de um ambiente novo,
+   **Then** o projeto se chama `axon`, a plataforma responde pelo serviço `axon` com o core da tag `v0.7.0-rc1` e o pack
+   `axon-scouting` 0.4.0, o Open WebUI manda os cabeçalhos `x-axon-*` e o login aparece com o nome Axon; **When** o
+   `.env` ainda traz uma variável `AI_CORE_*` ou `AI_SCOUTING_*`, **Then** a plataforma não sobe e a mensagem nomeia a
+   variável nova.
 
 ---
 
@@ -239,6 +247,9 @@ A plataforma passa a se chamar Axon (ADR-037). Quem escreve um pack anuncia-o no
 - **FR-023**: O sistema DEVE descobrir os packs de código pelo grupo de registro `axon.packs` (FR-001; ADR-037), e só por ele.
 - **FR-024**: Um pack anunciado só no grupo antigo (`ai_core.packs`) NÃO DEVE ser descoberto nem carregado; habilitado na configuração, DEVE ficar `error` com "não instalado", como qualquer pack habilitado e ausente, sem diagnóstico próprio do grupo antigo (corte seco, ADR-037, item 3).
 - **FR-025**: Os packs do workspace e as distribuições falsas das suítes DEVEM se anunciar em `axon.packs` na mesma passada, para a CI ficar verde (ADR-037, item 7).
+- **FR-026**: A instalação de referência DEVE usar os nomes da Axon (ADR-037, item 2): projeto do compose `axon` fixo no arquivo, serviço `axon`, imagens `axon:local` e `axon-console:local`, `/etc/axon`, `/run/secrets/axon`, banco e usuário `axon`, variáveis `AXON_*` e `AXON_SCOUTING_*`, cabeçalhos `x-axon-*` na conexão do Open WebUI, audiências `axon` e `axon-admin` nos clientes da identidade, e DEVE construir o core da tag `v0.7.0-rc1` do repositório `axon` e o pack `axon-scouting` 0.4.0. *(Incremento 9.5.)*
+- **FR-027**: O pack de teste incompatível da US5 DEVE seguir os contratos `0.2` (faixa aceita, grupo `axon.packs`) e declarar uma versão de contrato que eles não atendem, para o build continuar falhando na validação de packs e não na resolução.
+- **FR-028**: O guia da instalação DEVE trazer o roteiro de migração de uma instalação local com os nomes antigos: renomear as variáveis do `.env`, subir com volumes novos, recriar as contas e reingerir o corpus.
 
 
 ### Key Entities
@@ -260,6 +271,7 @@ A plataforma passa a se chamar Axon (ADR-037). Quem escreve um pack anuncia-o no
 - **SC-006**: Passar da instalação sem console para a com console é trocar um parâmetro da instalação, sem editar código nem arquivos do core.
 - **SC-007**: Nenhuma instalação de referência da Fase 9 traz o Keycloak, e a prova da instalação passa com o login da plataforma.
 - **SC-008**: Depois da passada da US8, zero ocorrências do grupo `ai_core.packs` no código, nos testes, na configuração e nos documentos vivos do workspace e das specs do core (fora do histórico do ADR-037, item 6, das specs `1xx`, do contrato da instalação, do `CLAUDE.md` e dos testes e textos que nomeiam o grupo antigo de propósito), e as suítes do workspace passam.
+- **SC-009**: Depois da passada da instalação, zero ocorrências de `ai-core`, `ai_core`, `AI_CORE_`, `ai-scouting`, `AI_SCOUTING_`, `agentic-app`, `agentic-deploy` e `x-ai-core` no repositório de instalação, fora do roteiro de migração, dos nomes de segredo da CI e dos textos que nomeiam o nome antigo de propósito; o teste do build passa, e a prova do Open WebUI passa contra uma instalação recriada.
 
 ## Assumptions
 

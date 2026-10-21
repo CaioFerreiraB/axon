@@ -345,3 +345,46 @@ axon-ai/packages/
 
 **Constitution Check — pós-design (US8)**: reavaliado com [contracts/ports.md](contracts/ports.md),
 [data-model.md](data-model.md) e [quickstart.md](quickstart.md) ("Fase 9, incremento 9.5"): **PASS**.
+
+## Passada de 2026-10-20: a instalação com os nomes da Axon (US7 cen. 6; [ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md))
+
+**Insumos lidos**: [spec.md](spec.md) (US7 cen. 6, FR-026–FR-028, SC-009, clarificações de 2026-10-20),
+[contracts/installation.md](contracts/installation.md), [design.md](design.md), ADR-037, as passadas da 011 (recusa de
+`AI_CORE_*`), 003 (audiências), 008 (cabeçalhos), 013 (`AXON_UPSTREAM`) e 101 (`axon-scouting` 0.4.0). Research:
+R56–R61. **Sem divergência do `design.md`** além dos nomes; sem ADR novo.
+
+**Summary**: o repositório de instalação passa aos nomes da Axon — projeto `axon` fixo, serviço `axon`, imagens,
+caminhos, banco, variáveis, cabeçalhos do Open WebUI e audiências (R56, R57) —, constrói o core da `v0.7.0-rc1` e o pack
+0.4.0, mantém o pack incompatível incompatível (R58), documenta a migração (R59) e prova o corte seco no build (R60).
+
+**Technical Context**: Dockerfile, compose, `.env.example`, `config/*.yaml`, scripts e README do `axon-deploy`; nenhuma
+linha do core nem do pack. Nenhum `NEEDS CLARIFICATION`.
+
+**Constitution Check (instalação)**
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| II. Módulos substituíveis por seams | ✅ | A instalação consome só seams publicados: variáveis da 011, cabeçalhos da 008, audiências da 003, `AXON_UPSTREAM` da 013 |
+| VII. Falha fechada e explícita | ✅ | `.env` antigo não sobe (recusa da 011 e da 101), provado no `check-build.sh` (R60) |
+| XII. Simplicidade deliberada | ✅ | Volumes novos em vez de migração de dados (R59) |
+| Segredos | ✅ | Nenhum valor real no repositório; segredos por arquivo e `.env` fora do git, como antes |
+
+**Module boundary gate**: só o submódulo `agentic-deploy/` e os documentos vivos da 002 sobre a instalação. **Resultado**:
+PASS.
+
+**Project Structure (instalação)**
+
+```text
+agentic-deploy/                      # repositório axon-deploy
+├── Dockerfile                       # CORE_REPO/CORE_REF, /opt/axon, /etc/axon, usuário axon, PACKS 0.4.0 (R56)
+├── docker-compose.yml               # name: axon, serviço axon, Postgres axon, x-axon-*, WEBUI_NAME (R56, R57)
+├── .env.example                     # AXON_*, AXON_SCOUTING_* (R56)
+├── config/{assistants,identity,packs}.yaml   # audiências axon/axon-admin; AXON_SCOUTING_* nos comentários (R57)
+├── packages/incompatible-pack/      # contratos 0.2, contract_version "0.3" (R58)
+├── scripts/{check-build.sh,dev-users.sh,check-webui.py}   # comando axon, serviço axon, recusa (R60)
+├── .github/workflows/build.yml      # comentários; segredos iguais (R60)
+└── README.md                        # nomes e "Vindo dos nomes antigos" (R59)
+```
+
+**Constitution Check — pós-design (instalação)**: reavaliado com [contracts/installation.md](contracts/installation.md)
+("Fase 9, incremento 9.5") e [quickstart.md](quickstart.md): **PASS**.

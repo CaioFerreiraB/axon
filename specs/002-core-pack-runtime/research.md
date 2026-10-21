@@ -730,3 +730,79 @@ nomes antigos neles se leem pela tabela do ADR-037. A instalação (US7) tem pas
   ocorrências de `ai_core.packs` nos `plan.md`/`research.md`/`tasks.md` de outras specs são o **módulo** antigo
   (`ai_core.packs.api`), não o grupo, e são histórico.
 - **Alternatives**: nenhuma.
+
+## Passada de 2026-10-20: a instalação com os nomes da Axon ([ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md); US7 cen. 6)
+
+> Os itens acima ficam como foram decididos (ADR-037, item 6). Estes são da passada da instalação, no submódulo
+> `agentic-deploy/` (o repositório `axon-deploy`; a pasta muda no fechamento do renome).
+
+### R56 — Os nomes da instalação
+
+- **Decision**: no `docker-compose.yml`, `name: axon` no topo (o projeto deixa de vir da pasta), serviço `axon`, imagens
+  `axon:local` e `axon-console:local`; no `Dockerfile`, `CORE_REPO=ssh://git@github.com/CaioFerreiraB/axon.git`,
+  `CORE_REF=v0.7.0-rc1`, o clone em `/src/axon` com os pacotes de `axon-ai/packages/{contracts,core,generic}` e a console
+  de `axon-ai/console`, o ambiente em `/opt/axon`, o modelo em `/opt/axon-scouting/e5-small`, a configuração em
+  `/etc/axon`, o usuário do processo `axon` (uid 10001, igual), `CMD ["axon", "serve"]`, `PACKS` com
+  `axon-scouting@git+ssh://git@github.com/CaioFerreiraB/axon-scouting.git@<commit da passada da 101>`, e no estágio da
+  console `NGINX_ENVSUBST_FILTER=AXON_` e `AXON_UPSTREAM=http://axon:8000` (o template da 013 já usa `AXON_UPSTREAM`). O
+  Postgres com usuário e banco `axon`; os segredos em `/run/secrets/axon`; todas as variáveis `AI_CORE_*` passam a
+  `AXON_*` e as `AI_SCOUTING_*` a `AXON_SCOUTING_*`. Os volumes guardam os nomes (`postgres-data`, `qdrant-data`,
+  `open-webui-data`), que o compose prefixa com o projeto (`axon_…`).
+- **Rationale** (ADR-037, item 2, linha "compose"): o nome fixo no arquivo faz o projeto continuar `axon` quando a pasta
+  passar a `axon-deploy/` no fechamento, sem trocar de volumes de novo.
+- **Alternatives**: deixar o projeto derivar da pasta (os volumes mudariam outra vez no fechamento); `axon-ai` como
+  serviço (o nome da operação é curto, `axon`).
+
+### R57 — O Open WebUI e os clientes da identidade
+
+- **Decision**: `OPENAI_API_CONFIGS` com os cabeçalhos `x-axon-store: false` e `x-axon-progress: status` (008 US10: os
+  antigos recebem 400); `OPENAI_API_BASE_URLS` e `OPENID_PROVIDER_URL` em `http://axon:8000`; `WEBUI_NAME=Axon` (o nome
+  da interface; o Open WebUI acrescenta "(Open WebUI)"); `OAUTH_PROVIDER_NAME=${AXON_DISPLAY_NAME:-Axon}` (o botão diz
+  "Continuar com Axon"); `OAUTH_CLIENT_SECRET=${AXON_IDENTITY_SECRET_OPEN_WEBUI}`. No `config/identity.yaml`, as
+  audiências `axon` (`open-webui`) e `axon-admin` (`console`), que são as que a 003 aceita desde a passada dela. As
+  contas de desenvolvimento passam a `ana@axon.local` e `bia@axon.local`.
+- **Rationale**: os cabeçalhos e as audiências antigos são recusados pelo core da `v0.7.0-rc1`; sem a troca, o chat
+  falha com 400 e os tokens não autenticam.
+- **Alternatives**: manter `WEBUI_NAME` sem definir (mostraria "Open WebUI"; o ADR-037 pede o nome da plataforma).
+
+### R58 — O pack incompatível da US5
+
+- **Decision**: `packages/incompatible-pack` com `axon-ai-contracts>=0.2,<0.4`, grupo `axon.packs`, import
+  `axon_ai_contracts` e `contract_version = "0.3"`.
+- **Rationale** (FR-027): ele precisa instalar sobre os contratos da imagem (0.2.0) e ser reprovado pelo `axon packs
+  check`; com "0.2" ele passaria a ser compatível.
+- **Alternatives**: nenhuma.
+
+### R59 — Migração de uma instalação local
+
+- **Decision**: o README ganha "Vindo dos nomes antigos": `docker compose -p agentic-deploy down` (o projeto antigo vinha
+  da pasta), renomear as variáveis do `.env` (`sed -i 's/^AI_SCOUTING_/AXON_SCOUTING_/; s/^AI_CORE_/AXON_/' .env`, nessa
+  ordem), `docker compose up -d --build` (volumes `axon_*` novos), `scripts/dev-users.sh`, reingestão do corpus e, quando
+  quiser, `docker volume rm` dos `agentic-deploy_*`. O `.env` antigo não sobe: o core recusa `AI_CORE_*` e o pack,
+  `AI_SCOUTING_*`, nomeando a nova (011 US7, 101 US6). O `config/identity.local.yaml` do operador (fora do git) precisa
+  das audiências novas.
+- **Rationale** (ADR-037, item 3; FR-028): corte seco, ambientes recriados; o roteiro evita adivinhação.
+- **Alternatives**: reaproveitar os volumes antigos com `external: true` (as chaves de API e a chave de assinatura
+  seladas com os nomes antigos não valem mais; não há dado a preservar).
+
+### R60 — CI e segredos
+
+- **Decision**: `build.yml` mantém os segredos `AGENTIC_APP_DEPLOY_KEY` e `AI_SCOUTING_DEPLOY_KEY` (os comentários dizem
+  que leem o `axon` e o `axon-scouting`); o `check-build.sh` usa `axon:check`, `axon packs list`, `axon assistants
+  validate`, `axon-scouting-corpus --help`, `/opt/axon` e procura `axon packs check` na saída do build, e ganha um passo
+  que roda a imagem com `AI_CORE_PROFILE=memory` e espera a recusa citando `AXON_PROFILE`.
+- **Rationale**: o nome de segredo é configuração do GitHub (a mesma decisão da 101 R28); o passo novo prova o corte seco
+  na imagem que vai para produção (US7 cen. 6).
+- **Alternatives**: renomear os segredos (recadastrar as chaves sem ganho).
+
+### R61 — Verificação
+
+- **Decision**: `scripts/check-build.sh` verde (local, com o agente SSH) e a CI do `axon-deploy` verde; a instalação
+  recriada no modo `webui,console` com o `.env` migrado: `scripts/dev-users.sh`, a ingestão do corpus, `python3
+  scripts/check-webui.py` (listas de `ana` e `bia`, uma mensagem, 200, a timeline) e a console respondendo. Resíduos
+  (SC-009): `git grep -nE 'ai-core|ai_core|AI_CORE_|ai-scouting|AI_SCOUTING_|agentic-app|agentic-deploy|x-ai-core'` no
+  submódulo só no roteiro de migração, nos segredos da CI e no passo da recusa; nenhuma palavra `agentic` (o flow)
+  removida. Documentos vivos da 002: `contracts/installation.md` e a parte da instalação do `design.md` nos nomes novos,
+  com a seção "Fase 9, incremento 9.5"; `quickstart.md` com o roteiro.
+- **Rationale**: SC-009; a prova do Open WebUI é a que pegou o defeito do JWKS na Fase 7.
+- **Alternatives**: nenhuma.

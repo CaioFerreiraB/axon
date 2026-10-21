@@ -32,14 +32,14 @@ axon-ai/packages/core/src/axon_ai/packs/
 ## O pack se declara
 
 ```toml
-# ai-scouting/pyproject.toml
+# axon-scouting/pyproject.toml
 [project]
-name = "ai-scouting"
+name = "axon-scouting"
 version = "0.1.4"
 dependencies = ["axon-ai-contracts>=0.1,<0.2"]   # nunca axon-ai
 
 [project.entry-points."axon.packs"]
-scouting = "ai_scouting.pack:ScoutingPack"
+scouting = "axon_scouting.pack:ScoutingPack"
 ```
 
 ## O core descobre
@@ -164,11 +164,11 @@ minha-instalacao/
 ```
 
 ```dockerfile
-FROM ghcr.io/caio/ai-core:0.3.1
+FROM ghcr.io/caio/axon:0.3.1
 # a imagem do core já traz axon-ai-contracts e axon-generic
 
 ARG PACKS="\
-  ai-scouting@git+https://github.com/caio/ai-scouting@v0.1.4 \
+  axon-scouting@git+https://github.com/caio/axon-scouting@v0.1.4 \
 "
 
 RUN uv pip install --system ${PACKS} \
@@ -177,14 +177,14 @@ RUN uv pip install --system ${PACKS} \
 
 ```yaml
 services:
-  ai-core:
+  axon:
     build:
       context: .
       args:
-        PACKS: "ai-scouting@git+https://github.com/caio/ai-scouting@v0.1.4"
+        PACKS: "axon-scouting@git+https://github.com/caio/axon-scouting@v0.1.4"
     volumes:
-      - ./assistants.yaml:/etc/ai-core/assistants.yaml:ro
-      - ./packs.yaml:/etc/ai-core/packs.yaml:ro
+      - ./assistants.yaml:/etc/axon/assistants.yaml:ro
+      - ./packs.yaml:/etc/axon/packs.yaml:ro
     env_file: .env
     depends_on: [postgres, qdrant, ollama]
 ```
@@ -192,8 +192,8 @@ services:
 Adicionar um pack novo é acrescentar uma linha e rebuildar. Nenhum loader custom, nenhum venv gravável em runtime, nenhuma superfície de execução remota de código.
 
 > Atualizado em 2026-10-07 ([ADR-022](../../docs/adr/ADR-022-instalacao-constroi-o-core-num-estagio-proprio.md)): não há
-> imagem do core publicada — o Dockerfile da instalação (repositório `agentic-deploy`) constrói o core num estágio
-> próprio a partir da tag do `agentic-app`, instala os packs por cima, roda `packs check` e entrega um estágio de
+> imagem do core publicada — o Dockerfile da instalação (repositório `axon-deploy`) constrói o core num estágio
+> próprio a partir da tag do `axon`, instala os packs por cima, roda `packs check` e entrega um estágio de
 > runtime sem instalador. Os packs privados entram por montagem SSH do BuildKit, sem credencial em camada da imagem.
 
 ### Fase 9: com ou sem console, sem Keycloak ([ADR-029](../../docs/adr/ADR-029-console-de-administracao-propria.md), [ADR-030](../../docs/adr/ADR-030-a-plataforma-e-o-provedor-de-identidade.md), [ADR-033](../../docs/adr/ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md))
@@ -201,7 +201,7 @@ Adicionar um pack novo é acrescentar uma linha e rebuildar. Nenhum loader custo
 - **Dockerfile:** estágios novos `console-build` (`node:24-bookworm-slim`, copia `axon-ai/console` do estágio `core`,
   `npm ci && npm run build`) e `console` (`nginx-unprivileged`, sistema de arquivos somente leitura, `nginx.conf`
   da 013). A console sai da mesma tag `CORE_REF` da plataforma.
-- **Compose:** `postgres` (volume próprio) entra em toda instalação, com ou sem interface, e o `ai-core` passa a
+- **Compose:** `postgres` (volume próprio) entra em toda instalação, com ou sem interface, e o `axon` passa a
   `AXON_PROFILE=persistent` (clarificação de 2026-10-13). Perfil `webui` = Open WebUI apontado para a plataforma
   (`OPENID_PROVIDER_URL={AXON_PUBLIC_URL}/.well-known/openid-configuration`, cliente confidencial `open-webui`); o
   serviço `keycloak`, o volume `keycloak-data` e `config/keycloak/` saem. A sessão do Open WebUI (`JWT_EXPIRES_IN`) fica

@@ -106,7 +106,12 @@ CI verde, tags `contracts-v0.2.0` e `v0.7.0-rc1`, com o aval do mantenedor.
 **101 feita** (2026-10-21) — `axon-scouting` 0.4.0 (import `axon_scouting`, CLI `axon-scouting-corpus`, grupo
 `axon.packs`, `contract_version` "0.2"), contratos e core pela `v0.7.0-rc1`; variáveis `AXON_SCOUTING_*`, e qualquer
 `AI_SCOUTING_*` no ambiente faz a carga e a CLI recusarem, nomeando a nova; integração, CI e `eval.yml` com `axon`,
-`AXON_*` e `axon eval run`; specs 102–106 só nos nomes. Próximo: a instalação (002, `axon-deploy`).
+`AXON_*` e `axon eval run`; specs 102–106 só nos nomes.
+**Instalação feita** (2026-10-21) — `axon-deploy` com o projeto `axon` fixo no compose, serviço `axon`, Postgres `axon`,
+`/etc/axon`, `AXON_*`, o core `v0.7.0-rc1` e o `axon-scouting` 0.4.0; Open WebUI com `x-axon-*` e o nome Axon; clientes
+com as audiências `axon`/`axon-admin`; `check-build.sh` prova a recusa de `AI_CORE_*`; instalação local recriada (corpus
+reingerido) e `check-webui.py` verde. Próximo: o fechamento (submódulos em `axon-scouting/` e `axon-deploy/`,
+`CLAUDE.md`, templates, README, pasta local e memória).
 
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 

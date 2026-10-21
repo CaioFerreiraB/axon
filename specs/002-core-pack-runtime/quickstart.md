@@ -106,15 +106,15 @@ do registro pela 011 (US4).
 
 ## 8. Build da instalação (US5, Fase 4)
 
-Dentro de `agentic-deploy/` (submódulo; `git submodule update --init agentic-deploy`), com o agente SSH carregando uma
-chave que lê o `agentic-app` e o `ai-scouting`. Contrato em [contracts/installation.md](contracts/installation.md).
+Dentro de `agentic-deploy/` (submódulo, que passa a `axon-deploy/` no fechamento do renome; `git submodule update
+--init agentic-deploy`), com o agente SSH carregando uma chave que lê o `axon` e o `axon-scouting`. Contrato em [contracts/installation.md](contracts/installation.md).
 
 ```bash
 scripts/check-build.sh
 ```
 
-**Esperado**: o build com o `ai-scouting` conclui; na imagem, `generic` e `scouting` aparecem `enabled`, o
-`assistants validate` passa, não há `uv`, `pip` nem `ensurepip`, e o usuário do processo não escreve em `/opt/ai-core`;
+**Esperado**: o build com o `axon-scouting` conclui; na imagem, `generic` e `scouting` aparecem `enabled`, o
+`assistants validate` passa, não há `uv`, `pip` nem `ensurepip`, e o usuário do processo não escreve em `/opt/axon`;
 o build com o pack incompatível falha no `packs check`, nomeando `incompatible`. O script sai com 0.
 
 ```bash
@@ -164,3 +164,23 @@ cd .. && git grep -nw "ai_core\.packs" -- . ':!ai-scouting' ':!agentic-deploy' '
 
 **Esperado**: só o teste do corte seco e os textos que nomeiam o grupo antigo de propósito (a US8, as clarificações de
 2026-10-20 e os FR-024 e SC-008 da 002, as notas da 010); nenhum `pyproject.toml` nem código de produção.
+
+## Fase 9, incremento 9.5 (2026-10-20): a instalação com os nomes da Axon (US7 cen. 6)
+
+Dentro do submódulo da instalação (o repositório `axon-deploy`; a pasta `agentic-deploy/` até o fechamento do renome),
+com o agente SSH lendo o `axon` e o `axon-scouting`. Decisões em [research.md](research.md) R56–R61.
+
+```bash
+scripts/check-build.sh                                    # build da v0.7.0-rc1 + axon-scouting 0.4.0, incompatível, recusa
+docker compose -p agentic-deploy --profile webui --profile console down
+sed -i 's/^AI_SCOUTING_/AXON_SCOUTING_/; s/^AI_CORE_/AXON_/' .env
+COMPOSE_PROFILES=webui,console docker compose up -d --build
+docker compose ls                                         # o projeto axon
+scripts/dev-users.sh
+docker compose run --rm -v ../ai-scouting/corpus:/corpus:ro axon axon-scouting-corpus ingest /corpus/corpus.yaml
+python3 scripts/check-webui.py
+```
+
+**Esperado**: o `check-build.sh` termina em OK, com o passo 3b recusando `AI_CORE_PROFILE → AXON_PROFILE`; o compose
+mostra o projeto `axon`; o login do Open WebUI diz "Continuar com Axon"; o `check-webui.py` passa (as listas de `ana` e
+`bia`, uma mensagem com 200 e a timeline); a console responde na porta dela.
