@@ -102,7 +102,7 @@ Da 011, a Fase 2 (US2 persistente, US4, US5) liga tudo isso: três perfis — `m
 `AXON_DATABASE_URL`, migrações de `assistants` e `http` na etapa `adapters`) e `test` —, todos com a autenticação
 real da 003 (o anônimo saiu; o `memory` aceita a chave de `AXON_DEV_API_KEY`, e o `test` exporta `TEST_OIDC_TOKEN`
 e `TEST_API_KEY` em `axon_ai.bootstrap.profiles`); a raiz `axon` com `serve`, `packs list|check`, `assistants
-validate`, `keys create|list|revoke` e `health`, registrados numa lista em `bootstrap/cli.py`; a saúde agregada
+validate`, `keys create|list|revoke|rotate` e `health`, registrados numa lista em `bootstrap/cli.py`; a saúde agregada
 (`bootstrap/health.py`, 503 só quando o banco ou uma etapa crítica falha); e a expiração periódica das conversas no
 ciclo de vida da app. O pool do psycopg pertence ao laço em que abre: o de serviço abre no ciclo de vida da app, e o
 boot e a CLI usam uma sessão de armazenamento própria (`wiring.storage`).
@@ -439,6 +439,19 @@ símbolo; os tokens da marca têm contraste AA nos dois temas, com o hover do bo
 `axon-scouting` e `axon-deploy`, e os submódulos ficam em `axon-scouting/` e `axon-deploy/`; a instalação usa o projeto
 `axon` fixo no compose (serviço `axon`, Postgres `axon`, `/etc/axon`). Os segredos de CI `AGENTIC_APP_DEPLOY_KEY` e
 `AI_SCOUTING_DEPLOY_KEY` mantêm o nome. O flow `agentic` não muda de nome.
+
+Chaves de API e permissões pela console (ADR-040): a 003 rotaciona o segredo de uma chave
+(`ApiKeyAdmin.rotate`/`rotate_as_operator`, `axon keys rotate`; mesmo `key_id`, o hash é trocado pela porta
+`ApiKeyStore.rotate` só para chave ativa, e o segredo anterior morre na hora, sem janela), emite `svc:<nome>` só no
+padrão dos nomes de Assistant e recusa o grupo de administração na emissão com ator (só a CLI o concede); `auth`
+(`schemes` + `allow`, `AuthOverride`) é a terceira seção de `overrides`, com o mecanismo do ADR-032, e `*` num Assistant
+que virou privado o deixa indisponível com `override.auth`; a 003 não confere se subjects e grupos de `allow` existem
+(migrações `004_api_key_rotation` e `005_auth_overrides`). A 008 tem `POST /admin/v1/keys/{key_id}/rotate` (só na
+administração; 409 `key_revoked`), `rotated_at` nas duas superfícies e `PUT /admin/v1/assistants/{name}/auth`, com
+`auth` em `yaml`/`effective` da visão. A console tem a aba "Chaves de API" em Acesso (`/acesso/chaves`; a chave em claro
+só num diálogo, nunca no cache — mutação com `gcTime: 0` — nem no registro, `no-console` no ESLint) e a aba
+"Permissões" no Assistant (`/assistentes/:nome/permissoes`; sugestões de sistemas com chave ativa e grupos, `user:`
+digitado, `*` só em público). Expiração, "último uso" e o subject no trace e no uso ficam para outro ADR.
 
 O `axon-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =

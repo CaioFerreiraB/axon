@@ -15,7 +15,7 @@ limitando `/speckit-tasks` e `/speckit-implement` às user stories da fase (ex.:
 | **6 — Avaliação** | **Antes de calibrar qualquer número do RAG** | 009 · US2, US3, US4 · 105 · US1–US5 |
 | **7 — Open WebUI** ✅ | Assistants aparecem como modelos | 008 · US6, US8 |
 | **8 — GraphRAG** | Retriever de grafo atrás do contrato existente | 106 (resolver a ontologia primeiro) |
-| **9 — Console e identidade própria** | Login da própria plataforma (senha e Google) no lugar do Keycloak e administração gráfica do que o deploy permitir: modelos e MCPs por Assistant, uso e custo, Langfuse, ajustes de login | 012 · todas · 013 · todas · 003 · US9, US10 · 009 · US5–US7 · 006 · toque `model_exchange` · 008 · US9 · 011 · US6 · 002 · US7 · identidade Axon (incremento 9.5): US "Identidade Axon" em 001, 011, 010, 002, 003, 009, 008, 012, 013 e 101 |
+| **9 — Console e identidade própria** | Login da própria plataforma (senha e Google) no lugar do Keycloak e administração gráfica do que o deploy permitir: modelos e MCPs por Assistant, uso e custo, Langfuse, ajustes de login | 012 · todas · 013 · todas · 003 · US9, US10 · 009 · US5–US7 · 006 · toque `model_exchange` · 008 · US9 · 011 · US6 · 002 · US7 · identidade Axon (incremento 9.5): US "Identidade Axon" em 001, 011, 010, 002, 003, 009, 008, 012, 013 e 101 · chaves e permissões pela console (ADR-040): 003 · US12, US13 · 008 · US11 · 013 · US9, US10 |
 
 **Fase 1 concluída em 2026-09-21.** `ai-core serve` sobe a plataforma a partir de `packs.yaml` e `assistants.yaml`, e
 uma requisição no formato OpenAI atravessa API (008), motor (005), Pack Hooks (002) com o `ai-generic` (010) e Model
@@ -115,6 +115,15 @@ reingerido) e `check-webui.py` verde.
 e os overrides de template aos nomes da Axon, e a raiz ganhou um `README.md` com o lockup, a descrição e o mapa dos
 repositórios; a CI do pack marca os nomes novos de submódulo para as próximas tags. **O incremento 9.5 está completo.**
 Fica à mão, por último: a pasta local do repositório e a memória do Claude Code.
+
+**Chaves de API e permissões pela console (2026-10-21; ADR-040).** A 003 rotaciona o segredo de uma chave (mesmo
+`key_id`, o anterior morre na hora, `axon keys rotate`), exige o padrão dos nomes de Assistant em `svc:<nome>`, recusa o
+grupo de administração na emissão pela administração (só a CLI o concede) e libera `auth` como terceira seção
+sobreponível, com falha fechada para `*` num Assistant que o deploy tornou privado (migrações `004` e `005` do schema
+`assistants`). A 008 expõe `POST /admin/v1/keys/{key_id}/rotate` (409 `key_revoked`), `rotated_at` e `PUT
+/admin/v1/assistants/{name}/auth`. A 013 ganha a aba "Chaves de API" em Acesso (a chave em claro uma vez, num diálogo;
+rotação e revogação confirmadas na linha) e a aba "Permissões" no Assistant. Expiração de chave, "último uso" e o
+subject no trace e no uso ficam para um ADR próprio. **Feito.**
 
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 
