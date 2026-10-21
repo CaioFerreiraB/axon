@@ -638,7 +638,7 @@ sobre eles.
 - [X] T111 [US5] `scripts/check-build.sh` verde localmente com `CORE_REF=v0.7.0-rc4`
 - [X] T112 [P] Documentos vivos: `contracts/installation.md`, spec (FR-013, FR-019, FR-032–FR-034, US5 cen. 4–5),
   `specs/README.md`, `CLAUDE.md`
-- [ ] T113 [US5] Publicar as imagens base `0.7.0-rc4` (`gh workflow run images.yml -f core_ref=v0.7.0-rc4`), com o
+- [X] T113 [US5] Publicar as imagens base `0.7.0-rc4` (`gh workflow run images.yml -f core_ref=v0.7.0-rc4`), com o
   aval do mantenedor, depois do push do `axon-deploy`
 
 ### Notas da execução (camadas)
@@ -647,3 +647,8 @@ sobre eles.
   `incompatible 0.1.0 0.3 error requer axon-ai-contracts>=0.3, instalado 0.2.1`.
 - Fumaça: a imagem do modelo sobe com `--read-only` no perfil `memory`, e `/private/v1/health` responde (`degraded`
   sem a chave do OpenRouter).
+- A primeira rodada do `images.yml` falhou antes de publicar: o `.gitignore` da raiz do `axon-deploy` ignorava
+  `config/` em qualquer nível, e o `template/config/` não tinha entrado no commit (a prova local via a pasta de
+  trabalho). Correção: padrões só da raiz (`/config/`, `/secrets/`), e o `check-build.sh` monta o contexto do modelo
+  com `git ls-files`. Na segunda, `build.yml` e `images.yml` verdes; `axon-build`, `axon-runtime` e `axon-console`
+  `:0.7.0-rc4` publicadas em `ghcr.io/caioferreirab/`.
