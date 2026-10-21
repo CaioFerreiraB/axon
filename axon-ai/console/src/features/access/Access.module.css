@@ -227,3 +227,26 @@
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 8px 16px;
 }
+
+/* Confirmação na própria linha (revogar, rotacionar), como o descarte de sobreposição (Editor.module.css). */
+.confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 4px 4px 12px;
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio-painel);
+  background: var(--fundo-sutil);
+  font-size: var(--tamanho-13);
+  white-space: normal;
+  text-align: left;
+}
+
+/* A chave de API mostrada uma vez (013 US9): inteira, quebrada em linhas, sem redimensionar. */
+.secretKey {
+  height: auto;
+  padding: 8px 12px;
+  line-height: 1.5;
+  resize: none;
+  word-break: break-all;
+}

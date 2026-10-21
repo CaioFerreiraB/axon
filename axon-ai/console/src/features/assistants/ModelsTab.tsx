@@ -14,7 +14,7 @@ import {
   useSaveModels,
 } from "../../api/hooks/assistants";
 import { usePrices } from "../../api/hooks/usage";
-import { isMcpPayload, ROLES, type AssistantView, type ModelCheck, type Provider } from "../../api/schemas";
+import { isModelsPayload, ROLES, type AssistantView, type ModelCheck, type Provider } from "../../api/schemas";
 import { formatInteger } from "../../i18n/format";
 import { DEPLOY_ONLY, ROLE_TEXT } from "../../i18n/pt-BR";
 import { Badge } from "../../ui/Badge";
@@ -35,7 +35,7 @@ type Draft = Record<string, RefParts>;
 function draftOf(view: AssistantView): Draft {
   const override = overrideOf(view, "models");
   const stored: Record<string, string> =
-    override?.state === "active" && override.payload && !isMcpPayload(override.payload) ? override.payload : {};
+    override?.state === "active" && override.payload && isModelsPayload(override.payload) ? override.payload : {};
   return Object.fromEntries(ROLES.map((role) => [role, splitRef(stored[role] ?? view.yaml.models[role])]));
 }
 

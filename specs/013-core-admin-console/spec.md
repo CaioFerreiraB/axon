@@ -10,7 +10,7 @@
 e senha ou Google; modelos e MCPs de cada Assistant, sobrepondo o `assistants.yaml` quando a flag do YAML permite;
 dashboard de requisições, tokens e custo por modelo e por dia; Langfuse; ajustes de login; instalação com ou sem a
 interface. ADR-029, ADR-031, ADR-032, ADR-033, ADR-034. Fase 9, incremento 9.5 (2026-10-20): identidade Axon —
-ADR-037, ADR-038, ADR-039.
+ADR-037, ADR-038, ADR-039. Fase 9 (2026-10-21): chaves de API e acesso dos Assistants de sistema pela console — ADR-040.
 
 ## Module Boundary *(mandatory)*
 
@@ -33,7 +33,8 @@ ADR-037, ADR-038, ADR-039.
   [ADR-033](../../docs/adr/ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md),
   [ADR-034](../../docs/adr/ADR-034-trace-com-destinos-e-conteudo-opcional.md),
   [ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md), [ADR-038](../../docs/adr/ADR-038-marca-da-plataforma-e-marca-da-instalacao.md),
-  [ADR-039](../../docs/adr/ADR-039-hover-do-botao-primario-no-escuro.md).
+  [ADR-039](../../docs/adr/ADR-039-hover-do-botao-primario-no-escuro.md),
+  [ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md).
 
 ## Clarifications
 
@@ -48,6 +49,13 @@ ADR-037, ADR-038, ADR-039.
 - Q: As cores da console mudam? → A: Sim. Os tokens passam aos do `DESIGN.md` (ADR-038, item 4), iguais aos das páginas da 012. No tema escuro, o hover do botão primário escurece para `#1D4ED8`, como no claro, em vez do `axon-blue`, que dava 3,69:1 com o texto branco — decisão do mantenedor de 2026-10-20 (ADR-039), que vale também para as páginas da 012.
 - Q: De onde vêm o símbolo e o wordmark? → A: Do `brand-kit/svg/` aprovado (ADR-038, item 6). O wordmark sozinho, que a barra lateral usa ao lado do símbolo, é um recorte do lockup aprovado: o mesmo traço, só com o enquadramento do wordmark; ele entra no `brand-kit` ao lado dos outros arquivos.
 - Q: O pacote da console muda de nome? → A: Sim: `@axon/console` (era `@agentic/console`; ADR-037, item 2). Nenhum outro identificador da console muda: a chave `console.theme` do armazenamento do navegador e o cliente OIDC `console` ficam (ADR-037, item 5).
+
+### Session 2026-10-21
+
+- Q: Como se chama a aba nova do detalhe do Assistant, ao lado de Modelos, MCP e Histórico? → A: "Permissões" (rota `permissoes`), com o título interno "Quem pode usar este Assistant"; o nome evita repetir "Acesso", que é a tela da barra lateral.
+- Q: Onde fica a tela de chaves de API? → A: Quarta aba da tela Acesso, "Chaves de API" (`/acesso/chaves`), depois de Usuários, Grupos e Login, com "Criar chave" no cabeçalho, como "Cadastrar pessoa".
+- Q: O formulário de criação concede grupos à chave? → A: Não. O sistema ganha acesso pela entrada `svc:` na aba "Permissões" de cada Assistant, o que deixa explícito o que cada sistema alcança; os grupos de chaves existentes aparecem na lista, e a API e a CLI continuam podendo concedê-los.
+- Q: Além de sistemas e grupos, o que "Adicionar" oferece na aba "Permissões"? → A: Um campo de texto com sugestões (como o de modelo): sistemas com chave ativa e grupos como sugestões, e `user:<nome>` digitado; num Assistant público, "Qualquer pessoa autenticada (`*`)" é uma opção à parte, com nota; num privado, ela não aparece, com o motivo.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -233,6 +241,80 @@ A plataforma passa a se chamar Axon (ADR-037, ADR-038). O admin de uma instalaç
 
 ---
 
+### User Story 9 - Chaves de API dos sistemas (Priority: P2)
+
+O admin cria uma chave para um sistema informando o nome dele (a chave sai com o subject `svc:<nome>`) e, se quiser, um
+rótulo que distingue chaves do mesmo sistema (por exemplo, por ambiente). A chave em claro aparece uma única vez, num
+diálogo com "Copiar" e o aviso de que não será mostrada de novo; depois de fechado, nada a mostra — nem a lista, nem a
+memória da tela, nem o registro do navegador. A lista traz todas as chaves: sistema, identificador, grupos, rótulo,
+criação, última rotação e estado (ativa, ou revogada com a data). O admin revoga uma chave confirmando na própria tela e
+rotaciona o segredo de uma chave ativa, vendo a chave nova uma vez, como na criação
+([ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md); 008 US11).
+
+**Why this priority**: Hoje chave só se cria e revoga pela linha de comando ou por chamada direta à API; a rotação nem
+existe. Com a aba de acesso (US10), é o que permite dar a um sistema novo acesso a um Assistant sem deploy.
+
+**Independent Test**: Na aba "Chaves de API" da tela Acesso, criar uma chave para `relatorios` com rótulo `prod`, copiar a chave do diálogo, fechar e conferir
+que a lista não a mostra; rotacioná-la e ver a chave nova uma vez; revogá-la confirmando na tela e ver o estado
+"Revogada" com a data.
+
+**Acceptance Scenarios**:
+
+1. **Given** o admin na tela de chaves, **When** cria uma chave com o nome `relatorios` e o rótulo `prod`, **Then** um
+   diálogo mostra a chave em claro, com "Copiar" e o aviso de que ela não aparece de novo, e a lista passa a ter a chave
+   `svc:relatorios`, sem a chave em claro.
+2. **Given** o diálogo fechado, **When** o admin volta à lista ou reabre a tela, **Then** a chave em claro não aparece em
+   lugar nenhum da console.
+3. **Given** um nome fora do padrão (`Relatórios`), **When** o admin tenta criar, **Then** o campo do nome mostra o
+   motivo da plataforma, e nada é criado.
+4. **Given** uma chave ativa, **When** o admin pede a revogação, **Then** a tela pede confirmação na própria linha; ao
+   confirmar, a chave aparece revogada com a data, e as ações dela somem.
+5. **Given** uma chave ativa, **When** o admin rotaciona o segredo, **Then** confirma na tela, vê a chave nova uma única
+   vez no mesmo diálogo da criação, com o aviso de que a anterior já não vale, e a lista mostra a data da rotação.
+6. **Given** uma chave revogada por outra pessoa enquanto a tela estava aberta, **When** o admin tenta rotacioná-la,
+   **Then** vê o motivo ("chave revogada") e a lista se atualiza.
+7. **Given** duas chaves do mesmo sistema com rótulos diferentes, **When** o admin olha a lista, **Then** distingue uma
+   da outra pelo rótulo e pelo identificador.
+
+---
+
+### User Story 10 - Quem pode usar um Assistant de sistema (Priority: P2)
+
+No detalhe de um Assistant de sistema, a aba "Permissões" mostra e, se o YAML liberar `auth` em `overrides`, edita quem pode
+usá-lo: um interruptor por forma de entrada ("Login" para quem entra pelo chat, "Chave de API" para sistemas) e a lista
+de quem é permitido — sistemas, grupos e, onde a plataforma admite, pessoas e "qualquer autenticado" —, cada entrada
+removível. "Adicionar" abre uma escolha entre os sistemas com chave ativa e os grupos da plataforma. A seção segue as
+sobreposições das outras abas: travada com "Só muda por novo deploy" quando o YAML não a libera, inativa com o motivo
+quando o deploy a mudou, conflito de versão com o rascunho preservado, descarte confirmado na tela e histórico
+([ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md)).
+
+**Why this priority**: Dar acesso a um sistema ou a um grupo hoje exige editar o `assistants.yaml` e reimplantar.
+
+**Independent Test**: Num Assistant com `overrides: [auth]`, ligar "Chave de API", adicionar o sistema `relatorios` e
+salvar; a visão efetiva traz o esquema e a entrada; o histórico registra a gravação.
+
+**Acceptance Scenarios**:
+
+1. **Given** um Assistant com `auth` liberado, **When** o admin liga "Chave de API", adiciona `svc:relatorios` e salva,
+   **Then** a aba mostra o valor efetivo novo, com autor e versão, e o YAML como referência.
+2. **Given** um Assistant sem `auth` em `overrides`, **When** o admin abre a aba, **Then** vê os esquemas e a lista do
+   YAML só para leitura, com "Só muda por novo deploy".
+3. **Given** um Assistant privado, **When** o admin procura "qualquer autenticado", **Then** a opção não é oferecida, com
+   a explicação; num público, é.
+4. **Given** o admin desligando os dois esquemas ou removendo todas as entradas, **When** tenta salvar, **Then** a tela
+   explica por que não pode e não envia; se a plataforma recusar algo mesmo assim, o motivo aparece no campo.
+5. **Given** uma entrada que não corresponde a nenhum sistema com chave ativa nem a nenhum grupo, **When** o admin olha a
+   lista, **Then** ela aparece marcada como "sem correspondência", com a explicação de que não dá acesso a ninguém, e
+   pode ser removida.
+6. **Given** um sistema adicionado com "Chave de API" desligada, **When** o admin olha a lista, **Then** a entrada é
+   marcada: sistemas só entram por chave.
+7. **Given** outro admin salvou antes, **When** o admin salva, **Then** vê o aviso de conflito com "Recarregar e manter
+   meu rascunho".
+8. **Given** uma sobreposição de acesso, **When** o admin a descarta, **Then** confirma na tela e o Assistant volta ao
+   YAML; o histórico mostra a gravação e o descarte com os esquemas e as entradas.
+
+---
+
 ### Edge Cases
 
 - Dois admins editam o mesmo Assistant: quem salva por último recebe aviso de que houve mudança, pode recarregar e não
@@ -248,6 +330,14 @@ A plataforma passa a se chamar Axon (ADR-037, ADR-038). O admin de uma instalaç
 - `me` ainda carregando: a barra lateral mostra o símbolo Axon (sem atribuição) até a resposta chegar, e o título usa "Axon".
 - Instalação com logotipo e sem nome próprio: o logotipo com o nome padrão no lugar principal, e "com Axon" no rodapé (há marca da instalação).
 - Troca de tema pela console (claro/escuro/sistema): o símbolo e o wordmark trocam de versão na hora, sem recarregar.
+- Fechar o diálogo da chave em claro sem copiar: a chave se perde; a tela avisa antes de fechar que ela não volta e
+  sugere rotacionar se não tiver sido guardada.
+- Admin que rotaciona a chave com que a própria automação dele entra: a console não usa chave de API (entra pelo login),
+  então a sessão não cai.
+- Sistema cuja única chave foi revogada: some das opções de "Adicionar"; as entradas que já o citam ficam marcadas como
+  sem correspondência.
+- Muitas chaves (centenas): a lista continua legível, com o sistema e o rótulo como primeiras colunas e as revogadas
+  depois das ativas.
 
 ## Requirements *(mandatory)*
 
@@ -311,6 +401,29 @@ A plataforma passa a se chamar Axon (ADR-037, ADR-038). O admin de uma instalaç
   e o cliente OIDC (`console`) NÃO DEVEM mudar.
 - **FR-023**: Os arquivos do símbolo, do lockup, do wordmark e do favicon DEVEM ser os do `brand-kit/svg/`, sem
   redesenho; o wordmark sozinho é um recorte do lockup aprovado, com o mesmo traço.
+- **FR-024**: A console DEVE ter a aba "Chaves de API" na tela Acesso (`/acesso/chaves`) e, nela, criar chaves de API para sistemas: o admin informa o nome do sistema (a chave sai com o
+  subject `svc:<nome>`) e um rótulo opcional, sem grupos (o acesso do sistema vem da aba "Permissões" de cada
+  Assistant). Erro de campo da plataforma aparece no campo.
+- **FR-025**: A chave em claro (na criação e na rotação) DEVE aparecer uma única vez, num diálogo com "Copiar" e o aviso de
+  que não será mostrada de novo; ao fechar, ela NÃO DEVE permanecer em lugar nenhum da console — tela, memória de dados
+  da API, histórico de navegação ou registro do navegador.
+- **FR-026**: A lista de chaves DEVE mostrar sistema (subject), identificador, grupos, rótulo, criação, última rotação e
+  estado (ativa, ou revogada com a data), e nunca a chave nem o hash; ativas antes das revogadas.
+- **FR-027**: Revogar e rotacionar DEVEM pedir confirmação na própria tela (sem diálogo do navegador); rotação de chave
+  revogada mostra o motivo da plataforma e atualiza a lista.
+- **FR-028**: O detalhe de um Assistant de sistema DEVE ter a aba "Permissões" (título "Quem pode usar este Assistant") com um interruptor por esquema ("Login" e
+  "Chave de API") e a lista de entradas de `allow`, cada uma removível; editável só se o YAML libera `auth`, com o mesmo
+  tratamento das outras seções sobreponíveis (FR-005, FR-008, FR-009): valor do YAML e efetivo, autor e versão,
+  sobreposição inativa com o motivo, conflito de versão com o rascunho preservado e descarte confirmado na tela.
+- **FR-029**: "Adicionar" DEVE ser um campo de texto com sugestões: os sistemas com chave ativa (dos subjects `svc:` da
+  lista de chaves) e os grupos da plataforma, vindos só do que a administração já lista (008 FR-038), e `user:<nome>`
+  digitado. "Qualquer pessoa autenticada (`*`)" DEVE ser uma opção à parte, só em Assistant público, com nota; num
+  privado, não aparece, com o motivo. Entrada fora dos formatos aceitos é apontada antes de entrar na lista.
+- **FR-030**: A aba DEVE marcar, sem bloquear, as entradas sem correspondência (sistema sem chave ativa, grupo
+  inexistente) e as que nunca casam com os esquemas ligados (sistema com "Chave de API" desligada); e DEVE impedir salvar
+  com os dois esquemas desligados ou sem entradas, explicando o porquê, como a plataforma também recusa (003 FR-031).
+- **FR-031**: O histórico do Assistant DEVE mostrar as gravações e os descartes de acesso com os esquemas e as entradas, e
+  a lista de Assistants DEVE contar `auth` nas marcas de "sobreposto", "sobreposição inativa" e "travado" (FR-004).
 
 ### Key Entities
 
@@ -338,6 +451,8 @@ A plataforma passa a se chamar Axon (ADR-037, ADR-038). O admin de uma instalaç
   administrativo fica no armazenamento persistente do navegador — só a preferência de tema.
 - **SC-007**: Uma pessoa sem o grupo de administração não recebe nenhum dado administrativo em nenhuma tela.
 - **SC-008**: Em 100% das telas, nos dois temas, a marca segue a FR-020 e o contraste atende AA (inclusive o hover do botão primário); zero ocorrências de "Agentic" e de `@agentic/console` no código, nos testes e nos documentos vivos da console (fora do histórico do ADR-037, item 6).
+- **SC-009**: Em teste, a chave em claro aparece só no diálogo da criação ou da rotação: depois de fechado, ela não está em nenhum texto da tela, na memória de dados da API nem no registro do navegador; criar uma chave e dar acesso a um sistema leva menos de 2 minutos sem tocar no `assistants.yaml`.
+- **SC-010**: Zero violações automáticas de WCAG 2.2 AA na tela de chaves, no diálogo da chave e na aba de acesso, nos dois temas, operáveis só pelo teclado.
 
 ## Assumptions
 

@@ -105,6 +105,30 @@ assistants:
     auth:
       schemes: [oidc, api_key]
       allow: ["*"]
+  relatorios:
+    description: Relatórios para sistemas
+    visibility: public
+    flow: chat
+    packs: [generic]
+    overrides: [auth]
+    models:
+      generation: ollama/qwen3:1.7b
+      allow: ["ollama/*"]
+    auth:
+      schemes: [oidc]
+      allow: ["group:equipe"]
+  interno:
+    description: Só a equipe
+    visibility: private
+    flow: chat
+    packs: [generic]
+    overrides: [auth]
+    models:
+      generation: ollama/qwen3:1.7b
+      allow: ["ollama/*"]
+    auth:
+      schemes: [oidc]
+      allow: ["group:equipe"]
 api_keys:
   admin_group: admin
 """

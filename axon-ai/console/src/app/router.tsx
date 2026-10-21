@@ -13,6 +13,7 @@ const AssistantsPage = lazy(() => import("../features/assistants/AssistantsPage"
 const AssistantDetail = lazy(() => import("../features/assistants/AssistantDetail"));
 const ModelsTab = lazy(() => import("../features/assistants/ModelsTab"));
 const McpTab = lazy(() => import("../features/assistants/McpTab"));
+const PermissionsTab = lazy(() => import("../features/assistants/PermissionsTab"));
 const HistoryTab = lazy(() => import("../features/assistants/HistoryTab"));
 const McpServersPage = lazy(() => import("../features/mcp/McpServersPage"));
 const ObservabilityPage = lazy(() => import("../features/observability/ObservabilityPage"));
@@ -20,6 +21,7 @@ const AccessPage = lazy(() => import("../features/access/AccessPage"));
 const UsersTab = lazy(() => import("../features/access/UsersTab"));
 const GroupsTab = lazy(() => import("../features/access/GroupsTab"));
 const LoginTab = lazy(() => import("../features/access/LoginTab"));
+const KeysTab = lazy(() => import("../features/access/KeysTab"));
 
 export function createRouter() {
   return createBrowserRouter([
@@ -42,6 +44,7 @@ export function createRouter() {
             { index: true, element: <Navigate to="modelos" replace /> },
             { path: "modelos", element: <ModelsTab /> },
             { path: "mcp", element: <McpTab /> },
+            { path: "permissoes", element: <PermissionsTab /> },
             { path: "historico", element: <HistoryTab /> },
           ],
         },
@@ -55,6 +58,7 @@ export function createRouter() {
             { path: "usuarios", element: <UsersTab /> },
             { path: "grupos", element: <GroupsTab /> },
             { path: "login", element: <LoginTab /> },
+            { path: "chaves", element: <KeysTab /> },
           ],
         },
         { path: "*", element: <NotFoundPage /> },

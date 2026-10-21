@@ -18,6 +18,9 @@ describe("esquemas do contrato", () => {
     ["página de contas", s.accountPageSchema, f.accounts],
     ["grupo", s.groupSchema, f.groups[0]],
     ["login", s.loginSettingsSchema, f.login],
+    ["AssistantView com permissões sobrepostas", s.assistantViewSchema, f.aberto],
+    ["chave rotacionada", s.apiKeySchema, f.apiKeys[1]],
+    ["lista de chaves", s.apiKeyListSchema, { data: f.apiKeys }],
   ])("aceita %s", (_name, schema, example) => {
     expect(schema.safeParse(example).success).toBe(true);
   });
@@ -41,5 +44,39 @@ describe("esquemas do contrato", () => {
     expect(s.isMcpPayload({ aliases: ["a"], allowed: [], write: [] })).toBe(true);
     expect(s.isMcpPayload({ generation: "x/y" })).toBe(false);
     expect(s.isMcpPayload(null)).toBe(false);
+  });
+});
+
+describe("seção de permissões e chaves (ADR-040)", () => {
+  it("distingue o conteúdo de cada seção", () => {
+    const [auth] = f.aberto.overrides;
+    expect(auth && s.isAuthPayload(auth.payload)).toBe(true);
+    expect(auth && s.isMcpPayload(auth.payload)).toBe(false);
+    expect(auth && s.isModelsPayload(auth.payload)).toBe(false);
+    const [models] = f.geral.overrides;
+    expect(models && s.isModelsPayload(models.payload)).toBe(true);
+  });
+
+  it("histórico aceita o conteúdo de permissões", () => {
+    const entry = {
+      section: "auth",
+      action: "saved",
+      payload: { schemes: ["oidc"], allow: ["svc:relatorios"] },
+      version: 1,
+      actor: "user:ana",
+      at: "2026-10-21T10:00:00+00:00",
+    };
+    expect(s.historyEntrySchema.safeParse(entry).success).toBe(true);
+    expect(s.historyEntrySchema.safeParse({ ...entry, payload: { schemes: ["senha"], allow: [] } }).success).toBe(
+      false,
+    );
+  });
+
+  it("a chave emitida traz a chave em claro; a da lista, não precisa", () => {
+    expect(s.issuedKeySchema.safeParse({ ...f.apiKeys[1], key: "axn_0000000000000001_x" }).success).toBe(true);
+    expect(s.issuedKeySchema.safeParse(f.apiKeys[1]).success).toBe(false);
+    const semRotacao: Record<string, unknown> = { ...f.apiKeys[1] };
+    delete semRotacao.rotated_at;
+    expect(s.apiKeySchema.safeParse(semRotacao).success).toBe(false);
   });
 });

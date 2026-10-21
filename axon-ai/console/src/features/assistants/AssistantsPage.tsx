@@ -7,6 +7,7 @@ import { Link } from "react-router";
 import { useAssistants } from "../../api/hooks/assistants";
 import type { AssistantView } from "../../api/schemas";
 import { formatInstantDay, plural } from "../../i18n/format";
+import { SECTION_TEXT } from "../../i18n/pt-BR";
 import { Badge } from "../../ui/Badge";
 import { TextInput } from "../../ui/Field";
 import { Icon } from "../../ui/icons";
@@ -72,7 +73,7 @@ function Row({ view }: { view: AssistantView }) {
           {view.overridable.length === 0 ? (
             <Badge icon="cadeado">Travado</Badge>
           ) : (
-            view.overridable.map((section) => <Badge key={section}>{section === "models" ? "Modelos" : "MCP"}</Badge>)
+            view.overridable.map((section) => <Badge key={section}>{SECTION_TEXT[section]}</Badge>)
           )}
         </span>
       </td>

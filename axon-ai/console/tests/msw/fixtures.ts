@@ -2,6 +2,7 @@
 
 import type {
   AccountPage,
+  ApiKey,
   AssistantView,
   Group,
   LoginSettings,
@@ -35,6 +36,7 @@ export const geral: AssistantView = {
   yaml: {
     models: { generation: "openrouter/openai/gpt-4.1-nano", controller: "openrouter/openai/gpt-4.1-nano" },
     mcp: { aliases: [], allowed: [], write: [] },
+    auth: { schemes: ["oidc"], allow: ["*"] },
   },
   overrides: [
     {
@@ -50,6 +52,7 @@ export const geral: AssistantView = {
   effective: {
     models: { generation: "openrouter/openai/gpt-4.1-mini", controller: "openrouter/openai/gpt-4.1-nano" },
     mcp: { aliases: [], allowed: [], write: [] },
+    auth: { schemes: ["oidc"], allow: ["*"] },
   },
 };
 
@@ -62,9 +65,17 @@ export const rascunho: AssistantView = {
   overridable: [],
   required_roles: ["generation"],
   allow: ["ollama/*"],
-  yaml: { models: { generation: "ollama/qwen3:1.7b" }, mcp: { aliases: [], allowed: [], write: [] } },
+  yaml: {
+    models: { generation: "ollama/qwen3:1.7b" },
+    mcp: { aliases: [], allowed: [], write: [] },
+    auth: { schemes: ["oidc"], allow: ["*"] },
+  },
   overrides: [],
-  effective: { models: { generation: "ollama/qwen3:1.7b" }, mcp: { aliases: [], allowed: [], write: [] } },
+  effective: {
+    models: { generation: "ollama/qwen3:1.7b" },
+    mcp: { aliases: [], allowed: [], write: [] },
+    auth: { schemes: ["oidc"], allow: ["*"] },
+  },
 };
 
 export const documentos: AssistantView = {
@@ -73,6 +84,8 @@ export const documentos: AssistantView = {
   description: "Perguntas sobre documentos",
   visibility: "private",
   overridable: ["models"],
+  yaml: { ...rascunho.yaml, auth: { schemes: ["api_key"], allow: ["group:equipe"] } },
+  effective: { ...rascunho.effective, auth: { schemes: ["api_key"], allow: ["group:equipe"] } },
   overrides: [
     {
       section: "models",
@@ -296,3 +309,79 @@ export const login: LoginSettings = {
   google_hosted_domain: null,
   version: 0,
 };
+
+// --- US9 e US10 (ADR-040) -------------------------------------------------------------------------------------------
+
+/** Público, com `auth` liberado e uma sobreposição ativa de permissões. */
+export const aberto: AssistantView = {
+  ...rascunho,
+  name: "aberto",
+  description: "Relatórios para sistemas",
+  overridable: ["auth"],
+  yaml: { ...rascunho.yaml, auth: { schemes: ["oidc"], allow: ["group:equipe"] } },
+  overrides: [
+    {
+      section: "auth",
+      state: "active",
+      reason: null,
+      version: 2,
+      updated_by: "user:ana",
+      updated_at: "2026-10-20T14:00:00+00:00",
+      payload: { schemes: ["api_key", "oidc"], allow: ["group:equipe", "svc:relatorios", "group:sumiu"] },
+    },
+  ],
+  effective: {
+    ...rascunho.effective,
+    auth: { schemes: ["api_key", "oidc"], allow: ["group:equipe", "svc:relatorios", "group:sumiu"] },
+  },
+};
+
+/** Privado, com `auth` liberado e sem sobreposição. */
+export const restrito: AssistantView = {
+  ...rascunho,
+  name: "restrito",
+  description: "Só a equipe",
+  visibility: "private",
+  overridable: ["auth"],
+  yaml: { ...rascunho.yaml, auth: { schemes: ["oidc"], allow: ["group:equipe"] } },
+  effective: { ...rascunho.effective, auth: { schemes: ["oidc"], allow: ["group:equipe"] } },
+};
+
+export const apiKeys: ApiKey[] = [
+  {
+    key_id: "0000000000000003",
+    subject: "svc:antigo",
+    groups: [],
+    label: null,
+    created_at: "2026-09-01T10:00:00+00:00",
+    revoked_at: "2026-10-01T10:00:00+00:00",
+    rotated_at: null,
+  },
+  {
+    key_id: "0000000000000001",
+    subject: "svc:relatorios",
+    groups: [],
+    label: "prod",
+    created_at: "2026-10-10T10:00:00+00:00",
+    revoked_at: null,
+    rotated_at: "2026-10-18T09:30:00+00:00",
+  },
+  {
+    key_id: "0000000000000002",
+    subject: "svc:relatorios",
+    groups: [],
+    label: "homolog",
+    created_at: "2026-10-11T10:00:00+00:00",
+    revoked_at: null,
+    rotated_at: null,
+  },
+  {
+    key_id: "0000000000000004",
+    subject: "user:caio",
+    groups: ["admin"],
+    label: "notebook",
+    created_at: "2026-10-12T10:00:00+00:00",
+    revoked_at: null,
+    rotated_at: null,
+  },
+];

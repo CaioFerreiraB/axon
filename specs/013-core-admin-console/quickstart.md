@@ -62,3 +62,17 @@ npx playwright install chromium && npm run e2e
 instalação e "com Axon" quando há; o acesso negado com o lockup; o título "<tela> · <nome>"; os SVG iguais aos do
 `brand-kit`; os pares de texto em AA nos dois temas, inclusive o hover do botão primário; o axe sem violação nos três
 projetos (claro, escuro, tablet). Capturas da barra lateral sem e com marca, nos dois temas (R21).
+
+## Fase 9 (2026-10-21): US9 e US10 — chaves de API e permissões
+
+A partir de `axon-ai/console/`, com `source ~/.nvm/nvm.sh && nvm use`. Decisões em [research.md](research.md) R22–R27.
+
+```bash
+npm run typecheck && npm run lint && npm test
+npm run e2e -- keys.spec.ts permissions.spec.ts a11y.spec.ts
+```
+
+**Esperado**: verde — em `/acesso/chaves`, criar `relatorios` (rótulo `prod`) abre o diálogo com a chave uma vez; ao
+fechar, nada a mostra; rotacionar mostra a nova e a antiga deixa de autenticar; revogar pede confirmação na linha. Em
+`/assistentes/<nome>/permissoes`, ligar "Chave de API", adicionar `svc:relatorios` e salvar grava a sobreposição; num
+Assistant sem `auth` em `overrides`, a aba fica travada. Zero violações de axe nas duas telas e no diálogo.

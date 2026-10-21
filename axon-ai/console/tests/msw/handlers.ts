@@ -6,9 +6,11 @@ const api = (path: string) => `*/admin/v1${path}`;
 
 export const handlers = [
   http.get(api("/me"), () => HttpResponse.json(f.me)),
-  http.get(api("/assistants"), () => HttpResponse.json({ data: [f.documentos, f.geral, f.rascunho] })),
+  http.get(api("/assistants"), () =>
+    HttpResponse.json({ data: [f.aberto, f.documentos, f.geral, f.rascunho, f.restrito] }),
+  ),
   http.get(api("/assistants/:name"), ({ params }) => {
-    const view = [f.geral, f.rascunho, f.documentos].find((item) => item.name === params.name);
+    const view = [f.geral, f.rascunho, f.documentos, f.aberto, f.restrito].find((item) => item.name === params.name);
     return view
       ? HttpResponse.json(view)
       : HttpResponse.json(
@@ -27,6 +29,7 @@ export const handlers = [
   http.get(api("/users"), () => HttpResponse.json(f.accounts)),
   http.get(api("/groups"), () => HttpResponse.json({ data: f.groups })),
   http.get(api("/login-settings"), () => HttpResponse.json(f.login)),
+  http.get(api("/keys"), () => HttpResponse.json({ data: f.apiKeys })),
 ];
 
 export function apiError(status: number, code: string, message: string, extra: Record<string, unknown> = {}) {

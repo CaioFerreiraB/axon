@@ -24,7 +24,7 @@ export type Me = z.infer<typeof meSchema>;
 
 export const ROLES = ["generation", "controller", "rerank"] as const;
 export type Role = (typeof ROLES)[number];
-export const SECTIONS = ["models", "mcp"] as const;
+export const SECTIONS = ["models", "mcp", "auth"] as const;
 export type Section = (typeof SECTIONS)[number];
 
 const modelsMap = z.record(z.string(), z.string());
@@ -35,6 +35,14 @@ export const mcpSelectionSchema = z.object({
 });
 export type McpSelection = z.infer<typeof mcpSelectionSchema>;
 
+/** Quem pode usar um Assistant (ADR-040): os esquemas aceitos e as entradas de `allow`. */
+export const SCHEMES = ["oidc", "api_key"] as const;
+export type Scheme = (typeof SCHEMES)[number];
+export const authSelectionSchema = z.object({ schemes: z.array(z.enum(SCHEMES)), allow: z.array(z.string()) });
+export type AuthSelection = z.infer<typeof authSelectionSchema>;
+
+const payloadSchema = z.union([authSelectionSchema, mcpSelectionSchema, modelsMap]);
+
 export const overrideViewSchema = z.object({
   section: z.enum(SECTIONS),
   state: z.enum(["active", "inactive"]),
@@ -42,13 +50,23 @@ export const overrideViewSchema = z.object({
   version: z.number().int(),
   updated_by: z.string(),
   updated_at: instant,
-  payload: z.union([modelsMap, mcpSelectionSchema]).nullable(),
+  payload: payloadSchema.nullable(),
 });
 export type OverrideView = z.infer<typeof overrideViewSchema>;
 
-/** O conteúdo de uma sobreposição de MCP (as outras são papel → modelo). */
+/** O conteúdo de uma sobreposição de MCP. */
 export function isMcpPayload(payload: OverrideView["payload"]): payload is McpSelection {
   return payload !== null && Array.isArray((payload as McpSelection).aliases);
+}
+
+/** O conteúdo de uma sobreposição de permissões. */
+export function isAuthPayload(payload: OverrideView["payload"]): payload is AuthSelection {
+  return payload !== null && Array.isArray((payload as AuthSelection).schemes);
+}
+
+/** O conteúdo de uma sobreposição de modelos: papel → modelo. */
+export function isModelsPayload(payload: OverrideView["payload"]): payload is Record<string, string> {
+  return payload !== null && !isMcpPayload(payload) && !isAuthPayload(payload);
 }
 
 export const assistantViewSchema = z.object({
@@ -60,9 +78,9 @@ export const assistantViewSchema = z.object({
   overridable: z.array(z.enum(SECTIONS)),
   required_roles: z.array(z.string()),
   allow: z.array(z.string()),
-  yaml: z.object({ models: modelsMap, mcp: mcpSelectionSchema }),
+  yaml: z.object({ models: modelsMap, mcp: mcpSelectionSchema, auth: authSelectionSchema }),
   overrides: z.array(overrideViewSchema),
-  effective: z.object({ models: modelsMap, mcp: mcpSelectionSchema }),
+  effective: z.object({ models: modelsMap, mcp: mcpSelectionSchema, auth: authSelectionSchema }),
 });
 export type AssistantView = z.infer<typeof assistantViewSchema>;
 export const assistantListSchema = z.object({ data: z.array(assistantViewSchema) });
@@ -70,7 +88,7 @@ export const assistantListSchema = z.object({ data: z.array(assistantViewSchema)
 export const historyEntrySchema = z.object({
   section: z.enum(SECTIONS),
   action: z.enum(["saved", "discarded"]),
-  payload: z.union([modelsMap, mcpSelectionSchema]).nullable(),
+  payload: payloadSchema.nullable(),
   version: z.number().int(),
   actor: z.string(),
   at: instant,
@@ -268,8 +286,13 @@ export const apiKeySchema = z.object({
   label: z.string().nullable(),
   created_at: instant,
   revoked_at: instant.nullable(),
+  rotated_at: instant.nullable(),
 });
 export type ApiKey = z.infer<typeof apiKeySchema>;
+export const apiKeyListSchema = z.object({ data: z.array(apiKeySchema) });
+/** A resposta da emissão e da rotação: a única que traz a chave em claro (ADR-040). Nunca vai para o cache (013 R23). */
+export const issuedKeySchema = apiKeySchema.extend({ key: z.string() });
+export type IssuedKey = z.infer<typeof issuedKeySchema>;
 
 export const healthSchema = z.object({
   status: z.enum(["ok", "degraded", "down"]),

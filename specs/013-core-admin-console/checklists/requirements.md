@@ -75,3 +75,10 @@
   e virou o ADR-039; está na sessão de clarificações.
 - O título "<tela> · <nome da instalação>" segue as páginas da 012 em vez do "Tela · Axon" do plano do renome, para a
   console e o login dizerem o mesmo nome; com a instalação sem nome próprio, dá "Tela · Axon".
+
+### Iteração de 2026-10-21 — US9 e US10 (ADR-040)
+
+Todos os itens continuam passando. FR-024 → US9 cen. 1 e 3; FR-025 → cen. 1, 2 e 5 e SC-009; FR-026 → cen. 1, 4 e 7;
+FR-027 → cen. 4, 5 e 6; FR-028 → US10 cen. 1, 2, 7 e 8; FR-029 → cen. 1; FR-030 → cen. 3 a 6; FR-031 → cen. 8 e a
+lista de Assistants. Nenhuma marca de clarificação; o nome da aba, o lugar da tela de chaves e o que a escolha de
+entradas oferece além de sistemas e grupos ficam para o `/speckit-clarify`.

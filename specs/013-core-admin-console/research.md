@@ -292,3 +292,80 @@ Playwright do MCP. O Penpot não estava conectado em 2026-10-20; a comparação 
 **Rationale**: SC-005 e SC-008.
 
 **Alternatives considered**: nenhuma.
+
+---
+
+# Passada de 2026-10-21: chaves de API e permissões dos Assistants (US9, US10; [ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md))
+
+Decisões pré-aprovadas: ADR-029 (a console só apresenta), ADR-031, ADR-040, o contrato `admin-api.md` da 008 (US11 dela:
+rotação, `rotated_at`, `PUT …/auth`, `yaml.auth`/`effective.auth`, 409 `key_revoked`) e as clarificações de 2026-10-21.
+
+## R22 — Rotas e lugares
+
+- **Decision**: aba "Chaves de API" em `/acesso/chaves` (`features/access/KeysTab.tsx`), com "Criar chave" no
+  cabeçalho da tela Acesso quando a aba está aberta (`?criar=1`, como `?cadastrar=1`); aba "Permissões" em
+  `/assistentes/:nome/permissoes` (`features/assistants/PermissionsTab.tsx`), entre MCP e Histórico.
+- **Rationale**: clarificações 1 e 2 de 2026-10-21; o padrão das abas que já existem.
+- **Alternatives considered**: item próprio na barra lateral (rejeitado na clarificação).
+
+## R23 — A chave em claro uma vez
+
+- **Decision**: `useCreateKey` e `useRotateKey` (`src/api/hooks/apiKeys.ts`) como as escritas de conta com
+  `keepResult: false` (`gcTime: 0`): o resultado vive só no estado do diálogo (`IssuedKeyDialog`), que ao fechar chama
+  `reset()` da mutação e limpa o estado; a lista é **invalidada** (relida, sem `key`), nunca escrita com o resultado. O
+  esquema da resposta da emissão e da rotação é `issuedKeySchema = apiKeySchema.extend({ key })`, usado só nessas duas
+  escritas. O diálogo é o segundo modal da console, pela mesma razão do R7 (foco protegido para um segredo mostrado uma
+  vez): campo somente leitura com a chave, "Copiar", o aviso de que não aparece de novo e "Concluir". Nenhum `console.*`
+  no código da console: a regra `no-console` do ESLint passa a valer em `src/`.
+- **Rationale**: FR-025 e SC-009; o padrão da senha temporária (R7).
+- **Alternatives considered**: mostrar a chave numa linha da tabela (fica no DOM e na cópia da tela); guardar até o
+  admin confirmar que copiou (retém o segredo).
+
+## R24 — Revogar e rotacionar com confirmação na linha
+
+- **Decision**: cada linha ativa tem "Rotacionar" e "Revogar"; a confirmação aparece na própria linha (o padrão do
+  `DiscardButton`: texto curto, "Cancelar" com foco, botão de perigo). Rotação confirmada abre o mesmo diálogo da
+  criação, com o aviso de que a chave anterior já não vale. 409 `key_revoked` mostra o motivo num aviso e relê a lista.
+  Ordem: ativas antes das revogadas; dentro de cada grupo, por sistema e rótulo.
+- **Rationale**: FR-026, FR-027; a console não usa `confirm()`.
+- **Alternatives considered**: confirmação em modal (o modal fica reservado a segredo, R7).
+
+## R25 — A aba "Permissões"
+
+- **Decision**: rascunho `{ schemes: Set<"oidc" | "api_key">, allow: string[] }` a partir de `effective.auth`; um
+  `Toggle` por esquema ("Login", "Chave de API"); a lista de entradas, cada uma com rótulo legível (sistema, grupo,
+  pessoa, "Qualquer pessoa autenticada") e "Remover"; "Adicionar" é um `TextInput` com `<datalist>` (o padrão da escolha
+  de modelo da `ModelsTab`) com as sugestões `svc:<nome>` dos subjects das chaves **ativas** e `group:<nome>` dos grupos,
+  aceitando `user:<nome>` digitado; a **forma** é conferida antes de entrar na lista (`*`, `user:…`, `svc:…` ou
+  `group:…`, sem espaço). `*` é um `Checkbox` à parte, só em Assistant público, com nota; num privado, não aparece e um
+  texto diz por quê. Marcas, sem bloquear: "sem correspondência" para `svc:` fora das chaves ativas e `group:` fora dos
+  grupos (`user:` não é conferido: a lista de contas é paginada); "não entra com os esquemas ligados" para `svc:` com
+  "Chave de API" desligada. "Salvar" fica desabilitado, com o motivo, com os dois esquemas desligados ou sem entradas.
+  Travada, inativa, conflito, descarte e rodapé usam `editorParts` como Modelos e MCP.
+- **Rationale**: FR-028 a FR-030 e as clarificações 3 e 4; a forma no cliente é o que o R7 já permite, a regra continua
+  na 003 (que recusa o mesmo, com `param`).
+- **Alternatives considered**: um combobox ARIA próprio (mais código e mais risco de acessibilidade que o `<datalist>`
+  que a console já usa); conferir `user:` contra todas as contas (paginaria a API inteira).
+
+## R26 — Esquemas e as telas que mostram seções
+
+- **Decision**: `SECTIONS = ["models", "mcp", "auth"]`; `authSelectionSchema = { schemes: ("oidc" | "api_key")[],
+  allow: string[] }`; `yaml`/`effective` ganham `auth`; o `payload` das sobreposições e do histórico aceita o de `auth`
+  (com `isAuthPayload`); `apiKeySchema` ganha `rotated_at`. `HistoryTab`, `overrideMeta` e os selos da lista de Assistants
+  passam a nomear a seção "Permissões" e a resumir `auth` (esquemas e quantidade de entradas).
+- **Rationale**: FR-031; o esquema `zod` de hoje recusaria a visão de um Assistant com sobreposição de `auth` (o
+  `payload` não casa nem com modelos nem com MCP) — a tela inteira cairia em "contrato".
+- **Alternatives considered**: tornar o `payload` desconhecido opaco (esconderia divergência de contrato, R6).
+
+## R27 — Testes
+
+- **Decision**: Vitest + MSW: `tests/access/keys.test.tsx` (criar, diálogo uma vez, nada no cache depois de fechar —
+  `queryClient` sem a chave —, lista com rotação e revogada, confirmação de revogar e rotacionar, 409 `key_revoked`, erro
+  de campo do nome), `tests/assistants/permissions.test.tsx` (travada, edição, sugestões, `*` só em público, marcas,
+  salvar desabilitado, conflito, descarte), `tests/api/schemas.test.ts` (auth e `rotated_at`); fixtures e handlers novos
+  em `tests/msw/`. Playwright: `e2e/keys.spec.ts` (criar, copiar, fechar, rotacionar e revogar contra a plataforma em
+  memória; a chave nova autentica e a antiga não, conferido pela API) e `e2e/permissions.spec.ts` (adicionar um sistema
+  e salvar; o efetivo na visão); `e2e/a11y.spec.ts` com `/acesso/chaves`, o diálogo aberto e
+  `/assistentes/<nome>/permissoes`; `e2e/serve_platform.py` com um Assistant `overrides: [auth]`.
+- **Rationale**: SC-009, SC-010.
+- **Alternatives considered**: —

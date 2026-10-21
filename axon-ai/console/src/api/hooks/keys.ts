@@ -15,4 +15,5 @@ export const keys = {
   usersAll: ["users"] as const,
   groups: ["groups"] as const,
   login: ["login-settings"] as const,
+  apiKeys: ["api-keys"] as const,
 };

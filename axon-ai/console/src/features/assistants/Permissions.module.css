@@ -1,0 +1,69 @@
+/* Aba "Permissões" (013 US10): esquemas, entradas de allow e o campo de adicionar. Só tokens do DESIGN.md. */
+.schemes {
+  display: grid;
+  gap: var(--espaco-3);
+}
+.scheme {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-3);
+}
+.schemeText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.schemeName {
+  font-weight: 500;
+}
+.schemeHelp,
+.note {
+  color: var(--texto-secundario);
+  font-size: var(--tamanho-13);
+}
+.entries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--borda-base);
+  border-radius: var(--raio-painel);
+}
+.entry {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-3);
+  padding: var(--espaco-2) var(--espaco-2) var(--espaco-2) var(--espaco-4);
+  flex-wrap: wrap;
+}
+.entry + .entry {
+  border-top: 1px solid var(--borda-base);
+}
+.kind {
+  min-width: 72px;
+  color: var(--texto-secundario);
+  font-size: var(--tamanho-13);
+}
+.value {
+  font-family: var(--fonte-mono);
+  font-size: var(--tamanho-14);
+}
+.marks {
+  display: inline-flex;
+  gap: var(--espaco-2);
+  flex: 1;
+  flex-wrap: wrap;
+}
+.add {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--espaco-2);
+  flex-wrap: wrap;
+}
+.addField {
+  flex: 1;
+  min-width: 240px;
+  max-width: 420px;
+}
+.addButton {
+  margin-bottom: 22px;
+}

@@ -40,7 +40,7 @@ export function renderAt(
   routes: { path: string; element: ReactElement; children?: { path: string; element: ReactElement }[] }[],
 ) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  return render(
+  const view = render(
     <QueryClientProvider client={client}>
       <AuthProvider manager={fakeManager()} fallback={() => <p>entrando</p>}>
         <ApiProvider session={session}>
@@ -59,4 +59,5 @@ export function renderAt(
       </AuthProvider>
     </QueryClientProvider>,
   );
+  return Object.assign(view, { client });
 }

@@ -1,5 +1,5 @@
-/** O detalhe de um Assistant (013 FR-005): cabeçalho com o estado, anterior e próximo, e as abas Modelos, MCP e
- * Histórico — cada aba é uma rota. */
+/** O detalhe de um Assistant (013 FR-005): cabeçalho com o estado, anterior e próximo, e as abas Modelos, MCP,
+ * Permissões e Histórico — cada aba é uma rota. */
 
 import { Outlet, useLocation, useNavigate, useOutletContext, useParams } from "react-router";
 
@@ -96,6 +96,7 @@ export default function AssistantDetail() {
         tabs={[
           { to: `${base}/modelos`, label: "Modelos" },
           { to: `${base}/mcp`, label: "MCP" },
+          { to: `${base}/permissoes`, label: "Permissões" },
           { to: `${base}/historico`, label: "Histórico" },
         ]}
       />

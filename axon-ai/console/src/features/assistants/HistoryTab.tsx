@@ -1,18 +1,22 @@
 /** Aba Histórico (013 FR-005; 003 FR-021): sobreposições gravadas e descartadas, com autor, data e versão. */
 
 import { useHistory } from "../../api/hooks/assistants";
-import { isMcpPayload, type HistoryEntry } from "../../api/schemas";
+import { isAuthPayload, isMcpPayload, type HistoryEntry } from "../../api/schemas";
 import { formatInstant } from "../../i18n/format";
+import { SECTION_TEXT } from "../../i18n/pt-BR";
 import { Badge } from "../../ui/Badge";
 import { Panel } from "../../ui/Panel";
 import { EmptyState, LoadError, Skeleton } from "../../ui/States";
 import { Table, tableStyles as t } from "../../ui/Table";
 import { useAssistantContext } from "./AssistantDetail";
-import { who } from "./status";
+import { authSummary, who } from "./status";
 
 function content(entry: HistoryEntry): string {
   if (entry.payload === null) {
     return "—";
+  }
+  if (isAuthPayload(entry.payload)) {
+    return authSummary(entry.payload);
   }
   if (isMcpPayload(entry.payload)) {
     const tools = entry.payload.allowed.length;
@@ -61,7 +65,7 @@ export default function HistoryTab() {
         {entries.map((entry) => (
           <tr key={`${entry.section}-${entry.version}-${entry.at}`}>
             <td style={{ whiteSpace: "nowrap" }}>{formatInstant(entry.at)}</td>
-            <td>{entry.section === "models" ? "Modelos" : "MCP"}</td>
+            <td>{SECTION_TEXT[entry.section]}</td>
             <td>{entry.action === "saved" ? <Badge tone="accent">Gravada</Badge> : <Badge>Descartada</Badge>}</td>
             <td className={t.mono}>{content(entry)}</td>
             <td style={{ color: "var(--texto-secundario)" }}>{who(entry.actor)}</td>

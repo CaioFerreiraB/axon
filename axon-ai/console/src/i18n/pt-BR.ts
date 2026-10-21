@@ -45,3 +45,10 @@ export function mcpReason(reason: string, form: "curta" | "completa"): string {
   const capital = text.charAt(0).toUpperCase() + text.slice(1);
   return form === "curta" || /[.!?]$/.test(capital) ? capital : `${capital}.`;
 }
+
+/** O nome de cada seção sobreponível nas telas (013 FR-004, FR-005; US10). */
+export const SECTION_TEXT: Record<"models" | "mcp" | "auth", string> = {
+  models: "Modelos",
+  mcp: "MCP",
+  auth: "Permissões",
+};

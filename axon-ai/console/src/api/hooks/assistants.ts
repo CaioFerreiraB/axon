@@ -8,6 +8,7 @@ import {
   modelCheckSchema,
   providerListSchema,
   type AssistantView,
+  type AuthSelection,
   type McpSelection,
   type Section,
 } from "../schemas";
@@ -59,6 +60,14 @@ export function useSaveMcp(name: string) {
   const api = useApi();
   return useWrite(name, (vars: McpSelection & { version: number | null }) =>
     api.send("PUT", `${path(name)}/mcp`, vars, assistantViewSchema),
+  );
+}
+
+/** Quem pode usar o Assistant (ADR-040): a seção `auth` inteira. */
+export function useSaveAuth(name: string) {
+  const api = useApi();
+  return useWrite(name, (vars: AuthSelection & { version: number | null }) =>
+    api.send("PUT", `${path(name)}/auth`, vars, assistantViewSchema),
   );
 }
 

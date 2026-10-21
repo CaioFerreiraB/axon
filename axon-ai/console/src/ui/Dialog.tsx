@@ -1,5 +1,5 @@
-/** O único modal da console: a senha temporária mostrada uma vez pede foco protegido (013 R7). Radix prende o foco e
- * o devolve a quem abriu (FR-017). */
+/** O modal da console, só para segredo mostrado uma vez — a senha temporária (013 R7) e a chave de API (R23) —, que
+ * pede foco protegido. Radix prende o foco e o devolve a quem abriu (FR-017). */
 
 import * as RadixDialog from "@radix-ui/react-dialog";
 import { useRef, type ReactNode } from "react";

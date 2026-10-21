@@ -4,12 +4,12 @@
 import { useState, type ReactNode } from "react";
 
 import { isApiError } from "../../api/errors";
-import { isMcpPayload, type OverrideView } from "../../api/schemas";
+import { isAuthPayload, isMcpPayload, type OverrideView } from "../../api/schemas";
 import { formatInstant, formatInstantDay } from "../../i18n/format";
 import { Button } from "../../ui/Button";
 import { Notice } from "../../ui/Notice";
 import styles from "./Editor.module.css";
-import { who } from "./status";
+import { authSummary, who } from "./status";
 
 export function changesText(count: number): string {
   return count === 0 ? "" : count === 1 ? "1 alteração não salva" : `${count} alterações não salvas`;
@@ -21,11 +21,13 @@ export function overrideMeta(override: OverrideView | undefined, none: string, c
     return [none, pending].filter(Boolean).join(" · ");
   }
   const stored = override.payload
-    ? isMcpPayload(override.payload)
-      ? override.payload.aliases.join(", ") || "nenhum servidor"
-      : Object.entries(override.payload)
-          .map(([role, ref]) => `${role} = ${ref}`)
-          .join(", ")
+    ? isAuthPayload(override.payload)
+      ? authSummary(override.payload)
+      : isMcpPayload(override.payload)
+        ? override.payload.aliases.join(", ") || "nenhum servidor"
+        : Object.entries(override.payload)
+            .map(([role, ref]) => `${role} = ${ref}`)
+            .join(", ")
     : null;
   const base =
     override.state === "inactive"

@@ -1,7 +1,7 @@
 /** O estado de um Assistant como a API o descreve (003): disponível, indisponível com motivos, sobreposição ativa ou
  * inativa, seção travada. A console só mostra — não decide (013 FR-001). */
 
-import type { AssistantView, OverrideView, Section } from "../../api/schemas";
+import type { AssistantView, AuthSelection, OverrideView, Section } from "../../api/schemas";
 import { STATE_TEXT } from "../../i18n/pt-BR";
 import { Badge } from "../../ui/Badge";
 
@@ -17,6 +17,13 @@ export function sentence(text: string): string {
   }
   const capital = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
   return /[.!?]$/.test(capital) ? capital : `${capital}.`;
+}
+
+/** As permissões numa linha: os esquemas pelo nome da tela e as entradas (013 US10). */
+export function authSummary(auth: AuthSelection): string {
+  const names = { oidc: "Login", api_key: "Chave de API" } as const;
+  const schemes = (["oidc", "api_key"] as const).filter((scheme) => auth.schemes.includes(scheme));
+  return `${schemes.map((scheme) => names[scheme]).join(", ") || "nenhuma forma de entrada"} · ${auth.allow.join(", ") || "ninguém"}`;
 }
 
 export function who(subject: string): string {

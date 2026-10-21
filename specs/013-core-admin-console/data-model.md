@@ -38,3 +38,17 @@ e a preferência de tema. Os tipos espelham [admin-api.md](../008-core-http-api/
 | padrão enquanto o `me` carrega | `{ name: "Agentic", logo_url: null }` | `{ name: "Axon", logo_url: null, custom: false }` |
 | título da aba | "Console" | "<tela> · <instance.name>"; "Sem acesso · Axon" no acesso negado |
 | pacote | `@agentic/console` | `@axon/console` |
+
+## Fase 9 (2026-10-21): chaves de API e permissões (research R22–R27; ADR-040)
+
+| Tipo (`src/api/schemas.ts`) | Forma |
+|---|---|
+| `Section` | `"models" \| "mcp" \| "auth"` |
+| `AuthSelection` | `{ schemes: ("oidc" \| "api_key")[], allow: string[] }` |
+| `AssistantView.yaml` / `.effective` | + `auth: AuthSelection` |
+| `OverrideView.payload`, `HistoryEntry.payload` | + `AuthSelection` (`isAuthPayload`) |
+| `ApiKey` | + `rotated_at: string \| null` |
+| `IssuedKey` | `ApiKey & { key: string }` — só nas respostas da emissão e da rotação; nunca em cache |
+
+Estado local da aba "Permissões": `{ schemes: Set<Scheme>, allow: string[] }`, o rascunho; a versão lida acompanha o
+salvar (FR-008). Entrada: `*`, `user:<nome>`, `svc:<nome>` ou `group:<nome>`, sem espaço.

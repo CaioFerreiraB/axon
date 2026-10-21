@@ -19,6 +19,10 @@ const SCREENS = [
   "/acesso/usuarios",
   "/acesso/grupos",
   "/acesso/login",
+  "/acesso/chaves",
+  "/assistentes/relatorios/permissoes",
+  "/assistentes/interno/permissoes",
+  "/assistentes/rascunho/permissoes",
 ];
 
 test("todas as telas com dados", async ({ page }) => {
@@ -65,4 +69,13 @@ test("a aba: favicon do símbolo Axon e o título com o nome da instalação", a
   const favicon = await page.request.get(new URL(href ?? "", page.url()).toString());
   expect(favicon.status()).toBe(200);
   expect(await favicon.text()).toContain('fill="#0B0F19"');
+});
+
+test("o diálogo da chave criada", async ({ page }) => {
+  await login(page, "/acesso/chaves?criar=1");
+  await page.getByLabel("Nome do sistema").fill(`a11y${Date.now().toString(36)}`);
+  await page.getByRole("button", { name: "Gerar chave" }).click();
+  await page.getByRole("dialog").waitFor();
+  await expectAccessible(page, "diálogo da chave");
+  await page.getByRole("button", { name: "Concluir" }).click();
 });

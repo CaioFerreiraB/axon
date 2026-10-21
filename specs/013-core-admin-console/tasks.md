@@ -304,3 +304,105 @@ em paralelo com a T056.
 - `agentic` removido no diff: só o nome do pacote `@agentic/console` (ADR-037), não o flow.
 - Suítes: console typecheck e lint limpos, 121 testes, e2e 42 passed e 4 skipped (o nginx, sem `CONSOLE_NGINX_URL`); core,
   `identity/` 336 passed, 40 skipped, e ruff limpo.
+
+---
+
+## Passada de 2026-10-21: chaves de API e permissões dos Assistants — US9, US10 ([ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md); research R22–R27)
+
+**Goal**: aba "Chaves de API" (`/acesso/chaves`) com criação, chave em claro uma vez, rotação e revogação confirmadas na
+linha; aba "Permissões" (`/assistentes/:nome/permissoes`) que edita `auth` como as outras sobreposições.
+
+**Independent Test**: [quickstart.md, "Fase 9 (2026-10-21)"](quickstart.md).
+
+### Foundational
+
+- [X] T060 `axon-ai/console/src/api/schemas.ts` (R26, R23): `SECTIONS = ["models", "mcp", "auth"]`;
+  `authSelectionSchema` (`schemes: z.array(z.enum(["oidc", "api_key"]))`, `allow: z.array(z.string())`) e o tipo
+  `AuthSelection`; `auth` em `yaml` e `effective`; `payload` de `overrideViewSchema` e `historyEntrySchema` com
+  `authSelectionSchema` na união e `isAuthPayload`; `apiKeySchema` com `rotated_at: instant.nullable()`;
+  `apiKeyListSchema`; `issuedKeySchema = apiKeySchema.extend({ key: z.string() })`. `tests/api/schemas.test.ts`: uma
+  visão com sobreposição e histórico de `auth` passa; chave com `rotated_at` passa; `isMcpPayload` continua falso para
+  `auth`
+- [X] T061 [P] `axon-ai/console/eslint.config.js` (R23): `"no-console": "error"` para `src/**`; `npm run lint` verde
+- [X] T062 [P] `axon-ai/console/tests/msw/{fixtures,handlers}.ts`: fixtures `apiKeys` (duas ativas de `svc:relatorios`
+  com rótulos `prod`/`homolog`, uma revogada, uma `user:` com grupos), `geral`/`documentos` com `yaml.auth` e
+  `effective.auth`, um Assistant `aberto` público com `overridable` incluindo `auth`; handlers `GET /keys`
+
+### US9 — Tests (antes das T064–T066)
+
+- [X] T063 [P] [US9] `axon-ai/console/tests/access/keys.test.tsx` (R22–R24): lista com sistema, identificador, grupos,
+  rótulo, criação, rotação e estado, ativas antes das revogadas, sem `key`; "Criar chave" → formulário com nome e
+  rótulo → `POST /keys` com `subject: "svc:relatorios"` → diálogo com a chave, "Copiar" e o aviso; "Concluir" fecha, a
+  chave some do documento **e** do `queryClient` (nenhuma query nem mutação guarda `key`); 422 `param: "subject"` no campo
+  do nome; "Revogar" pede confirmação na linha, "Cancelar" tem foco, confirmar chama `DELETE`; "Rotacionar" confirma e abre
+  o diálogo com "a chave anterior já não vale"; 409 `key_revoked` mostra o motivo e relê a lista; vazio "Nenhuma chave".
+  Rodar e ver falhar
+
+### US9 — Implementation
+
+- [X] T064 [US9] `axon-ai/console/src/api/hooks/keys.ts` (`apiKeys: ["api-keys"]`) e `src/api/hooks/apiKeys.ts` (R23):
+  `useApiKeys`; `useCreateKey` e `useRotateKey` com `gcTime: 0` e só `invalidateQueries(keys.apiKeys)` no sucesso;
+  `useRevokeKey` (invalida a lista)
+- [X] T065 [US9] `axon-ai/console/src/features/access/IssuedKeyDialog.tsx` (R23): o `Dialog` com título ("Chave criada"
+  / "Segredo novo"), descrição com o aviso de que não aparece de novo (e, na rotação, que a anterior já não vale), campo
+  somente leitura `mono` com a chave, "Copiar" (`navigator.clipboard`) e "Concluir"; ao fechar, `onClose` limpa o
+  estado e chama `reset()` da mutação
+- [X] T066 [US9] `axon-ai/console/src/features/access/KeysTab.tsx` (R22, R24): formulário de criação aberto por
+  `?criar=1` (nome do sistema com a ajuda do padrão e o erro de `subject`; rótulo opcional), tabela, confirmação na
+  linha (padrão do `DiscardButton`), avisos de erro; `AccessPage.tsx`: aba "Chaves de API" e o botão "Criar chave" no
+  cabeçalho quando ela está aberta; `src/app/router.tsx`: rota `chaves`. Rodar T063: verde
+
+### US10 — Tests (antes das T068–T070)
+
+- [X] T067 [P] [US10] `axon-ai/console/tests/assistants/permissions.test.tsx` (R25): travada sem `auth` em
+  `overridable` (YAML só leitura, "Só muda por novo deploy"); com `auth`: os dois `Toggle`, a lista com rótulos e
+  "Remover"; "Adicionar" com sugestões (`svc:relatorios` uma vez, mesmo com duas chaves; sem o sistema só revogado;
+  `group:…`), `user:ana` digitado aceito, `caio` sem prefixo recusado antes de entrar na lista; `*` só no público, com
+  nota, e ausente no privado com o motivo; marcas "sem correspondência" e "não entra com os esquemas ligados"; salvar
+  desabilitado sem esquema ou sem entrada, com o motivo; `PUT …/auth` com `schemes` ordenado, `allow` e `version`;
+  409 `version_conflict` com "Recarregar e manter meu rascunho"; descarte confirmado na tela; `HistoryTab` mostra
+  "Permissões" e o resumo; a lista de Assistants mostra o selo "Permissões". Rodar e ver falhar
+
+### US10 — Implementation
+
+- [X] T068 [US10] `axon-ai/console/src/api/hooks/assistants.ts`: `useSaveAuth(name)` (`PUT …/auth`, como `useSaveMcp`)
+- [X] T069 [US10] `axon-ai/console/src/features/assistants/PermissionsTab.tsx` (R25) e
+  `src/features/assistants/Permissions.module.css` (tokens do `DESIGN.md`); `AssistantDetail.tsx`: aba "Permissões"
+  entre MCP e Histórico; `router.tsx`: rota `permissoes`
+- [X] T070 [US10] Seção `auth` nas telas existentes (R26): `editorParts.overrideMeta` (resumo de `auth`),
+  `HistoryTab` (seção "Permissões", esquemas e entradas), `AssistantsPage` (selo "Permissões" ao lado de Modelos e MCP),
+  `i18n` se houver texto de seção centralizado. Rodar T067: verde
+
+### E2E e verificação
+
+- [X] T071 [P] `axon-ai/console/e2e/serve_platform.py`: um Assistant `overrides: [auth]` público e um privado, com
+  `auth` próprios; `e2e/keys.spec.ts` (criar `relatorios`, copiar, "Concluir", a chave ausente da página; rotacionar e
+  conferir pela API — `request` do Playwright em `/private/v1/health` — a antiga 401 e a nova 200; revogar com
+  confirmação na linha) e `e2e/permissions.spec.ts` (ligar "Chave de API", adicionar `svc:relatorios`, salvar, ver o
+  efetivo; travada no Assistant sem `auth`); `e2e/a11y.spec.ts`: `/acesso/chaves`, o diálogo aberto e
+  `/assistentes/<nome>/permissoes`
+- [X] T072 Suítes (a partir de `axon-ai/console/`, `source ~/.nvm/nvm.sh && nvm use`): `npm ci && npm run typecheck &&
+  npm run lint && npm test` e `npm run e2e`
+- [X] T073 [P] `specs/README.md` (linha da 013 com US9 e US10) e `contracts/screens.md` conferido contra a tela
+
+### Dependencies (US9, US10)
+
+T060 → T061 ∥ T062 → (US9) T063 → T064 → T065 → T066; (US10) T067 → T068 → T069 → T070; T071 depois das duas →
+T072 → T073.
+
+### Notas da execução (US9, US10)
+
+- `renderAt` (`tests/render.tsx`) passou a devolver também o `QueryClient`, para o teste conferir que a chave em claro
+  não fica em nenhuma query nem mutação depois de fechado o diálogo (SC-009).
+- A seção `auth` no `zod` exigiu um terceiro guarda, `isModelsPayload`: o `ModelsTab` tratava "não é MCP" como "é
+  modelos", o que, com `auth`, leria as permissões como papéis.
+- Os nomes das seções foram para um lugar só (`SECTION_TEXT` em `i18n/pt-BR.ts`), usados pela lista, pelo histórico e
+  pelos selos.
+- Conferência visual (capturas pelo Playwright, nos dois temas): a chave no diálogo aparecia rolada até o fim — o
+  diálogo foca o campo e a seleção no foco rola o `input` —, escondendo o começo `axn_<identificador>`; virou um
+  `textarea` somente leitura de duas linhas, com a chave inteira, sem seleção no foco.
+- Dois testes de unidade corrigidos antes de passar: as sugestões chegam por duas requisições (chaves e grupos), e o
+  texto "Permissões" casava primeiro com a aba, não com a célula do histórico.
+- Suítes: `npm ci`, typecheck e lint limpos (com `no-console` em `src/`); 146 testes de unidade; e2e 48 passed e 4
+  skipped (o teste de fumaça do nginx, sem `CONSOLE_NGINX_URL`), inclusive `keys.spec.ts`, `permissions.spec.ts` e o
+  axe nas telas novas e no diálogo, nos temas claro e escuro e na largura de tablet.

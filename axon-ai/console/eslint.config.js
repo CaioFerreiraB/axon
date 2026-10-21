@@ -32,6 +32,8 @@ export default tseslint.config(
     },
   },
   { files: ["src/**/*.{ts,tsx}"], ignores: ["src/api/**", "src/auth/**"], rules: boundary },
+  // Nada da console vai para o registro do navegador: a chave de API mostrada uma vez não pode vazar por ali (013 R23).
+  { files: ["src/**/*.{ts,tsx}"], rules: { "no-console": "error" } },
   {
     files: ["tests/**", "e2e/**", "*.config.{ts,js}"],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },

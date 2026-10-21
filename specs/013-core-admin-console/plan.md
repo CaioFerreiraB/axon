@@ -213,3 +213,73 @@ Nenhuma linha nova.
 
 Reavaliado com [contracts/screens.md](contracts/screens.md), [data-model.md](data-model.md) e
 [quickstart.md](quickstart.md) ("Fase 9, incremento 9.5"): **PASS**.
+
+---
+
+# Passada de 2026-10-21: chaves de API e permissões dos Assistants (US9, US10; [ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md))
+
+> As seções acima ficam como foram executadas. Esta é o plano das US9 e US10.
+
+**Insumos lidos**: [spec.md](spec.md) (US9, US10, FR-024–FR-031, SC-009, SC-010, clarificações de 2026-10-21),
+[design.md](design.md), ADR-029, ADR-031, ADR-040, `specs/008-core-http-api/contracts/admin-api.md` (US11 da 008),
+constituição 1.3.1. Research: R22–R27. **Sem divergência**; sem ADR novo.
+
+## Summary (US9, US10)
+
+A aba "Chaves de API" na tela Acesso cria chaves para sistemas, mostra a chave em claro uma vez num diálogo e lista,
+revoga e rotaciona com confirmação na linha (R22–R24). A aba "Permissões" no detalhe do Assistant edita `auth` com o
+mecanismo das outras seções sobreponíveis, com sugestões de sistemas e grupos tiradas das listagens que a API já tem
+(R25). Os esquemas `zod` aceitam a seção `auth` e `rotated_at` (R26). Testes de unidade e e2e com axe (R27).
+
+## Technical Context (US9, US10)
+
+- **Language/Version, dependências**: sem mudança (React 19, TanStack Query, `zod`, Radix); nenhum pacote novo.
+- **Testing**: Vitest + MSW (dois arquivos novos e acréscimos), Playwright + axe (dois specs novos e a varredura de
+  telas).
+- **Scale/Scope**: 2 telas novas, 1 diálogo, hooks de chaves, esquemas, 3 telas tocadas (histórico, lista de Assistants,
+  rodapé das abas), regra `no-console` no ESLint.
+- Nenhum `NEEDS CLARIFICATION`.
+
+## Constitution Check (US9, US10)
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| II. Módulos substituíveis por seams | ✅ | Só `/admin/v1` (contrato da 008); nenhuma rota sob medida (FR-029) |
+| IV. O Assistant é a fronteira | ✅ | A console não decide quem entra: a 003 valida; a tela só antecipa a forma e aponta pendências |
+| VII. Falha fechada e explícita | ✅ | Recusas com o motivo no campo; 409 `key_revoked` explicado; entradas pendentes marcadas, nunca escondidas |
+| XI. API independente da interface | ✅ | Tudo que a tela faz existe na API (FR-018) |
+| XIII. Portas e adapters | ✅ | `fetch` só em `src/api/` (ESLint); telas só usam hooks |
+
+**Module boundary gate**: `axon-ai/console/**` e `specs/013-core-admin-console/**`. **Resultado**: PASS.
+
+## Project Structure (US9, US10)
+
+```text
+axon-ai/console/
+├── eslint.config.js                       # no-console em src/ (R23)
+├── src/
+│   ├── api/schemas.ts                     # auth, rotated_at, issuedKeySchema (R26, R23)
+│   ├── api/hooks/{apiKeys,keys}.ts        # useApiKeys, useCreateKey, useRotateKey, useRevokeKey; keys.apiKeys (R23)
+│   ├── api/hooks/assistants.ts            # useSaveAuth (R25)
+│   ├── app/router.tsx                     # /acesso/chaves, /assistentes/:nome/permissoes (R22)
+│   └── features/
+│       ├── access/{AccessPage,KeysTab,IssuedKeyDialog}.tsx     # R22–R24
+│       └── assistants/{AssistantDetail,PermissionsTab,HistoryTab,AssistantsPage,editorParts}.tsx   # R25, R26
+├── tests/{access/keys,assistants/permissions}.test.tsx, tests/api/schemas.test.ts, tests/msw/*   # R27
+└── e2e/{keys,permissions,a11y}.spec.ts, e2e/serve_platform.py                                    # R27
+```
+
+## Seam Notes for Consumers (US9, US10)
+
+A console não expõe seam. Operador: a aba "Permissões" só edita Assistants com `overrides: [auth]`.
+
+## Complexity Tracking (US9, US10)
+
+| Complexidade | Why Needed | Simpler Alternative Rejected Because |
+|---|---|---|
+| Segundo modal (R23) | foco protegido para a chave mostrada uma vez, como a senha temporária | mostrar na tabela: o segredo ficaria no DOM depois da ação |
+
+## Constitution Check — pós-design (US9, US10)
+
+Reavaliado com [contracts/screens.md](contracts/screens.md), [data-model.md](data-model.md) e
+[quickstart.md](quickstart.md) ("Fase 9 (2026-10-21)"): **PASS**.
