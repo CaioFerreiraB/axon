@@ -456,6 +456,18 @@ em `0.7.0rc3` (tag `v0.7.0-rc3`, com a correção de `axon health` da 011 R34), 
 (`CORE_REF=v0.7.0-rc3`), com `auth` em `overrides` no
 `scouting`, no `geral` e no `interno`.
 
+O pack prepara os próprios dados no build (ADR-041; passo 1 do deploy por camadas do ADR-042): os contratos `0.2.1`
+têm o protocolo opcional `PreparesData` (`prepare(ctx) -> None`, síncrono e idempotente; `PackBase.prepare` não faz
+nada, e o `AgentPack` não muda) e `PackContext.data_dir: Path | None` (`Path` só sob `TYPE_CHECKING`: o runtime dos
+contratos não importa `pathlib`); o kit chama `prepare` duas vezes num diretório temporário (ou no `data_dir=` de
+`acheck_pack`), e os hooks seguintes o recebem. A 002 entrega `data_dir = <raiz>/<nome>` na carga, sem criar nem
+preparar (porta `PackDataDirs`, `adapters/data_dirs.py`), e `PackRuntime.prepare_data()` (o nome `prepare` já é do Pack
+Hooks) leva cada pack habilitado só até a configuração validada — sem os hooks de catálogo, que podem precisar do que o
+`prepare` baixa —, cria o diretório e chama o hook; `axon packs prepare` sai com 1 nomeando o pack que falhou e com 2
+com `packs.yaml` malformado, e `axon serve` nunca o chama. A raiz é `AXON_PACKS_DATA_DIR` (011; sem ela, `data_dir` é
+`None`). O core pede `axon-ai-contracts>=0.2.1,<0.3` e está em `0.7.0rc4` (tags `contracts-v0.2.1` e `v0.7.0-rc4`
+pendentes do aval do mantenedor); o `axon-generic` não muda.
+
 O `axon-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
 true }`, suíte de conformidade nos próprios testes e zero import do core (import-linter, nas duas direções). Ele é
