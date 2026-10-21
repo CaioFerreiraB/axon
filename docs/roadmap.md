@@ -123,7 +123,8 @@ sobreponível, com falha fechada para `*` num Assistant que o deploy tornou priv
 `assistants`). A 008 expõe `POST /admin/v1/keys/{key_id}/rotate` (409 `key_revoked`), `rotated_at` e `PUT
 /admin/v1/assistants/{name}/auth`. A 013 ganha a aba "Chaves de API" em Acesso (a chave em claro uma vez, num diálogo;
 rotação e revogação confirmadas na linha) e a aba "Permissões" no Assistant. Expiração de chave, "último uso" e o
-subject no trace e no uso ficam para um ADR próprio. **Feito**; core `0.7.0rc2` (tag `v0.7.0-rc2`), e a instalação
+subject no trace e no uso ficam para um ADR próprio. **Feito**; core `0.7.0rc2` (tag `v0.7.0-rc2`) — e `0.7.0rc3`, com a correção de `axon health`
+(011 R34) —, e a instalação
 (`axon-deploy`) atualizada sobre os dados existentes — migrações 004 e 005 aplicadas —, com `auth` liberado em `scouting`,
 `geral` e `interno`.
 
