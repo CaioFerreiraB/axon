@@ -452,7 +452,8 @@ administração; 409 `key_revoked`), `rotated_at` nas duas superfícies e `PUT /
 só num diálogo, nunca no cache — mutação com `gcTime: 0` — nem no registro, `no-console` no ESLint) e a aba
 "Permissões" no Assistant (`/assistentes/:nome/permissoes`; sugestões de sistemas com chave ativa e grupos, `user:`
 digitado, `*` só em público). Expiração, "último uso" e o subject no trace e no uso ficam para outro ADR. O core está
-em `0.7.0rc2` (tag `v0.7.0-rc2`).
+em `0.7.0rc2` (tag `v0.7.0-rc2`), e a instalação o usa (`CORE_REF=v0.7.0-rc2`), com `auth` em `overrides` no
+`scouting`, no `geral` e no `interno`.
 
 O `axon-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
