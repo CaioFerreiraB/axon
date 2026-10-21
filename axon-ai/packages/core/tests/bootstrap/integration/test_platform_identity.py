@@ -36,7 +36,7 @@ from axon_ai.bootstrap.identity import (
     TEST_CHAT_SECRET,
 )
 from axon_ai.bootstrap.profiles import TEST_API_KEY
-from axon_ai.bootstrap.wiring import Platform, platform
+from axon_ai.bootstrap.wiring import Platform, platform, platform_health, session_identity, storage
 
 PG_DSN = os.environ.get("AXON_TEST_POSTGRES_DSN")
 needs_pg = pytest.mark.skipif(PG_DSN is None, reason="defina AXON_TEST_POSTGRES_DSN para rodar contra um Postgres")
@@ -242,3 +242,25 @@ async def test_persistent_uso_e_ajustes_dos_destinos_no_banco(
         assert segunda.destinations.capture_enabled()
         report = await segunda.usage.report(UsageQuery(start=day, end=day))
         assert report.totals[0].calls == 1
+
+
+@needs_pg
+async def test_saude_pela_linha_de_comando_ve_a_chave_de_assinatura(banco_limpo: str, tmp_path: Path) -> None:
+    """R34: fora do servidor, as chaves de assinatura não foram carregadas no serviço da plataforma (só o ciclo de vida
+    da app as carrega). A saúde da linha de comando usa a identidade sobre a própria sessão, como o boot."""
+    plataforma = _persistent_platform(tmp_path, banco_limpo)
+    assert plataforma.ok, plataforma.report.render()
+    parts = plataforma.parts
+    async with storage(parts) as session:
+        # Como em `axon health`: o relatório de boot é atribuído por quem o tem.
+        sem = platform_health(parts, session=session)
+        sem.report = plataforma.report
+        sem_sessao = await sem.health()
+        com = platform_health(parts, session=session, identity=await session_identity(parts, session))
+        com.report = plataforma.report
+        com_sessao = await com.health()
+    item = {entry.name: entry for entry in sem_sessao.items}["identity"]
+    assert not item.ok, "o serviço da plataforma, fora do servidor, não tem chave carregada (o defeito)"
+    item = {entry.name: entry for entry in com_sessao.items}["identity"]
+    assert item.ok, item.detail
+    assert com_sessao.status != "down"

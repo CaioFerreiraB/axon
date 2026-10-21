@@ -40,6 +40,7 @@ from axon_ai.bootstrap.wiring import (
     platform,
     platform_health,
     session_assistants,
+    session_identity,
     storage,
 )
 from axon_ai.capabilities.adapters.cli import audit_command
@@ -445,7 +446,7 @@ def _health(args: argparse.Namespace, io: Io) -> int:
 
 async def _check(built: Platform, out: TextIO) -> int:
     async with storage(built.parts) as session:
-        health = platform_health(built.parts, session=session)
+        health = platform_health(built.parts, session=session, identity=await session_identity(built.parts, session))
         health.report = built.report
         return health_command(await health.health(), out)
 

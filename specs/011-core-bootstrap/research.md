@@ -815,3 +815,24 @@ nomes antigos neles se leem pela tabela do ADR-037.
     para os contratos.
 - **Rationale**: cada cenário da US7 com um teste; o resto é a suíte existente com os nomes novos.
 - **Alternatives**: —
+
+---
+
+# Correção de 2026-10-21: a saúde da linha de comando e a identidade (FR-012)
+
+## R34 — A saúde de `axon health` confere a identidade sobre a própria sessão
+
+**Decision**: `platform_health(parts, *, session, identity=None)` aceita a identidade a conferir, e `session_identity(parts,
+session)` (`wiring.py`) a monta: sem banco, a da plataforma; com banco, um serviço da 012 sobre a sessão do comando,
+iniciado com `start()`, como o boot (`_start_identity`) e o servidor (`app_lifespan`) o iniciam. `axon health` usa os
+dois; a superfície privada continua com a da plataforma, já iniciada pelo ciclo de vida.
+
+**Rationale**: com o perfil `persistent` e a identidade ligada, as chaves de assinatura só chegam ao serviço da
+plataforma quando o ciclo de vida da app abre o pool de serviço; a linha de comando não o abre, então `axon health`
+dava o item crítico `identity` como falha ("nenhuma chave de assinatura carregada") e `status: down`, com o servidor
+saudável — contra a FR-012 (o mesmo resultado na API e na linha de comando). Achado na atualização da instalação para a
+`v0.7.0-rc2`. `start()` não acrescenta efeito ao que o boot do mesmo comando já fez sobre a mesma base.
+
+**Alternatives considered**: um método público só de leitura das chaves na 012 (mudaria o módulo dono por uma
+necessidade da composition root); omitir o item `identity` na linha de comando (esconderia uma chave que não abre com
+a chave mestra, que é exatamente o que o item existe para mostrar).

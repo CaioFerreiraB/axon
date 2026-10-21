@@ -567,9 +567,12 @@ def _instance(settings: Settings, identity: IdentityService | None) -> InstanceB
     return InstanceBranding(name=settings.display_name, logo_url=logo, custom=custom)
 
 
-def platform_health(parts: Mapping[str, Any], *, session: Mapping[str, Any]) -> PlatformHealth:
+def platform_health(
+    parts: Mapping[str, Any], *, session: Mapping[str, Any], identity: IdentityService | None = None
+) -> PlatformHealth:
     """A saúde agregada sobre o armazenamento de `session`: o da plataforma na API, o de uma sessão própria na linha de
-    comando (R13). O relatório de boot é atribuído depois, por quem o tem."""
+    comando (R13). O relatório de boot é atribuído depois, por quem o tem. `identity`: a de `session_identity` na linha
+    de comando (R34); sem ela, a da plataforma."""
     database = session["database"]
     assistants = session_assistants(parts, session)
     destinations: DestinationService | None = parts.get("destinations")
@@ -581,9 +584,23 @@ def platform_health(parts: Mapping[str, Any], *, session: Mapping[str, Any]) -> 
         routing=parts["routing"],
         # Os efetivos, com as sobreposições da 003, a cada checagem (R41).
         models=assistants.declared_models,
-        identity=_identity_probe(parts.get("identity")),
+        identity=_identity_probe(identity if identity is not None else parts.get("identity")),
         destinations=destinations.health if destinations is not None else None,
     )
+
+
+async def session_identity(parts: Mapping[str, Any], session: Mapping[str, Any]) -> IdentityService | None:
+    """A identidade que a saúde da linha de comando confere (R34). Com banco, as chaves de assinatura só chegam ao
+    serviço da plataforma quando o ciclo de vida da app abre o pool — que a linha de comando não abre —; então, como no
+    boot (`_start_identity`), um serviço sobre a sessão do comando, iniciado como o servidor o inicia. Sem banco, a
+    própria."""
+    service: IdentityService | None = parts.get("identity")
+    if service is None or parts.get("database") is None:
+        return service
+    on_session = identity_parts.identity_service(parts, session=session)
+    async with _database_errors(parts["settings"]):
+        await on_session.start()
+    return on_session
 
 
 def _identity_probe(service: IdentityService | None) -> Callable[[], str | None] | None:

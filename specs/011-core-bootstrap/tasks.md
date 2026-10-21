@@ -624,3 +624,16 @@ paralelo com T077.
   serviço `ai-core` do compose, `/opt/ai-core`, a imagem de exemplo), que mudam na passada dela; o `contracts.yml`, cuja
   linha de base é uma tag com a pasta `ai-core/` (procura `axon-ai/`, depois `ai-core/`).
 - `ruff format` e Prettier redistribuíram uma linha em `observability/service.py` e duas na console (nomes mais curtos).
+
+---
+
+## Correção de 2026-10-21: `axon health` e a identidade (FR-012; research R34)
+
+- [X] T080 [US6] `axon-ai/packages/core/tests/bootstrap/integration/test_platform_identity.py`: no `persistent` com a
+  identidade, contra o Postgres, a saúde com a identidade da plataforma dá `identity` em falha (o defeito) e, com
+  `session_identity`, `identity` ok e `status` diferente de `down`. Visto falhar antes da correção (`session_identity`
+  inexistente)
+- [X] T081 [US6] `axon-ai/packages/core/src/axon_ai/bootstrap/wiring.py`: `platform_health(…, identity=None)` e
+  `session_identity(parts, session)`; `bootstrap/cli.py` (`_check`): a saúde de `axon health` com
+  `session_identity`. Suítes: workspace 3290 passed, 193 skipped; com `AXON_TEST_POSTGRES_DSN`, 3472 passed, 11 skipped;
+  mypy, ruff e import-linter (69 kept) limpos
