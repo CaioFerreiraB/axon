@@ -9,6 +9,7 @@ e `assistants.yaml` (formato deste módulo até a 003 existir — [research.md](
 |---|---|---|
 | `AXON_PROFILE` | `memory` | perfil de adapters: `memory` ou `test` |
 | `AXON_PACKS_FILE` | — | caminho do `packs.yaml`; ausente = nenhum pack habilitado |
+| `AXON_PACKS_DATA_DIR` | — | raiz dos diretórios de dados dos packs: cada pack recebe `<raiz>/<nome>` no `PackContext.data_dir`, criado e preenchido só por `axon packs prepare` (ADR-041; R54); ausente = `data_dir` `None` |
 | `AXON_ASSISTANTS_FILE` | — | caminho do `assistants.yaml`; ausente = nenhum Assistant |
 | `AXON_OLLAMA_BASE_URL` | `http://localhost:11434/v1` | camada compatível do provider local |
 | `AXON_TRACE_DIR` | — | **diretório** do trace (um arquivo por dia, formato da 009); ausente = trace em memória |

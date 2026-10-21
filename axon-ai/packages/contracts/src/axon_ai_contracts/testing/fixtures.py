@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Final
 
 from axon_ai_contracts._freeze import JSONValue
@@ -77,8 +78,10 @@ def chunk(
     )
 
 
-def pack_context(pack_name: str, config: Mapping[str, JSONValue] | None = None) -> PackContext:
-    return PackContext(pack_name=pack_name, config=config or {})
+def pack_context(
+    pack_name: str, config: Mapping[str, JSONValue] | None = None, *, data_dir: Path | None = None
+) -> PackContext:
+    return PackContext(pack_name=pack_name, config=config or {}, data_dir=data_dir)
 
 
 def validator_context(pack_name: str, config: Mapping[str, JSONValue] | None = None) -> ValidatorContext:

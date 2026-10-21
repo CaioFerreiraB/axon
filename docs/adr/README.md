@@ -26,7 +26,7 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 | [019](ADR-019-papeis-por-flow-no-seam-execution-engine.md) | O Execution Engine publica os papéis de modelo que cada flow exige | Aceita | 005, 003, 011 |
 | [020](ADR-020-segredos-uma-fonte-por-perfil-uma-porta-por-modulo.md) | Segredos: uma fonte por perfil, uma porta por módulo; credencial ausente degrada, não derruba | Aceita | 011, 006, 007 |
 | [021](ADR-021-workspace-ai-core-permanece-no-repositorio-da-plataforma.md) | O workspace `ai-core` permanece no repositório da plataforma (refina o 004) | Aceita | 001, 010, 1xx |
-| [022](ADR-022-instalacao-constroi-o-core-num-estagio-proprio.md) | A instalação constrói o core num estágio do próprio Dockerfile | Aceita | 002 |
+| [022](ADR-022-instalacao-constroi-o-core-num-estagio-proprio.md) | A instalação constrói o core num estágio do próprio Dockerfile | Substituída por ADR-042 | 002 |
 | [023](ADR-023-adapter-da-openai-converte-para-o-subconjunto-estrito.md) | O adapter da OpenAI converte o esquema para o subconjunto estrito, e desfaz a conversão na resposta | Aceita | 006, 005 |
 | [024](ADR-024-validators-filtram-o-streaming.md) | Validators que reescrevem a resposta filtram o streaming | Aceita | 001, 002, 005, 104 |
 | [025](ADR-025-indice-do-scouting-devolve-a-similaridade-densa.md) | O índice do scouting devolve a similaridade densa de cada resultado | Aceita | 102, 103 |
@@ -45,6 +45,9 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 | [038](ADR-038-marca-da-plataforma-e-marca-da-instalacao.md) | A marca da plataforma é Axon; a da instalação ocupa o lugar principal quando existe | Aceita | 012, 013, 008, 011 |
 | [039](ADR-039-hover-do-botao-primario-no-escuro.md) | No tema escuro, o hover do botão primário escurece, como no claro (substitui o 038 só nesse ponto) | Aceita | 013, 012 |
 | [040](ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md) | A administração rotaciona o segredo de uma chave de API e sobrepõe o acesso de Assistants de sistema (amplia o 032) | Aceita | 003, 008, 011, 013 |
+| [041](ADR-041-o-pack-prepara-os-proprios-dados-no-build.md) | O pack prepara os próprios dados no build | Aceita | 001, 002, 011, 101, 102 |
+| [042](ADR-042-instalacao-por-camadas.md) | Instalação por camadas: imagens base da plataforma e um repositório por instalação (substitui o 022) | Aceita | 002, 011 |
+| [043](ADR-043-indice-do-scouting-gerado-no-desenvolvimento.md) | O índice do scouting é gerado no desenvolvimento e distribuído com o pack, com vetores de mais de um modelo | Aceita | 102, 103, 101, 105 |
 
 ## Modelo para ADR novo
 

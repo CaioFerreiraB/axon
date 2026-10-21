@@ -144,3 +144,32 @@ class PackHooks(Protocol):
 | `validate(streamed=…)` reaproveita o prefixo e roda só o resto, sobre a resposta filtrada | idem |
 | Sessão que não só acrescenta no fim → `PackHookError` (`hook="stream:<validator>"`) | idem |
 | Sem validators de streaming, o filtro deixa tudo passar | idem |
+
+## Preparo de dados (2026-10-21, ADR-041)
+
+```python
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PreparedPack:
+    name: str
+    data_dir: Path | None              # <raiz>/<nome>; None sem raiz de dados
+    error: str | None = None           # causa, já na forma que o comando imprime
+    @property
+    def ok(self) -> bool: ...          # error is None
+
+class PackDataPreparation(Protocol):
+    def prepare_data(self) -> Sequence[PreparedPack]: ...    # levanta PackConfigError
+```
+
+`PackRuntime` implementa o seam; o nome `prepare` já é do Pack Hooks (preparação de contexto). `prepare_data` não depende
+de `load()` nem o substitui: o registry não fica carregado, e o comando roda num processo próprio.
+
+| Regra | Verificada por |
+|---|---|
+| Um `PreparedPack` por pack habilitado em `packs.yaml`, em ordem de nome; desabilitado e não citado ficam de fora | `tests/packs/contract/test_packs_prepare_seam.py` |
+| Até a configuração validada (import, identidade, contrato, instanciação, manifest, `config_schema`), sem nenhum hook de catálogo; falha em qualquer passo vira `error` com a mesma mensagem da carga | idem |
+| Pack habilitado e não instalado, ou com nome duplicado → `error`, como na carga | idem |
+| O diretório é criado pela porta `PackDataDirs` antes do hook; o `PackContext` traz `data_dir` e a configuração validada | idem |
+| Pack sem `prepare` (fora de `PackBase`): só o diretório; `prepare` assíncrono → `error` sem chamar; exceção → `error` com tipo e mensagem | idem |
+| Falha de um pack não impede os demais; nenhuma dependência entre packs é considerada (arquivos, não fatias) | idem |
+| `packs.yaml` malformado → `PackConfigError` | idem |
+| A carga (`load()`) passa `data_dir = <raiz>/<nome>` (ou `None`) no `PackContext`, não cria o diretório e nunca chama `prepare` | `tests/packs/contract/test_packs_registry_seam.py` |

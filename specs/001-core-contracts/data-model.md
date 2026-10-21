@@ -63,6 +63,7 @@ classDiagram
 | `retrievers(ctx)` | `PackContext → Sequence[NamedRetriever]` | não (default `()`) | carga, uma vez |
 | `reranker(ctx)` | `PackContext → Reranker \| None` | não (default `None`) | carga, uma vez |
 | `validators(ctx)` | `PackContext → Sequence[AnswerValidator]` | não (default `()`) | carga, uma vez |
+| `prepare(ctx)` | `PackContext → None` (protocolo `PreparesData`, 0.2.1) | não (default: nada; fora do `AgentPack`) | só no build, `axon packs prepare` (002) |
 
 - **Opcionalidade** (R7): `PackBase` implementa todos os hooks opcionais com o default da tabela. Packs herdam de
   `PackBase`; a conformidade exige a forma completa de `AgentPack`.
@@ -95,11 +96,12 @@ pack. Hook opcional novo, numa versão futura, entra aqui com default — é o q
 
 | Tipo | Campos | Uso |
 |---|---|---|
-| `PackContext` | `pack_name: str`, `config: Mapping[str, JSONValue] = {}` | hooks do pack |
+| `PackContext` | `pack_name: str`, `config: Mapping[str, JSONValue] = {}`, `data_dir: Path \| None = None` (0.2.1, ADR-041) | hooks do pack |
 | `ValidatorContext` | `pack_name: str`, `config: Mapping[str, JSONValue] = {}` | `AnswerValidator.validate` |
 
 `config` já foi validada pelo core contra `config_schema`. Nenhum dos dois expõe serviço; os tipos são distintos para que
-um serviço futuro no `PackContext` nunca alcance validators.
+um serviço futuro no `PackContext` nunca alcance validators. `data_dir` é o diretório do pack que a plataforma entrega
+(`<raiz>/<nome do pack>`, o mesmo no build e em runtime; somente leitura em runtime); `None` sem raiz de dados (R32).
 
 ## Tools
 

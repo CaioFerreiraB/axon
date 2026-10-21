@@ -481,3 +481,42 @@ visível) não toca os contratos.
   de domínio são das passadas deles.
 - **Alternatives**: deixar a faixa do `ai-generic` para a 010 (o workspace não resolve: `>=0.1,<0.2` contra o membro
   0.2.0); aplicar a substituição ao repositório inteiro (reescreveria ADRs e research executados).
+
+---
+
+## Passada de 2026-10-21: o pack prepara os próprios dados ([ADR-041](../../docs/adr/ADR-041-o-pack-prepara-os-proprios-dados-no-build.md))
+
+Decisões pré-aprovadas pelo ADR-041 (hook opcional, `data_dir`, versão); o que segue é como elas chegam aos contratos e
+ao kit, sem re-pesquisa.
+
+### R32 — `PreparesData`, `PackBase.prepare` e `PackContext.data_dir` (contratos 0.2.1)
+
+- **Decision**: em `pack.py`, `PreparesData(Protocol)`, `runtime_checkable`, com `prepare(self, ctx: PackContext) ->
+  None`, síncrono; `PackBase.prepare` não faz nada. O `AgentPack` e o `_PACK_MEMBERS` do kit não mudam. `PackContext`
+  ganha `data_dir: Path | None = None`, com `pathlib.Path` importado só sob `TYPE_CHECKING`: o deny-list de I/O dos
+  módulos de runtime (R20) proíbe `pathlib`, e a varredura de `tests/boundary/test_stdlib_only.py` passa a pular o
+  corpo de `if TYPE_CHECKING:` (import que não executa). Sem conferência de tipo em runtime — o core sempre entrega
+  `Path`, e a superfície registra a anotação como texto. `PreparesData` é exportado na raiz. `fixtures.pack_context` ganha `data_dir` só-nome.
+  O `ValidatorContext` não muda. Versão `0.2.1` (`_version.py`, `pyproject.toml`), seção no CHANGELOG; o diff de
+  superfície contra `contracts-v0.2.0` classifica as mudanças como aditivas (patch).
+- **Rationale** (ADR-041, itens 1, 2 e 6; ADR-014): Protocol separado, como o `ProvidesEvalMetrics` do ADR-027, para o
+  pack que não herda de `PackBase` continuar conforme. Síncrono porque roda num comando de build, fora de qualquer laço
+  de eventos, e um download bloqueante é o caso comum. `Path`, não `str`, porque o pack vai compor caminhos com ele.
+- **Alternatives**: aceitar `str` e converter (dois tipos para o mesmo campo, e a conversão esconderia um erro do core);
+  liberar `pathlib` no deny-list (abriria o runtime ao I/O que o R20 fecha, para ganhar só um `isinstance`);
+  `prepare` assíncrono (obrigaria o pack a trazer cliente HTTP assíncrono para um passo de build).
+
+### R33 — A etapa de preparo da conformidade
+
+- **Decision**: etapa 3b, logo depois do manifest e antes do catálogo, só se o pack tem `prepare`: o kit cria o
+  diretório (`<temporário>/<nome do pack>`, apagado no fim, ou o `data_dir` que o autor passa a `acheck_pack` e às
+  variantes) e chama `prepare` duas vezes seguidas com o mesmo `PackContext`. Issues: `hook.not_sync` (coroutine function,
+  sem chamar), `hook.raised` (subject `hook:prepare`; a segunda chamada só roda se a primeira passou) e
+  `hook.return_type` (retorno diferente de `None`). Falha no preparo não encerra a suíte. Todo `PackContext` montado
+  depois — catálogo e `prepare_context` — leva o mesmo `data_dir`, como na carga com a raiz configurada (002).
+  `hook.not_sync` entra em `ISSUE_CODES`.
+- **Rationale** (ADR-041, Consequências: "chamado duas vezes, sem erro"): a segunda chamada é a prova de idempotência que
+  o build precisa (um build com cache repete o `prepare`). Os hooks de catálogo verem o diretório preparado é o que a
+  carga real faz. O kit não confere o conteúdo do diretório — só o pack sabe o que é íntegro.
+- **Alternatives**: chamar `prepare` sem diretório (`data_dir=None`; não exercita a escrita); exigir que a segunda
+  chamada não escreva nada (exigiria observar o sistema de arquivos e confundiria atualização de `mtime` com download).

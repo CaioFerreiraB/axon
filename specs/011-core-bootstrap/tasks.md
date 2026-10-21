@@ -637,3 +637,15 @@ paralelo com T077.
   `session_identity(parts, session)`; `bootstrap/cli.py` (`_check`): a saúde de `axon health` com
   `session_identity`. Suítes: workspace 3290 passed, 193 skipped; com `AXON_TEST_POSTGRES_DSN`, 3472 passed, 11 skipped;
   mypy, ruff e import-linter (69 kept) limpos
+
+---
+
+## Passada de 2026-10-21: o pack prepara os próprios dados (FR-028; [ADR-041](../../docs/adr/ADR-041-o-pack-prepara-os-proprios-dados-no-build.md); research R54)
+
+- [X] T082 Testes primeiro: `AXON_PACKS_DATA_DIR` em `tests/bootstrap/unit/` (lido como `Path`; ausente ou vazio →
+  `None`); em `tests/bootstrap/contract/test_cli_commands.py`, `packs prepare` com um pack em memória: 0 e o diretório
+  criado; 2 com `packs.yaml` malformado; `axon --help` com o subcomando; o boot carrega o pack com `data_dir =
+  <raiz>/<nome>` e não chama `prepare`
+- [X] T083 `settings.py`: `packs_data_dir`; `wiring.py`: `LocalPackDataDirs` em `pack_runtime`; `bootstrap/cli.py`:
+  `packs prepare` na lista de registro (R54)
+- [X] T084 [P] Documentos vivos: `contracts/configuration.md` e `contracts/cli.md` (feito nesta passada), `CLAUDE.md`

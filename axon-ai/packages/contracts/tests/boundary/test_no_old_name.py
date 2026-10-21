@@ -13,4 +13,5 @@ def test_old_import_does_not_exist() -> None:
 
 
 def test_distribution_and_import_carry_the_new_name_and_version() -> None:
-    assert importlib.metadata.version("axon-ai-contracts") == axon_ai_contracts.__version__ == "0.2.0"
+    assert importlib.metadata.version("axon-ai-contracts") == axon_ai_contracts.__version__
+    assert axon_ai_contracts.__version__.startswith("0.2."), "a série do renome (ADR-037)"

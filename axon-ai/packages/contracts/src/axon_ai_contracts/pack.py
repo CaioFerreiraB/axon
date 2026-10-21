@@ -1,7 +1,8 @@
 """Contrato de pack: identidade, manifest, contexto de carga e hooks (FR-002, FR-003, FR-010, FR-012, FR-019).
 
 Packs não constroem grafos (ADR-001). Os hooks de catálogo — `system_prompt`, `tools`, `retrievers`, `reranker` e
-`validators` — são chamados uma vez, na carga; dados por execução chegam só pela Turn View.
+`validators` — são chamados uma vez, na carga; dados por execução chegam só pela Turn View. O hook `prepare` (ADR-041)
+roda só no build da instalação, nunca na carga.
 """
 
 from __future__ import annotations
@@ -16,7 +17,9 @@ from axon_ai_contracts.tools import ToolSpec
 from axon_ai_contracts.validation import AnswerValidator
 from axon_ai_contracts.view import TurnView
 
-if TYPE_CHECKING:  # o módulo de avaliação importa PackContext daqui
+if TYPE_CHECKING:  # o módulo de avaliação importa PackContext daqui; `Path` é só tipo (runtime sem I/O, R20)
+    from pathlib import Path
+
     from axon_ai_contracts.eval import EvalMetric
 
 RETRIEVAL_FILTERS_KEY: Final = "retrieval_filters"
@@ -43,10 +46,17 @@ class PackManifest:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class PackContext:
-    """Dados de carga do pack: nome e configuração já validada contra `config_schema`. Nenhum serviço na 0.1."""
+    """Dados de carga do pack: nome, configuração já validada contra `config_schema` e diretório de dados. Nenhum
+    serviço.
+
+    `data_dir` (0.2.1, ADR-041) é o diretório do pack que a plataforma entrega — o mesmo no build, onde `prepare` o
+    preenche, e em runtime, onde é somente leitura. `None` quando a plataforma não tem raiz de dados: o pack recorre à
+    própria configuração.
+    """
 
     pack_name: str
     config: Mapping[str, JSONValue] = field(default_factory=empty_mapping)
+    data_dir: Path | None = None
 
     def __post_init__(self) -> None:
         require_non_empty("pack_name", self.pack_name)
@@ -79,6 +89,17 @@ class AgentPack(Protocol):
     def validators(self, ctx: PackContext) -> Sequence[AnswerValidator]: ...
 
 
+@runtime_checkable
+class PreparesData(Protocol):
+    """Hook opcional (0.2.1, ADR-041): produz em `ctx.data_dir` os arquivos de que o pack precisa em runtime.
+
+    Chamado só no build da instalação (`axon packs prepare`), com a configuração já validada; nunca na carga. Síncrono e
+    idempotente: o que já está presente e íntegro não é baixado de novo, e tudo o que baixa é fixado e conferido.
+    """
+
+    def prepare(self, ctx: PackContext) -> None: ...
+
+
 class PackBase:
     """Defaults dos hooks opcionais. O pack define `name`, `contract_version` e `manifest()`."""
 
@@ -103,3 +124,7 @@ class PackBase:
     def eval_metrics(self, ctx: PackContext) -> Sequence[EvalMetric]:
         """Métricas de domínio para o harness de avaliação (ADR-027); opcional — nenhuma por default."""
         return ()
+
+    def prepare(self, ctx: PackContext) -> None:
+        """Dados de runtime produzidos no build (ADR-041); opcional — nada por default."""
+        return None

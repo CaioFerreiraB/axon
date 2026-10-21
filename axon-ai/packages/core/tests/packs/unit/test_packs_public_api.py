@@ -14,6 +14,7 @@ SEAM_API = {
     "CompositionError",
     "PackCapabilities",
     "PackConfigError",
+    "PackDataPreparation",
     "PackEntry",
     "PackEvalMetric",
     "PackEvalMetrics",
@@ -23,6 +24,7 @@ SEAM_API = {
     "PackTool",
     "PackToolset",
     "PackStatus",
+    "PreparedPack",
     "RetrieverCapability",
     "Slices",
     "StreamedValidation",
@@ -43,7 +45,7 @@ IMPORTED_FROM_CONTRACTS = {
 
 def test_public_names_are_exactly_the_documented_ones() -> None:
     public = {name for name in vars(api) if not name.startswith("_")}
-    stdlib_helpers = {"annotations", "dataclass", "StrEnum", "Literal", "Protocol", "Mapping", "Sequence"}
+    stdlib_helpers = {"annotations", "dataclass", "StrEnum", "Literal", "Protocol", "Mapping", "Sequence", "Path"}
     assert public - stdlib_helpers - IMPORTED_FROM_CONTRACTS == SEAM_API
 
 

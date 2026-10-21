@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from axon_ai_contracts import AgentPack, PackBase, PackManifest
+from pathlib import Path
+
+from axon_ai_contracts import AgentPack, PackBase, PackManifest, PreparesData
 from axon_ai_contracts.testing import pack_context, turn_view
 
 
@@ -27,3 +29,12 @@ async def test_optional_hooks_return_empty() -> None:
     assert pack.retrievers(ctx) == ()
     assert pack.reranker(ctx) is None
     assert pack.validators(ctx) == ()
+
+
+def test_prepare_e_opcional_e_nao_faz_nada(tmp_path: Path) -> None:
+    """ADR-041: `PackBase.prepare` não faz nada; o `AgentPack` não o exige."""
+    pack = MinimalPack()
+    assert isinstance(pack, PreparesData)
+    assert pack.prepare(pack_context(pack.name, data_dir=tmp_path)) is None
+    assert list(tmp_path.iterdir()) == []
+    assert "prepare" not in AgentPack.__protocol_attrs__  # type: ignore[attr-defined]

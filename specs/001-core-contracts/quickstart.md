@@ -179,3 +179,21 @@ axon-ai-contracts (axon_ai_contracts)`, `[additive] axon_ai_contracts.ChatUsage[
 `[breaking] axon_ai_contracts.testing.check_imports: parâmetros alterados` (default de `forbidden`) —, `bump exigido:
 minor; declarado: minor` e saída 0; com `--new-version 0.1.4`,
 saída 1 ("bump declarado menor que o exigido").
+
+## 10. O pack prepara os próprios dados (0.2.1, ADR-041)
+
+A partir de `axon-ai/`:
+
+```bash
+uv run pytest packages/contracts/tests/conformance/test_conformance_prepare.py packages/contracts/tests/unit -q
+git worktree add "$tmp/base" contracts-v0.2.0
+uv run --isolated --no-project --with "$tmp/base/axon-ai/packages/contracts" python packages/contracts/tools/api_surface.py \
+  dump --output "$tmp/old.json"
+uv run python packages/contracts/tools/api_surface.py dump --output "$tmp/new.json"
+uv run python packages/contracts/tools/api_surface.py diff "$tmp/old.json" "$tmp/new.json" --old-version 0.2.0 --new-version 0.2.1
+git worktree remove --force "$tmp/base"
+```
+
+**Esperado**: os testes verdes; no diff, só linhas `[additive]` — `PackBase.prepare`, `PackContext.data_dir`,
+`PreparesData`, o código `hook.not_sync` e o parâmetro `data_dir` em `pack_context`, `acheck_pack` e variantes — e
+`bump exigido: patch; declarado: patch`, saída 0.

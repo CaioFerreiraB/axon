@@ -22,6 +22,7 @@ def test_defaults_quando_nada_e_configurado() -> None:
     assert settings.ollama_base_url == DEFAULT_OLLAMA_BASE_URL
     assert settings.port == DEFAULT_PORT
     assert settings.packs_file is None
+    assert settings.packs_data_dir is None
     assert settings.assistants_file is None
 
 
@@ -30,6 +31,7 @@ def test_variaveis_sao_lidas() -> None:
         {
             "AXON_PROFILE": "test",
             "AXON_PACKS_FILE": "/etc/packs.yaml",
+            "AXON_PACKS_DATA_DIR": "/opt/axon-data",
             "AXON_ASSISTANTS_FILE": "/etc/assistants.yaml",
             "AXON_TRACE_DIR": "/var/trace",
             "AXON_HOST": "0.0.0.0",
@@ -40,10 +42,16 @@ def test_variaveis_sao_lidas() -> None:
 
     assert settings.profile == "test"
     assert settings.packs_file == Path("/etc/packs.yaml")
+    assert settings.packs_data_dir == Path("/opt/axon-data")
     assert settings.assistants_file == Path("/etc/assistants.yaml")
     assert settings.trace_dir == Path("/var/trace")
     assert (settings.host, settings.port) == ("0.0.0.0", 9000)
     assert settings.shutdown_grace_seconds == 30.0
+
+
+def test_raiz_de_dados_vazia_e_ausente() -> None:
+    """ADR-041, R54: como `AXON_PACKS_FILE`, vazio é ausente."""
+    assert EnvConfigSource({"AXON_PACKS_DATA_DIR": ""}).load().packs_data_dir is None
 
 
 def test_perfil_desconhecido_nomeia_a_variavel() -> None:

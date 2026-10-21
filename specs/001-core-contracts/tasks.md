@@ -412,3 +412,32 @@ A Fase 1 do roadmap (002, 005, 006, 010...) pode começar quando US1–US4 e a P
 - Revisado em 2026-09-15 após o `/speckit-analyze`: D1 (ADR-014 + constituição 1.2.0), D2 (T052–T054), I1/I2/C1
   (T038, T041, T044), C3 (T029, T032), I3/I6 (T021), I4 (T057), I5 (dependências da Phase 7), I7 (T023), A1 (título da
   US2), C5 (T034)
+
+---
+
+## Passada de 2026-10-21: o pack prepara os próprios dados ([ADR-041](../../docs/adr/ADR-041-o-pack-prepara-os-proprios-dados-no-build.md); research R32–R33)
+
+**Goal**: contratos `0.2.1` com `PreparesData`, `PackBase.prepare` e `PackContext.data_dir`; o kit chama `prepare` duas
+vezes; nenhum pack existente muda.
+
+**Independent Test**: a suíte dos contratos em 3.14 e 3.12, e o diff de superfície contra `contracts-v0.2.0` aditivo.
+
+- [X] T081 `pack.py`: `PackContext.data_dir` (`Path` só sob `TYPE_CHECKING`; a varredura de I/O pula esses blocos),
+  `PreparesData` e `PackBase.prepare`; `PreparesData` exportado na raiz (R32)
+- [X] T082 Kit: `pack_context(..., data_dir=)`; etapa 3b em `conformance.py` com `data_dir` em `acheck_pack` e variantes;
+  `hook.not_sync` em `ISSUE_CODES` (R33)
+- [X] T083 Versão `0.2.1` (`_version.py`, `pyproject.toml`) e seção `0.2.1` no CHANGELOG
+- [X] T084 [P] Testes: `tests/unit/` (`data_dir` default `None` e `Path` aceito; `PackBase.prepare`
+  devolve `None`; `isinstance(PackBase(), PreparesData)`); `tests/conformance/test_conformance_prepare.py` (pack sem o
+  hook fora de `PackBase` conforme; `prepare` chamado duas vezes no mesmo diretório e os hooks de catálogo o recebem;
+  `prepare` que levanta na segunda chamada, que devolve valor e assíncrono); `test_public_api.py` com o símbolo novo
+- [X] T085 Diff de superfície contra `contracts-v0.2.0`: aditivo, patch; quickstart da 001 com uma seção do `prepare`
+
+### Notas da execução (ADR-041)
+
+- O deny-list de I/O dos módulos de runtime (`tests/boundary/test_stdlib_only.py`, R20) reprovou `pathlib` em
+  `pack.py`; o `Path` foi para `TYPE_CHECKING`, a varredura passou a pular esses blocos e saiu a conferência de tipo de
+  `data_dir` em runtime (R32 atualizado).
+- Dois testes fixavam `0.2.0` (`test_no_old_name.py`, `test_compat_rules.py`); passaram a ler a versão, como na T064.
+- Suítes: contratos 320 passed em 3.14 e em 3.12; diff contra `contracts-v0.2.0` só aditivo, patch; `check_clean_env.py`
+  verde; `axon-generic` em ambiente limpo 3.12, 65 passed (a conformidade já exercita o `prepare` herdado).

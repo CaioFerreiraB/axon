@@ -30,6 +30,7 @@ ISSUE_CODES: Final[frozenset[str]] = frozenset(
     {
         "hook.missing",
         "hook.not_async",
+        "hook.not_sync",
         "hook.raised",
         "hook.return_type",
         "pack.name.invalid",

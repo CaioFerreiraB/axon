@@ -74,6 +74,8 @@ class Settings:
 
     profile: str = MEMORY_PROFILE
     packs_file: Path | None = None
+    packs_data_dir: Path | None = None
+    """Raiz dos diretórios de dados dos packs (ADR-041, R54): cada pack recebe `<raiz>/<nome>` no `PackContext`."""
     assistants_file: Path | None = None
     ollama_base_url: str = DEFAULT_OLLAMA_BASE_URL
     trace_dir: Path | None = None
@@ -272,6 +274,7 @@ class EnvConfigSource:
         return Settings(
             profile=self._text("PROFILE", MEMORY_PROFILE),
             packs_file=self._path("PACKS_FILE"),
+            packs_data_dir=self._path("PACKS_DATA_DIR"),
             assistants_file=self._path("ASSISTANTS_FILE"),
             ollama_base_url=self._text("OLLAMA_BASE_URL", DEFAULT_OLLAMA_BASE_URL),
             trace_dir=self._path("TRACE_DIR"),

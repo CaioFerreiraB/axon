@@ -2,7 +2,7 @@
 
 ```text
 axon serve [--profile P]
-axon packs list | check                      # 002
+axon packs list | check | prepare            # 002 (prepare: ADR-041)
 axon assistants validate                     # 003
 axon keys create --subject S [--group G]... [--label L] | list | revoke KEY_ID   # 003
 axon health                                  # 011
@@ -15,6 +15,7 @@ HTTP (FR-010, FR-011). `--profile` vale para todos os subcomandos.
 |---|---|---|
 | `packs list` | configuração, adapters, packs | 002 `contracts/cli.md`: 0; 2 com `packs.yaml` malformado |
 | `packs check` | idem | 0 sem pack em erro; 1 com; 2 com `packs.yaml` malformado |
+| `packs prepare` | configuração e adapters; a 002 leva cada pack habilitado até a configuração validada, sem catálogo | 002 `contracts/cli.md`: 0; 1 nomeando o pack que falhou; 2 com `packs.yaml` malformado |
 | `assistants validate` | a plataforma (sem servir) | 003 `contracts/cli.md`: 0; 1 com Assistant indisponível; 2 com `assistants.yaml` malformado |
 | `keys create\|list\|revoke` | configuração, adapters; abre o armazenamento de chaves no próprio laço | 003 `contracts/cli.md`; aviso quando o perfil não é persistente |
 | `health` | a plataforma (sem servir) | um item por linha; 0 `ok`, 1 `degraded`, 2 `down` |

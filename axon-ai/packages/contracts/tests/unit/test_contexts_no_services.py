@@ -29,7 +29,7 @@ def _field_names(cls: type) -> set[str]:
 
 def test_contexts_carry_only_load_data() -> None:
     assert _field_names(ValidatorContext) == {"pack_name", "config"}
-    assert _field_names(PackContext) == {"pack_name", "config"}
+    assert _field_names(PackContext) == {"pack_name", "config", "data_dir"}  # data_dir: 0.2.1, ADR-041
 
 
 def test_validator_context_exposes_no_model_or_service() -> None:

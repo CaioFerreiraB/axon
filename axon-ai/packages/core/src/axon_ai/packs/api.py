@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
+from pathlib import Path
 from typing import Literal, Protocol
 
 from axon_ai_contracts import (
@@ -217,4 +218,28 @@ class PackEvalMetrics(Protocol):
     def eval_metrics(self, composition: Composition) -> Sequence[PackEvalMetric]:
         """As métricas que os packs da composição declararam pelo hook opcional `eval_metrics` (001, ADR-027), na
         ordem da composição. Coletadas na carga — nenhuma chamada a pack aqui. Composição revalidada."""
+        ...
+
+
+# --- Preparo de dados (ADR-041) — consumido pelo comando `packs prepare`, que a 011 registra --------------------------
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PreparedPack:
+    """O desfecho do preparo de um pack habilitado. `error` traz a causa, na forma que o comando imprime."""
+
+    name: str
+    data_dir: Path | None
+    error: str | None = None
+
+    @property
+    def ok(self) -> bool:
+        return self.error is None
+
+
+class PackDataPreparation(Protocol):
+    def prepare_data(self) -> Sequence[PreparedPack]:
+        """Para cada pack habilitado, em ordem de nome: leva o pack até a configuração validada (sem os hooks de
+        catálogo), cria o diretório de dados e chama o hook `prepare` (001, ADR-041). Falha de um pack não impede os
+        demais. Não carrega o registry. Levanta `PackConfigError` com a configuração malformada."""
         ...

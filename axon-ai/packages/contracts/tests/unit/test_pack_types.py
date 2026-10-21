@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from axon_ai_contracts.pack import RETRIEVAL_FILTERS_KEY, PackContext, PackManifest
@@ -24,6 +26,12 @@ def test_pack_context_has_only_load_data() -> None:
     assert ctx.config == {"collection": "docs"}
     with pytest.raises(ValueError):
         PackContext(pack_name="")
+
+
+def test_pack_context_data_dir(tmp_path: Path) -> None:
+    """ADR-041: `None` por default; o diretório entregue pela plataforma, como veio."""
+    assert PackContext(pack_name="p").data_dir is None
+    assert PackContext(pack_name="p", data_dir=tmp_path).data_dir == tmp_path
 
 
 def test_retrieval_filters_key() -> None:

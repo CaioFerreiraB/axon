@@ -48,6 +48,11 @@
 - Q: A substituição mecânica desta passada renomeia também os identificadores com comportamento de outros módulos? → A: Não. Cada um muda na passada do módulo dono, com testes (ADR-037, item 7): o grupo de entry point `ai_core.packs` (002), as audiências `ai-core`/`ai-core-admin` e o prefixo `aic_` da chave de API (003), o `service.name` do OTel e o rótulo HKDF da observabilidade (009), os cabeçalhos `x-ai-core-*`, a chave de extensão `x_ai_core` e o título do OpenAPI (008), o cookie, o realm Basic e os rótulos HKDF e CSRF da identidade (012), o pacote npm da console (013) e a distribuição do pack de referência (010). Os da 011 mudam aqui: o comando, o prefixo, o nome do pool de conexões (`axon`) e o nome padrão. As specs 004–007, sem passada própria, mudam só nos nomes nesta passada, inclusive o marcador interno `x-ai-core-optional` da 006, que nunca vai ao provider (passa a `x-axon-optional`).
 - Q: Onde as suítes de pack encontram as credenciais do perfil `test` depois do renome? → A: Em `axon_ai.bootstrap.profiles` (e `axon_ai.bootstrap.identity`), com os mesmos nomes (`TEST_OIDC_TOKEN`, `TEST_API_KEY`, `TEST_ADMIN_USERNAME`, `TEST_ADMIN_PASSWORD`). O valor de `TEST_API_KEY` muda na passada da 003 (prefixo `axn_`).
 
+### Session 2026-10-21
+
+- Q: Como o operador configura a raiz dos dados dos packs ([ADR-041](../../docs/adr/ADR-041-o-pack-prepara-os-proprios-dados-no-build.md))? → A: Por `AXON_PACKS_DATA_DIR`, um caminho; sem ela, não há raiz, e cada pack recebe `data_dir=None`. A raiz vale nos três perfis e é a mesma no build (`axon packs prepare`) e em runtime (a carga dos packs no boot e em `packs list|check`). A composition root não cria nem confere o diretório: quem cria cada `<raiz>/<pack>` é o `packs prepare` da 002.
+- Q: Como o `packs prepare` entra na raiz `axon`? → A: Como `packs list|check`: uma entrada na lista de registro de `bootstrap/cli.py`, que monta só configuração e adapters (sem os hooks de catálogo nem a carga do registry) e repassa os códigos da 002 (0, 1, 2).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Operador sobe a plataforma e o boot segue uma ordem fixa (Priority: P1)
@@ -248,6 +253,7 @@ configuração nomeando `AXON_PROFILE`; a suíte inteira do workspace passa com 
 - **FR-025**: A carga da configuração DEVE recusar o ambiente em que exista qualquer variável cujo nome comece com `AI_CORE_`, conhecida ou não, vazia ou não, mesmo com a equivalente `AXON_` definida: erro de configuração antes da primeira etapa do boot (e nos subcomandos que carregam a configuração), com uma linha por variável no formato `AI_CORE_<X> → AXON_<X>` e nunca o valor (FR-009).
 - **FR-026**: O nome exibido padrão da instalação (FR-016, 012 FR-023) DEVE ser "Axon" (ADR-038).
 - **FR-027**: As credenciais do perfil `test` exportadas para as suítes (FR-014, FR-015, FR-021) DEVEM estar em `axon_ai.bootstrap.profiles`, com os mesmos nomes. O nome do pool de conexões do perfil `persistent` DEVE ser `axon`.
+- **FR-028**: A configuração DEVE aceitar `AXON_PACKS_DATA_DIR`, a raiz dos diretórios de dados dos packs, e entregá-la à 002 nos três perfis; ausente, nenhum pack recebe diretório. A raiz de comandos DEVE registrar `packs prepare` (002 FR-030), e só ele chama o hook `prepare` (002 FR-031).
 
 ### Key Entities
 

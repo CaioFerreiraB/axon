@@ -109,7 +109,7 @@ def test_nome_antigo_no_ambiente_recusa_o_subcomando(
 
 @pytest.mark.parametrize(
     ("grupo", "filhos"),
-    [("packs", ("list", "check")), ("keys", ("create", "list", "revoke")), ("eval", ("run", "compare"))],
+    [("packs", ("list", "check", "prepare")), ("keys", ("create", "list", "revoke")), ("eval", ("run", "compare"))],
 )
 def test_ajuda_de_cada_grupo_lista_os_comandos_do_modulo(grupo: str, filhos: tuple[str, ...], capsys: Cap) -> None:
     with pytest.raises(SystemExit):
@@ -126,6 +126,7 @@ def test_os_comandos_vem_de_uma_lista_de_registro() -> None:
         ("serve",),
         ("packs", "list"),
         ("packs", "check"),
+        ("packs", "prepare"),
         ("assistants", "validate"),
         ("keys", "create"),
         ("keys", "list"),
@@ -179,9 +180,38 @@ def test_packs_check_sem_erro_sai_com_0(configurar: Configurar, server: FakeServ
 
 def test_packs_yaml_malformado_sai_com_2(configurar: Configurar, server: FakeServer, capsys: Cap) -> None:
     configurar(packs=PACKS_YAML_MALFORMADO)
-    for argv in (["packs", "list"], ["packs", "check"]):
+    for argv in (["packs", "list"], ["packs", "check"], ["packs", "prepare"]):
         assert run(argv, server) == 2
         assert "packs.yaml inválido" in capsys.readouterr().err
+
+
+def test_packs_prepare_cria_o_diretorio_e_sai_com_0(
+    configurar: Configurar, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, server: FakeServer, capsys: Cap
+) -> None:
+    """ADR-041 (002 US4 cen. 3; R54): a raiz vem de `AXON_PACKS_DATA_DIR`."""
+    configurar()
+    monkeypatch.setenv("AXON_PACKS_DATA_DIR", str(tmp_path / "dados"))
+    assert run(["packs", "prepare"], server) == 0
+    saida = capsys.readouterr().out.splitlines()
+    assert saida[0].split() == ["generic", "ok", str(tmp_path / "dados" / "generic")]
+    assert saida[-1] == "1 packs preparados"
+    assert (tmp_path / "dados" / "generic").is_dir()
+
+
+def test_packs_prepare_sem_raiz_sai_com_0(
+    configurar: Configurar, monkeypatch: pytest.MonkeyPatch, server: FakeServer, capsys: Cap
+) -> None:
+    configurar()
+    monkeypatch.delenv("AXON_PACKS_DATA_DIR", raising=False)
+    assert run(["packs", "prepare"], server) == 0
+    assert capsys.readouterr().out.splitlines()[0].split() == ["generic", "ok", "-"]
+
+
+def test_packs_prepare_com_pack_em_erro_sai_com_1(configurar: Configurar, server: FakeServer, capsys: Cap) -> None:
+    configurar(packs=PACKS_YAML_COM_QUEBRADO)
+    assert run(["packs", "prepare"], server) == 1
+    saida = capsys.readouterr().out
+    assert "inexistente" in saida and "não instalado" in saida
 
 
 # --- assistants validate (003) ----------------------------------------------------------------------------------------

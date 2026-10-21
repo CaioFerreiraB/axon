@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from axon_ai_contracts import InvalidSpecifier, InvalidVersion, check_compatibility, derive_range
+from axon_ai_contracts import InvalidSpecifier, InvalidVersion, __version__, check_compatibility, derive_range
 
 
 @pytest.mark.parametrize(
@@ -53,4 +53,4 @@ def test_malformed_requirement() -> None:
 
 def test_pack_of_previous_series_is_refused_with_the_new_name() -> None:
     """US6 cenário 2 (FR-023): contratos 0.2.0 instalados, pack escrito para 0.1."""
-    assert check_compatibility("0.1").message == "requer axon-ai-contracts<0.2, instalado 0.2.0"
+    assert check_compatibility("0.1").message == f"requer axon-ai-contracts<0.2, instalado {__version__}"
