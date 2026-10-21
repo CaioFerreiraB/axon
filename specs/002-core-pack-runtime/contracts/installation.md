@@ -1,8 +1,60 @@
-# Contrato — repositório de instalação `axon-deploy` (Fase 4, US5)
+# Contrato — a referência de instalação `axon-deploy` e o modelo de instalação
+
+> **Desde 2026-10-21 ([ADR-042](../../../docs/adr/ADR-042-instalacao-por-camadas.md), que substitui o ADR-022), vale a
+> seção "Instalação por camadas" logo abaixo.** As seções seguintes descrevem o `Dockerfile` de estágio único que o
+> `axon-deploy` tinha até então (Fases 4 a 9) e ficam como histórico.
+
+## Instalação por camadas (2026-10-21; ADR-041, ADR-042; research R66–R71)
+
+O `axon-deploy` (submódulo `axon-deploy/` do `axon`) é a referência, não uma instalação: publica as imagens base e o
+modelo de instalação, sem pack além do `axon-generic`, endereço ou segredo.
+
+### Imagens base (`images/Dockerfile`, FR-032)
+
+| Imagem (alvo) | Conteúdo | Ambiente |
+|---|---|---|
+| `axon-build` (`build`) | `/opt/axon` com contratos, core e `axon-generic` da tag `CORE_REF`; `uv`, git, cliente SSH e a chave de host ed25519 do GitHub; `/etc/axon/packs.yaml` só com o `generic`; `/opt/axon-data` preparado | `PATH`, `UV_*`, `AXON_PACKS_FILE=/etc/axon/packs.yaml`, `AXON_PACKS_DATA_DIR=/opt/axon-data` |
+| `axon-runtime` (`runtime`) | o `/opt/axon`, o `/opt/axon-data` e o `packs.yaml` da `build`, sem `uv`, `pip` nem `ensurepip`; usuário `axon` (uid 10001) sem escrita; `CMD ["axon", "serve"]` | `PATH`, `PYTHONDONTWRITEBYTECODE`, `AXON_HOST=0.0.0.0`, `AXON_PACKS_FILE`, `AXON_PACKS_DATA_DIR` |
+| `axon-console` (`console`) | a SPA da 013 da mesma tag, no `nginx-unprivileged`; `AXON_UPSTREAM=http://axon:8000` | `NGINX_ENVSUBST_FILTER=AXON_` |
+
+- Registry `ghcr.io/caioferreirab/`; tag = tag do `axon` sem o `v` (`v0.7.0-rc4` → `0.7.0-rc4`), imutável, sem `latest`.
+- O fonte do `axon` entra por clone SSH (identidade `core`) num estágio que não vira imagem; os outros o montam.
+- Publicação: `.github/workflows/images.yml` (manual, `core_ref`): recusa tag já publicada, roda o `check-build.sh` e
+  só então faz o push. Visibilidade: privadas enquanto o `axon` for.
+
+### Modelo de instalação (`template/`, FR-033, FR-034)
+
+| Arquivo | Conteúdo |
+|---|---|
+| `Dockerfile` | `ARG AXON_VERSION`, `ARG AXON_REGISTRY`; `FROM axon-build` → `COPY config/packs.yaml` → `PACKS` (SSH `packs`, `--no-sources`, vazio = só o `generic`) → `axon packs prepare && axon packs check`; `FROM axon-runtime` → copia `/opt/axon`, `/opt/axon-data` e `config/` em `/etc/axon`; `AXON_ASSISTANTS_FILE`, `AXON_IDENTITY_CLIENTS_FILE` |
+| `config/` | `packs.yaml` (`generic`), `assistants.yaml` (um `geral`), `identity.yaml` (clientes `open-webui` e `console` com domínios de exemplo e `localhost`) |
+| `compose.yml` | `axon` (imagem da instalação, tag fixada), `postgres`, `console` (perfil `console`, `axon-console:<versão>`), `open-webui` (perfil `webui`); nenhum `ports`, `build` nem arquivo montado; rede externa `${AXON_PROXY_NETWORK}` com os apelidos `axon-api`, `axon-console` e `axon-chat`; as variáveis da plataforma citadas uma a uma (só elas chegam ao contêiner) |
+| `compose.local.yml` | `build` do `axon` (com `PACKS` e a identidade `packs` pelo agente SSH), portas no host e a rede de proxy criada pelo próprio compose |
+| `.env.example` | as variáveis da stack, em seções |
+| `.github/workflows/release.yml` | push na branch principal ou tag `v*` → imagem `ghcr.io/<repositório>:sha-<commit>` (e `:<versão>` na tag), com `PACKS` (variável) e `PACKS_DEPLOY_KEY` (segredo, opcional) |
+| `README.md` | o roteiro da instalação: versão, packs, local, release, Portainer CE, proxy, primeiro administrador |
+
+### Prova (`scripts/check-build.sh`, CI `build.yml`)
+
+| Passo | Esperado |
+|---|---|
+| 1. as três imagens base da `CORE_REF` (default: `v` + `AXON_VERSION` do `template/Dockerfile`) | constroem |
+| 2. `axon packs list` na `axon-runtime` | só `generic`, `enabled`; `/opt/axon-data/generic` existe (US5 cen. 4) |
+| 3. o modelo, sem mudança, sobre as imagens base | constrói; `generic` `enabled`; `/etc/axon/{packs,assistants,identity}.yaml`; `/opt/axon-data/generic`; `assistants validate` sai com 0 (US5 cen. 1, 5) |
+| 3b. `AI_CORE_PROFILE` | recusada, nomeando `AXON_PROFILE` |
+| 4. nas duas imagens de runtime | sem `uv`, `pip`, `ensurepip`; sem escrita em `/opt/axon`, `/opt/axon-data`, `/etc/axon` (US5 cen. 3) |
+| 5. o modelo com `PACKS=/build/packages/incompatible-pack` | falha no `packs check`, nomeando `incompatible` (US5 cen. 2) |
+| 6. a `axon-console`; o compose do modelo | a SPA presente; `compose.yml` e `compose.yml` + `compose.local.yml` válidos; `compose.yml` sem `ports` nem `build` |
+
+A prova só lê o `axon` (segredo `AGENTIC_APP_DEPLOY_KEY`); nenhum pack privado. A prova da interface (login pelo Open
+WebUI, console) passa a ser de cada instalação.
+
+---
+
+# Histórico: o `Dockerfile` de estágio único (Fase 4 a 2026-10-21)
 
 Decisões em [research.md](../research.md) R21–R29; [ADR-009](../../../docs/adr/ADR-009-deploy-docker-build-arg.md) e
-[ADR-022](../../../docs/adr/ADR-022-instalacao-constroi-o-core-num-estagio-proprio.md). Repositório privado
-`CaioFerreiraB/axon-deploy`, submódulo `axon-deploy/` do `axon`.
+[ADR-022](../../../docs/adr/ADR-022-instalacao-constroi-o-core-num-estagio-proprio.md).
 
 ## Build-args
 

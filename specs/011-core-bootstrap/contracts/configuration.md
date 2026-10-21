@@ -19,6 +19,10 @@ e `assistants.yaml` (formato deste módulo até a 003 existir — [research.md](
 
 Valor inválido é recusado **antes** da primeira etapa, com erro que nomeia a variável (FR-001).
 
+Na instalação por camadas ([ADR-042](../../../docs/adr/ADR-042-instalacao-por-camadas.md); R55), os arquivos de
+configuração estão na imagem, em `/etc/axon`, e as imagens base já trazem `AXON_PACKS_FILE=/etc/axon/packs.yaml` e
+`AXON_PACKS_DATA_DIR=/opt/axon-data`; os segredos vêm só do ambiente, e nenhum arquivo de segredo é obrigatório.
+
 ## `packs.yaml` — formato da 002
 
 ```yaml
