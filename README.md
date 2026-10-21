@@ -39,3 +39,7 @@ O core não conhece domínio nenhum: um pack se anuncia no grupo de entry point 
 git clone --recurse-submodules git@github.com:CaioFerreiraB/axon.git
 cd axon/axon-ai && uv sync && uv run pytest
 ```
+
+## Licença
+
+[MIT](LICENSE).

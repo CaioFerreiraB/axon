@@ -3,6 +3,8 @@ name = "axon-ai"
 version = "0.7.0rc4"
 description = "Runtime genérico da plataforma Axon (monolito modular; specs 002–009, 011, 012)."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.14"
 dependencies = [
     "axon-ai-contracts>=0.2.1,<0.3",
