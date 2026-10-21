@@ -949,3 +949,12 @@ re-pesquisa. Os R21–R61 sobre a instalação ficam como foram executados.
 - **Rationale** (ADR-042, Consequências): a referência perde o `PACKS` default, o passo do modelo do scouting, o Qdrant,
   os Assistants e os endereços do mantenedor; a prova da US5 é com o `generic` e o incompatível.
 - **Alternatives**: manter a instalação do mantenedor aqui até o passo 4 (a referência continuaria conhecendo pack).
+
+### R72 — O `ARG PACKS` é a fonte única (correção do modelo, 2026-10-21)
+
+- **Decision**: o `compose.local.yml` e o `release.yml` do modelo deixam de passar `PACKS` como build-arg; vale o `ARG
+  PACKS` do `Dockerfile`, que cada instalação fixa. Corrige R69 e R70.
+- **Rationale**: achado ao montar a primeira instalação com pack (`axon-cfblabs`): um build-arg vazio — variável não
+  definida — vence o default do `ARG`, e o pack sumia do build sem aviso; e o build local e o do CI podiam divergir.
+- **Alternatives**: manter a variável do repositório e não ter default no `Dockerfile` (dois lugares para a mesma
+  informação, como antes).
