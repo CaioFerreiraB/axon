@@ -1,6 +1,6 @@
 [project]
 name = "axon-ai"
-version = "0.7.0rc2"
+version = "0.7.0rc3"
 description = "Runtime genérico da plataforma Axon (monolito modular; specs 002–009, 011, 012)."
 readme = "README.md"
 requires-python = ">=3.14"
