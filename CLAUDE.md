@@ -468,6 +468,17 @@ com `packs.yaml` malformado, e `axon serve` nunca o chama. A raiz é `AXON_PACKS
 `None`). O core pede `axon-ai-contracts>=0.2.1,<0.3` e está em `0.7.0rc4` (tags `contracts-v0.2.1` e `v0.7.0-rc4`
 pendentes do aval do mantenedor); o `axon-generic` não muda.
 
+A instalação é por camadas (ADR-042, que substitui o ADR-022; 002 R66–R71): o `axon-deploy` deixou de ser a instalação
+do mantenedor — o que as passagens acima dizem do `Dockerfile` de estágio único, do Qdrant e do `config/` dele é
+histórico — e passou a ser a referência: `images/Dockerfile` (alvos `build`, `runtime`, `console`) gera
+`axon-build`, `axon-runtime` e `axon-console`, publicadas pelo workflow manual `images.yml` em `ghcr.io/caioferreirab/`
+com a tag do `axon` sem o `v` (imutável, sem `latest`), com `AXON_PACKS_DATA_DIR=/opt/axon-data` e só o `generic`; e
+`template/` é o modelo que cada instalação copia para um repositório privado — `Dockerfile` sem nada de pack (`PACKS`
+→ `axon packs prepare` → `axon packs check`, `config/` em `/etc/axon`), `compose.yml` só com imagens, sem porta nem
+arquivo montado, na rede externa `AXON_PROXY_NETWORK` com os apelidos `axon-api`, `axon-console` e `axon-chat`,
+`compose.local.yml` para a máquina do operador e o workflow de release. A prova é `axon-deploy/scripts/check-build.sh`
+(imagens base, o modelo sobre elas, o incompatível recusado), que só lê o `axon`.
+
 O `axon-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
 true }`, suíte de conformidade nos próprios testes e zero import do core (import-linter, nas duas direções). Ele é

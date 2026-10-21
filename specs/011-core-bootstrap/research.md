@@ -859,3 +859,16 @@ caminhos da configuração.
 **Alternatives considered**: um default (`/opt/axon-data`; amarraria a plataforma ao layout de uma imagem, e o
 desenvolvimento passaria a escrever fora do repositório); exigir caminho absoluto (diferente de todos os outros caminhos
 da configuração, sem ganho); criar o diretório no boot (contraria o somente leitura em runtime).
+
+## R55 — Configuração na imagem e nenhum arquivo de segredo obrigatório ([ADR-042](../../docs/adr/ADR-042-instalacao-por-camadas.md))
+
+**Decision**: nada muda no código da 011. Os caminhos de configuração (`AXON_PACKS_FILE`, `AXON_ASSISTANTS_FILE`,
+`AXON_IDENTITY_CLIENTS_FILE`, `AXON_LOGO_FILE`) apontam, no modelo de instalação, para `/etc/axon` na própria imagem, e
+as imagens base fixam `AXON_PACKS_FILE` e `AXON_PACKS_DATA_DIR` (002 R66). O único arquivo de segredo que a
+plataforma lê, `AXON_BOOTSTRAP_ADMIN_PASSWORD_FILE`, continua opcional; o primeiro administrador sai de `axon users
+create` no console do contêiner.
+
+**Rationale** (ADR-042, itens 4 e 5): a 011 já lê cada arquivo por variável e já aceita a ausência do admin inicial;
+o que muda é a instalação.
+
+**Alternatives considered**: —

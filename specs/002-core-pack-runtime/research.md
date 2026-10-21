@@ -866,3 +866,86 @@ Pack Runtime, sem re-pesquisa. A instalação (o `Dockerfile` chamando `axon pac
   `tests/packs/integration/test_packs_cli.py`, com distribuições falsas. O `axon-generic` não muda (herda o default).
 - **Rationale**: o padrão do `packs check` (R15, R16): o comando é função sobre o seam, e quem monta é a 011.
 - **Alternatives**: —
+
+## Passada de 2026-10-21: instalação por camadas ([ADR-042](../../docs/adr/ADR-042-instalacao-por-camadas.md); US5 cen. 4–5, FR-032–FR-034)
+
+Decisões pré-aprovadas pelo ADR-042 (três camadas, imagens base, modelo de instalação, configuração na imagem,
+segredos no ambiente, release pelo CI, Portainer CE); o que segue é como elas chegam ao `axon-deploy`, sem
+re-pesquisa. Os R21–R61 sobre a instalação ficam como foram executados.
+
+### R66 — As imagens base num `Dockerfile` de três alvos
+
+- **Decision**: `images/Dockerfile` com os estágios internos `tools` (python slim + git + cliente SSH + `uv` 0.12.23 +
+  chave de host do GitHub) e `source` (clone raso da `CORE_REF`, sem submódulos, pela identidade `core`; obrigatória,
+  sem default), e os alvos `build`, `runtime` e `console`. `build` instala os três pacotes de `/src/packages` montado do
+  `source` (o fonte não fica em camada), copia `images/packs.yaml` (só o `generic`) e roda `axon packs prepare && axon
+  packs check`, para a `axon-runtime` subir sozinha e a raiz `/opt/axon-data` sempre existir. Label OCI `source`
+  apontando o `axon-deploy` (o GHCR liga o pacote ao repositório). Sai o `ORT_DISABLE_TELEMETRY` (era do scouting: o pack
+  passa a cuidar disso, na passada da 101/102 do ADR-043).
+- **Rationale** (ADR-042, item 2): os três alvos saem do mesmo fonte e do mesmo `PYTHON_IMAGE` numa rodada; a
+  instalação copia `/opt/axon` da `axon-build` para a `axon-runtime` da mesma versão, então o Python das duas é o mesmo.
+- **Alternatives**: três `Dockerfile`s (repetiriam o clone e o Python); fixar o `PYTHON_IMAGE` por digest (bom, mas
+  à parte: o par build/runtime já sai coerente de cada rodada).
+
+### R67 — Tag e publicação
+
+- **Decision**: a tag da imagem é a do `axon` sem o `v` (`0.7.0-rc4`), e o registry é `ghcr.io/caioferreirab/`.
+  `.github/workflows/images.yml`, só manual (`core_ref`): confere o formato `v<versão>`, recusa se qualquer das três já
+  existe no registry (`docker buildx imagetools inspect`), roda o `check-build.sh` com `REGISTRY`/`VERSION` do registry
+  (o driver `docker` do buildx, para o modelo construir `FROM` as imagens locais) e só então faz o push.
+- **Rationale** (ADR-042, item 2: "imutável; nunca `latest`"): a tag do git já é a versão que o operador lê; a forma
+  sem `v` é a convenção de tag de imagem. Publicar sem provar seria a única forma de uma imagem base quebrada chegar a
+  uma instalação.
+- **Alternatives**: a versão PEP 440 (`0.7.0rc4`; diverge da tag do git que o operador vê); publicar por push de tag
+  no `axon` (o `axon-deploy` não recebe eventos do `axon` sem um token entre repositórios).
+
+### R68 — O `Dockerfile` do modelo
+
+- **Decision**: `ARG AXON_VERSION` (fonte única da versão do modelo; o `check-build.sh` a lê) e `ARG AXON_REGISTRY`;
+  estágio `packs` `FROM axon-build`: `COPY config/packs.yaml`, `PACKS` com montagem SSH `packs` (não obrigatória: sem
+  pack privado, nenhuma identidade) e `packages/` montado, instalado só se não vazio; `axon packs prepare && axon packs
+  check`. Estágio final `FROM axon-runtime`: copia `/opt/axon`, `/opt/axon-data` e `config/` para `/etc/axon`, e fixa
+  `AXON_ASSISTANTS_FILE` e `AXON_IDENTITY_CLIENTS_FILE`. `packages/` vem com um README (o bind exige o diretório).
+- **Rationale** (ADR-041, ADR-042 item 3): nenhuma linha conhece pack; o `prepare` antes do `check` é o que o ADR-041
+  pede. A configuração inteira na imagem é o item 4.
+- **Alternatives**: instalar os packs no estágio de runtime (traria o `uv` de volta).
+
+### R69 — O compose do modelo
+
+- **Decision**: `compose.yml` com `name: axon`, só `image:` (a da instalação como placeholder `ghcr.io/SEU-USUARIO/
+  SUA-INSTALACAO:sha-0000000`, a `axon-console` na versão do `AXON_VERSION`), nenhum `ports`, `build` ou arquivo montado
+  (só volumes nomeados), `restart: unless-stopped`. Rede externa `proxy` com o nome em `${AXON_PROXY_NETWORK}`; apelidos
+  `axon-console`, `axon-chat` e também `axon-api` (o modo sem interface precisa de um caminho até a API). As variáveis
+  da plataforma são citadas uma a uma no `environment` do `axon` (no Portainer CE, só o que o compose cita chega ao
+  contêiner), com `${VAR:?}` nas obrigatórias e `${VAR:-}` nos segredos opcionais (vazio vale como ausente), e
+  `AXON_DISPLAY_NAME` com default `Axon` (vazio derrubaria o boot). `AXON_CHAT_URL` é o endereço do chat (`WEBUI_URL` e
+  o retorno do OIDC). `compose.local.yml` acrescenta o `build`, as portas do host e redefine a rede de proxy como
+  local (`axon-local-proxy`).
+- **Rationale** (ADR-042, itens 3, 5 e 7): a stack do Portainer CE resolve caminhos relativos dentro dele, então nada é
+  montado; os apelidos próprios evitam colisão com outras aplicações na mesma rede do proxy.
+- **Alternatives**: `env_file: stack.env` (só existe no Portainer; o local usaria outro nome); publicar a porta da API
+  (contraria "sem porta publicada").
+
+### R70 — O workflow de release do modelo
+
+- **Decision**: push na branch principal, tag `v*` ou manual; login no GHCR com o `GITHUB_TOKEN` (`packages: write`),
+  que também lê as imagens base quando o repositório da instalação recebe acesso aos pacotes ("Manage Actions access");
+  `PACKS` de uma variável do repositório; a deploy key `PACKS_DEPLOY_KEY` vira a identidade `packs` só quando
+  cadastrada; tags `sha-<7>` e, numa tag do git, a versão sem `v`.
+- **Rationale** (ADR-042, item 6, e Consequências: "acesso do repositório da instalação ao pacote, ou um token só de
+  leitura"): um segundo login no mesmo registry com um token só de leitura trocaria a credencial do push; o acesso pelo
+  pacote dispensa o token.
+- **Alternatives**: um PAT só de leitura num segundo login (quebraria o push, como acima).
+
+### R71 — O que sai do `axon-deploy`, e a prova
+
+- **Decision**: saem o `Dockerfile`, o `docker-compose.yml`, o `.env.example` e o `config/` da instalação do
+  mantenedor (o Qdrant, o scouting, os Assistants `scouting`/`geral`/`interno`, os endereços `localhost`), o
+  `secrets/.gitignore`, `scripts/check-webui.py` e `scripts/dev-users.sh` — estes dois voltam, do histórico, no
+  repositório da instalação do mantenedor (passo 4 do plano), com a prova da interface (FR-022), que passa a ser de cada
+  instalação. O `.gitignore` ignora `config/` e `secrets/`, para os restos locais (fora do git) não aparecerem.
+  `scripts/check-build.sh` reescrito (passos 1 a 6 do contrato), `build.yml` com só a deploy key do `axon` e o driver
+  `docker`. O `packages/incompatible-pack` fica (copiado para um contexto temporário do modelo no passo 5).
+- **Rationale** (ADR-042, Consequências): a referência perde o `PACKS` default, o passo do modelo do scouting, o Qdrant,
+  os Assistants e os endereços do mantenedor; a prova da US5 é com o `generic` e o incompatível.
+- **Alternatives**: manter a instalação do mantenedor aqui até o passo 4 (a referência continuaria conhecendo pack).

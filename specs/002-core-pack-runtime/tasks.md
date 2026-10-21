@@ -619,3 +619,36 @@ chamar o hook.
 - O comando `axon packs prepare` real, com o `generic`: `generic ok <raiz>/generic`, `1 packs preparados`, saída 0; o
   `packs check` em seguida, `1 packs ok`; `packs.yaml` malformado, saída 2.
 - Suítes do workspace: 3326 passed, 193 skipped; mypy sem erro (270 arquivos); ruff limpo; import-linter 69 kept.
+
+---
+
+## Passada de 2026-10-21: instalação por camadas — US5 cen. 4–5 ([ADR-042](../../docs/adr/ADR-042-instalacao-por-camadas.md); research R66–R71)
+
+**Goal**: o `axon-deploy` publica as imagens base e o modelo de instalação, sem nada de pack; a prova da US5 roda
+sobre eles.
+
+**Independent Test**: `axon-deploy/scripts/check-build.sh` ([contracts/installation.md](contracts/installation.md),
+"Instalação por camadas").
+
+- [X] T107 [US5] `images/Dockerfile` (alvos `build`, `runtime`, `console`) e `images/packs.yaml` (R66)
+- [X] T108 [US5] `template/`: `Dockerfile`, `config/`, `packages/`, `compose.yml`, `compose.local.yml`, `.env.example`,
+  `.gitignore`, `.github/workflows/release.yml`, `README.md` (R68–R70)
+- [X] T109 [US5] `.github/workflows/images.yml` (R67) e `build.yml` com só a deploy key do `axon` (R71)
+- [X] T110 [US5] Sai a instalação do mantenedor; `scripts/check-build.sh` reescrito; `README.md` da referência (R71)
+- [X] T111 [US5] `scripts/check-build.sh` verde localmente com `CORE_REF=v0.7.0-rc4`
+- [X] T112 [P] Documentos vivos: `contracts/installation.md`, spec (FR-013, FR-019, FR-032–FR-034, US5 cen. 4–5),
+  `specs/README.md`, `CLAUDE.md`
+- [X] T113 [US5] Publicar as imagens base `0.7.0-rc4` (`gh workflow run images.yml -f core_ref=v0.7.0-rc4`), com o
+  aval do mantenedor, depois do push do `axon-deploy`
+
+### Notas da execução (camadas)
+
+- `check-build.sh` local (agente SSH, driver `docker`): passos 1–6 verdes na primeira rodada; o incompatível sai como
+  `incompatible 0.1.0 0.3 error requer axon-ai-contracts>=0.3, instalado 0.2.1`.
+- Fumaça: a imagem do modelo sobe com `--read-only` no perfil `memory`, e `/private/v1/health` responde (`degraded`
+  sem a chave do OpenRouter).
+- A primeira rodada do `images.yml` falhou antes de publicar: o `.gitignore` da raiz do `axon-deploy` ignorava
+  `config/` em qualquer nível, e o `template/config/` não tinha entrado no commit (a prova local via a pasta de
+  trabalho). Correção: padrões só da raiz (`/config/`, `/secrets/`), e o `check-build.sh` monta o contexto do modelo
+  com `git ls-files`. Na segunda, `build.yml` e `images.yml` verdes; `axon-build`, `axon-runtime` e `axon-console`
+  `:0.7.0-rc4` publicadas em `ghcr.io/caioferreirab/`.
