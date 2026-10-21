@@ -130,6 +130,7 @@ def test_os_comandos_vem_de_uma_lista_de_registro() -> None:
         ("keys", "create"),
         ("keys", "list"),
         ("keys", "revoke"),
+        ("keys", "rotate"),
         ("health",),
         ("audit",),
         ("eval", "run"),

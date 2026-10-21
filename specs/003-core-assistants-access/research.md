@@ -617,3 +617,115 @@ começa com `axn_` e autentica) e as suítes ponta a ponta que usam a credencial
 os nomes novos.
 
 **Alternatives considered**: só ajustar os literais dos testes existentes (não prova a recusa do antigo).
+
+---
+
+# Passada de 2026-10-21: rotação de chaves e sobreposição de `auth` ([ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md); US12, US13)
+
+Decisões pré-aprovadas pelo ADR-040 e pelas clarificações de 2026-10-21; o que segue é como elas chegam ao código da
+003, sem re-pesquisa. O mecanismo de sobreposição é o de R28–R31, estendido a uma terceira seção.
+
+## R38 — Rotação mantém o `key_id`; a troca do hash é uma operação da porta
+
+**Decision**: `ApiKeyStore.rotate(key_id, *, key_hash, at) -> ApiKeyRecord | None` troca o hash e grava `rotated_at`
+numa operação só, **só se a chave está ativa** (Postgres: `UPDATE … SET key_hash, rotated_at WHERE key_id = %s AND
+revoked_at IS NULL RETURNING …`; memória: a mesma condição sob o laço único). `None` = inexistente ou revogada; o
+serviço distingue com `get` para devolver o erro certo. A chave em claro nova é `compose_key(key_id, segredo novo)`, com
+o segredo do `TokenGenerator`. `ApiKeyInfo.rotated_at: datetime | None` (publicado).
+
+**Rationale**: ADR-040, itens 1 e 2. A autenticação já busca pelo `key_id` e compara o hash (R7): trocar o hash é
+suficiente para o segredo antigo morrer na requisição seguinte, sem cache a invalidar. A condição `revoked_at IS NULL`
+na mesma instrução serializa rotação e revogação pelo bloqueio da linha: uma acontece antes da outra, por inteiro.
+
+**Alternatives considered**: `get` + `add` no serviço (corrida com a revogação; poderia "desrevogar" uma chave);
+guardar o hash anterior com prazo (janela de convivência — rejeitada no ADR-040).
+
+## R39 — Erros da rotação
+
+**Decision**: `ApiKeyAdmin.rotate(*, actor, key_id) -> IssuedApiKey` e `rotate_as_operator(*, key_id)`. Ator não admin
+→ `NotFound` (como as demais operações); `key_id` inexistente → `NotFound`; chave revogada → `Conflict("chave revogada
+não rotaciona")`. A 008 mapeia `Conflict` → 409, como já faz nas sobreposições. A CLI sai com 1 e a mensagem nos dois
+casos de erro.
+
+**Rationale**: revogada é um estado do recurso que impede a operação — conflito, não pedido malformado; mantém o 422
+reservado para campo inválido (com `param`).
+
+**Alternatives considered**: `RequestRejected(field="key_id")` (422: o `key_id` é válido; o estado é que impede);
+reativar a chave revogada (revogação é definitiva, FR-015).
+
+## R40 — Emissão: nome do sistema e grupo de administração
+
+**Decision**: em `issue_as_operator` (os dois caminhos passam por ele), subject `svc:<nome>` exige
+`NAME_PATTERN.fullmatch(nome)` — o padrão dos nomes de Assistant — senão `RequestRejected(field="subject")`; `user:…`
+segue o `SUBJECT_PATTERN` de hoje. `SUBJECT_PATTERN` em `ApiKeyInfo` **não** muda: chaves antigas continuam legíveis e
+válidas. Em `issue` (administração), antes de delegar: grupo igual ao de administração → `RequestRejected(field="groups",
+"o grupo de administração só é concedido pela linha de comando")`. `rotate` e `revoke` valem para qualquer chave.
+
+**Rationale**: clarificações 1 e 2 de 2026-10-21 (FR-030, FR-036). A regra do grupo mora no método com `actor` porque
+é ele que distingue a administração do operador; a do nome, no comum, porque vale nos dois.
+
+**Alternatives considered**: apertar `SUBJECT_PATTERN` (tornaria ilegíveis chaves já emitidas); regra do grupo na 008
+(fora do dono; a CLI ou outro consumidor a contornaria).
+
+## R41 — Seção `auth`: conteúdo, impressão digital e efetiva
+
+**Decision**: `OverrideSection = Literal["models", "mcp", "auth"]`; `OVERRIDE_SECTIONS` ganha `"auth"` (e com ele a
+leitura de `overrides` no YAML). Value object publicado `AuthOverride(schemes: frozenset[Scheme], allow: tuple[str,
+...])` (sem validar conteúdo no construtor, como `McpOverride`; `allow` sem repetição, na ordem dada). Em
+`domain/overrides.py`: `yaml_auth(definition)`; impressão digital de `auth` = JSON canônico de `schemes` e `allow`
+ordenados (a ordem de `allow` não muda o significado); `payload_of`/`read_payload` para `auth` (conteúdo ilegível ou
+esquema desconhecido → `None`, inativa por `UNREADABLE`, como as outras); `apply_auth(definition, override)` troca
+`access` e acrescenta problema `override.auth: …` se o resultado viola a FR-012 ou está vazio; `_SECTION_FIELDS["auth"] =
+("auth",)`.
+
+**Rationale**: ADR-040, item 4 — o mesmo mecanismo das outras seções; `visibility` fica fora da seção (item 5).
+
+**Alternatives considered**: guardar `allow` como conjunto (perderia a ordem que o operador vê na tela).
+
+## R42 — `*` num Assistant que virou privado: falha fechada na efetiva
+
+**Decision**: a impressão digital de `auth` não inclui `visibility`. Se um deploy torna privado um Assistant com
+sobreposição de `auth` ativa que contém `*`, `apply_auth` registra o problema `override.auth: auth.allow: '*' não é
+permitido em Assistant privado` e o Assistant fica **indisponível** com esse motivo, até um admin corrigir ou descartar.
+
+**Rationale**: princípio VII e FR-020 — sobreposição que deixou de ser válida torna o Assistant indisponível, nunca
+resolvido em silêncio; é a mesma forma de `apply_models` com modelo que saiu da allowlist. Pôr `visibility` na impressão
+digital inativaria a sobreposição em silêncio e reabriria o YAML, o que também seria seguro, mas esconderia do admin a
+razão; o motivo explícito é o padrão do ADR-032 (item 4).
+
+**Alternatives considered**: incluir `visibility` na impressão digital (acima); recusar o boot (um deploy legítimo não
+deve derrubar a instalação por uma sobreposição).
+
+## R43 — Gravação da sobreposição de `auth` e a visão
+
+**Decision**: `SystemAssistantAdmin.override_auth(name, override: AuthOverride, *, actor, version)`: admin; seção
+liberada (`_overridable(name, "auth")`, senão "só muda por novo deploy"); `schemes` não vazio e ⊆ `SCHEMES` →
+`RequestRejected(field="auth.schemes")`; `allow` não vazio e todo seletor válido (`is_selector`) →
+`field="auth.allow"`; `*` com `visibility: private` → `field="auth.allow"`; depois a mesma checagem da efetiva
+(`_reject_static`) e `_save`. A 003 **não** confere existência de subject ou grupo (FR-032). `discard_override` e
+`history` já são por seção. `SystemAssistantView` ganha `yaml_auth` e `effective_auth` (sempre presentes, inclusive com
+`auth` não liberado — FR-034); `OverrideView.payload` e `OverrideHistoryEntry.payload` aceitam `AuthOverride`. A
+resolução já usa `definition.access` da definição efetiva: nenhuma mudança em `resolve`/`discover`.
+
+**Rationale**: FR-031–FR-034; a mesma forma de `override_models`/`override_mcp`.
+
+**Alternatives considered**: um método genérico `override(name, section, payload)` (mudaria a forma do seam das outras
+seções sem ganho; a 008 já tem uma rota por seção).
+
+## R44 — Migrações, CLI e testes
+
+**Decision**: duas migrações aditivas no adapter — `sql/004_api_key_rotation.sql` (`ADD COLUMN rotated_at timestamptz`)
+e `sql/005_auth_overrides.sql` (troca a restrição `CHECK` de `system_overrides.section` para incluir `auth`) —,
+aplicáveis sobre dados existentes (FR-035). CLI: `keys_rotate_command` em `adapters/cli.py` (a chave em claro sozinha na
+última linha, como `keys create`), registrado pela 011 em `bootstrap/cli.py` como `("keys", "rotate")` — o único toque
+fora do módulo, atribuído pelo ADR-040. Testes, marcas `us12` e `us13`: conformidade do `ApiKeyStore.rotate` (memória ×
+Postgres) em `test_api_key_store.py`; `contract/test_key_rotation.py` (US12: segredo antigo recusado, novo com o mesmo
+Principal, revogada → `Conflict`, inexistente e não admin → `NotFound`, duas chaves do mesmo sistema independentes,
+padrão do nome, grupo de administração recusado só na administração); `contract/test_auth_override.py` (US13: os nove
+cenários e o caso de R42); `unit/test_overrides.py` (impressão digital, `apply_auth`, ida e volta do conteúdo);
+`integration/test_cli.py` (`keys rotate`); `integration/test_postgres_migrations.py` (004 e 005 sobre dados).
+
+**Rationale**: ADR-015 (migração no adapter); SC-009 e SC-010 são adversariais.
+
+**Alternatives considered**: uma migração só para as duas mudanças (misturaria duas US num arquivo; separadas, cada
+uma tem o seu teste).

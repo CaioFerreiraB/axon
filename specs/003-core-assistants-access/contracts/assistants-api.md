@@ -167,3 +167,52 @@ class SystemAssistantAdmin(Protocol):
 `tests/assistants/contract/test_system_assistant_admin.py` (adversarial, marca `us10`),
 `tests/assistants/contract/test_override_store.py` (memória × Postgres), `tests/assistants/contract/test_surfaces.py`
 (três superfícies, audiências, admin por grupo, marca `us9`).
+
+## Fase 9 (2026-10-21): rotação de chaves e sobreposição de `auth` (ADR-040; research R38–R43)
+
+### `ApiKeyAdmin` — operação nova
+
+```python
+class ApiKeyAdmin(Protocol):
+    ...
+    async def rotate(self, *, actor: Principal, key_id: str) -> IssuedApiKey: ...
+```
+
+| Situação | Resultado |
+|---|---|
+| ator fora do grupo de administração | `NotFound` |
+| `key_id` inexistente | `NotFound` |
+| chave revogada | `Conflict` ("chave revogada não rotaciona") |
+| sucesso | `IssuedApiKey` com o mesmo `key_id`, subject, grupos, rótulo e emissão, `rotated_at` = agora e a chave em claro nova — a única vez que ela aparece; o segredo anterior é recusado por `authenticate` na chamada seguinte |
+
+`issue` — regras novas (R40): subject `svc:<nome>` com `nome` fora de `NAME_PATTERN` → `RequestRejected(field="subject")`
+(nos dois caminhos); pela administração, o grupo de administração em `groups` → `RequestRejected(field="groups")` — só
+`issue_as_operator` (CLI) o concede. `rotate` e `revoke` valem para qualquer chave, inclusive as de admin.
+
+### `SystemAssistantAdmin` — operação nova
+
+```python
+class SystemAssistantAdmin(Protocol):
+    ...
+    async def override_auth(self, name: str, override: AuthOverride, *, actor: Principal,
+                            version: int | None) -> SystemAssistantView: ...
+```
+
+| Situação | Resultado |
+|---|---|
+| `auth` fora de `overrides` | `RequestRejected(field="auth")` com "só muda por novo deploy" |
+| `schemes` vazio ou com esquema desconhecido | `RequestRejected(field="auth.schemes")` |
+| `allow` vazio ou com seletor fora de `*`, `user:…`, `svc:…`, `group:…` | `RequestRejected(field="auth.allow")` |
+| `*` com `visibility: private` | `RequestRejected(field="auth.allow")` (FR-012) |
+| subject ou grupo que não existe | aceito; não concede nada (FR-032) |
+| `version` desatualizada | `Conflict` |
+| sucesso | a visão atualizada; vale na resolução seguinte |
+
+`discard_override(name, "auth", …)` e `history` sem mudança de forma. Na resolução, sobreposição de `auth` ativa que
+deixou de valer (ex.: `*` depois de o deploy tornar o Assistant privado) → `AssistantUnavailable` com motivo
+`override.auth: …` (R42).
+
+### Conformidade — acréscimos
+
+`tests/assistants/contract/test_key_rotation.py` (marca `us12`), `tests/assistants/contract/test_auth_override.py`
+(marca `us13`), `rotate` em `tests/assistants/contract/test_api_key_store.py` (memória × Postgres).

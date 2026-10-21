@@ -17,13 +17,17 @@ from datetime import datetime
 from typing import Final, cast
 
 from axon_ai.assistants.api import (
+    SCHEMES,
+    AuthOverride,
     McpOverride,
     ModelsOverride,
     OverrideAction,
+    OverridePayload,
     OverrideSection,
     OverrideState,
+    Scheme,
 )
-from axon_ai.assistants.domain.definitions import AssistantDefinition, allowed_model
+from axon_ai.assistants.domain.definitions import AccessRule, AssistantDefinition, allowed_model, is_selector
 from axon_ai.llm.api import MODEL_ROLES, ModelRef, ModelRole
 
 NOT_ALLOWED: Final = "o deploy não permite mais"
@@ -64,7 +68,7 @@ class OverrideStatus:
     """O estado de uma sobreposição guardada contra a definição atual do YAML."""
 
     stored: StoredOverride
-    payload: ModelsOverride | McpOverride | None
+    payload: OverridePayload | None
     state: OverrideState
     reason: str | None = None
 
@@ -84,11 +88,20 @@ def yaml_mcp(definition: AssistantDefinition) -> McpOverride:
     )
 
 
+def yaml_auth(definition: AssistantDefinition) -> AuthOverride:
+    """A seção `auth` do YAML (ou da definição efetiva): os esquemas e os seletores de `allow`, na ordem declarada."""
+    return AuthOverride(schemes=definition.access.schemes, allow=definition.access.allow)
+
+
 def section_fingerprint(definition: AssistantDefinition, section: OverrideSection) -> str:
-    """SHA-256 do JSON canônico da seção. Em `models`, só os papéis: a allowlist é o teto, não a seção (R28)."""
+    """SHA-256 do JSON canônico da seção. Em `models`, só os papéis: a allowlist é o teto, não a seção (R28). Em
+    `auth`, esquemas e `allow` ordenados: a ordem de `allow` não muda quem entra (R41)."""
     data: object
     if section == "models":
         data = {role: str(ref) for role, ref in sorted(definition.roles.items())}
+    elif section == "auth":
+        auth = yaml_auth(definition)
+        data = {"schemes": sorted(auth.schemes), "allow": sorted(auth.allow)}
     else:
         mcp = yaml_mcp(definition)
         data = {"aliases": sorted(mcp.aliases), "allowed": sorted(mcp.allowed), "write": sorted(mcp.write)}
@@ -99,14 +112,18 @@ def section_fingerprint(definition: AssistantDefinition, section: OverrideSectio
 # --- conteúdo ---------------------------------------------------------------------------------------------------------
 
 
-def payload_of(override: ModelsOverride | McpOverride) -> dict[str, object]:
+def payload_of(override: OverridePayload) -> dict[str, object]:
     if isinstance(override, ModelsOverride):
         return {"roles": {role: str(ref) for role, ref in sorted(override.roles.items())}}
+    if isinstance(override, AuthOverride):
+        return {"schemes": sorted(override.schemes), "allow": list(override.allow)}
     return {"aliases": list(override.aliases), "allowed": sorted(override.allowed), "write": sorted(override.write)}
 
 
-def read_payload(section: OverrideSection, payload: Mapping[str, object]) -> ModelsOverride | McpOverride | None:
+def read_payload(section: OverrideSection, payload: Mapping[str, object]) -> OverridePayload | None:
     """O conteúdo guardado de volta em value object; `None` se ilegível (nunca aplicado em silêncio)."""
+    if section == "auth":
+        return _read_auth(payload)
     try:
         if section == "models":
             roles = payload.get("roles")
@@ -125,6 +142,15 @@ def read_payload(section: OverrideSection, payload: Mapping[str, object]) -> Mod
         )
     except ValueError:
         return None
+
+
+def _read_auth(payload: Mapping[str, object]) -> AuthOverride | None:
+    schemes, allow = payload.get("schemes"), payload.get("allow")
+    if not isinstance(schemes, list) or not isinstance(allow, list):
+        return None
+    if not all(isinstance(value, str) for value in (*schemes, *allow)) or not set(schemes) <= set(SCHEMES):
+        return None
+    return AuthOverride(schemes=frozenset(cast("list[Scheme]", schemes)), allow=tuple(cast("list[str]", allow)))
 
 
 # --- estado e definição efetiva ---------------------------------------------------------------------------------------
@@ -169,6 +195,20 @@ def apply_mcp(definition: AssistantDefinition, override: McpOverride, *, pack_to
     return dataclasses.replace(definition, mcp=override.aliases, allowed_tools=allowed, write_tools=write)
 
 
+def apply_auth(definition: AssistantDefinition, override: AuthOverride) -> AssistantDefinition:
+    """Troca o acesso. O que a gravação recusaria e o deploy pode ter tornado inválido — `*` num Assistant que virou
+    privado — vira problema `override.auth`, e o Assistant fica indisponível (falha fechada, R42)."""
+    problems: list[str] = []
+    if not override.schemes or not override.schemes <= set(SCHEMES):
+        problems.append(f"override.auth: auth.schemes: não vazio, entre {', '.join(SCHEMES)}")
+    if not override.allow or not all(is_selector(selector) for selector in override.allow):
+        problems.append("override.auth: auth.allow: não vazio, com '*', 'user:…', 'svc:…' ou 'group:…'")
+    if definition.visibility == "private" and "*" in override.allow:
+        problems.append("override.auth: auth.allow: '*' não é permitido em Assistant privado (FR-012)")
+    access = AccessRule(schemes=override.schemes, allow=override.allow)
+    return dataclasses.replace(definition, access=access, problems=(*definition.problems, *problems))
+
+
 def effective(
     definition: AssistantDefinition, stored: Sequence[StoredOverride], *, pack_tools: PackTools
 ) -> tuple[AssistantDefinition, tuple[OverrideStatus, ...]]:
@@ -183,6 +223,8 @@ def effective(
             result = dataclasses.replace(result, problems=(*result.problems, problem))
         elif isinstance(status.payload, ModelsOverride):
             result = apply_models(result, status.payload)
+        elif isinstance(status.payload, AuthOverride):
+            result = apply_auth(result, status.payload)
         else:
             result = apply_mcp(result, status.payload, pack_tools=pack_tools)
         result = dataclasses.replace(result, overridden=result.overridden | {status.stored.section})
@@ -192,6 +234,7 @@ def effective(
 _SECTION_FIELDS: Final[Mapping[OverrideSection, tuple[str, ...]]] = {
     "models": ("models",),
     "mcp": ("mcp", "allowed_tools", "write_tools"),
+    "auth": ("auth",),
 }
 
 

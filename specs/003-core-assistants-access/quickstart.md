@@ -186,3 +186,29 @@ curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer aic_012345678
 
 **Esperado**: o primeiro comando sai com erro de configuração que cita `axn_<16 hex>_<…>`; depois, `200` com a chave
 nova e `401` com a antiga.
+
+## Fase 9 (2026-10-21): US12 e US13 — rotação de chaves e sobreposição de `auth`
+
+A partir de `axon-ai/`, com `XDG_DATA_HOME=$HOME/.local/share`. Decisões em [research.md](research.md) R38–R44.
+
+```bash
+uv run pytest packages/core/tests -m "us12 or us13" -v
+AXON_TEST_POSTGRES_DSN=postgresql://postgres:pg@localhost:55432/postgres \
+  uv run pytest packages/core/tests/assistants -q        # conformidade de rotate e migrações 004/005 no Postgres
+```
+
+**Esperado**: verde — depois de `rotate`, o segredo antigo é não autenticado e o novo autentica com o mesmo Principal;
+chave revogada → `Conflict`; `svc:Relatorios` recusado na emissão; o grupo de administração recusado pela administração
+e aceito pela CLI; sobreposição de `auth` vale na resolução seguinte, recusa `*` em privado, `schemes`/`allow` vazios e
+seção não liberada; deploy que muda `auth` a inativa; deploy que torna privado um Assistant com `*` sobreposto o deixa
+indisponível com `override.auth`.
+
+À mão, no perfil `persistent` (Postgres em `AXON_DATABASE_URL`):
+
+```bash
+uv run axon keys create --subject svc:relatorios --label prod      # a chave sai na última linha
+uv run axon keys rotate <key_id>                                    # outra chave, mesmo key_id
+uv run axon keys list                                               # rotacionada: instante na coluna própria
+```
+
+**Esperado**: a chave antiga recebe 401 em `/private/v1/health`; a nova, 200.

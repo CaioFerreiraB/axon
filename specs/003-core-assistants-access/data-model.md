@@ -270,3 +270,47 @@ assistants validate` listar as sobreposições inativas (T082).
 |---|---|---|
 | `system_overrides` | (`assistant`, `section`) | `payload jsonb`, `fingerprint text`, `version int`, `updated_by text`, `updated_at timestamptz` |
 | `system_override_history` | `id bigserial` | `assistant`, `section`, `action`, `payload jsonb`, `fingerprint`, `version`, `actor`, `at` |
+
+## Fase 9 (2026-10-21): rotação de chaves e sobreposição de `auth` (research R38–R44; ADR-040)
+
+### Vocabulário
+
+`OverrideSection = Literal["models", "mcp", "auth"]`; `OVERRIDE_SECTIONS = ("models", "mcp", "auth")`.
+
+### `ApiKeyInfo` — campo novo
+
+`rotated_at: datetime | None` (padrão `None`): o instante da última rotação. `key_id`, `subject`, `groups`, `label` e
+`created_at` não mudam na rotação. `SUBJECT_PATTERN` não muda (chaves antigas continuam válidas); a **emissão** exige,
+para `svc:<nome>`, `NAME_PATTERN` (R40).
+
+### Ciclo de vida da chave
+
+```text
+ativa ──rotate──▶ ativa (hash novo, rotated_at = agora)      # o segredo anterior deixa de autenticar
+ativa ──revoke──▶ revogada (definitiva)
+revogada ──rotate──▶ Conflict                                  # nunca reativa
+```
+
+### `AuthOverride` (publicado)
+
+`AuthOverride(schemes: frozenset[Scheme], allow: tuple[str, ...])` — `allow` sem repetição, na ordem dada. O construtor
+não valida conteúdo; a gravação valida (R43) e a efetiva registra problema `override.auth` se o conteúdo guardado deixou
+de valer (R42).
+
+### `SystemAssistantView` — campos novos
+
+`yaml_auth: AuthOverride` (a seção do YAML) e `effective_auth: AuthOverride` (a que vale), sempre presentes;
+`overridable` pode conter `auth`. `OverrideView.payload` e `OverrideHistoryEntry.payload`: `ModelsOverride |
+McpOverride | AuthOverride`.
+
+### Conteúdo guardado da seção `auth`
+
+`{"schemes": ["api_key", "oidc"], "allow": ["svc:relatorios", "group:equipe"]}` — `schemes` ordenado, `allow` na ordem
+da gravação. Impressão digital: SHA-256 do JSON canônico de `schemes` e `allow`, ambos ordenados.
+
+### Armazenamento (schema `assistants`)
+
+| Migração | Mudança |
+|---|---|
+| `004_api_key_rotation.sql` | `api_keys.rotated_at timestamptz` (nulo nas chaves existentes) |
+| `005_auth_overrides.sql` | a restrição `CHECK` de `system_overrides.section` passa a aceitar `auth` |

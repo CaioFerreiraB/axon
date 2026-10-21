@@ -40,3 +40,17 @@
 - "Sem detalhes de implementação": o formato da chave e os valores de audiência são a interface que o operador, o
   provedor de identidade e quem integra veem — o objeto da US, decidido no ADR-037.
 - Nenhuma marca de clarificação: as decisões vieram do ADR-037 e estão na sessão de 2026-10-20.
+
+### Iteração de 2026-10-21 — US12 e US13 (ADR-040)
+
+Todos os itens continuam passando.
+
+- FR-028 → US12 cenários 1 e 6; FR-029 → cenários 2, 3 e 4 e os casos de borda de rotação simultânea com revogação e
+  de execução em andamento; FR-030 → cenário 7; FR-031 → US13 cenários 1, 3 e 4 e o caso de borda de `visibility`;
+  FR-032 → cenário 7 e o caso de borda de entrada pendente; FR-033 → cenário 6; FR-034 → cenários 2 e 9; FR-035 →
+  SC-009/SC-010 (conformidade contra o Postgres no plano). FR-018 e FR-020 emendadas, como a FR-013 foi.
+- As guardas da US13 (esquemas e `allow` não vazios, `*` só em público) já valem no YAML; a US as estende à
+  sobreposição pela configuração efetiva, sem regra nova.
+- Nenhuma marca de clarificação: as decisões de arquitetura vieram do ADR-040. O padrão do nome do sistema na emissão e a
+  concessão de grupos (inclusive o de administração) pela administração ficam deliberadamente para o
+  `/speckit-clarify`, com recomendação.

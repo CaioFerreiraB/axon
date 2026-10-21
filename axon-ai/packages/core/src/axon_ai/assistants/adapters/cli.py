@@ -14,6 +14,7 @@ from axon_ai.assistants.api import (
     ApiKeyInfo,
     AssistantsConfigError,
     AssistantStatus,
+    Conflict,
     IssuedApiKey,
     NotFound,
     OverrideView,
@@ -86,6 +87,8 @@ class _KeysOperator(Protocol):
 
     async def revoke_as_operator(self, *, key_id: str) -> ApiKeyInfo: ...
 
+    async def rotate_as_operator(self, *, key_id: str) -> IssuedApiKey: ...
+
 
 async def keys_create_command(
     service: _KeysOperator,
@@ -119,6 +122,8 @@ async def keys_list_command(service: _KeysOperator, *, persistent: bool, out: Te
     _warn_if_not_persistent(persistent, err)
     for info in await service.keys_as_operator():
         state = f"revogada em {info.revoked_at.isoformat()}" if info.revoked_at else "ativa"
+        if info.rotated_at is not None:
+            state += f", rotacionada em {info.rotated_at.isoformat()}"
         label = info.label or "-"
         created = info.created_at.isoformat()
         print(f"{info.key_id}  {info.subject}  {_groups(info.groups)}  {label}  {created}  {state}", file=out)
@@ -147,3 +152,21 @@ def _groups(groups: Collection[str]) -> str:
 def _warn_if_not_persistent(persistent: bool, err: TextIO) -> None:
     if not persistent:
         print(NOT_PERSISTENT_WARNING, file=err)
+
+
+async def keys_rotate_command(
+    service: _KeysOperator, *, key_id: str, persistent: bool, out: TextIO, err: TextIO
+) -> int:
+    """`axon keys rotate <key_id>`: segredo novo para a mesma chave, sozinho na última linha, como em `keys create`; o
+    anterior é recusado a partir da requisição seguinte (ADR-040)."""
+    _warn_if_not_persistent(persistent, err)
+    try:
+        issued = await service.rotate_as_operator(key_id=key_id)
+    except (NotFound, Conflict) as error:
+        print(f"erro: {error}", file=err)
+        return EXIT_UNAVAILABLE
+    info = issued.info
+    print(f"key_id: {info.key_id} (rotacionada)", file=out)
+    print(f"subject: {info.subject}  groups: {_groups(info.groups)}", file=out)
+    print(issued.plaintext, file=out)
+    return EXIT_OK

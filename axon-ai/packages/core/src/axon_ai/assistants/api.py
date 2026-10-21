@@ -25,7 +25,7 @@ from axon_ai.packs.api import Composition
 type Surface = Literal["public", "private", "admin"]
 type Scheme = Literal["oidc", "api_key"]
 type Origin = Literal["system", "user"]
-type OverrideSection = Literal["models", "mcp"]
+type OverrideSection = Literal["models", "mcp", "auth"]
 type OverrideState = Literal["active", "inactive"]
 type OverrideAction = Literal["saved", "discarded"]
 
@@ -47,7 +47,7 @@ SCHEME_OF_SURFACE: Final[Mapping[str, Scheme]] = MappingProxyType({PUBLIC_SURFAC
 """**Depreciado** (ADR-031): o esquema único das duas superfícies antigas, derivado de `SCHEMES_OF_SURFACE`. Some na
 série seguinte; use `SCHEMES_OF_SURFACE`."""
 
-OVERRIDE_SECTIONS: Final[tuple[OverrideSection, ...]] = ("models", "mcp")
+OVERRIDE_SECTIONS: Final[tuple[OverrideSection, ...]] = ("models", "mcp", "auth")
 """Seções de um Assistant de sistema que o YAML pode liberar para a administração (`overrides`, ADR-032)."""
 
 USER_PREFIX: Final = "~"
@@ -125,8 +125,8 @@ class NoApplicablePolicy(RequestRejected):
 
 
 class Conflict(RuntimeError):
-    """Criação com um nome que o próprio dono já usa, ou sobreposição gravada sobre uma versão desatualizada
-    (`current_version` diz qual é a guardada; ADR-032)."""
+    """Criação com um nome que o próprio dono já usa, sobreposição gravada sobre uma versão desatualizada
+    (`current_version` diz qual é a guardada; ADR-032) ou rotação de chave revogada, que não rotaciona (ADR-040)."""
 
     def __init__(self, message: str = "", *, current_version: int | None = None) -> None:
         super().__init__(message)
@@ -341,6 +341,8 @@ class ApiKeyInfo:
     label: str | None = None
     created_at: datetime
     revoked_at: datetime | None = None
+    rotated_at: datetime | None = None
+    """Instante da última rotação do segredo (ADR-040); `key_id`, subject, grupos e rótulo não mudam nela."""
 
     def __post_init__(self) -> None:
         if not KEY_ID_PATTERN.fullmatch(self.key_id):
@@ -393,11 +395,27 @@ class McpOverride:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class AuthOverride:
+    """Quem pode usar um Assistant de sistema: os esquemas aceitos e os seletores de `allow` (ADR-040). Não valida o
+    conteúdo: a gravação o confere, e a configuração efetiva registra o que deixou de valer (research R41 a R43)."""
+
+    schemes: frozenset[Scheme] = frozenset()
+    allow: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "schemes", frozenset(self.schemes))
+        object.__setattr__(self, "allow", tuple(dict.fromkeys(self.allow)))
+
+
+type OverridePayload = ModelsOverride | McpOverride | AuthOverride
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class OverrideView:
     """Uma sobreposição guardada e o estado dela agora: inativa quando o deploy não a permite mais ou mudou a seção."""
 
     section: OverrideSection
-    payload: ModelsOverride | McpOverride
+    payload: OverridePayload
     state: OverrideState
     reason: str | None = None
     version: int
@@ -422,6 +440,8 @@ class SystemAssistantView:
     effective_models: Mapping[ModelRole, ModelRef] = field(default_factory=lambda: MappingProxyType({}))
     effective_mcp: McpOverride = field(default_factory=McpOverride)
     required_roles: tuple[ModelRole, ...] = ()
+    yaml_auth: AuthOverride = field(default_factory=AuthOverride)
+    effective_auth: AuthOverride = field(default_factory=AuthOverride)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "overridable", frozenset(self.overridable))
@@ -438,7 +458,7 @@ class OverrideHistoryEntry:
 
     section: OverrideSection
     action: OverrideAction
-    payload: ModelsOverride | McpOverride | None = None
+    payload: OverridePayload | None = None
     version: int
     actor: str
     at: datetime
@@ -508,6 +528,11 @@ class ApiKeyAdmin(Protocol):
 
     async def revoke(self, *, actor: Principal, key_id: str) -> ApiKeyInfo: ...
 
+    async def rotate(self, *, actor: Principal, key_id: str) -> IssuedApiKey:
+        """Segredo novo para a mesma chave, mostrado só aqui; o anterior deixa de autenticar na chamada seguinte, sem
+        janela (ADR-040). Inexistente: `NotFound`; revogada: `Conflict`."""
+        ...
+
 
 class SystemAssistantAdmin(Protocol):
     """Sobreposições de Assistants de sistema — consumido pela 008 (superfície de administração, ADR-031/032).
@@ -528,6 +553,13 @@ class SystemAssistantAdmin(Protocol):
     async def override_mcp(
         self, name: str, override: McpOverride, *, actor: Principal, version: int | None
     ) -> SystemAssistantView: ...
+
+    async def override_auth(
+        self, name: str, override: AuthOverride, *, actor: Principal, version: int | None
+    ) -> SystemAssistantView:
+        """Esquemas e `allow` (ADR-040): `schemes` e `allow` não vazios, seletores válidos e `*` só em público, senão
+        `RequestRejected` nomeando `auth.schemes` ou `auth.allow`. Não confere se subjects e grupos existem."""
+        ...
 
     async def discard_override(
         self, name: str, section: OverrideSection, *, actor: Principal, version: int

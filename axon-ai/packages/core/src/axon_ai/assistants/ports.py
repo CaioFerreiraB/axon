@@ -77,6 +77,11 @@ class ApiKeyStore(Protocol):
         """Idempotente: revogar de novo preserva o primeiro instante. `None` se não existe."""
         ...
 
+    async def rotate(self, key_id: str, *, key_hash: bytes, at: datetime) -> ApiKeyRecord | None:
+        """Troca o hash e grava `rotated_at` numa operação só, **só se a chave está ativa**: uma rotação e uma
+        revogação simultâneas acontecem uma antes da outra (research R38). `None` = inexistente ou revogada."""
+        ...
+
 
 class OidcVerifier(Protocol):
     """Verificação do token OIDC: assinatura, algoritmo, emissor e audiência. O tempo fica no domínio (R6)."""

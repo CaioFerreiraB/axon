@@ -246,7 +246,7 @@ def _keys_create_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--label", default=None, help="rótulo para reconhecer a chave na listagem")
 
 
-def _keys_revoke_arguments(parser: argparse.ArgumentParser) -> None:
+def _key_id_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("key_id", help="a parte pública da chave (16 hex)")
 
 
@@ -296,6 +296,12 @@ def _keys_list(service: AccessService, _args: argparse.Namespace, persistent: bo
 
 def _keys_revoke(service: AccessService, args: argparse.Namespace, persistent: bool, io: Io) -> Awaitable[int]:
     return assistants_cli.keys_revoke_command(
+        service, key_id=args.key_id, persistent=persistent, out=io.out, err=io.err
+    )
+
+
+def _api_keys_rotate(service: AccessService, args: argparse.Namespace, persistent: bool, io: Io) -> Awaitable[int]:
+    return assistants_cli.keys_rotate_command(
         service, key_id=args.key_id, persistent=persistent, out=io.out, err=io.err
     )
 
@@ -599,8 +605,12 @@ COMMANDS: Final[tuple[Command, ...]] = (
         arguments=_keys_create_arguments,
     ),
     Command(path=("keys", "list"), help="lista as chaves, sem segredo", run=_keys(_keys_list)),
+    Command(path=("keys", "revoke"), help="revoga uma chave", run=_keys(_keys_revoke), arguments=_key_id_arguments),
     Command(
-        path=("keys", "revoke"), help="revoga uma chave", run=_keys(_keys_revoke), arguments=_keys_revoke_arguments
+        path=("keys", "rotate"),
+        help="gera um segredo novo para a chave (aparece uma vez; o anterior deixa de valer)",
+        run=_keys(_api_keys_rotate),
+        arguments=_key_id_arguments,
     ),
     Command(path=("health",), help="saúde agregada: 0 ok, 1 degradada, 2 fora do ar", run=_health),
     Command(

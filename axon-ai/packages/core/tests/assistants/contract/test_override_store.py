@@ -76,3 +76,16 @@ async def test_descartar_com_versao_e_historico(override_store: Any) -> None:
     ]
     assert history[0].payload is None and history[1].payload == {"roles": {"generation": "openrouter/a/b"}}
     assert await override_store.history("outro") == []
+
+
+@pytest.mark.us13
+async def test_secao_auth_grava_le_e_entra_no_historico(override_store: Any) -> None:
+    payload = {"schemes": ["api_key", "oidc"], "allow": ["svc:relatorios", "group:equipe"]}
+    gravada = await override_store.put(_record("auth", payload=payload), expected_version=None)
+    await override_store.put(_record("models"), expected_version=None)
+
+    assert gravada.version == 1
+    por_secao = {record.section: record for record in await override_store.get("geral")}
+    assert por_secao["auth"].payload == payload and set(por_secao) == {"auth", "models"}
+    historico = await override_store.history("geral")
+    assert {(record.section, record.action) for record in historico} == {("auth", "saved"), ("models", "saved")}

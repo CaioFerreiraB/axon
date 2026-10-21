@@ -47,6 +47,22 @@ Lista `key_id`, subject, grupos, rótulo, emissão e revogação. Nunca mostra h
 
 Revoga; a próxima requisição com a chave é recusada. `key_id` inexistente sai com código 1 e mensagem explícita.
 
+## `axon keys rotate <key_id>` (Fase 9, 2026-10-21; ADR-040)
+
+Gera um segredo novo para a chave e a mostra **uma vez**, sozinha na última linha, como `keys create`. O `key_id`, o
+subject, os grupos e o rótulo não mudam; o segredo anterior é recusado a partir da requisição seguinte, sem janela.
+`key_id` inexistente ou chave revogada sai com código 1 e mensagem explícita.
+
+```text
+$ axon keys rotate 3f9a1c2e7b604d18
+key_id: 3f9a1c2e7b604d18 (rotacionada)
+subject: svc:relatorios  groups: -
+axn_3f9a1c2e7b604d18_Qp7…
+```
+
+`keys create --subject svc:<nome>` exige `nome` no padrão dos nomes de Assistant (minúsculas, dígitos, `.`, `_`, `-`;
+até 64). A CLI é o único caminho que concede o grupo de administração a uma chave.
+
 ## Observações
 
 - No perfil em memória, cada processo tem o próprio armazenamento: chaves emitidas pela CLI só valem no perfil

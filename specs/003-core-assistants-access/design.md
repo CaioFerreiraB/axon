@@ -144,6 +144,17 @@ assistants:
 - Impressão digital (clarificação de 2026-10-13): hash da seção do YAML, normalizada, gravado com a sobreposição;
   diferente do YAML atual → `inactive`, motivo "o deploy mudou a seção". O deploy sempre vence.
 
+### Fase 9 (2026-10-21): seção `auth` e rotação de chaves ([ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md))
+
+- `overrides: [models, mcp, auth]`. A sobreposição de `auth` (`AuthOverride(schemes, allow)`) substitui a seção inteira,
+  com o mesmo mecanismo (impressão digital de `schemes` e `allow`, inativa com motivo, versão, histórico).
+  `visibility` não é sobreponível; `*` num Assistant que um deploy tornou privado → indisponível com `override.auth`.
+  A 003 não confere se os subjects e grupos de `allow` existem.
+- `ApiKeyAdmin.rotate(actor, key_id)`: mesmo `key_id`, subject, grupos e rótulo; segredo novo mostrado uma vez; o
+  antigo morre na hora (sem janela). A troca do hash é `ApiKeyStore.rotate`, atômica e só para chave ativa. Na emissão,
+  `svc:<nome>` segue `NAME_PATTERN`; pela administração, o grupo de administração é recusado (só a CLI o concede).
+  Sistema não é entidade: é o subject `svc:…` das chaves.
+
 ## Autorização
 
 ```yaml
@@ -211,7 +222,7 @@ Campos rejeitados por ampliar: `packs`, `mcp_servers`, `provider` fora da allowl
 | `AssistantDirectory` | primária (seam) | `service.py` | listagem filtrada por ACL |
 | `SystemAssistantAdmin` | primária (seam, Fase 9) | `service.py` | suíte adversarial: fora da allowlist, escrita em público, seção não permitida, sobreposição inativa, conflito de versão |
 | `AssistantStore` | secundária | YAML (sistema); memória → Postgres (usuário, Fase 2) — dividida em `AssistantConfigSource` e `UserAssistantStore` ([research R15](research.md)) | em memória + conformidade contra Postgres |
-| `ApiKeyStore` | secundária | ~~configuração do operador (Fase 2); armazenamento a decidir no plano~~ — memória → Postgres, só o hash (clarificação de 2026-09-30, [research R7, R8](research.md), [ADR-015](../../docs/adr/ADR-015-persistencia-postgres-por-modulo.md)) | em memória + conformidade contra Postgres |
+| `ApiKeyStore` | secundária | ~~configuração do operador (Fase 2); armazenamento a decidir no plano~~ — memória → Postgres, só o hash (clarificação de 2026-09-30, [research R7, R8](research.md), [ADR-015](../../docs/adr/ADR-015-persistencia-postgres-por-modulo.md)); troca atômica do hash na rotação (ADR-040) | em memória + conformidade contra Postgres |
 | `OidcVerifier` | secundária | JWKS do provedor OIDC; Fase 9: fonte de chaves plugável — HTTP ou em processo (012, pela 011), audiência por superfície | verificador de teste com chaves locais |
 | `SystemOverrideStore` | secundária (Fase 9) | memória → Postgres | em memória + conformidade contra Postgres |
 | `RateCounterStore` | secundária | memória | em memória |

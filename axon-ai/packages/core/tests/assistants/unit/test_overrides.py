@@ -7,18 +7,20 @@ import dataclasses
 import pytest
 from assistants_testkit import T0, assistant, config
 
-from axon_ai.assistants.api import McpOverride, ModelsOverride
+from axon_ai.assistants.api import AuthOverride, McpOverride, ModelsOverride
 from axon_ai.assistants.domain.definitions import AssistantDefinition, read_config
 from axon_ai.assistants.domain.overrides import (
     NOT_ALLOWED,
     SECTION_CHANGED,
     StoredOverride,
+    apply_auth,
     apply_mcp,
     attribute,
     effective,
     payload_of,
     read_payload,
     section_fingerprint,
+    yaml_auth,
     yaml_mcp,
 )
 from axon_ai.llm.api import ModelRef
@@ -29,16 +31,16 @@ PACK_TOOLS = {"generic": frozenset({"calculate", "buscar"})}
 
 
 def _definition(**fields: object) -> AssistantDefinition:
-    body = assistant(
-        overrides=["models", "mcp"],
-        mcp=["arquivos", "agenda"],
-        allowed_tools=["generic.calculate", "arquivos.listar"],
-        write_tools=["arquivos.gravar"],
-        models={"generation": "openrouter/a/b", "controller": "openrouter/a/c", "allow": ["openrouter/*"]},
-        visibility="private",
-        auth={"schemes": ["oidc"], "allow": ["group:equipe"]},
-        **fields,
-    )
+    defaults: dict[str, object] = {
+        "overrides": ["models", "mcp"],
+        "mcp": ["arquivos", "agenda"],
+        "allowed_tools": ["generic.calculate", "arquivos.listar"],
+        "write_tools": ["arquivos.gravar"],
+        "models": {"generation": "openrouter/a/b", "controller": "openrouter/a/c", "allow": ["openrouter/*"]},
+        "visibility": "private",
+        "auth": {"schemes": ["oidc"], "allow": ["group:equipe"]},
+    }
+    body = assistant(**(defaults | fields))
     return read_config(config({"x": body}), origin="t").assistants["x"]
 
 
@@ -150,3 +152,86 @@ def test_motivos_dos_campos_sobrepostos_nomeiam_a_sobreposicao() -> None:
         "models: falta x",
     )
     assert attribute(reasons, frozenset())[0] == reasons[0]
+
+
+# --- US13: seção `auth` (ADR-040; R41, R42) --------------------------------------------------------------------------
+
+AUTH = AuthOverride(schemes=frozenset({"oidc", "api_key"}), allow=("svc:relatorios", "group:equipe"))
+
+
+@pytest.mark.us13
+def test_yaml_auth_le_a_secao_do_yaml() -> None:
+    assert yaml_auth(_definition()) == AuthOverride(schemes=frozenset({"oidc"}), allow=("group:equipe",))
+
+
+@pytest.mark.us13
+def test_impressao_digital_de_auth_ignora_a_ordem_de_allow_e_ve_os_esquemas() -> None:
+    definition = _definition(auth={"schemes": ["oidc"], "allow": ["group:equipe", "user:ana"]})
+    reordered = _definition(auth={"schemes": ["oidc"], "allow": ["user:ana", "group:equipe"]})
+    other_scheme = _definition(auth={"schemes": ["oidc", "api_key"], "allow": ["group:equipe", "user:ana"]})
+
+    assert section_fingerprint(definition, "auth") == section_fingerprint(reordered, "auth")
+    assert section_fingerprint(definition, "auth") != section_fingerprint(other_scheme, "auth")
+    assert section_fingerprint(definition, "auth") != section_fingerprint(definition, "models")
+
+
+@pytest.mark.us13
+def test_conteudo_de_auth_vai_e_volta() -> None:
+    payload = payload_of(AUTH)
+    assert payload == {"schemes": ["api_key", "oidc"], "allow": ["svc:relatorios", "group:equipe"]}
+    assert read_payload("auth", payload) == AUTH
+
+
+@pytest.mark.us13
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"schemes": ["oidc", "saml"], "allow": ["*"]},
+        {"schemes": "oidc", "allow": ["*"]},
+        {"schemes": ["oidc"], "allow": "*"},
+        {"allow": ["*"]},
+    ],
+)
+def test_conteudo_de_auth_ilegivel_e_none(payload: dict[str, object]) -> None:
+    assert read_payload("auth", payload) is None
+
+
+@pytest.mark.us13
+def test_apply_auth_troca_o_acesso() -> None:
+    result = apply_auth(_definition(), AUTH)
+    assert result.access.schemes == AUTH.schemes and result.access.allow == AUTH.allow
+    assert not result.problems
+
+
+@pytest.mark.us13
+def test_apply_auth_com_asterisco_em_privado_e_problema() -> None:
+    result = apply_auth(_definition(), AuthOverride(schemes=frozenset({"oidc"}), allow=("*",)))
+    assert any(problem.startswith("override.auth: auth.allow") for problem in result.problems)
+
+
+@pytest.mark.us13
+def test_apply_auth_vazio_e_problema() -> None:
+    result = apply_auth(_definition(), AuthOverride())
+    assert any(problem.startswith("override.auth: auth") for problem in result.problems)
+
+
+@pytest.mark.us13
+def test_efetiva_com_auth_ativa_inativa_por_permissao_e_por_mudanca() -> None:
+    definition = _definition(overrides=["auth"])
+    stored = _stored("auth", AUTH, definition)
+
+    active, (status,) = effective(definition, [stored], pack_tools=PACK_TOOLS)
+    assert status.state == "active" and active.access.allow == AUTH.allow and "auth" in active.overridden
+
+    not_allowed = _definition(overrides=["models"])
+    kept, (status,) = effective(not_allowed, [stored], pack_tools=PACK_TOOLS)
+    assert (status.state, status.reason) == ("inactive", NOT_ALLOWED) and kept.access.allow == ("group:equipe",)
+
+    changed = _definition(overrides=["auth"], auth={"schemes": ["oidc"], "allow": ["group:outra"]})
+    kept, (status,) = effective(changed, [stored], pack_tools=PACK_TOOLS)
+    assert (status.state, status.reason) == ("inactive", SECTION_CHANGED) and kept.access.allow == ("group:outra",)
+
+
+@pytest.mark.us13
+def test_attribute_nomeia_a_sobreposicao_de_auth() -> None:
+    assert attribute(["auth.allow: algo"], frozenset({"auth"})) == ("override.auth: auth.allow: algo",)

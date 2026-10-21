@@ -454,3 +454,94 @@ Nenhuma linha nova.
 
 Reavaliado com [design.md](design.md), [data-model.md](data-model.md), [contracts/](contracts/) e
 [quickstart.md](quickstart.md) ("Fase 9, incremento 9.5"): **PASS**.
+
+---
+
+# Passada de 2026-10-21: rotação de chaves e sobreposição de `auth` (US12, US13; [ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md))
+
+> As seções acima ficam como foram executadas. Esta é o plano da US12 e da US13.
+
+**Insumos lidos**: [spec.md](spec.md) (US12, US13, FR-028–FR-036, SC-009, SC-010, clarificações de 2026-10-21),
+[design.md](design.md), ADR-012, ADR-015, ADR-031, ADR-032, ADR-040, constituição 1.3.1. Research: R38–R44. **Sem
+divergência** do `design.md` nem dos ADRs; sem ADR novo.
+
+## Summary (US12, US13)
+
+**US12**: o seam API Key Admin ganha `rotate` — mesmo `key_id`, subject, grupos e rótulo, segredo novo mostrado uma vez,
+o antigo recusado na requisição seguinte, só para chave ativa (R38, R39); a porta `ApiKeyStore` ganha a troca atômica do
+hash; a emissão confere o nome do sistema e, pela administração, recusa o grupo de administração (R40); `axon keys
+rotate`. **US13**: `auth` entra nas seções sobreponíveis com o mecanismo do ADR-032 (R41), falha fechada quando um
+deploy torna privado um Assistant com `*` sobreposto (R42), e o seam System Assistant Admin ganha `override_auth` e o
+`auth` do YAML e efetivo na visão (R43). Duas migrações aditivas (R44).
+
+## Technical Context (US12, US13)
+
+- **Language/Version, dependências**: sem mudança.
+- **Storage**: `sql/004_api_key_rotation.sql` e `sql/005_auth_overrides.sql` no schema `assistants` (ADR-015).
+- **Testing**: dois arquivos de contrato novos (`us12`, `us13`), acréscimos na conformidade do `ApiKeyStore`, na unidade
+  das sobreposições, na CLI e nas migrações.
+- **Scale/Scope**: `api.py`, `ports.py`, `service.py`, `domain/overrides.py`, `domain/definitions.py` (leitura de
+  `overrides`), três adapters (memória, Postgres das chaves, CLI) e duas migrações; fora do módulo, uma linha de registro
+  na 011.
+- Nenhum `NEEDS CLARIFICATION`.
+
+## Constitution Check (US12, US13)
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| II. Módulos substituíveis por seams | ✅ | Dois seams mudam de forma aditiva sob o ADR-040; a 008 é a consumidora e se atualiza na passada dela; a 012 continua não importada (R43: sem conferir grupos) |
+| IV. O Assistant é a fronteira de isolamento | ✅ | A sobreposição de `auth` passa pela FR-012 na gravação e na efetiva; `visibility` fica no deploy; o 404-não-403 da resolução não muda |
+| VII. Falha fechada e explícita | ✅ | Chave revogada não rotaciona; `*` em Assistant que virou privado → indisponível com `override.auth` (R42); conteúdo ilegível → inativa |
+| XII. Simplicidade deliberada | ✅ | Sem janela de convivência, sem cadastro de sistemas, sem operação nova para o seletor (ADR-040; clarificação 3) |
+| XIII. Portas e adapters | ✅ | Regras puras em `domain/overrides.py`; a troca do hash é operação da porta `ApiKeyStore` (atomicidade no adapter); aleatoriedade pelo `TokenGenerator`, tempo pelo `Clock` |
+
+**Module boundary gate**: `axon_ai/assistants/**`, `tests/assistants/**`, `axon-ai/pyproject.toml` (marcas `us12`,
+`us13`), `specs/README.md` (linhas dos dois seams) e `design.md`. Fora do módulo, só `bootstrap/cli.py` (011): uma
+entrada `("keys", "rotate")` na lista de subcomandos, atribuída pelo ADR-040. Nada em `http/`: as rotas são da passada
+da 008. **Ports & adapters gate**: nenhuma porta nova; uma operação nova na porta `ApiKeyStore`, com conformidade.
+**Resultado**: PASS.
+
+## Project Structure (US12, US13)
+
+```text
+axon-ai/
+├── pyproject.toml                                  # marcas us12, us13
+└── packages/core/
+    ├── src/axon_ai/
+    │   ├── assistants/
+    │   │   ├── api.py                              # ApiKeyInfo.rotated_at; ApiKeyAdmin.rotate; OverrideSection + "auth";
+    │   │   │                                       #   AuthOverride; SystemAssistantView.yaml_auth/effective_auth;
+    │   │   │                                       #   SystemAssistantAdmin.override_auth (R38, R41, R43)
+    │   │   ├── ports.py                            # ApiKeyStore.rotate (R38)
+    │   │   ├── service.py                          # rotate, rotate_as_operator; nome do sistema e grupo admin (R40);
+    │   │   │                                       #   override_auth e a visão (R43)
+    │   │   ├── domain/overrides.py                 # yaml_auth, impressão digital, payload, apply_auth (R41, R42)
+    │   │   └── adapters/
+    │   │       ├── memory.py                       # InMemoryApiKeyStore.rotate
+    │   │       ├── api_keys_postgres.py            # rotate; rotated_at nas colunas
+    │   │       ├── cli.py                          # keys_rotate_command
+    │   │       └── sql/{004_api_key_rotation,005_auth_overrides}.sql
+    │   └── bootstrap/cli.py                        # ("keys", "rotate") — registro (011, ADR-040)
+    └── tests/assistants/
+        ├── contract/{test_key_rotation,test_auth_override}.py   # novos (R44)
+        ├── contract/test_api_key_store.py          # conformidade de rotate
+        ├── unit/test_overrides.py                  # seção auth
+        └── integration/{test_cli,test_postgres_migrations}.py
+```
+
+## Seam Notes for Consumers (US12, US13)
+
+| Consumidor | O que precisa saber |
+|---|---|
+| 008 | `ApiKeyAdmin.rotate(actor=…, key_id=…)` → `IssuedApiKey` (`Conflict` → 409 para chave revogada; `NotFound` → 404); `ApiKeyInfo.rotated_at` na listagem; `issue` recusa o grupo de administração com `RequestRejected(field="groups")` e nome de sistema fora do padrão com `field="subject"`; `SystemAssistantAdmin.override_auth` com `RequestRejected(field="auth.schemes" \| "auth.allow")` e `Conflict`; `discard_override(…, "auth", …)`; `SystemAssistantView.yaml_auth`/`effective_auth` e `overridable` com `auth`. Os sistemas para o seletor saem de `keys()`; os grupos, da 012 |
+| 011 | Registrar `("keys", "rotate")`; as migrações 004 e 005 entram pela lista do adapter, sem mudança na etapa |
+| Operador | `overrides: [auth]` libera a seção; `axon keys rotate <key_id>`; chave do grupo de administração só pela CLI |
+
+## Complexity Tracking (US12, US13)
+
+Nenhuma linha nova.
+
+## Constitution Check — pós-design (US12, US13)
+
+Reavaliado com [data-model.md](data-model.md), [contracts/](contracts/) e [quickstart.md](quickstart.md) ("Fase 9,
+2026-10-21"): **PASS**.

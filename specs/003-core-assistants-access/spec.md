@@ -6,18 +6,18 @@
 
 **Status**: Draft
 
-**Input**: Tradução de arch-v1 §12 (Assistants), §15 (autenticação e autorização), §16 (cadeia de enforcement — elos 1, 2 e 7), §25 (requisição só restringe), §28 (assistants de usuário persistidos), Parte IX (multi-tenancy); ADR-002, ADR-008. Fase 9 (2026-10-13): superfície de administração e sobreposição de Assistants de sistema — ADR-030, ADR-031, ADR-032. Fase 9, incremento 9.5 (2026-10-20): identidade Axon — ADR-037.
+**Input**: Tradução de arch-v1 §12 (Assistants), §15 (autenticação e autorização), §16 (cadeia de enforcement — elos 1, 2 e 7), §25 (requisição só restringe), §28 (assistants de usuário persistidos), Parte IX (multi-tenancy); ADR-002, ADR-008. Fase 9 (2026-10-13): superfície de administração e sobreposição de Assistants de sistema — ADR-030, ADR-031, ADR-032. Fase 9, incremento 9.5 (2026-10-20): identidade Axon — ADR-037. Fase 9 (2026-10-21): rotação do segredo de chaves de API e sobreposição da seção `auth` de Assistants de sistema — ADR-040.
 
 ## Module Boundary *(mandatory)*
 
 - **Módulo**: Assistants & Access — autentica o Principal, mantém o registro de Assistants e resolve, para cada requisição, o que a execução pode usar.
 - **Repositório / distribuição**: `axon-ai` → `axon_ai/assistants/` (inclui a autenticação; subcomandos `assistants validate` e `keys` em `adapters/cli.py`, registrados pela spec 011).
 - **Consome (seams)**: Pack Registry — 002 (validar packs referenciados); MCP Registry — 007 (validar aliases); nomes de flow e papéis de modelo exigidos por flow — 005 (validar flow e papéis, [ADR-019](../../docs/adr/ADR-019-papeis-por-flow-no-seam-execution-engine.md)); value objects da política de modelos — 006 (`ModelPolicy`, `ModelRef`, `ModelRole`: o grant carrega a política, [ADR-016](../../docs/adr/ADR-016-grant-carrega-politica-de-modelos.md)). Enquanto 007 e o índice de coleções não existem, a 003 declara a forma que exige desses catálogos e a composition root injeta catálogos vazios.
-- **Expõe (seams)**: **Principal** e **Execution Grant** — consumidos por 004, 005, 006, 007, 008; **Assistant Directory** (listagem filtrada por ACL e CRUD de assistants de usuário) — consumido por 008; **API Key Admin** (emissão, listagem e revogação de chaves de API) — consumido por 008 (superfícies privada e de administração) e pela linha de comando; **System Assistant Admin** (configuração efetiva de Assistants de sistema e sobreposições das seções que o YAML permite, Fase 9, [ADR-032](../../docs/adr/ADR-032-assistants-de-sistema-sobrepostos-em-runtime.md)) — consumido por 008 (superfície de administração).
+- **Expõe (seams)**: **Principal** e **Execution Grant** — consumidos por 004, 005, 006, 007, 008; **Assistant Directory** (listagem filtrada por ACL e CRUD de assistants de usuário) — consumido por 008; **API Key Admin** (emissão, listagem, revogação e rotação do segredo de chaves de API — a rotação pelo [ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md)) — consumido por 008 (superfícies privada e de administração) e pela linha de comando; **System Assistant Admin** (configuração efetiva de Assistants de sistema e sobreposições das seções que o YAML permite — `models`, `mcp` e `auth` —, Fase 9, [ADR-032](../../docs/adr/ADR-032-assistants-de-sistema-sobrepostos-em-runtime.md), [ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md)) — consumido por 008 (superfície de administração).
 - **Depende de infraestrutura (via portas)**: armazenamento de Assistants de usuário e de sobreposições de Assistants de sistema, configuração de Assistants de sistema, verificação de identidade (chaves públicas do emissor OIDC — o provedor da plataforma, 012, injetado pela composition root, ou um externo — e chaves de API), contadores de taxa, relógio.
 - **Não conhece**: como flows executam, como tools executam, providers, o protocolo HTTP (a 008 adapta a requisição e chama a autenticação daqui), contas, senhas e login (são da 012; daqui só se verifica o token), qualquer domínio.
 - **Substituição**: preservar a forma do Execution Grant e a semântica "404, nunca 403"; o formato de configuração e o armazenamento podem mudar (são adapters).
-- **Insumo técnico**: [design.md](design.md); [ADR-002](../../docs/adr/ADR-002-assistant-fronteira-isolamento.md), [ADR-008](../../docs/adr/ADR-008-modelo-por-papel.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-015](../../docs/adr/ADR-015-persistencia-postgres-por-modulo.md), [ADR-016](../../docs/adr/ADR-016-grant-carrega-politica-de-modelos.md), [ADR-030](../../docs/adr/ADR-030-a-plataforma-e-o-provedor-de-identidade.md), [ADR-031](../../docs/adr/ADR-031-superficie-de-administracao.md), [ADR-032](../../docs/adr/ADR-032-assistants-de-sistema-sobrepostos-em-runtime.md).
+- **Insumo técnico**: [design.md](design.md); [ADR-002](../../docs/adr/ADR-002-assistant-fronteira-isolamento.md), [ADR-008](../../docs/adr/ADR-008-modelo-por-papel.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-015](../../docs/adr/ADR-015-persistencia-postgres-por-modulo.md), [ADR-016](../../docs/adr/ADR-016-grant-carrega-politica-de-modelos.md), [ADR-030](../../docs/adr/ADR-030-a-plataforma-e-o-provedor-de-identidade.md), [ADR-031](../../docs/adr/ADR-031-superficie-de-administracao.md), [ADR-032](../../docs/adr/ADR-032-assistants-de-sistema-sobrepostos-em-runtime.md), [ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md).
 
 ## Clarifications
 
@@ -44,6 +44,12 @@
 - Q: Qual o formato da chave de API? → A: `axn_<key_id>_<segredo>` (era `aic_`; ADR-037, item 2), com o mesmo `key_id` de 16 hexadecimais e o mesmo segredo. Na superfície de administração, que aceita os dois esquemas, o prefixo `axn_` continua decidindo o caminho de chave.
 - Q: O que acontece com credenciais do formato antigo? → A: Corte seco (ADR-037, item 3): chave `aic_…` e token com audiência `ai-core`/`ai-core-admin` são não autenticados, como qualquer credencial inválida, sem janela nem mensagem própria. Chaves já emitidas deixam de valer — o armazenamento guarda o hash da chave inteira, prefixo incluído —, e o ambiente local é recriado; não há migração que reescreva ou revogue as antigas, porque não há instalação com dado a preservar.
 - Q: Quem acompanha a troca nesta passada? → A: Os consumidores no workspace, de forma mecânica (ADR-037, item 7): a credencial `TEST_API_KEY` do perfil `test` (mesmo nome, valor novo, com o prefixo `axn_`), a chave de desenvolvimento do perfil `memory` e a mensagem que descreve o formato dela (011), os clientes de exemplo da identidade (audiências), o e2e da console e os documentos vivos de 003, 008, 011, 012 e 013 — inclusive os trechos em que a substituição mecânica da 011 trocou uma audiência por `axon-ai`, que nunca foi audiência. O `identity.yaml` da instalação muda na passada dela.
+
+### Session 2026-10-21
+
+- Q: Qual padrão o nome do sistema deve seguir quando uma chave `svc:<nome>` é emitida, e ele vale também na linha de comando? → A: O dos nomes de Assistant — minúsculas, dígitos, `.`, `_` e `-`, até 64 caracteres, começando por letra ou dígito —, na administração e na linha de comando. Chaves já emitidas não mudam; subjects `user:…` seguem como hoje.
+- Q: A administração pode conceder grupos a uma chave na emissão e, em particular, o grupo de administração? → A: Grupos comuns, sim. O grupo de administração, não: emissão pela administração com ele é recusada nomeando `groups`, e chave de admin continua sendo emitida só pelo operador, na linha de comando. Rotacionar e revogar uma chave de admin existente pela administração continua permitido (não amplia privilégio). Regra provisória: pode mudar quando houver gestão de acessos pela API.
+- Q: Para editar `allow` pela console, a 003 precisa expor algo novo, e uma entrada que não vai casar com ninguém deve bloquear a gravação? → A: Nada novo na 003: os sistemas saem da listagem de chaves (subjects `svc:…` com chave ativa) e os grupos, da 012, pela 008. Entradas pendentes — sistema sem chave ativa, grupo inexistente, `svc:…` sem o esquema `api_key` — não são erro nem na gravação nem na validação do YAML; o aviso é apresentação (013). O que o seletor oferece (`*` só em público, `user:…` digitado) é da 013.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -260,6 +266,80 @@ A plataforma passa a se chamar Axon (ADR-037). O operador emite chaves de API qu
 
 ---
 
+### User Story 12 - Administração rotaciona o segredo de uma chave de API (Priority: P2)
+
+Um admin (pela administração) ou o operador (pela linha de comando) gera um segredo novo para uma chave existente. A
+chave continua a mesma — mesmo identificador, mesmo subject, mesmos grupos, mesmo rótulo —, o segredo novo aparece uma
+única vez, como na emissão, e o antigo deixa de autenticar na requisição seguinte, sem janela de convivência. Para trocar
+sem queda, emite-se uma segunda chave para o mesmo sistema, troca-se no sistema e revoga-se a primeira: um sistema pode
+ter mais de uma chave ativa, distinguidas pelo rótulo ([ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md)).
+
+**Why this priority**: É a resposta a um segredo vazado sem perder o identificador da chave nem refazer subject, grupos
+e rótulo; a console (013) a oferece ao lado de criar e revogar.
+
+**Independent Test**: Emitir uma chave, autenticar com ela, rotacioná-la; a chave antiga é não autenticada, a nova
+autentica com o mesmo subject e os mesmos grupos, e a listagem mostra o mesmo identificador com o instante da rotação.
+
+**Acceptance Scenarios**:
+
+1. **Given** uma chave ativa, **When** um admin a rotaciona, **Then** recebe uma chave em claro nova, com o mesmo
+   identificador, e a listagem mostra o subject, os grupos e o rótulo de antes e o instante da rotação.
+2. **Given** uma chave recém-rotacionada, **When** o segredo antigo chega à superfície privada, **Then** é não
+   autenticado; **When** chega o novo, **Then** autentica com o mesmo Principal de antes.
+3. **Given** uma chave revogada, **When** alguém tenta rotacioná-la, **Then** é recusado, e a chave continua revogada.
+4. **Given** um identificador que não existe, **When** um admin tenta rotacioná-lo, **Then** recebe "não existe".
+5. **Given** um Principal autenticado fora do grupo de administração, **When** tenta rotacionar uma chave, **Then**
+   recebe o mesmo que um recurso inexistente.
+6. **Given** o operador no host, **When** rotaciona pela linha de comando, **Then** o resultado é o mesmo da
+   administração, com a chave em claro mostrada uma vez.
+7. **Given** duas chaves ativas para o mesmo sistema, com rótulos diferentes, **When** uma é rotacionada ou revogada,
+   **Then** a outra continua autenticando.
+8. **Given** um admin na administração, **When** emite uma chave com um grupo comum, **Then** a chave sai com o grupo;
+   **When** tenta emitir com o grupo de administração, **Then** é recusado nomeando `groups`, e o operador continua
+   podendo emiti-la pela linha de comando.
+
+---
+
+### User Story 13 - Administração sobrepõe quem pode usar um Assistant de sistema (Priority: P2)
+
+O operador libera no YAML a seção `auth` de um Assistant (`overrides: [auth]`). Um admin troca os esquemas aceitos e a
+lista de quem pode usar o Assistant — sistemas (`svc:…`), usuários, grupos ou, num público, `*` —, e a mudança vale na
+resolução seguinte, sem deploy. A sobreposição segue o mecanismo das de `models` e `mcp`: substitui a seção inteira,
+guarda a impressão digital da seção do YAML, fica inativa com o motivo se o deploy mudar a seção ou tirar a permissão,
+e tem versão e histórico ([ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md), que amplia o
+[ADR-032](../../docs/adr/ADR-032-assistants-de-sistema-sobrepostos-em-runtime.md)).
+
+**Why this priority**: Dar acesso a um sistema novo ou a um grupo hoje exige editar o `assistants.yaml` e reimplantar —
+o que o ADR-032 já tirou do caminho para modelos e MCPs.
+
+**Independent Test**: Com um Assistant público que declara `overrides: [auth]`, `schemes: [oidc]` e
+`allow: ["group:equipe"]`, sobrepor com `schemes: [oidc, api_key]` e `allow: ["svc:relatorios"]`; uma chave de `svc:relatorios` passa a resolver o Assistant, e um membro de `equipe` passa
+a receber 404. Mudar `auth` no YAML e recarregar; a sobreposição aparece inativa e o YAML volta a valer.
+
+**Acceptance Scenarios**:
+
+1. **Given** `overrides: [auth]` e `schemes: [oidc]`, **When** um admin sobrepõe com `schemes: [oidc, api_key]` e
+   `allow: ["svc:relatorios"]`, **Then** a resolução seguinte aceita a chave de `svc:relatorios`, sem restart.
+2. **Given** um Assistant sem `auth` em `overrides`, **When** um admin tenta sobrepor o acesso, **Then** é recusado
+   explicando que a seção só muda por deploy.
+3. **Given** um Assistant privado com `auth` liberado, **When** um admin tenta gravar `allow: ["*"]`, **Then** é recusado
+   nomeando `auth.allow` (FR-012).
+4. **Given** `auth` liberado, **When** um admin tenta gravar `schemes` vazio, um esquema desconhecido, `allow` vazio ou
+   uma entrada fora dos formatos aceitos, **Then** é recusado nomeando o campo.
+5. **Given** uma sobreposição ativa de `auth`, **When** um deploy muda `auth` no YAML ou tira `auth` de `overrides`,
+   **Then** o YAML vale e a sobreposição aparece inativa, com o motivo, sem ser apagada.
+6. **Given** uma sobreposição de `auth` que não inclui nenhum grupo de que o admin faz parte, **When** o admin volta à
+   administração do Assistant, **Then** continua podendo vê-la, corrigi-la e descartá-la: o acesso ao Assistant não é a
+   administração dele.
+7. **Given** uma sobreposição com `allow: ["group:inexistente"]`, **When** ela é gravada, **Then** é aceita, e a
+   entrada não concede acesso a ninguém — a 003 não confere se subjects e grupos existem.
+8. **Given** dois admins que leram a mesma versão da sobreposição de `auth`, **When** ambos salvam, **Then** o segundo
+   recebe conflito.
+9. **Given** um Assistant com `auth` liberado, **When** um admin consulta o Assistant, **Then** vê o `auth` do YAML, a
+   sobreposição (se houver, com o estado) e o efetivo; sem `auth` liberado, vê o do YAML e o efetivo, somente leitura.
+
+---
+
 ### Edge Cases
 
 - Assistant de usuário com o mesmo nome de um Assistant de sistema: impossível por construção — nomes de usuário levam o prefixo `~`, que nome de sistema não pode usar (erro de configuração no boot). Dois usuários podem ter `~meu-rag`; cada um resolve e lista só o próprio.
@@ -277,6 +357,13 @@ A plataforma passa a se chamar Axon (ADR-037). O operador emite chaves de API qu
 - Chave emitida antes do renome ainda guardada: nunca autentica (o hash cobre o prefixo antigo); continua listável e revogável até o ambiente ser recriado.
 - Texto que começa com `aic_` na superfície de administração: não é tratado como chave e segue o caminho de token, onde falha — o resultado é o mesmo não autenticado.
 - Instalação com um `identity.yaml` cujos clientes ainda declaram as audiências antigas: os tokens emitidos não autenticam em nenhuma superfície até o arquivo ser atualizado (passada da instalação).
+- Admin que rotaciona a própria chave com que está autenticado na administração: a rotação conclui e a chave em claro nova é devolvida; a requisição seguinte com o segredo antigo é não autenticada.
+- Rotação e revogação simultâneas da mesma chave: uma acontece antes da outra, por inteiro — se a revogação vem antes, a rotação é recusada; se vem depois, revoga a chave já rotacionada. Nunca fica uma chave revogada que autentica, com o segredo antigo ou com o novo.
+- Deploy que muda `visibility` para privado com uma sobreposição de `auth` ativa que contém `*`: o Assistant fica indisponível com motivo `override.auth`, nunca aberto a qualquer autenticado (falha fechada); um admin corrige ou descarta a sobreposição.
+- Execução em andamento quando a chave dela é rotacionada: termina; novas requisições com o segredo antigo são rejeitadas (como na revogação).
+- Sobreposição de `auth` gravada enquanto há execuções em andamento de um Principal que deixa de ser permitido: as execuções terminam; a requisição seguinte dele recebe 404.
+- Entrada de `allow` que aponta para um sistema cuja última chave foi revogada, ou para um grupo apagado: continua na configuração efetiva sem conceder nada; o Assistant não fica indisponível por isso.
+- `visibility` não é sobreponível: um Assistant privado continua privado (e sem `*`) qualquer que seja a sobreposição de `auth`.
 
 ## Requirements *(mandatory)*
 
@@ -299,9 +386,9 @@ A plataforma passa a se chamar Axon (ADR-037). O operador emite chaves de API qu
 - **FR-015**: Chaves de API DEVEM ficar em armazenamento persistente apenas como hash, amarradas a subject e grupos, e a chave em claro DEVE ser exibida uma única vez, na emissão. Emissão, listagem e revogação DEVEM estar disponíveis por linha de comando e por administração nas superfícies privada e de administração, restritas a um grupo de administração declarado pelo operador; a revogação DEVE valer a partir da requisição seguinte, sem restart.
 - **FR-016**: A validação de MCPs e coleções DEVE consultar catálogos por portas cuja forma este módulo declara (aliases MCP visíveis a um Principal; nomes de coleção existentes). Enquanto o módulo dono não existe, o catálogo injetado DEVE estar vazio, e toda referência DEVE tornar o Assistant indisponível com erro explícito.
 - **FR-017**: Assistants de usuário DEVEM ser endereçados com o prefixo reservado `~` (`~<nome>`), únicos por (dono, nome) e resolvidos apenas no escopo do dono; nome de Assistant de sistema começando com `~` DEVE ser rejeitado como erro de configuração.
-- **FR-018**: Cada Assistant de sistema PODE declarar `overrides`, um subconjunto de `{models, mcp}` (ausente = vazio = só por deploy; valor desconhecido é problema do Assistant). A administração DEVE poder gravar, para cada seção permitida, uma sobreposição que substitui a seção inteira: `models` são os modelos por papel, cada um dentro da allowlist `models.allow` do YAML, que continua só por deploy; `mcp` são os aliases e as entradas com namespace MCP de `allowed_tools` e `write_tools`, mantidas as entradas de pack do YAML.
+- **FR-018**: Cada Assistant de sistema PODE declarar `overrides`, um subconjunto de `{models, mcp, auth}` (ausente = vazio = só por deploy; valor desconhecido é problema do Assistant). A administração DEVE poder gravar, para cada seção permitida, uma sobreposição que substitui a seção inteira: `models` são os modelos por papel, cada um dentro da allowlist `models.allow` do YAML, que continua só por deploy; `mcp` são os aliases e as entradas com namespace MCP de `allowed_tools` e `write_tools`, mantidas as entradas de pack do YAML; `auth` são os esquemas aceitos e a lista de quem pode usar o Assistant (FR-031). *(Emendada em 2026-10-21 pelo [ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md); antes: subconjunto de `{models, mcp}`.)*
 - **FR-019**: Uma sobreposição só DEVE valer enquanto a seção dela estiver em `overrides` no YAML **e** a seção do YAML for a mesma de quando a sobreposição foi gravada (impressão digital da seção); fora disso, fica inativa — guardada e visível com o motivo ("o deploy não permite mais" ou "o deploy mudou a seção") — e o YAML volta a valer. O deploy sempre vence. Descoberta, resolução, validação, saúde e `assistants validate` DEVEM usar a configuração efetiva (YAML + sobreposições ativas), e a mudança DEVE valer na requisição seguinte, sem restart.
-- **FR-020**: A configuração efetiva DEVE passar pelas mesmas validações da FR-011 e da FR-012. Ao gravar, violação DEVE ser recusada nomeando o campo; na resolução, sobreposição que deixou de ser válida DEVE tornar o Assistant indisponível com motivo prefixado pela seção (`override.models`, `override.mcp`), nunca resolvido sem ela em silêncio.
+- **FR-020**: A configuração efetiva DEVE passar pelas mesmas validações da FR-011 e da FR-012. Ao gravar, violação DEVE ser recusada nomeando o campo; na resolução, sobreposição que deixou de ser válida DEVE tornar o Assistant indisponível com motivo prefixado pela seção (`override.models`, `override.mcp`, `override.auth`), nunca resolvido sem ela em silêncio. *(Emendada em 2026-10-21 pelo ADR-040: `override.auth`.)*
 - **FR-021**: Cada sobreposição DEVE guardar autor, instante e versão, com histórico das mudanças; gravar com uma versão desatualizada DEVE ser recusado como conflito.
 - **FR-022**: O seam System Assistant Admin DEVE expor, por Assistant de sistema, o YAML de cada seção sobreponível, a sobreposição (ativa ou inativa, com motivo), a configuração efetiva, o estado e as seções permitidas; e as operações de gravar e descartar uma sobreposição, restritas a admin.
 - **FR-023**: Admin DEVE ser o Principal que pertence ao grupo de administração, em qualquer esquema; cada superfície limita os esquemas que aceita (FR-001). O verificador OIDC DEVE conferir a audiência esperada pela superfície e aceitar um único emissor, cujas chaves públicas chegam pela composition root — em processo, quando o emissor é a própria plataforma (012).
@@ -310,17 +397,26 @@ A plataforma passa a se chamar Axon (ADR-037). O operador emite chaves de API qu
 - **FR-025**: Chaves de API DEVEM ter o formato `axn_<key_id>_<segredo>`, com o `key_id` de 16 hexadecimais; credencial com o prefixo antigo `aic_` DEVE ser não autenticada, sem janela de compatibilidade (corte seco, ADR-037, item 3).
 - **FR-026**: Na superfície de administração, o prefixo `axn_` DEVE decidir o caminho de chave; o resto segue o caminho de token.
 - **FR-027**: Os consumidores no workspace — a credencial de teste exportada pelo perfil de teste, a chave de desenvolvimento, os clientes de exemplo da identidade, o e2e da console e os documentos vivos que citam a audiência ou o formato da chave — DEVEM usar os nomes novos na mesma passada (ADR-037, item 7).
+- **FR-028**: Um admin, pela administração, e o operador, pela linha de comando, DEVEM poder rotacionar o segredo de uma chave de API ativa: a chave mantém identificador, subject, grupos, rótulo e instante de emissão; um segredo novo é gerado e a chave em claro nova é exibida uma única vez, como na emissão; o instante da rotação fica registrado e aparece na listagem ([ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md)).
+- **FR-029**: Depois da rotação, o segredo anterior NÃO DEVE autenticar a partir da requisição seguinte, sem restart e sem janela de convivência. Chave revogada ou inexistente NÃO DEVE ser rotacionada, e a troca do segredo DEVE ser atômica em relação à revogação (FR-015).
+- **FR-030**: Um mesmo subject PODE ter mais de uma chave ativa, distinguidas pelo rótulo; rotacionar ou revogar uma NÃO DEVE afetar as outras. Os sistemas que a administração conhece são os subjects `svc:…` das chaves listadas — não há cadastro de sistemas. Na emissão, pela administração ou pela linha de comando, o nome do sistema em `svc:<nome>` DEVE seguir o padrão dos nomes de Assistant (minúsculas, dígitos, `.`, `_`, `-`; até 64; começando por letra ou dígito); fora dele, a emissão é recusada nomeando o subject. Chaves já emitidas continuam valendo.
+- **FR-031**: A sobreposição de `auth` DEVE conter `schemes` (não vazio, entre `oidc` e `api_key`) e `allow` (não vazio, com `*`, `user:…`, `svc:…` ou `group:…`), e a configuração efetiva DEVE passar pela FR-012: `*` num Assistant privado é recusado nomeando `auth.allow`. A sobreposição PODE ampliar ou restringir o acesso do YAML; o teto é a liberação de `auth` em `overrides`. `visibility` NÃO DEVE ser sobreponível.
+- **FR-032**: A 003 NÃO DEVE conferir se os subjects e grupos de `allow` existem nem se casam com algum esquema aceito — nem no YAML nem na sobreposição —: entrada sem correspondência (sistema sem chave ativa, grupo inexistente, `svc:…` sem `api_key` em `schemes`) não concede acesso, não é recusada na gravação e não torna o Assistant indisponível. A 003 não expõe operação nova para a escolha de entradas: os sistemas vêm da listagem de chaves (FR-030).
+- **FR-033**: A sobreposição de `auth` DEVE decidir só quem usa o Assistant nas superfícies pública e privada; a administração do Assistant continua restrita ao grupo de administração (FR-023), qualquer que seja a sobreposição.
+- **FR-034**: O seam System Assistant Admin DEVE expor, para todo Assistant de sistema, o `auth` do YAML e o efetivo — inclusive quando `auth` não está em `overrides`, para leitura — e, quando liberado, a operação de gravar e descartar a sobreposição de `auth`, com versão e histórico como as demais (FR-021, FR-022).
+- **FR-035**: O armazenamento persistente DEVE acompanhar as duas mudanças por migrações novas do próprio módulo — o instante da rotação nas chaves e `auth` entre as seções de sobreposição —, aplicáveis sobre uma instalação com dados, sem perder chaves nem sobreposições existentes.
+- **FR-036**: Pela administração, a emissão DEVE aceitar grupos comuns e DEVE recusar, nomeando `groups`, o grupo de administração; chave com o grupo de administração só é emitida pelo operador, na linha de comando. Rotação e revogação pela administração valem para qualquer chave ativa, inclusive as do grupo de administração. *(Provisória: revista quando houver gestão de acessos pela API.)*
 
 
 ### Key Entities
 
 - **Principal**: identificador (`user:…`, `svc:…`), esquema, grupos.
-- **API Key**: hash, subject e grupos do dono, estado (ativa ou revogada), instante de emissão e de revogação; a chave em claro não é armazenada.
+- **API Key**: identificador público, hash, subject e grupos do dono, rótulo, estado (ativa ou revogada), instante de emissão, da última rotação e da revogação; a chave em claro não é armazenada. Um subject pode ter várias chaves ativas. "Sistema" não é entidade: é o subject `svc:…` de uma ou mais chaves.
 - **Assistant**: configuração nomeada (ver FR-004); origem sistema ou usuário; dono (quando de usuário). Nome de usuário leva o prefixo `~` e é único por dono; nome de sistema é único na instalação e não começa com `~`. `visibility` define defaults de segurança (FR-012), não a listagem.
 - **Execution Grant**: configuração efetiva de uma execução — Assistant, Principal, flow, packs ordenados, aliases MCP, coleções, tools permitidas, tools de escrita, política de modelo por papel, limites.
 - **Rate Budget**: contador por (Principal, Assistant).
 - **User Assistant Policy**: seletor (grupo ou `*`), packs, flows e coleções permitidos, allowlist de modelos, teto de limites, permissão de tools de escrita (default: não); declarada pelo operador, avaliada em ordem (primeira que casa).
-- **System Override**: Assistant de sistema, seção (`models` ou `mcp`), conteúdo, estado (ativa ou inativa, com motivo), versão, autor, instante; histórico de versões.
+- **System Override**: Assistant de sistema, seção (`models`, `mcp` ou `auth`), conteúdo, estado (ativa ou inativa, com motivo), versão, autor, instante; histórico de versões.
 
 ## Success Criteria *(mandatory)*
 
@@ -334,6 +430,8 @@ A plataforma passa a se chamar Axon (ADR-037). O operador emite chaves de API qu
 - **SC-006**: Uma sobreposição gravada vale na requisição seguinte, sem restart; e nenhuma sobreposição amplia o que o YAML permite (allowlist, tools de escrita em público), verificado por suíte adversarial.
 - **SC-007**: Em teste, nenhum token emitido para o chat é aceito na superfície de administração, e nenhum Principal fora do grupo de administração distingue uma rota de administração de uma inexistente.
 - **SC-008**: Depois da passada da US11, zero ocorrências do prefixo `aic_` de chave e das audiências `ai-core`/`ai-core-admin` no código, nos testes, na configuração e nos documentos vivos do workspace e das specs do core (fora do histórico do ADR-037, item 6, do contrato da instalação, do `CLAUDE.md`, do cookie da 012, que muda na passada dela, e dos testes e textos que nomeiam o antigo de propósito), e as suítes do workspace e da console passam.
+- **SC-009**: Em teste, 100% das rotações deixam o segredo anterior não autenticado já na requisição seguinte, e nenhuma resposta, listagem ou registro, fora a da própria rotação, contém a chave em claro ou o hash.
+- **SC-010**: Uma sobreposição de `auth` vale na requisição seguinte, sem restart; suíte adversarial confirma que nenhuma sobreposição põe `*` num Assistant privado, deixa esquemas ou `allow` vazios, sobrepõe `auth` não liberado ou altera `visibility`.
 
 ## Assumptions
 
@@ -342,4 +440,5 @@ A plataforma passa a se chamar Axon (ADR-037). O operador emite chaves de API qu
 - Chaves de API são emitidas pelo operador; a primeira sai pela linha de comando, já que o endpoint de administração exige uma credencial do grupo de administração.
 - Sobreposições ficam em cache por processo, invalidado a cada gravação — a mesma premissa de processo único dos contadores de taxa.
 - A verificação de que o modelo solicitado existe no provider é feita pela spec 006; esta spec aplica a allowlist.
+- US12 e US13 (ADR-040): expiração de chaves, "último uso" e o subject no trace e no uso ficam para um ADR próprio; a rotação mantém o identificador estável para não fechar essas portas.
 - US11 (ADR-037): a instalação continua presa a uma tag antiga do core, com os nomes antigos de ponta a ponta, até a passada dela; o pack de domínio, que usa a credencial de teste exportada, a recebe com o prefixo novo quando passar à tag nova (101).

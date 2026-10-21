@@ -818,3 +818,152 @@ T086 → T087 ∥ T088 (veem falhar) → T089 → T090 → T091 ∥ T092 ∥ T09
   passed, 11 skipped; mypy sem erro; ruff limpo; import-linter 69 kept; console 67 testes e e2e 39 passed, 4 skipped (o
   teste de fumaça do nginx, sem `CONSOLE_NGINX_URL`). À mão: `AXON_DEV_API_KEY=aic_…` recusada citando
   `axn_<16 hex>_<…>`; `serve` com a chave nova: 200 com ela, 401 com a antiga.
+
+---
+
+## Passada de 2026-10-21: rotação de chaves e `auth` sobreponível — US12, US13 ([ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md); research R38–R44)
+
+**Goal**: `ApiKeyAdmin.rotate` (mesmo `key_id`, segredo novo uma vez, o antigo recusado na hora, só chave ativa), emissão
+com o nome do sistema no padrão e o grupo de administração só pela CLI; `auth` como terceira seção sobreponível, com o
+mecanismo do ADR-032 e falha fechada para `*` em privado; duas migrações aditivas; `axon keys rotate`.
+
+**Independent Test**: [quickstart.md, "Fase 9 (2026-10-21)"](quickstart.md) — `-m "us12 or us13"`, a suíte de
+`assistants/` com `AXON_TEST_POSTGRES_DSN` e a rotação à mão no `persistent`.
+
+### Setup
+
+- [X] T097 `axon-ai/pyproject.toml`: marcas `"us12: 003 US12 — rotação do segredo de chaves de API"` e `"us13: 003 US13 —
+  sobreposição de auth de Assistants de sistema"`
+
+### US12 — Tests (antes das T101–T105)
+
+- [X] T098 [P] [US12] `axon-ai/packages/core/tests/assistants/contract/test_api_key_store.py` (memória × Postgres, R38):
+  `rotate(key_id, key_hash=novo, at=t)` de chave ativa devolve o registro com o hash novo, `rotated_at == t` e `key_id`,
+  `subject`, `groups`, `label`, `created_at` intactos, e `get` passa a devolver o mesmo; segunda rotação troca de novo;
+  chave revogada → `None` e continua revogada com o hash anterior; inexistente → `None`; `list` traz `rotated_at`
+- [X] T099 [P] [US12] `axon-ai/packages/core/tests/assistants/contract/test_key_rotation.py` (novo, marca `us12`; R38–R40),
+  sobre o `AccessService` em memória com `SequentialTokenGenerator` e `FixedClock`: cen. 1 (mesmo `key_id`, plaintext
+  `axn_<key_id>_…` diferente da anterior, `info.rotated_at` = agora, subject/grupos/rótulo intactos, `keys()` com o mesmo
+  `rotated_at`); cen. 2 (`authenticate(surface="private")` com a antiga → `None`, com a nova → mesmo `Principal`; idem
+  na superfície `admin` para chave de admin); cen. 3 (revogada → `Conflict`, continua revogada); cen. 4 (inexistente →
+  `NotFound`); cen. 5 (ator não admin → `NotFound`, mesmo com `key_id` existente); cen. 6 (`rotate_as_operator` igual);
+  cen. 7 (duas chaves ativas de `svc:relatorios`, rótulos `prod`/`homolog`: rotacionar/revogar uma não afeta a outra);
+  cen. 8 (`issue` com `groups=["equipe"]` ok; com o grupo de administração → `RequestRejected(field="groups")`;
+  `issue_as_operator` com ele ok); FR-030: `svc:Relatorios`, `svc:-x`, `svc:` e `svc:` + 65 caracteres →
+  `RequestRejected(field="subject")` nos dois caminhos, `svc:relatorios.v2_a-b` ok, `user:Caio.Silva` ok (padrão de
+  hoje); borda: revogar e depois rotacionar → `Conflict`; rotacionar a chave com que o ator está autenticado conclui, e a
+  autenticação seguinte com ela é `None`; SC-009: com `caplog` em `DEBUG`, nenhum registro durante `issue` e `rotate`
+  contém a chave em claro nem o hash (`hash_key(plaintext).hex()`). Rodar e ver falhar
+- [X] T100 [P] [US12] `axon-ai/packages/core/tests/assistants/integration/test_cli.py`: `keys_rotate_command` imprime
+  `key_id`, subject e a chave em claro sozinha na última linha, sai 0; inexistente e revogada saem 1 com mensagem;
+  `keys_list_command` mostra o instante da rotação. `integration/test_postgres_migrations.py`: com uma chave gravada
+  antes, a 004 aplica e a chave continua autenticando com `rotated_at` nulo
+
+### US12 — Implementation
+
+- [X] T101 [US12] `axon-ai/packages/core/src/axon_ai/assistants/api.py` (R38, R39): `ApiKeyInfo.rotated_at: datetime |
+  None = None`; `ApiKeyAdmin.rotate(self, *, actor: Principal, key_id: str) -> IssuedApiKey`, docstring com os erros;
+  docstring de `Conflict` cita "chave revogada não rotaciona"
+- [X] T102 [US12] `axon-ai/packages/core/src/axon_ai/assistants/ports.py`: `ApiKeyStore.rotate(self, key_id: str, *,
+  key_hash: bytes, at: datetime) -> ApiKeyRecord | None` ("troca o hash e grava `rotated_at` numa operação só, só se
+  ativa; `None` = inexistente ou revogada"); `adapters/memory.py`: `InMemoryApiKeyStore.rotate` com a mesma regra
+- [X] T103 [US12] `axon-ai/packages/core/src/axon_ai/assistants/adapters/sql/004_api_key_rotation.sql` (`ALTER TABLE
+  assistants.api_keys ADD COLUMN rotated_at timestamptz;`, comentário com a spec e o ADR-040);
+  `adapters/api_keys_postgres.py`: `rotated_at` em `_COLUMNS` e `_record`; `rotate` = `UPDATE assistants.api_keys SET
+  key_hash = %s, rotated_at = %s WHERE key_id = %s AND revoked_at IS NULL RETURNING …`
+- [X] T104 [US12] `axon-ai/packages/core/src/axon_ai/assistants/service.py` (`AccessService`, R39, R40): `rotate`
+  (`_require_admin` → `rotate_as_operator`); `rotate_as_operator`: segredo de `self._tokens.token_urlsafe(SECRET_BYTES)`,
+  `compose_key(key_id, segredo)`, `self._keys.rotate(key_id, key_hash=hash_key(plaintext), at=self._clock.now())`; `None`
+  → `get`: inexistente → `NotFound(f"chave '{key_id}' não existe")`, revogada → `Conflict("chave revogada não
+  rotaciona")`. `issue_as_operator`: `svc:<nome>` exige `NAME_PATTERN.fullmatch(nome)` →
+  `RequestRejected(f"o nome do sistema segue {NAME_PATTERN.pattern}: {subject!r}", field="subject")`. `issue`: grupo de
+  administração em `groups` (normalizado como em `issue_as_operator`) → `RequestRejected("o grupo de administração só é
+  concedido pela linha de comando", field="groups")`
+- [X] T105 [US12] `axon-ai/packages/core/src/axon_ai/assistants/adapters/cli.py`: `rotate_as_operator` no protocolo
+  `_KeysOperator`; `keys_rotate_command(service, *, key_id, persistent, out, err)` no formato de `keys_create_command`
+  (contrato `contracts/cli.md`); `keys_list_command` com a coluna da rotação. `axon-ai/packages/core/src/axon_ai/bootstrap/cli.py`
+  (011, ADR-040): `("keys", "rotate")` com o argumento posicional `key_id`, ao lado de `revoke`. Rodar T098–T100: verde
+
+### US13 — Tests (antes das T109–T112)
+
+- [X] T106 [P] [US13] `axon-ai/packages/core/tests/assistants/unit/test_overrides.py` (R41, R42): `yaml_auth`; impressão
+  digital de `auth` estável e igual com `allow` em outra ordem, diferente com outro esquema; `payload_of`/`read_payload`
+  ida e volta; `read_payload("auth", …)` com esquema desconhecido ou campo que não é lista → `None`; `apply_auth` troca
+  `access`; com `visibility: private` e `*` → problema que começa com `override.auth: auth.allow`; `effective` com
+  sobreposição de `auth` ativa, inativa por `NOT_ALLOWED` e por `SECTION_CHANGED`; `attribute` nomeia `override.auth`.
+  `unit/test_assistants_yaml.py`: `overrides: [auth]` lido; `overrides: [visibility]` é problema
+- [X] T107 [P] [US13] `axon-ai/packages/core/tests/assistants/contract/test_auth_override.py` (novo, marca `us13`; R43),
+  sobre o `AssistantsService` com `InMemorySystemOverrideStore`: os cen. 1–9 da US13 (cen. 1: depois de
+  `override_auth`, `resolve` aceita o `Principal` de `svc:relatorios` por `api_key` e um membro de `equipe` recebe
+  `AssistantNotFound`; `discover` reflete o mesmo); `field` exato em cada recusa (`auth`, `auth.schemes`, `auth.allow`);
+  ator não admin → `NotFound`; `discard_override(name, "auth", …)` devolve o YAML; `history` com `saved`/`discarded` e o
+  `AuthOverride`; visão com `yaml_auth`/`effective_auth` com e sem `auth` liberado (cen. 9); R42: config recarregada com
+  `visibility: private` e a sobreposição `*` ativa → `resolve` levanta `AssistantUnavailable` com motivo
+  `override.auth: …`
+- [X] T108 [P] [US13] `axon-ai/packages/core/tests/assistants/contract/test_override_store.py`: `put`/`get`/`history` com
+  `section="auth"` (memória × Postgres); `integration/test_postgres_migrations.py`: com sobreposições de `models` e `mcp`
+  gravadas antes, a 005 aplica, elas continuam, e uma de `auth` passa a ser aceita (outra seção continua recusada pela
+  restrição)
+
+### US13 — Implementation
+
+- [X] T109 [US13] `axon-ai/packages/core/src/axon_ai/assistants/api.py` (R41, R43): `OverrideSection =
+  Literal["models", "mcp", "auth"]`; `OVERRIDE_SECTIONS = ("models", "mcp", "auth")`; `AuthOverride(schemes:
+  frozenset[Scheme] = frozenset(), allow: tuple[str, ...] = ())` (`allow` sem repetição, na ordem dada; sem validar
+  conteúdo); `OverrideView.payload` e `OverrideHistoryEntry.payload` com `AuthOverride`; `SystemAssistantView.yaml_auth`
+  e `effective_auth: AuthOverride` (padrão vazio); `SystemAssistantAdmin.override_auth(self, name, override:
+  AuthOverride, *, actor, version: int | None)` e a docstring da seção nova. Conferir que `domain/definitions.py` lê
+  `overrides` por `OVERRIDE_SECTIONS` (senão, ajustar a mensagem de valor desconhecido)
+- [X] T110 [US13] `axon-ai/packages/core/src/axon_ai/assistants/domain/overrides.py` (R41, R42): `yaml_auth`;
+  `section_fingerprint` para `auth` (`{"schemes": sorted, "allow": sorted}`); `payload_of` (`schemes` ordenado, `allow` na
+  ordem) e `read_payload` (listas de texto; esquema fora de `SCHEMES` → `None`); `apply_auth` (troca `access`; problema
+  `override.auth: auth.allow: '*' não é permitido em Assistant privado` e, para `schemes` ou `allow` vazios,
+  `override.auth: auth: …`); `effective` despacha `AuthOverride`; `_SECTION_FIELDS["auth"] = ("auth",)`
+- [X] T111 [US13] `axon-ai/packages/core/src/axon_ai/assistants/adapters/sql/005_auth_overrides.sql`: trocar a restrição
+  de `system_overrides.section` por `CHECK (section IN ('models', 'mcp', 'auth'))` (a restrição anônima da 003
+  é `system_overrides_section_check`, conferida no Postgres; `DROP CONSTRAINT` + `ADD CONSTRAINT` com o mesmo nome); `adapters/overrides_postgres.py` sem mudança além do que a
+  T108 exigir
+- [X] T112 [US13] `axon-ai/packages/core/src/axon_ai/assistants/service.py` (`AssistantsService`, R43): `override_auth`
+  na ordem `_require_admin` → `_overridable(name, "auth")` → `schemes` não vazio e ⊆ `SCHEMES`
+  (`RequestRejected(field="auth.schemes")`) → `allow` não vazio e todo `is_selector` (`field="auth.allow"`) → `*` com
+  `visibility == "private"` (`field="auth.allow"`, FR-012) → `apply_auth(await self._without(name, "auth"), override)` →
+  `_reject_static` → `_save`; sem conferir existência de subject ou grupo (FR-032). `_system_view`: `yaml_auth=yaml_auth(yaml)`,
+  `effective_auth=yaml_auth(definition)` e o marcador de conteúdo ilegível `AuthOverride()` para a seção `auth`. Rodar
+  T106–T108: verde
+- [X] T113 [US13] `axon assistants validate` (`adapters/cli.py`): conferir que lista a sobreposição de `auth` inativa e o
+  motivo `override.auth` como as demais; ajustar só se a listagem enumera seções à mão
+
+### Integration e verificação
+
+- [X] T114 Suítes (a partir de `axon-ai/`): `uv run pytest && uv run mypy && uv run ruff check packages && uv run ruff
+  format --check packages && uv run lint-imports`; conformidade Postgres com `AXON_TEST_POSTGRES_DSN` (chaves,
+  sobreposições, migrações 004 e 005)
+- [X] T115 Quickstart "Fase 9 (2026-10-21)" à mão no `persistent`: `keys create --subject svc:relatorios`, `keys rotate`,
+  `keys list`; a antiga recebe 401 e a nova 200 em `/private/v1/health`
+- [X] T116 [P] `specs/README.md`: linha da 003 com "US12 (rotação de chaves) e US13 (`auth` sobreponível), ADR-040"
+
+### Dependencies (US12, US13)
+
+T097 → (US12) T098 ∥ T099 ∥ T100 (veem falhar) → T101 → T102 → T103 → T104 → T105; (US13) T106 ∥ T107 ∥ T108 (veem
+falhar) → T109 → T110 → T111 → T112 → T113. As duas US são independentes e tocam `api.py` e `service.py` em trechos
+distintos (chaves × sobreposições): em sequência, US12 primeiro, para não editar os mesmos arquivos em paralelo. T114 →
+T115; T116 em paralelo com a T114.
+
+**MVP**: a US12 sozinha já entrega a rotação pela CLI e o seam para a 008; a US13 completa o ADR-040.
+
+### Notas da execução (US12, US13)
+
+- T098–T100 e T106–T108 falharam como esperado antes da implementação (23 casos da US12; a US13 nem importava
+  `AuthOverride`).
+- O `.venv` do workspace ainda tinha scripts apontando para a pasta antiga (`~/Documents/agentic-app`), do renome; foi
+  recriado (`rm -rf .venv && uv sync`), sem mudança no repositório.
+- `bootstrap/cli.py` já tinha um `_keys_rotate` (o de `axon identity keys rotate`): o novo se chama `_api_keys_rotate`, e
+  `_keys_revoke_arguments` virou `_key_id_arguments`, usado por `revoke` e `rotate`. O teste da lista de registro da 011
+  (`test_cli_commands.py`) ganhou `("keys", "rotate")`.
+- T113: `assistants validate` já lista as sobreposições inativas por seção, sem enumerar; nada mudou.
+- Suítes: workspace 3271 passed, 192 skipped; `assistants/` contra Postgres 17 (contêiner temporário) 529 passed, inclusive
+  as migrações 004 e 005 sobre dados; ruff limpo; import-linter 69 kept. **mypy**: 2 erros em
+  `http/domain/admin_assistants.py` (`payload_json` não aceita `AuthOverride`), efeito esperado do seam alargado no
+  consumidor; corrigidos na passada da 008, que mostra a seção `auth` em `/admin/v1`.
+- À mão (`persistent`): `keys create --subject svc:relatorios`, `keys rotate`, `keys list` ("ativa, rotacionada em …");
+  a chave antiga recebe 401 e a nova 200 em `/private/v1/health`; `svc:Relatorios` recusado nomeando o padrão.

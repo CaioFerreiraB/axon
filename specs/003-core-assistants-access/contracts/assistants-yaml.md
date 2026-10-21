@@ -174,3 +174,20 @@ assistants:
 
 Uma sobreposição só vale enquanto a seção está em `overrides` e a seção do YAML não mudou desde que foi gravada; o
 deploy sempre vence (clarificação de 2026-10-13).
+
+## Fase 9 (2026-10-21): `auth` em `overrides` (ADR-040)
+
+```yaml
+assistants:
+  relatorios:
+    visibility: public
+    overrides: [auth]            # a administração pode trocar esquemas e quem usa
+    auth: {schemes: [oidc], allow: ["group:equipe"]}
+```
+
+| Campo | Regra |
+|---|---|
+| `overrides` | lista de `models`, `mcp` e/ou `auth`; outro valor → problema do Assistant |
+
+`visibility` nunca é sobreponível. Uma sobreposição de `auth` passa pelas mesmas regras de `auth` no YAML (esquemas e
+`allow` não vazios, seletores válidos, `*` só em público).

@@ -91,6 +91,14 @@ class InMemoryApiKeyStore:
         self._records[key_id] = revoked
         return revoked
 
+    async def rotate(self, key_id: str, *, key_hash: bytes, at: datetime) -> ApiKeyRecord | None:
+        record = self._records.get(key_id)
+        if record is None or not record.info.active:
+            return None
+        rotated = ApiKeyRecord(info=dataclasses.replace(record.info, rotated_at=at), key_hash=key_hash)
+        self._records[key_id] = rotated
+        return rotated
+
 
 class StaticOidcVerifier:
     """Tokens conhecidos → claims. Não verifica assinatura: é o verificador do perfil de teste. Confere a audiência,

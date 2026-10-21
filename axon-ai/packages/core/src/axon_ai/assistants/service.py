@@ -9,15 +9,18 @@ from __future__ import annotations
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Final
 
 from axon_ai.assistants.api import (
     NAME_PATTERN,
+    SCHEMES,
     SCHEMES_OF_SURFACE,
     SUBJECT_PATTERN,
     USER_PREFIX,
     ApiKeyInfo,
     AssistantSummary,
     AssistantUnavailable,
+    AuthOverride,
     Conflict,
     ExecutionGrant,
     IssuedApiKey,
@@ -27,6 +30,7 @@ from axon_ai.assistants.api import (
     NoApplicablePolicy,
     NotFound,
     OverrideHistoryEntry,
+    OverridePayload,
     OverrideSection,
     OverrideView,
     PolicyViolation,
@@ -39,7 +43,7 @@ from axon_ai.assistants.api import (
     ValidationReport,
 )
 from axon_ai.assistants.domain.access import OidcAudiences, OidcClaims, is_admin, principal_from_claims
-from axon_ai.assistants.domain.definitions import AssistantDefinition, AssistantsConfig, allowed_model
+from axon_ai.assistants.domain.definitions import AssistantDefinition, AssistantsConfig, allowed_model, is_selector
 from axon_ai.assistants.domain.keys import (
     KEY_ID_BYTES,
     KEY_PREFIX,
@@ -54,6 +58,7 @@ from axon_ai.assistants.domain.overrides import (
     UNREADABLE,
     OverrideStatus,
     StoredOverride,
+    apply_auth,
     apply_mcp,
     apply_models,
     attribute,
@@ -61,6 +66,7 @@ from axon_ai.assistants.domain.overrides import (
     payload_of,
     read_payload,
     section_fingerprint,
+    yaml_auth,
     yaml_mcp,
 )
 from axon_ai.assistants.domain.policies import applicable_policy, conform, user_definition
@@ -88,6 +94,16 @@ from axon_ai.assistants.ports import (
 from axon_ai.graph import api as engine
 from axon_ai.llm.api import ModelRef
 from axon_ai.packs.api import Composition, CompositionError, PackRegistry
+
+SYSTEM_PREFIX: Final = "svc:"
+"""O prefixo do subject de um sistema: ele é o subject das chaves, sem cadastro próprio (ADR-040)."""
+
+_UNREADABLE_PLACEHOLDER: Final[dict[OverrideSection, OverridePayload]] = {
+    "models": ModelsOverride(roles={}),
+    "mcp": McpOverride(),
+    "auth": AuthOverride(),
+}
+"""O que a visão mostra no lugar de um conteúdo guardado ilegível, que nunca é aplicado."""
 
 
 def _engine_grant(grant: ExecutionGrant) -> engine.ExecutionGrant:
@@ -320,6 +336,31 @@ class AssistantsService:
         self._reject_static(candidate)
         return await self._save(name, "mcp", override, yaml=yaml, actor=actor, version=version)
 
+    async def override_auth(
+        self, name: str, override: AuthOverride, *, actor: Principal, version: int | None
+    ) -> SystemAssistantView:
+        """Quem pode usar o Assistant (ADR-040, R43). Não confere se subjects e grupos existem (FR-032): entrada sem
+        correspondência não concede nada."""
+        self._require_admin(actor)
+        yaml = self._overridable(name, "auth")
+        unknown = sorted(set(override.schemes) - set(SCHEMES))
+        if not override.schemes or unknown:
+            detail = f"; recebido: {', '.join(unknown)}" if unknown else ""
+            raise RequestRejected(f"auth.schemes: não vazio, entre {', '.join(SCHEMES)}{detail}", field="auth.schemes")
+        invalid = [selector for selector in override.allow if not is_selector(selector)]
+        if not override.allow or invalid:
+            detail = f"; inválidos: {', '.join(invalid)}" if invalid else ""
+            raise RequestRejected(
+                f"auth.allow: não vazio, com '*', 'user:…', 'svc:…' ou 'group:…'{detail}", field="auth.allow"
+            )
+        if yaml.visibility == "private" and "*" in override.allow:
+            raise RequestRejected(
+                "auth.allow: '*' não é permitido em Assistant privado: nomeie subjects ou grupos (FR-012)",
+                field="auth.allow",
+            )
+        self._reject_static(apply_auth(await self._without(name, "auth"), override))
+        return await self._save(name, "auth", override, yaml=yaml, actor=actor, version=version)
+
     async def discard_override(
         self, name: str, section: OverrideSection, *, actor: Principal, version: int
     ) -> SystemAssistantView:
@@ -414,7 +455,7 @@ class AssistantsService:
         self,
         name: str,
         section: OverrideSection,
-        override: ModelsOverride | McpOverride,
+        override: OverridePayload,
         *,
         yaml: AssistantDefinition,
         actor: Principal,
@@ -460,7 +501,7 @@ class AssistantsService:
             payload = status.payload
             state, reason = status.state, status.reason
             if payload is None:
-                payload = ModelsOverride(roles={}) if status.stored.section == "models" else McpOverride()
+                payload = _UNREADABLE_PLACEHOLDER[status.stored.section]
                 state, reason = "inactive", UNREADABLE
             views.append(
                 OverrideView(
@@ -487,6 +528,8 @@ class AssistantsService:
             effective_models=definition.roles,
             effective_mcp=yaml_mcp(definition),
             required_roles=required,
+            yaml_auth=yaml_auth(yaml),
+            effective_auth=yaml_auth(definition),
         )
 
     # --- interno --------------------------------------------------------------------------------------------------
@@ -652,6 +695,9 @@ class AccessService:
         label: str | None = None,
     ) -> IssuedApiKey:
         self._require_admin(actor)
+        # O grupo de administração só sai pela linha de comando: chave de admin é ato do operador (FR-036, R40).
+        if self._admin_group is not None and self._admin_group in _group_names(groups):
+            raise RequestRejected("o grupo de administração só é concedido pela linha de comando", field="groups")
         return await self.issue_as_operator(subject=subject, groups=groups, label=label)
 
     async def keys(self, *, actor: Principal) -> Sequence[ApiKeyInfo]:
@@ -662,6 +708,10 @@ class AccessService:
         self._require_admin(actor)
         return await self.revoke_as_operator(key_id=key_id)
 
+    async def rotate(self, *, actor: Principal, key_id: str) -> IssuedApiKey:
+        self._require_admin(actor)
+        return await self.rotate_as_operator(key_id=key_id)
+
     # --- autoridade do operador (CLI: quem tem o host é o operador) ------------------------------------------------
 
     async def issue_as_operator(
@@ -669,7 +719,10 @@ class AccessService:
     ) -> IssuedApiKey:
         if not SUBJECT_PATTERN.fullmatch(subject):
             raise RequestRejected(f"subject precisa ser 'user:<id>' ou 'svc:<id>': {subject!r}", field="subject")
-        names = frozenset(group.removeprefix("group:").strip() for group in groups)
+        system = subject.removeprefix(SYSTEM_PREFIX) if subject.startswith(SYSTEM_PREFIX) else None
+        if system is not None and not NAME_PATTERN.fullmatch(system):
+            raise RequestRejected(f"o nome do sistema segue {NAME_PATTERN.pattern}: {subject!r}", field="subject")
+        names = _group_names(groups)
         if any(not name or any(char.isspace() for char in name) for name in names):
             raise RequestRejected("grupos precisam ser nomes sem espaço", field="groups")
 
@@ -688,6 +741,16 @@ class AccessService:
             raise NotFound(f"chave '{key_id}' não existe")
         return record.info
 
+    async def rotate_as_operator(self, *, key_id: str) -> IssuedApiKey:
+        """Mesmo `key_id`, segredo novo; a troca do hash é da porta, condicionada a chave ativa (R38, R39)."""
+        plaintext = compose_key(key_id, self._tokens.token_urlsafe(SECRET_BYTES))
+        record = await self._keys.rotate(key_id, key_hash=hash_key(plaintext), at=self._clock.now())
+        if record is None:
+            if await self._keys.get(key_id) is None:
+                raise NotFound(f"chave '{key_id}' não existe")
+            raise Conflict(f"chave '{key_id}' revogada não rotaciona")
+        return IssuedApiKey(info=record.info, plaintext=plaintext)
+
     def is_admin(self, principal: Principal) -> bool:
         """Membro do grupo de administração, em qualquer esquema (ADR-031, R27). Cumpre a porta `AdminGate` da 008."""
         return is_admin(principal, self._admin_group)
@@ -696,3 +759,8 @@ class AccessService:
         """Quem não administra recebe o mesmo que um recurso inexistente (US2 cen. 5)."""
         if not self.is_admin(actor):
             raise NotFound("recurso não encontrado")
+
+
+def _group_names(groups: Collection[str]) -> frozenset[str]:
+    """Os grupos como a chave os guarda: sem o prefixo `group:` e sem espaço nas pontas."""
+    return frozenset(group.removeprefix("group:").strip() for group in groups)

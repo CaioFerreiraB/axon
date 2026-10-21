@@ -208,3 +208,15 @@ def test_overrides_com_valor_desconhecido_e_problema_do_assistant() -> None:
     definition = parsed.assistants["x"]
     assert definition.overrides == frozenset({"models"})
     assert any(problem.startswith("overrides: valor desconhecido: allow") for problem in definition.problems)
+
+
+@pytest.mark.us13
+def test_overrides_aceita_auth_e_recusa_visibility() -> None:
+    parsed = read_config(
+        config({"x": assistant(overrides=["auth"]), "y": assistant(overrides=["auth", "visibility"])}),
+        origin="assistants.yaml",
+    )
+    assert parsed.assistants["x"].overrides == frozenset({"auth"}) and not parsed.assistants["x"].problems
+    y = parsed.assistants["y"]
+    assert y.overrides == frozenset({"auth"})
+    assert any(problem.startswith("overrides: valor desconhecido: visibility") for problem in y.problems)
