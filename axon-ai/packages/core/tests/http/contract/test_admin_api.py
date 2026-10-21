@@ -86,6 +86,7 @@ def _kit(
     cipher: bool = True,
     google: bool = False,
     seams: bool = True,
+    extra_assistants: dict[str, Any] | None = None,
 ) -> Kit:
     identity = harness(google=google)
     asyncio.run(identity.service.start())
@@ -151,6 +152,7 @@ def _kit(
                     models={"generation": "openrouter/nvidia/nemotron", "allow": ["openrouter/*"]},
                 ),
                 "fixo": assistant(flow="chat"),
+                **(extra_assistants or {}),
             }
         ),
         mcp=build(servers={AGENDA_URL: scripted(RemoteTool(name="listar"), RemoteTool(name="marcar"))}).service,
@@ -228,6 +230,9 @@ ROUTES: Final[list[tuple[str, str, Any]]] = [
     ("GET", "/keys", None),
     ("POST", "/keys", {"subject": "svc:etl", "groups": [], "label": "etl"}),
     ("DELETE", "/keys/00000000000000b2", None),
+    ("POST", "/keys/00000000000000b2/rotate", None),
+    ("PUT", "/assistants/geral/auth", {"schemes": ["oidc"], "allow": ["group:equipe"], "version": None}),
+    ("DELETE", "/assistants/geral/overrides/auth?version=1", None),
     ("GET", "/health", None),
 ]
 
@@ -535,6 +540,10 @@ def test_chaves_pela_administracao(kit: Kit) -> None:
     plaintext, key_id = issued.json()["key"], issued.json()["key_id"]
     listed = kit.call("GET", "/keys").json()["data"]
     assert key_id in [key["key_id"] for key in listed] and plaintext not in str(listed)
+    assert all("rotated_at" in key for key in listed)
+    rotated = kit.call("POST", f"/keys/{key_id}/rotate")
+    assert rotated.status_code == 200 and rotated.json()["key"] != plaintext
+    assert rotated.json()["key"] not in kit.call("GET", "/keys").text
     assert kit.call("DELETE", f"/keys/{key_id}").json()["revoked_at"] is not None
 
 
@@ -574,3 +583,119 @@ def test_nenhuma_resposta_traz_segredo_e_toda_sai_sem_cache(scenario: Scenario) 
 def test_sem_marca_propria_o_me_traz_o_axon() -> None:
     """US10 cen. 6 (ADR-038): o padrão da porta é o lockup Axon, sem atribuição."""
     assert InstanceBranding() == InstanceBranding(name="Axon", logo_url=None, custom=False)
+
+
+# --- US11: chaves rotacionáveis e `auth` na administração (ADR-040; R56 a R59) ---------------------------------------
+
+ACESSO: Final = {
+    "acesso": assistant(flow="chat", overrides=["auth"], auth={"schemes": ["oidc"], "allow": ["group:equipe"]}),
+    "restrito": assistant(
+        flow="chat", visibility="private", overrides=["auth"], auth={"schemes": ["api_key"], "allow": ["user:caio"]}
+    ),
+}
+
+
+def _private_health(kit: Kit, key: str) -> int:
+    return kit.client.get("/private/v1/health", headers=bearer(key)).status_code
+
+
+@pytest.mark.us11
+def test_rotacao_devolve_a_chave_uma_vez_e_a_antiga_morre() -> None:
+    kit = _kit()
+    issued = kit.call("POST", "/keys", body={"subject": "svc:relatorios", "label": "prod"}).json()
+    rotated = kit.call("POST", f"/keys/{issued['key_id']}/rotate")
+
+    assert rotated.status_code == 200
+    body = rotated.json()
+    assert body["key_id"] == issued["key_id"] and body["key"].startswith(f"axn_{issued['key_id']}_")
+    assert body["rotated_at"] is not None and body["label"] == "prod" and body["revoked_at"] is None
+    listed = kit.call("GET", "/keys")
+    assert body["key"] not in listed.text and issued["key"] not in listed.text
+    (key,) = [key for key in listed.json()["data"] if key["key_id"] == issued["key_id"]]
+    assert key["rotated_at"] == body["rotated_at"]
+    assert _private_health(kit, issued["key"]) == 401
+    assert _private_health(kit, body["key"]) == 200
+
+
+@pytest.mark.us11
+def test_rotacao_de_revogada_inexistente_e_com_corpo() -> None:
+    kit = _kit()
+    issued = kit.call("POST", "/keys", body={"subject": "svc:relatorios"}).json()
+    kit.call("DELETE", f"/keys/{issued['key_id']}")
+
+    revoked = kit.call("POST", f"/keys/{issued['key_id']}/rotate")
+    assert revoked.status_code == 409
+    assert (_error(revoked)["code"], _error(revoked)["param"]) == ("key_revoked", "key_id")
+    assert kit.call("POST", "/keys/00000000000000ff/rotate").status_code == 404
+    other = kit.call("POST", "/keys", body={"subject": "svc:outro"}).json()
+    with_body = kit.call("POST", f"/keys/{other['key_id']}/rotate", body={"x": 1})
+    assert with_body.status_code == 422 and _error(with_body)["param"] == "x"
+    assert kit.call("POST", f"/keys/{other['key_id']}/rotate", body={}).status_code == 200
+
+
+@pytest.mark.us11
+@pytest.mark.parametrize(
+    ("body", "param"),
+    [
+        ({"subject": "svc:Relatorios"}, "subject"),
+        ({"subject": "svc:relatorios", "groups": ["operadores"]}, "groups"),
+    ],
+)
+def test_emissao_recusada_nomeia_o_campo_nas_duas_superficies(body: dict[str, Any], param: str) -> None:
+    kit = _kit()
+    admin = kit.call("POST", "/keys", body=body)
+    assert admin.status_code == 422 and _error(admin)["param"] == param
+    private = kit.client.post("/private/v1/admin/keys", headers=bearer(ADMIN_KEY), json=body)
+    assert private.status_code == 400 and private.json()["error"]["param"] == param  # envelope da privada
+
+
+@pytest.mark.us11
+def test_sobreposicao_de_auth_ciclo_completo() -> None:
+    kit = _kit(extra_assistants=ACESSO)
+    novo = {"schemes": ["oidc", "api_key"], "allow": ["svc:relatorios", "group:equipe"], "version": None}
+
+    saved = kit.call("PUT", "/assistants/acesso/auth", body=novo)
+    assert saved.status_code == 200
+    view = saved.json()
+    assert view["effective"]["auth"] == {"schemes": ["api_key", "oidc"], "allow": ["svc:relatorios", "group:equipe"]}
+    assert view["yaml"]["auth"] == {"schemes": ["oidc"], "allow": ["group:equipe"]}
+    (override,) = view["overrides"]
+    assert (override["section"], override["state"], override["version"]) == ("auth", "active", 1)
+    assert override["payload"] == view["effective"]["auth"]
+
+    stale = kit.call("PUT", "/assistants/acesso/auth", body=novo | {"version": 7})
+    assert stale.status_code == 409 and _error(stale)["code"] == "version_conflict"
+
+    discarded = kit.call("DELETE", "/assistants/acesso/overrides/auth?version=1").json()
+    assert discarded["overrides"] == [] and discarded["effective"]["auth"] == discarded["yaml"]["auth"]
+    history = kit.call("GET", "/assistants/acesso/history").json()["data"]
+    assert [(entry["section"], entry["action"]) for entry in history] == [("auth", "discarded"), ("auth", "saved")]
+    assert history[1]["payload"] == {"schemes": ["api_key", "oidc"], "allow": ["svc:relatorios", "group:equipe"]}
+
+
+@pytest.mark.us11
+@pytest.mark.parametrize(
+    ("name", "body", "param"),
+    [
+        ("restrito", {"schemes": ["oidc"], "allow": ["*"], "version": None}, "auth.allow"),
+        ("acesso", {"schemes": [], "allow": ["group:equipe"], "version": None}, "auth.schemes"),
+        ("acesso", {"schemes": ["oidc"], "allow": [], "version": None}, "auth.allow"),
+        ("acesso", {"schemes": ["oidc"], "allow": "group:equipe", "version": None}, "allow"),
+        ("acesso", {"schemes": ["oidc"], "allow": ["group:equipe"], "visibility": "public"}, "visibility"),
+        ("fixo", {"schemes": ["oidc"], "allow": ["group:equipe"], "version": None}, "auth"),
+    ],
+)
+def test_sobreposicao_de_auth_recusada_nomeia_o_campo(name: str, body: dict[str, Any], param: str) -> None:
+    kit = _kit(extra_assistants=ACESSO)
+    response = kit.call("PUT", f"/assistants/{name}/auth", body=body)
+    assert response.status_code == 422, response.text
+    assert _error(response)["param"] == param
+
+
+@pytest.mark.us11
+def test_visao_traz_o_auth_mesmo_sem_a_secao_liberada() -> None:
+    kit = _kit(extra_assistants=ACESSO)
+    fixo = kit.call("GET", "/assistants/fixo").json()
+    assert "auth" not in fixo["overridable"]
+    assert fixo["yaml"]["auth"] == fixo["effective"]["auth"] == {"schemes": ["api_key", "oidc"], "allow": ["*"]}
+    assert "auth" in kit.call("GET", "/assistants/acesso").json()["overridable"]

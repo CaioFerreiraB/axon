@@ -259,3 +259,14 @@ qualquer caixa e com qualquer valor, é `ChatRequestInvalid` com `field` = o ant
 | `name` | `str` | `"Axon"` | `AXON_DISPLAY_NAME` (011) |
 | `logo_url` | `str \| None` | `None` | `/oauth2/assets/logo` quando há logotipo e a identidade (012) o serve |
 | `custom` | `bool` | `False` | `True` quando `name` ≠ `"Axon"` ou `logo_url` ≠ `None` (calculado pela 011) |
+
+## Fase 9 (2026-10-21): chaves rotacionáveis e `auth` na administração (research R56–R59; ADR-040)
+
+| Formato | Campos |
+|---|---|
+| Chave (`key_json`) | + `rotated_at: str \| null` |
+| Resposta da rotação | a chave + `key` (a chave em claro, só nesta resposta) |
+| `AuthOverride` no fio (`auth_json`) | `{"schemes": [ordenados], "allow": [na ordem]}` |
+| Corpo de `PUT …/auth` (`auth_body`) | `schemes: [str]`, `allow: [str]`, `version: int \| null`; outro campo → 422 |
+| `AssistantView` | + `yaml.auth`, `effective.auth`; `payload` de sobreposição e de histórico pode ser `auth` |
+| Erro | + `409 key_revoked` (`param: "key_id"`) |

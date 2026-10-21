@@ -585,3 +585,74 @@ axon-ai/packages/core/
 
 Reavaliado com [contracts/](contracts/), [data-model.md](data-model.md) e [quickstart.md](quickstart.md) ("Fase 9,
 incremento 9.5"): **PASS**.
+
+---
+
+# Passada de 2026-10-21: chaves rotacionáveis e `auth` na administração (US11; [ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md))
+
+> As seções acima ficam como foram executadas. Esta é o plano da US11.
+
+**Insumos lidos**: [spec.md](spec.md) (US11, FR-034–FR-039, SC-011, clarificação de 2026-10-21), [design.md](design.md),
+ADR-029, ADR-031, ADR-032, ADR-040, a passada da 003 (seams `ApiKeyAdmin.rotate`, `SystemAssistantAdmin.override_auth`,
+`ApiKeyInfo.rotated_at`, `SystemAssistantView.yaml_auth`/`effective_auth`), constituição 1.3.1. Research: R56–R59.
+**Sem divergência**; sem ADR novo.
+
+## Summary (US11)
+
+Três rotas novas em `/admin/v1` — rotação de chave (R56), gravação da sobreposição de `auth` e o descarte dela pela rota
+de descarte existente (R58) —, `rotated_at` na representação da chave nas duas superfícies (R57), `auth` do YAML,
+efetivo, das sobreposições e do histórico na visão do Assistant, e um 409 `key_revoked` próprio. Nenhuma rota para o
+seletor (R59). Fecha também o tipo de `payload_json`, que a passada da 003 deixou apontado pelo mypy.
+
+## Technical Context (US11)
+
+- **Language/Version, dependências, storage**: sem mudança; sem migração na 008.
+- **Testing**: um arquivo de contrato novo (`us11`), linhas novas na tabela da conformidade de `/admin/v1`, unidade dos
+  formatos e do erro.
+- **Scale/Scope**: `http/adapters/admin.py`, `http/domain/{admin_assistants,private,errors}.py`; nenhum outro módulo.
+- Nenhum `NEEDS CLARIFICATION`.
+
+## Constitution Check (US11)
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| II. Módulos substituíveis por seams | ✅ | Só consome os seams da 003 (alargados pelo ADR-040); a regra fica na 003 — a borda traduz |
+| IV. O Assistant é a fronteira | ✅ | `auth` é validado pela 003; a superfície só aceita admin, com o 404 de rota inexistente |
+| VII. Falha fechada e explícita | ✅ | Chave revogada → 409 próprio, não um conflito de versão enganoso; campo desconhecido → 422 nomeando-o |
+| XI. API independente da interface | ✅ | A console não ganha rota sob medida (R59); a automação com chave tem as mesmas rotas |
+| XIII. Portas e adapters | ✅ | Formatos e tradução de erro puros em `domain/`; o adapter só liga |
+
+**Module boundary gate**: `axon_ai/http/**`, `tests/http/**`, `axon-ai/pyproject.toml` (descrição da marca `us11`).
+**Resultado**: PASS.
+
+## Project Structure (US11)
+
+```text
+axon-ai/packages/core/
+├── src/axon_ai/http/
+│   ├── adapters/admin.py               # POST /keys/{key_id}/rotate; PUT /assistants/{name}/auth; _SECTIONS + auth (R56, R58)
+│   └── domain/
+│       ├── admin_assistants.py         # auth_body, auth_json; view_json e payload_json com auth (R58)
+│       ├── private.py                  # key_json + rotated_at (R57)
+│       └── errors.py                   # key_revoked (R56)
+└── tests/http/
+    ├── contract/test_admin_keys_auth.py   # novo (R59)
+    ├── contract/test_admin_api.py         # rotas novas na tabela
+    └── unit/{test_admin_assistants,test_errors}.py
+```
+
+## Seam Notes for Consumers (US11)
+
+| Consumidor | O que muda para ele |
+|---|---|
+| 013 | `POST /keys/{key_id}/rotate` (`key` uma vez; 409 `key_revoked`); `rotated_at` nas chaves; `PUT /assistants/{name}/auth`, `DELETE …/overrides/auth`; `yaml.auth`, `effective.auth`, sobreposições e histórico com `{"schemes", "allow"}`; 422 `param` `subject`/`groups` na emissão; seletor de `allow` por `GET /keys` e `GET /groups` |
+| Automação | As mesmas rotas, com chave de admin; a superfície privada só ganha `rotated_at` e a recusa do grupo de administração na emissão |
+
+## Complexity Tracking (US11)
+
+Nenhuma linha nova.
+
+## Constitution Check — pós-design (US11)
+
+Reavaliado com [contracts/admin-api.md](contracts/admin-api.md), [data-model.md](data-model.md) e
+[quickstart.md](quickstart.md) ("Fase 9 (2026-10-21)"): **PASS**.

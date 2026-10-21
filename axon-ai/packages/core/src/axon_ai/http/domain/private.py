@@ -53,6 +53,7 @@ def key_json(info: ApiKeyInfo) -> dict[str, Any]:
         "label": info.label,
         "created_at": info.created_at.isoformat(),
         "revoked_at": info.revoked_at.isoformat() if info.revoked_at is not None else None,
+        "rotated_at": info.rotated_at.isoformat() if info.rotated_at is not None else None,
     }
 
 

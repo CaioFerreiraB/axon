@@ -53,7 +53,7 @@ markers = [
     "us8: 003 US8 — validação de Assistants; 009 US8 — identidade Axon (serviço e rótulo do selo); 012 US8 — identidade Axon (marca das páginas, cookie, realm e rótulos)",
     "us9: 003 US9 — administração por grupo, com token da plataforma ou chave",
     "us10: 003 US10 — sobreposições de Assistants de sistema; 008 US10 — identidade Axon (cabeçalhos, extensão, OpenAPI e instance.custom)",
-    "us11: 003 US11 — identidade Axon (audiências e prefixo da chave)",
+    "us11: 003 US11 — identidade Axon (audiências e prefixo da chave); 008 US11 — chaves rotacionáveis e auth na administração",
     "us12: 003 US12 — rotação do segredo de chaves de API",
     "us13: 003 US13 — sobreposição de auth de Assistants de sistema",
 ]

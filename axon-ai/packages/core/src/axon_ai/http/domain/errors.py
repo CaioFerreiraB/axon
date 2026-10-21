@@ -170,6 +170,12 @@ def _conflict(code: str, message: str, *, param: str | None = None, **detail: An
     return ErrorResponse(status=409, type="conflict_error", code=code, message=message, param=param, detail=detail)
 
 
+def key_revoked(message: str) -> ErrorResponse:
+    """Rotação de chave revogada (ADR-040, R56): 409 próprio. O `Conflict` da 003 vira `version_conflict` em toda outra
+    rota, o que aqui mandaria a console recarregar e tentar de novo, sem efeito."""
+    return _conflict("key_revoked", message, param="key_id")
+
+
 def _admin_invalid(message: str, param: str | None) -> ErrorResponse:
     return ErrorResponse(status=422, type="invalid_request_error", code="invalid_field", message=message, param=param)
 

@@ -20,12 +20,13 @@ from fastapi.responses import JSONResponse, Response
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from axon_ai.assistants.api import ADMIN_SURFACE, NotFound, OverrideSection, Principal
+from axon_ai.assistants.api import ADMIN_SURFACE, Conflict, NotFound, OverrideSection, Principal
 from axon_ai.http.adapters.auth import authenticated
 from axon_ai.http.adapters.chat import REQUEST_ID_HEADER, json_body
 from axon_ai.http.adapters.errors import ApiError, respond
 from axon_ai.http.domain import admin_accounts, admin_assistants, admin_observability, admin_usage
-from axon_ai.http.domain.errors import admin_error_for
+from axon_ai.http.domain.admin_common import only
+from axon_ai.http.domain.errors import admin_error_for, key_revoked
 from axon_ai.http.domain.private import health_json, issue_request, key_json
 from axon_ai.http.ports import AdminGate, AdminSeams, Clock, HealthProvider, InstanceBranding, RequestIds
 from axon_ai.identity.api import AccountAdmin, AccountNotFound, IssuedPassword, LoginSettings
@@ -34,7 +35,7 @@ from axon_ai.llm.api import ModelPolicy
 ADMIN_PREFIX: Final = "/admin/v1"
 _METHODS: Final = ["GET", "POST", "PUT", "PATCH", "DELETE"]
 _PATH_PARAM: Final = re.compile(r"{(\w+)}")
-_SECTIONS: Final[dict[str, OverrideSection]] = {"models": "models", "mcp": "mcp"}
+_SECTIONS: Final[dict[str, OverrideSection]] = {"models": "models", "mcp": "mcp", "auth": "auth"}
 
 type Handler = Callable[..., Awaitable[Any]]
 
@@ -175,6 +176,13 @@ def admin_router(seams: AdminSeams, instance: InstanceBranding) -> APIRouter:
     async def override_mcp(request: Request, principal: Principal, name: str) -> Any:
         override, version = admin_assistants.mcp_body(await json_body(request))
         view = await seams.assistants.override_mcp(name, override, actor=principal, version=version)
+        return admin_assistants.view_json(view)
+
+    @route("PUT", "/assistants/{name}/auth")
+    async def override_auth(request: Request, principal: Principal, name: str) -> Any:
+        """Quem pode usar o Assistant (ADR-040): a 003 confere o conteúdo e devolve o campo."""
+        override, version = admin_assistants.auth_body(await json_body(request))
+        view = await seams.assistants.override_auth(name, override, actor=principal, version=version)
         return admin_assistants.view_json(view)
 
     @route("DELETE", "/assistants/{name}/overrides/{section}")
@@ -342,6 +350,17 @@ def admin_router(seams: AdminSeams, instance: InstanceBranding) -> APIRouter:
     @route("DELETE", "/keys/{key_id}")
     async def revoke_key(request: Request, principal: Principal, key_id: str) -> Any:
         return key_json(await request.app.state.keys.revoke(actor=principal, key_id=key_id))
+
+    @route("POST", "/keys/{key_id}/rotate")
+    async def rotate_key(request: Request, principal: Principal, key_id: str) -> Any:
+        """Segredo novo para a mesma chave, só nesta resposta (ADR-040, R56). Nenhum campo de corpo é aceito."""
+        if await request.body():
+            only(await json_body(request), ())
+        try:
+            rotated = await request.app.state.keys.rotate(actor=principal, key_id=key_id)
+        except Conflict as error:
+            raise ApiError(key_revoked(str(error))) from error
+        return key_json(rotated.info) | {"key": rotated.plaintext}
 
     @route("GET", "/health")
     async def health(request: Request, principal: Principal) -> Any:

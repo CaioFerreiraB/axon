@@ -39,3 +39,10 @@
   em 2026-10-20 (pergunta feita antes de escrever a US) e está na sessão de clarificações.
 - "Sem detalhes de implementação": nomes de cabeçalho, chave de extensão e o campo `instance.custom` são a interface
   HTTP — o objeto da US.
+
+### Iteração de 2026-10-21 — US11 (ADR-040)
+
+Todos os itens continuam passando. FR-034 → cen. 1 e 2; FR-035 → cen. 1; FR-036 → cen. 3; FR-037 → cen. 4, 5 e 6;
+FR-038 → nenhuma rota nova (conferido na conformidade); FR-039 → cen. 7; SC-011 → cen. 1 e a varredura de segredo.
+Rotas e códigos aparecem porque a API HTTP é o próprio objeto desta spec (como nas US anteriores). Nenhuma marca de
+clarificação; a rotação na superfície privada fica para o `/speckit-clarify`.

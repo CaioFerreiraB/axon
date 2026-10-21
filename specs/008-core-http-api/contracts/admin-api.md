@@ -14,6 +14,7 @@ Envelope da API: `{"error": {"message": "...", "type": "...", "code": "...", "pa
 | 401 | `invalid_credential` | credencial ausente, inválida, vencida ou de outra audiência |
 | 404 | `not_found` | não admin; recurso inexistente |
 | 409 | `version_conflict` | `version` desatualizada (corpo traz `current_version`) |
+| 409 | `key_revoked` | rotação de chave revogada (`param` = `key_id`; ADR-040) |
 | 409 | `installation_defined` | campo definido pela instalação (`param` = campo) |
 | 409 | `master_key_missing` | gravar segredo sem `AXON_MASTER_KEY` |
 | 409 | `protected_group` | apagar o grupo de administração, ou deixá-lo sem admin ativo |
@@ -45,7 +46,8 @@ própria: `{"name": "Axon", "logo_url": null, "custom": false}`.
 | `GET /assistants/{name}` | — | `AssistantView` |
 | `PUT /assistants/{name}/models` | `{"roles": {"generation": "openrouter/openai/gpt-4.1-mini", "controller": "…"}, "version": 3}` — a seção inteira (003 FR-018): papel ausente fica sem modelo | `AssistantView` |
 | `PUT /assistants/{name}/mcp` | `{"aliases": ["arquivos"], "allowed": ["arquivos.listar"], "write": [], "version": null}` | `AssistantView` |
-| `DELETE /assistants/{name}/overrides/{models\|mcp}?version=3` | — | `AssistantView` |
+| `PUT /assistants/{name}/auth` | `{"schemes": ["oidc", "api_key"], "allow": ["svc:relatorios", "group:equipe"], "version": null}` — a seção inteira (003 FR-031, ADR-040); só com `auth` em `overrides` | `AssistantView` |
+| `DELETE /assistants/{name}/overrides/{models\|mcp\|auth}?version=3` | — | `AssistantView` |
 | `GET /assistants/{name}/history` | — | `{"data": [{"section", "action", "payload", "version", "actor", "at"}…]}` |
 | `POST /assistants/{name}/models/check` | `{"role": "generation", "model": "openrouter/openai/gpt-4.1-mini"}` | `{"available": true, "detail": "respondeu", "latency_ms": 412}` — pela verificação de saúde do Model Router (006); modelo fora da allowlist → `422` |
 | `GET /providers` | — | `{"data": [{"name": "ollama", "ready": false, "detail": "provider inalcançável em http://localhost:11434/v1", "reports_cost": false}, {"name": "openrouter", "ready": true, "detail": null, "reports_cost": true}]}` — os providers registrados, por nome, pelo `ModelRouting.providers()` da 006: o remoto pronto pela credencial, o local se responde (ADR-035); `reports_cost`, se informa o custo de cada chamada (ADR-036) |
@@ -57,13 +59,18 @@ própria: `{"name": "Axon", "logo_url": null, "custom": false}`.
  "status": {"available": true, "reasons": []},
  "overridable": ["models", "mcp"], "required_roles": ["generation", "controller"], "allow": ["openrouter/*"],
  "yaml": {"models": {"generation": "openrouter/openai/gpt-4.1-nano", "controller": "openrouter/openai/gpt-4.1-nano"},
-          "mcp": {"aliases": ["arquivos", "agenda"], "allowed": ["arquivos.listar"], "write": []}},
+          "mcp": {"aliases": ["arquivos", "agenda"], "allowed": ["arquivos.listar"], "write": []},
+          "auth": {"schemes": ["oidc"], "allow": ["group:equipe"]}},
  "overrides": [{"section": "models", "state": "active", "reason": null, "version": 3,
                 "updated_by": "user:ana", "updated_at": "2026-10-07T17:32:00Z",
                 "payload": {"generation": "openrouter/openai/gpt-4.1-mini", "controller": "openrouter/openai/gpt-4.1-nano"}}],
  "effective": {"models": {"generation": "openrouter/openai/gpt-4.1-mini", "controller": "openrouter/openai/gpt-4.1-nano"},
-               "mcp": {"aliases": ["arquivos", "agenda"], "allowed": ["arquivos.listar"], "write": []}}}
+               "mcp": {"aliases": ["arquivos", "agenda"], "allowed": ["arquivos.listar"], "write": []},
+               "auth": {"schemes": ["oidc"], "allow": ["group:equipe"]}}}
 ```
+
+`yaml.auth` e `effective.auth` vêm sempre, também sem `auth` em `overridable` (só leitura). O `payload` de uma
+sobreposição ou de uma linha do histórico de `auth` é `{"schemes": [...], "allow": [...]}` (ADR-040).
 
 ## Servidores MCP globais (007)
 
@@ -131,6 +138,16 @@ ficam como custo não informado, e os preços já gravados continuam valendo par
 ## Chaves de API (003) e saúde (011)
 
 `GET /keys`, `POST /keys`, `DELETE /keys/{key_id}` — os formatos da superfície privada; `GET /health` — a saúde agregada.
+
+Fase 9 (2026-10-21; ADR-040, US11):
+
+| Rota | Corpo | Resposta |
+|---|---|---|
+| `POST /keys/{key_id}/rotate` | nenhum (objeto vazio aceito; qualquer campo → 422) | `200` `{"key_id", "subject", "groups", "label", "created_at", "revoked_at": null, "rotated_at": "…", "key": "axn_<key_id>_…"}` — a única resposta, além da emissão, com a chave em claro; inexistente → `404`; revogada → `409 key_revoked` |
+
+A chave, nas duas superfícies, ganha `rotated_at` (`null` se nunca rotacionada). Na emissão, `svc:<nome>` fora do padrão
+dos nomes de Assistant → `422` `param: "subject"`; o grupo de administração em `groups` → `422` `param: "groups"` (só a
+CLI o concede). O seletor de `allow` da console usa `GET /keys` e `GET /groups`: não há rota própria.
 
 ## Conformidade (`tests/http/contract/test_admin_api.py`)
 

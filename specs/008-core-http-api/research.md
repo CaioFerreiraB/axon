@@ -870,3 +870,59 @@ administração e na integração da 011. A chave `x_axon` nos chunks e no erro 
 **Rationale**: o cenário 3 é o único comportamento novo e precisa de verificador nas duas entradas.
 
 **Alternatives considered**: testar a recusa só no domínio (não prova que o adapter a chama antes de executar).
+
+---
+
+# Passada de 2026-10-21: chaves rotacionáveis e `auth` na administração (US11; [ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md))
+
+Decisões pré-aprovadas: ADR-031 (superfície e erros), ADR-032 (sobreposições), ADR-040 e a passada da 003 (research R38
+a R44 dela, seams `ApiKeyAdmin.rotate` e `SystemAssistantAdmin.override_auth`). O que segue é como chegam à API.
+
+## R56 — Rota de rotação e o 409 próprio
+
+**Decision**: `POST /admin/v1/keys/{key_id}/rotate` → `200` com `key_json(info) | {"key": plaintext}` (a mesma forma da
+emissão, sem `201`: nada é criado). Corpo opcional: vazio é aceito; objeto com qualquer campo → 422 nomeando-o (nenhum
+campo é aceito). `NotFound` → 404 da tabela; `Conflict` da 003 **nesta rota** → 409 `key_revoked` com `param: "key_id"`,
+traduzido pela função pura `key_revoked(message)` em `http/domain/errors.py` — a tabela geral continua mapeando
+`Conflict` para `version_conflict`, que é o caso de toda outra rota. Só em `/admin/v1` (clarificação de 2026-10-21).
+
+**Rationale**: FR-034; um `version_conflict` com `param: "version"` numa rota sem versão mandaria a console recarregar e
+tentar de novo, sem efeito.
+
+**Alternatives considered**: mudar o `Conflict` da 003 para um erro próprio (mudaria o seam por um detalhe de borda);
+422 (o pedido está certo; é o estado que impede — research R39 da 003).
+
+## R57 — `rotated_at` na representação da chave
+
+**Decision**: `key_json` (`http/domain/private.py`, usado pelas duas superfícies) ganha `rotated_at` (ISO 8601 ou
+`null`). As recusas novas da emissão chegam como `RequestRejected` e já saem como 422 `invalid_field` com `param` pela
+tabela (FR-036): nada novo na borda.
+
+**Rationale**: FR-035; campo aditivo, a forma da privada não muda (ADR-031, item 5).
+
+**Alternatives considered**: `rotated_at` só na administração (duas representações da mesma chave).
+
+## R58 — Sobreposição de `auth` na borda
+
+**Decision**: `PUT /admin/v1/assistants/{name}/auth` com `{"schemes": [...], "allow": [...], "version": n|null}` →
+`auth_body` puro em `http/domain/admin_assistants.py` (só esses campos; listas de textos, senão 422 com o campo; o
+conteúdo — vazio, esquema desconhecido, seletor inválido, `*` em privado — é validado pela 003 e volta como 422 com
+`param` `auth.schemes`/`auth.allow`/`auth`). `_SECTIONS` ganha `auth` (descarte por `DELETE …/overrides/auth`).
+`auth_json(AuthOverride)` = `{"schemes": sorted, "allow": [...] na ordem}`; `view_json` traz `yaml.auth` e
+`effective.auth`; `payload_json` aceita `AuthOverride` (sobreposições e histórico).
+
+**Rationale**: FR-037; mesma forma das seções `models` e `mcp` (uma rota por seção, R46 da Fase 9).
+
+**Alternatives considered**: `PUT /assistants/{name}/overrides/{section}` genérico (quebraria as rotas existentes).
+
+## R59 — Nenhuma rota para o seletor; testes
+
+**Decision**: a console monta o seletor de `allow` com `GET /keys` (subjects `svc:` das chaves ativas) e `GET /groups`
+(FR-038). Testes: as três rotas novas na tabela da conformidade (`test_admin_api.py`: 404 para não admin, 401 para o
+token do chat, `no-store`, varredura de segredo); casos da US11 (cen. 1–7) em `tests/http/contract/test_admin_keys_auth.py`
+(marca `us11`, cuja descrição passa a citar também a 008 US11); unidade de `auth_body`/`auth_json`/`view_json` em
+`tests/http/unit/test_admin_assistants.py` e de `key_revoked` em `test_errors.py`.
+
+**Rationale**: SC-011; mesma régua da US9.
+
+**Alternatives considered**: `GET /admin/v1/subjects` (rota nova sem regra própria; ADR-040, item 3).

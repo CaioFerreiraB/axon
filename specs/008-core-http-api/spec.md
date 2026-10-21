@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: Tradução de arch-v1 §25 (API, duas superfícies, compat OpenAI e Open WebUI, streaming, requisição nativa), §28 (histórico de conversa), §31 Fase 7; ADR-002. Fase 9 (2026-10-13): superfície de administração para a console — ADR-029, ADR-031, ADR-032, ADR-033, ADR-034. Fase 9, incremento 9.5 (2026-10-20): identidade Axon — ADR-037, ADR-038.
+**Input**: Tradução de arch-v1 §25 (API, duas superfícies, compat OpenAI e Open WebUI, streaming, requisição nativa), §28 (histórico de conversa), §31 Fase 7; ADR-002. Fase 9 (2026-10-13): superfície de administração para a console — ADR-029, ADR-031, ADR-032, ADR-033, ADR-034. Fase 9, incremento 9.5 (2026-10-20): identidade Axon — ADR-037, ADR-038. Fase 9 (2026-10-21): rotação de chaves e sobreposição de `auth` na administração — ADR-040.
 
 ## Module Boundary *(mandatory)*
 
@@ -17,7 +17,7 @@
 - **Depende de infraestrutura (via portas)**: armazenamento das conversas; relógio (expiração de conversas); saúde agregada da plataforma (porta própria, implementada pela composition root, 011). O framework HTTP é o próprio adapter.
 - **Não conhece**: flows e seu estado, packs individuais, providers, políticas de tool.
 - **Substituição**: preservar os endpoints e o formato compatível com OpenAI; a camada HTTP pode ser reescrita sem afetar outros módulos.
-- **Insumo técnico**: [design.md](design.md); [ADR-002](../../docs/adr/ADR-002-assistant-fronteira-isolamento.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md), [ADR-029](../../docs/adr/ADR-029-console-de-administracao-propria.md), [ADR-031](../../docs/adr/ADR-031-superficie-de-administracao.md), [ADR-032](../../docs/adr/ADR-032-assistants-de-sistema-sobrepostos-em-runtime.md).
+- **Insumo técnico**: [design.md](design.md); [ADR-002](../../docs/adr/ADR-002-assistant-fronteira-isolamento.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md), [ADR-029](../../docs/adr/ADR-029-console-de-administracao-propria.md), [ADR-031](../../docs/adr/ADR-031-superficie-de-administracao.md), [ADR-032](../../docs/adr/ADR-032-assistants-de-sistema-sobrepostos-em-runtime.md), [ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md).
 
 ## Clarifications
 
@@ -67,6 +67,10 @@
 - Q: Qual o título da API no documento OpenAPI? → A: "Axon" (era "ai-core"; ADR-037, item 2).
 - Q: Como a console sabe se a instalação tem marca própria (ADR-038)? → A: `GET /admin/v1/me` ganha `instance.custom` (aditivo): `true` quando a instalação definiu um nome diferente do padrão "Axon" ou um logotipo; `false` quando o lugar principal é o Axon. O nome padrão da marca da instalação passa de "Agentic" a "Axon". Quem decide se a instalação definiu nome ou logotipo é a composição (011), a partir da configuração que ela já lê; a 008 só publica.
 - Q: Quem acompanha a troca nesta passada? → A: A fixture do pedido do Open WebUI v0.12 (os cabeçalhos da conexão), os testes e os documentos vivos da 008 e o `specs/README.md`. A conexão real do Open WebUI na instalação muda na passada dela; a console passa a usar o `custom` na passada da 013 (a validação do `me` na console ignora a chave nova até lá).
+
+### Session 2026-10-21
+
+- Q: A rotação de chave também deve existir na superfície privada, ou só em `/admin/v1`? → A: Só em `/admin/v1` (ADR-031, item 5: a privada não ganha rotas); uma automação com chave de admin já alcança a administração. Na privada, só o campo aditivo `rotated_at` na listagem e a recusa do grupo de administração na emissão, que vem da 003.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -254,6 +258,43 @@ A plataforma passa a se chamar Axon (ADR-037). Quem integra configura os cabeça
 
 ---
 
+### User Story 11 - Chaves rotacionáveis e acesso de Assistants pela administração (Priority: P2)
+
+Um admin, pela console ou por automação com chave, rotaciona o segredo de uma chave de API e recebe a chave nova uma
+única vez; a listagem mostra quando cada chave foi rotacionada. Na emissão, a administração recusa, nomeando o campo, o
+nome de sistema fora do padrão e o grupo de administração. Para um Assistant de sistema que libera `auth`, o admin grava,
+descarta e consulta no histórico a sobreposição de quem pode usá-lo, e vê na visão do Assistant o `auth` do YAML e o que
+vale. A tela escolhe sistemas e grupos pelo que a administração já lista — chaves e grupos —, sem rota nova
+([ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md); 003 US12 e US13).
+
+**Why this priority**: A console (013) não tem lógica própria (ADR-029): sem essas rotas, a tela de chaves e a aba de
+acesso não existem, e a automação sem console não rotaciona.
+
+**Independent Test**: Com uma chave de admin, emitir uma chave para `svc:relatorios`, rotacioná-la pela administração e
+ver a antiga recusada e a nova aceita na superfície privada; gravar `auth` num Assistant que a libera e ver o efetivo na
+visão; com um não admin, as rotas novas respondem o 404 de rota inexistente.
+
+**Acceptance Scenarios**:
+
+1. **Given** uma chave ativa, **When** um admin pede a rotação dela, **Then** recebe a chave com o mesmo identificador, o
+   instante da rotação e a chave em claro nova — a única resposta que a traz; a listagem seguinte mostra o instante da
+   rotação, sem chave nem hash.
+2. **Given** uma chave revogada, **When** um admin pede a rotação, **Then** recebe 409 com código próprio de chave
+   revogada, distinto do conflito de versão; **Given** um identificador inexistente, **Then** 404.
+3. **Given** a emissão com `svc:Relatorios` ou com o grupo de administração, **When** chega à administração, **Then**
+   recebe 422 com `param` igual a `subject` ou `groups` e a mensagem da 003.
+4. **Given** um Assistant com `overrides: [auth]`, **When** um admin grava `schemes` e `allow` com a versão que leu,
+   **Then** recebe a visão com o `auth` efetivo novo; versão desatualizada → 409 de versão; `*` num privado, `schemes`
+   ou `allow` vazios → 422 com `param` `auth.schemes` ou `auth.allow`; seção não liberada → 422 com `param` `auth`.
+5. **Given** a sobreposição de `auth` gravada, **When** um admin a descarta com a versão, **Then** a visão volta ao YAML,
+   e o histórico traz a gravação e o descarte com o conteúdo de `auth`.
+6. **Given** qualquer Assistant de sistema, **When** um admin pede a visão, **Then** ela traz o `auth` do YAML e o
+   efetivo, inclusive quando `auth` não está liberado (só leitura).
+7. **Given** um Principal fora do grupo de administração, **When** chama qualquer rota nova, **Then** recebe o 404 de
+   rota inexistente; toda resposta delas tem `Cache-Control: no-store`.
+
+---
+
 ### Edge Cases
 
 - Execução sem streaming com MCP do Assistant fora do ar: a resposta é gerada sem a tool, o registro `McpUnavailable` é `error`, e a API responde 502 com a resposta, os motivos e `x-should-retry: false` — o SDK oficial não repete.
@@ -281,6 +322,12 @@ A plataforma passa a se chamar Axon (ADR-037). Quem integra configura os cabeça
 - Dois admins gravam a mesma sobreposição ou o mesmo ajuste: o segundo recebe 409 com a versão atual; nada é sobrescrito.
 - Gravar a chave secreta do Langfuse sem chave mestra na instalação: 409 que explica a falta, sem gravar.
 - Campo de ajuste definido pela instalação: escrita recusada com 409 que nomeia o campo e a origem.
+- Admin que rotaciona pela administração a chave com que está autenticado: a resposta traz a chave nova; a requisição
+  seguinte com a antiga recebe 401 (credencial inválida), como qualquer chave que deixou de valer.
+- Rotação pedida com corpo: o corpo é ignorado se vazio; campo desconhecido → 422 nomeando o campo.
+- Superfície privada: não ganha rota de rotação nem muda de forma (ADR-031, item 5; clarificação de 2026-10-21) — só o
+  campo aditivo `rotated_at` na listagem; a recusa do grupo de administração na emissão vale também nela, porque é regra
+  da 003 para toda emissão com ator (003 FR-036).
 
 ## Requirements *(mandatory)*
 
@@ -321,6 +368,12 @@ A plataforma passa a se chamar Axon (ADR-037). Quem integra configura os cabeça
 - **FR-031**: O documento OpenAPI da plataforma DEVE ter o título "Axon".
 - **FR-032**: `GET /admin/v1/me` DEVE trazer `instance.custom`: `true` quando a instalação definiu um nome diferente do padrão "Axon" ou um logotipo, `false` caso contrário; o nome padrão da marca da instalação DEVE ser "Axon" (ADR-038). Mudança aditiva.
 - **FR-033**: Os consumidores no workspace que citam os cabeçalhos ou a chave de extensão — a fixture do Open WebUI, os testes e os documentos vivos — DEVEM usar os nomes novos na mesma passada (ADR-037, item 7).
+- **FR-034**: A administração — e só ela; a superfície privada não ganha a rota — DEVE oferecer a rotação do segredo de uma chave de API (`POST /admin/v1/keys/{key_id}/rotate`): a resposta traz a chave como na listagem, mais a chave em claro nova, uma única vez; chave inexistente → 404; chave revogada → 409 com código próprio (`key_revoked`, `param` `key_id`), distinto do conflito de versão ([ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md); 003 FR-028, FR-029).
+- **FR-035**: A representação de uma chave DEVE trazer o instante da última rotação (`rotated_at`, `null` se nunca rotacionada), na administração e na superfície privada; nunca a chave nem o hash.
+- **FR-036**: As recusas da emissão pela 003 — nome de sistema fora do padrão e grupo de administração — DEVEM sair como 422 `invalid_field` com `param` (`subject`, `groups`) e a mensagem do módulo dono.
+- **FR-037**: A administração DEVE gravar (`PUT /admin/v1/assistants/{name}/auth`, corpo `{"schemes", "allow", "version"}`) e descartar (`DELETE …/overrides/auth?version=`) a sobreposição de `auth`, com as recusas da 003 como 422 com `param` e a versão desatualizada como 409 de versão; a visão do Assistant DEVE trazer `auth` em `yaml` e em `effective` (sempre) e o conteúdo de `auth` nas sobreposições e no histórico.
+- **FR-038**: A escolha de entradas de `allow` NÃO DEVE ganhar rota própria: os sistemas vêm da listagem de chaves e os grupos, da listagem de grupos já existentes (003 FR-030, FR-032).
+- **FR-039**: As rotas novas DEVEM seguir as regras da superfície: 404 de rota inexistente para quem não administra, 401 para credencial inválida, `Cache-Control: no-store` e o identificador da requisição em toda resposta.
 
 
 ### Key Entities
@@ -343,6 +396,7 @@ A plataforma passa a se chamar Axon (ADR-037). Quem integra configura os cabeça
 - **SC-008**: 100% das ações da console (013) têm rota na superfície de administração, e cada rota funciona também com chave de API de admin, sem console.
 - **SC-009**: Em teste, nenhum Principal fora do grupo de administração distingue uma rota de administração de uma inexistente, e nenhuma resposta de administração traz valor de segredo.
 - **SC-010**: Depois da passada da US10, zero ocorrências de `x-ai-core-store`, `x-ai-core-progress` e `x_ai_core` no código, nos testes e nos documentos vivos do workspace e das specs do core (fora do histórico do ADR-037, item 6, do contrato da instalação e dos testes e textos da recusa do FR-030), e 100% dos pedidos com um cabeçalho antigo são recusados antes de executar.
+- **SC-011**: Em teste, a chave em claro aparece só na resposta da emissão e na da rotação — nenhuma listagem, visão, erro ou registro a repete —, e o segredo anterior a uma rotação recebe 401 já na requisição seguinte; toda rota nova responde 404 a quem não administra.
 
 ## Assumptions
 

@@ -6,8 +6,17 @@ from typing import Any
 
 import pytest
 
-from axon_ai.assistants.api import McpOverride, ModelsOverride
-from axon_ai.http.domain.admin_assistants import check_body, mcp_body, mcp_json, models_body, version_param
+from axon_ai.assistants.api import AuthOverride, McpOverride, ModelsOverride
+from axon_ai.http.domain.admin_assistants import (
+    auth_body,
+    auth_json,
+    check_body,
+    mcp_body,
+    mcp_json,
+    models_body,
+    payload_json,
+    version_param,
+)
 from axon_ai.http.domain.admin_common import AdminInvalid
 from axon_ai.llm.api import ModelRef
 
@@ -59,3 +68,36 @@ def test_testar_modelo_e_versao_na_query() -> None:
     assert _field(check_body, {"role": "generation"}) == "model"
     assert version_param("3") == 3
     assert _field(version_param, None) == "version" and _field(version_param, "-1") == "version"
+
+
+# --- US11: seção `auth` (ADR-040; R58) -------------------------------------------------------------------------------
+
+
+@pytest.mark.us11
+def test_auth_body_le_esquemas_allow_e_versao() -> None:
+    override, version = auth_body({"schemes": ["oidc", "api_key"], "allow": ["svc:a", "group:b"], "version": 2})
+    assert override == AuthOverride(schemes=frozenset({"oidc", "api_key"}), allow=("svc:a", "group:b"))
+    assert version == 2
+    _, first = auth_body({"schemes": ["oidc"], "allow": ["*"], "version": None})
+    assert first is None
+
+
+@pytest.mark.us11
+@pytest.mark.parametrize(
+    ("body", "field"),
+    [
+        ({"schemes": ["oidc"], "allow": ["*"], "version": None, "visibility": "public"}, "visibility"),
+        ({"schemes": "oidc", "allow": ["*"], "version": None}, "schemes"),
+        ({"schemes": ["oidc"], "allow": [1], "version": None}, "allow"),
+        ({"allow": ["*"], "version": None}, "schemes"),
+    ],
+)
+def test_auth_body_recusa_forma_errada(body: dict[str, Any], field: str) -> None:
+    assert _field(auth_body, body) == field
+
+
+@pytest.mark.us11
+def test_auth_json_ordena_esquemas_e_mantem_a_ordem_de_allow() -> None:
+    override = AuthOverride(schemes=frozenset({"oidc", "api_key"}), allow=("svc:z", "group:a"))
+    assert auth_json(override) == {"schemes": ["api_key", "oidc"], "allow": ["svc:z", "group:a"]}
+    assert payload_json(override) == auth_json(override)

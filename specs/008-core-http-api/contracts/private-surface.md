@@ -16,7 +16,7 @@ GET /private/v1/packs
 
 POST /private/v1/admin/keys   {"subject": "svc:ingestor", "groups": ["leitores"], "label": "pipeline"}
 201 {"key_id": "…", "subject": "svc:ingestor", "groups": ["leitores"], "label": "pipeline",
-     "created_at": "…", "revoked_at": null, "key": "axn_…"}
+     "created_at": "…", "revoked_at": null, "rotated_at": null, "key": "axn_…"}
 
 GET /private/v1/health
 200 {"status": "ok", "items": [{"name": "packs", "ok": true, "detail": null}]}
@@ -25,3 +25,9 @@ GET /private/v1/health
 Conformidade (`tests/http/contract/test_private_routes.py`): pack em erro aparece com status e mensagem para o admin
 (US5 cen. 1) e 404 para os demais; ciclo emitir → autenticar com a chave → listar sem a chave → revogar → recusada
 (US5 cen. 2); saúde com qualquer chave e 503 quando um item não está saudável.
+
+## Fase 9 (2026-10-21): `rotated_at` (ADR-040)
+
+A chave ganha `rotated_at` (`null` se nunca rotacionada). A rotação **não** existe nesta superfície (ADR-031, item 5;
+clarificação de 2026-10-21 da 008): fica em `/admin/v1`, que também aceita chave de API. A emissão pelo
+`/private/v1/admin/keys` recusa o grupo de administração (`422`, `param: "groups"`), como a da administração (003 FR-036).

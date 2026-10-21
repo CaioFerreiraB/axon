@@ -19,6 +19,7 @@ from axon_ai.http.domain.errors import (
     ConversationMismatch,
     InvalidRequest,
     error_for,
+    key_revoked,
     storage_unavailable,
     unauthenticated,
 )
@@ -111,3 +112,11 @@ def test_armazenamento_de_credenciais_fora_e_503() -> None:
 
 def test_excecao_desconhecida_nao_tem_traducao() -> None:
     assert error_for(RuntimeError("x")) is None
+
+
+@pytest.mark.us11
+def test_chave_revogada_tem_409_proprio() -> None:
+    """R56: distinto do conflito de versão, que mandaria a console recarregar e tentar de novo."""
+    response = key_revoked("chave 'x' revogada não rotaciona")
+    assert response.status == 409
+    assert (response.code, response.param) == ("key_revoked", "key_id")

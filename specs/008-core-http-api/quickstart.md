@@ -227,3 +227,17 @@ curl -s -H "Authorization: Bearer axn_0123456789abcdef_dev" -H "x-ai-core-store:
 
 **Esperado**: `Axon`; o erro com `"code": "invalid_header"`, `"param": "x-ai-core-store"` e a mensagem citando
 `x-axon-store`.
+
+## Fase 9 (2026-10-21): US11 — chaves rotacionáveis e `auth` na administração
+
+A partir de `axon-ai/`, com `XDG_DATA_HOME=$HOME/.local/share`. Decisões em [research.md](research.md) R56–R59.
+
+```bash
+uv run pytest packages/core/tests/http -m us11 -v
+uv run pytest packages/core/tests/http/contract/test_admin_api.py -q
+```
+
+**Esperado**: verde — `POST /admin/v1/keys/{id}/rotate` devolve `key` uma vez e a antiga recebe 401 na superfície
+privada; revogada → 409 `key_revoked`; `rotated_at` na listagem; emissão com `svc:Relatorios` ou com o grupo de
+administração → 422 com `param`; `PUT /assistants/{name}/auth` grava, recusa `*` em privado e seção não liberada com
+`param`, e a visão traz `yaml.auth`/`effective.auth`; não admin recebe o 404 de rota inexistente em todas.

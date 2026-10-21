@@ -744,3 +744,82 @@ T104.
 - Suítes: workspace 3150 passed, 168 skipped; com `AXON_TEST_POSTGRES_DSN`, 3307 passed, 11 skipped; mypy sem erro;
   ruff limpo; import-linter 69 kept; console 67 testes e e2e 39 passed, 4 skipped. À mão, com `serve`: `/openapi.json`
   com o título `Axon`; `x-ai-core-store: false` → 400 `invalid_header`, `param: "x-ai-core-store"`, "use 'x-axon-store'".
+
+---
+
+## Passada de 2026-10-21: chaves rotacionáveis e `auth` na administração — US11 ([ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md); research R56–R59)
+
+**Goal**: `POST /admin/v1/keys/{key_id}/rotate` (chave em claro uma vez; 409 `key_revoked`), `rotated_at` nas duas
+superfícies, `PUT /admin/v1/assistants/{name}/auth` e o descarte de `auth`, a visão com `yaml.auth`/`effective.auth`;
+nada novo para o seletor; mypy volta a fechar.
+
+**Independent Test**: [quickstart.md, "Fase 9 (2026-10-21)"](quickstart.md).
+
+### Tests (antes das T111–T114)
+
+- [X] T107 [US11] `axon-ai/pyproject.toml`: a descrição da marca `us11` passa a citar também "008 US11 — chaves
+  rotacionáveis e auth na administração"
+- [X] T108 [P] [US11] `axon-ai/packages/core/tests/http/unit/test_admin_assistants.py` (R58): `auth_body` aceita
+  `{"schemes", "allow", "version"}` e devolve `AuthOverride` e a versão; campo desconhecido, `schemes`/`allow` que não são
+  lista de textos → `AdminInvalid` com o campo; `auth_json` ordena `schemes` e mantém a ordem de `allow`; `view_json` traz
+  `yaml.auth` e `effective.auth`; `payload_json(AuthOverride)` = `auth_json`. `tests/http/unit/test_errors.py` (R56):
+  `key_revoked("…")` é 409, `code="key_revoked"`, `param="key_id"`; `test_private` (ou onde `key_json` é testado):
+  `rotated_at` `null` e ISO
+- [X] T109 [P] [US11] `axon-ai/packages/core/tests/http/contract/test_admin_keys_auth.py` (novo, marca `us11`; R56–R59),
+  sobre o `_kit` de `test_admin_api.py` (importado ou fatorado em `conftest` da pasta) com o Assistant `geral` ganhando
+  `overrides: [models, mcp, auth]` e `auth: {schemes: [oidc], allow: ["group:equipe"]}`: cen. 1 (rotação 200 com `key`
+  `axn_<mesmo key_id>_…`, `rotated_at`; `GET /keys` sem a chave; antiga → 401 e nova → 200 em
+  `/private/v1/health`); cen. 2 (revogada → 409 `key_revoked` `param` `key_id`; inexistente → 404; corpo
+  `{"x": 1}` → 422 `param` `x`); cen. 3 (`svc:Relatorios` → 422 `subject`; grupo `operadores` → 422 `groups`, na
+  administração e em `/private/v1/admin/keys`); cen. 4 (`PUT …/auth` com versão `null` → 200 e `effective.auth`;
+  versão errada → 409 `version_conflict`; `allow: ["*"]` em privado → 422 `auth.allow`; `schemes: []` → 422
+  `auth.schemes`; `fixo` → 422 `auth`); cen. 5 (`DELETE …/overrides/auth?version=1` volta ao YAML; histórico com
+  `payload` `{"schemes", "allow"}`); cen. 6 (`fixo` com `yaml.auth == effective.auth`); cen. 7 coberto pela tabela (T110)
+- [X] T110 [P] [US11] `axon-ai/packages/core/tests/http/contract/test_admin_api.py`: `("POST",
+  "/keys/00000000000000b2/rotate", None)`, `("PUT", "/assistants/geral/auth", {"schemes": ["oidc"], "allow":
+  ["group:equipe"], "version": None})` e `("DELETE", "/assistants/geral/overrides/auth?version=1", None)` na tabela de
+  rotas (404 para não admin, 401 para o token do chat); `test_chaves_pela_administracao` confere `rotated_at` e a
+  rotação na varredura de segredo (a chave em claro nova entra em `SECRETS` do cenário). Rodar T108–T110 e ver falhar
+
+### Implementation
+
+- [X] T111 [US11] `axon-ai/packages/core/src/axon_ai/http/domain/private.py` (R57): `key_json` com `"rotated_at":
+  info.rotated_at.isoformat() if info.rotated_at is not None else None`
+- [X] T112 [US11] `axon-ai/packages/core/src/axon_ai/http/domain/errors.py` (R56): `key_revoked(message: str) ->
+  ErrorResponse` = `_conflict("key_revoked", message, param="key_id")`
+- [X] T113 [US11] `axon-ai/packages/core/src/axon_ai/http/domain/admin_assistants.py` (R58): `auth_json`, `auth_body`
+  (`only(body, ("schemes", "allow", "version"))`, `texts` para as duas listas, `version_of(body, nullable=True)`),
+  `payload_json(payload: OverridePayload | None)` com o ramo de `AuthOverride`, `view_json` com `"auth"` em `yaml` e
+  `effective`
+- [X] T114 [US11] `axon-ai/packages/core/src/axon_ai/http/adapters/admin.py` (R56, R58): `_SECTIONS` com `"auth"`;
+  `@route("PUT", "/assistants/{name}/auth")` → `seams.assistants.override_auth`; `@route("POST",
+  "/keys/{key_id}/rotate")`: corpo lido só se houver bytes, `only(body, ())`; `request.app.state.keys.rotate(actor=…,
+  key_id=…)`; `Conflict` → `raise ApiError(key_revoked(str(error)))`; resposta `key_json(info) | {"key": plaintext}`.
+  Rodar T108–T110: verde
+
+### Integration e verificação
+
+- [X] T115 Suítes (a partir de `axon-ai/`): `uv run pytest && uv run mypy && uv run ruff check packages && uv run ruff
+  format --check packages && uv run lint-imports` (o mypy volta a zero); conformidade Postgres com
+  `AXON_TEST_POSTGRES_DSN`
+- [X] T116 [P] `specs/README.md` (linha da 008 com a US11) e o quickstart da US11 à mão com `axon serve` (rotação e `PUT
+  …/auth` por `curl` com chave de admin)
+
+### Dependencies (US11)
+
+T107 → T108 ∥ T109 ∥ T110 (veem falhar) → T111 → T112 → T113 → T114 → T115; T116 depois da T114.
+
+### Notas da execução (US11)
+
+- Os casos da US11 ficaram em `tests/http/contract/test_admin_api.py` (seção própria, marca `us11`), não num arquivo
+  novo: o `_kit` mora nesse módulo, e `contract/` não está no `pythonpath`. O `_kit` ganhou `extra_assistants`.
+- A T108 previa um teste de unidade de `key_json`; `rotated_at` ficou coberto pelos casos de contrato (listagem e
+  rotação), sem arquivo de unidade novo.
+- Na superfície privada, a recusa do grupo de administração e do nome de sistema sai pelo envelope dela (400
+  `invalid_request` com `param`, conferido), não pelo 422 da administração; o teste fixa o 400 e o `param`.
+- T108–T110 falharam na coleta antes da T111 (`auth_body`, `auth_json` e `key_revoked` inexistentes).
+- Suítes: workspace 3290 passed, 192 skipped; com `AXON_TEST_POSTGRES_DSN`, 3471 passed, 11 skipped; **mypy sem erro**
+  (os dois erros que a passada da 003 deixou em `payload_json` fecharam); ruff limpo; import-linter 69 kept.
+- À mão (`persistent`, `axon serve`, chave de admin da CLI): rotação pela administração com o mesmo `key_id`; a antiga
+  401 e a nova 200 em `/private/v1/health`; revogada → 409 `key_revoked` `param` `key_id`; `PUT …/auth` com o efetivo e
+  o YAML na visão; `Cache-Control: no-store`.
