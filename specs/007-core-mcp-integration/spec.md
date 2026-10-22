@@ -30,6 +30,12 @@
 - Q: Como se evita que o alias de um MCP de usuário colida com o de um MCP global? → A: Alias de usuário leva o prefixo reservado `~` (ex.: `~drive`), único por dono; alias global nunca começa com `~` e é único entre os globais. Os dois espaços nunca se cruzam, nada sombreia nada — a regra dos Assistants de usuário da 003 (FR-017).
 - Alinhamento com o princípio VI da constituição (achado C1 do `/speckit-analyze`, sem pergunta nova): além da exceção de hosts internos, o operador pode definir na configuração da imagem uma **allowlist de hosts de destino**, opcional. Definida, todo destino fora dos hosts internos — de MCP global ou de usuário — precisa casar com ela (nome exato ou `*.domínio`); ausente, vale qualquer host público. É a "allowlist de hosts" que o princípio VI exige do cliente MCP.
 
+### Session 2026-10-22
+
+- Q: O que acontece com a parte de imagem de um resultado MCP ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md))? → A: É preservada: o transporte a entrega como `RemotePart` com `mime` e os bytes (`data`), e o resultado a leva em `ToolResult.attachments` (contrato 001, 0.2.2). Ela não entra no texto — quem põe a marca no texto cercado é a 004.
+- Q: Que imagem é recusada, e como? → A: Tipo fora da lista dos contratos (`ATTACHMENT_MIME_TYPES`; SVG incluído), bytes acima de `AXON_TOOL_MAX_ATTACHMENT_BYTES` (2 MiB por padrão) ou base64 inválido viram, no texto, a marca de omissão de hoje com o motivo: `[conteúdo image omitido: <motivo>]`. Partes de áudio e recurso seguem com a marca sem motivo.
+- Q: O teto de bytes da política (`max_response_bytes`) conta as imagens? → A: Não: ele continua cortando só o texto. O teto do transporte, que protege a leitura da resposta inteira, soma à folga de hoje o tamanho em base64 de quatro anexos no teto — uma resposta acima disso falha como hoje ("resposta acima do teto").
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Operador registra um MCP global sem código nem restart (Priority: P1)
@@ -153,6 +159,8 @@ O cliente bloqueia `localhost` e faixas de IP privadas para todo MCP (inclusive 
 - **FR-013**: O registro pela API — em qualquer escopo — NÃO DEVE aceitar transporte `stdio`; servidores `stdio` existem só no arquivo de configuração do operador, e a API os mostra como somente leitura.
 - **FR-014**: MCPs de escopo `user` NÃO DEVEM ter autenticação nem referência de credencial, e o endpoint NÃO DEVE conter credencial embutida (usuário e senha na URL); autenticação de MCP de usuário fica fora da Fase 3.
 - **FR-015**: Alias de MCP de escopo `user` DEVE começar com o prefixo reservado `~` e ser único por dono; alias global NÃO DEVE começar com `~` e DEVE ser único entre os globais. Registro que viole a regra é recusado nomeando o campo.
+- **FR-016**: O cliente DEVE preservar as partes de imagem do resultado como anexos (`ToolResult.attachments`, contrato 001), fora do texto, quando o tipo está em `ATTACHMENT_MIME_TYPES` e os bytes cabem no teto por anexo (`AXON_TOOL_MAX_ATTACHMENT_BYTES`); fora disso, a parte DEVE virar a marca de omissão com o motivo ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 2).
+- **FR-017**: O teto de texto da política (`max_response_bytes`) NÃO DEVE contar os anexos; o teto do transporte DEVE comportar, além do texto, quatro anexos no teto por anexo.
 
 ### Key Entities
 

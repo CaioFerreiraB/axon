@@ -13,6 +13,7 @@ from typing import Final
 
 from axon_ai.assistants.api import ExecutionGrant, Principal
 from axon_ai.mcp.api import (
+    DEFAULT_MAX_ATTACHMENT_BYTES,
     Discovery,
     McpConflict,
     McpNotFound,
@@ -55,6 +56,8 @@ DEFAULT_DISCOVERY_TTL: Final = timedelta(seconds=300)
 DEFAULT_FAILURE_TTL: Final = timedelta(seconds=30)
 TRANSPORT_SLACK_BYTES: Final = 1_048_576
 """Folga do teto do transporte sobre `max_response_bytes`: inicialização e lista de tools (research R6)."""
+TRANSPORT_ATTACHMENTS: Final = 4
+"""Quantos anexos no teto, em base64, o transporte comporta além do texto (R17)."""
 
 
 class CredentialMissing(Exception):
@@ -78,6 +81,7 @@ class McpService:
         clock: Clock,
         discovery_ttl: timedelta = DEFAULT_DISCOVERY_TTL,
         failure_ttl: timedelta = DEFAULT_FAILURE_TTL,
+        max_attachment_bytes: int = DEFAULT_MAX_ATTACHMENT_BYTES,
     ) -> None:
         self._store = store
         self._config = config
@@ -88,6 +92,7 @@ class McpService:
         self._clock = clock
         self._discovery_ttl = discovery_ttl
         self._failure_ttl = failure_ttl
+        self._max_attachment_bytes = max_attachment_bytes
 
     # --- McpRegistry: globais --------------------------------------------------------------------------------------
 
@@ -250,12 +255,16 @@ class McpService:
         try:
             target = self._target(server)
             try:
-                remote = await self._transport(server).call_tool(target, tool, arguments, limits=_limits(server))
+                remote = await self._transport(server).call_tool(
+                    target, tool, arguments, limits=_limits(server, self._max_attachment_bytes)
+                )
             except TransportFailure as error:
                 raise TransportFailure(_redact(error.reason, target)) from None
         except (TransportFailure, CredentialMissing) as error:
             return results.failure(_reason(error))
-        return results.to_tool_result(remote, max_bytes=policy.max_response_bytes)
+        return results.to_tool_result(
+            remote, max_bytes=policy.max_response_bytes, max_attachment_bytes=self._max_attachment_bytes
+        )
 
     async def _list_remote(self, server: Server) -> Sequence[RemoteTool]:
         target = self._target(server)
@@ -349,11 +358,13 @@ class RestrictedClient:
         return server
 
 
-def _limits(server: Server) -> OperationLimits:
+def _limits(server: Server, max_attachment_bytes: int = 0) -> OperationLimits:
+    """Prazo e teto da política; numa chamada de tool, o teto comporta também os anexos em base64 (R17)."""
     policy = server.view.policy
     assert policy is not None
+    attachments = TRANSPORT_ATTACHMENTS * (-(-max_attachment_bytes // 3) * 4)
     return OperationLimits(
-        timeout=policy.timeout_ms / 1000, max_bytes=policy.max_response_bytes + TRANSPORT_SLACK_BYTES
+        timeout=policy.timeout_ms / 1000, max_bytes=policy.max_response_bytes + TRANSPORT_SLACK_BYTES + attachments
     )
 
 

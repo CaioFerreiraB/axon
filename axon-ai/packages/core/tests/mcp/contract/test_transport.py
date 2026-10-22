@@ -48,6 +48,7 @@ def scripted_case(case: str) -> tuple[McpTransport, Target]:
         results={
             "ecoar": RemoteResult(parts=(RemotePart(kind="text", text="oi"),)),
             "falha": RemoteResult(parts=(RemotePart(kind="text", text="falha programada"),), is_error=True),
+            "imagem": RemoteResult(parts=(RemotePart(kind="image", mime="image/png", data=b"hello"),)),
         },
         delay=5.0 if case == "lento" else 0.0,
     )
@@ -109,6 +110,14 @@ async def test_chama_uma_tool(make: Case) -> None:
     resultado = await transport.call_tool(target, "ecoar", {"texto": "oi"}, limits=LIMITS)
     assert not resultado.is_error
     assert [part.text for part in resultado.parts if part.kind == "text"] == ["oi"]
+
+
+async def test_parte_de_imagem_chega_com_tipo_e_bytes(make: Case) -> None:
+    """R17: o `ImageContent` do SDK vira `RemotePart` com `mime` e os bytes decodificados."""
+    transport, target = make("ok")
+    resultado = await transport.call_tool(target, "imagem", {}, limits=LIMITS)
+    [parte] = resultado.parts
+    assert (parte.kind, parte.mime, parte.data) == ("image", "image/png", b"hello")
 
 
 async def test_resultado_de_erro_do_servidor(make: Case) -> None:

@@ -49,6 +49,8 @@ DEFAULT_TIMEOUT_MS: Final = 30_000
 MAX_RESPONSE_BYTES_MIN: Final = 1_024
 MAX_RESPONSE_BYTES_MAX: Final = 1_048_576
 DEFAULT_MAX_RESPONSE_BYTES: Final = 65_536
+DEFAULT_MAX_ATTACHMENT_BYTES: Final = 2_097_152
+"""Teto por imagem de um resultado (`AXON_TOOL_MAX_ATTACHMENT_BYTES`); não conta no teto de texto (ADR-044, R17)."""
 
 NOT_FOUND_MESSAGE: Final = "MCP não encontrado"
 """Mensagem fixa: MCP alheio e inexistente são indistinguíveis (SC-004)."""

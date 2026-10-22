@@ -120,3 +120,27 @@ async def test_cliente_de_assistant_de_usuario_ve_os_seus_e_os_globais_liberados
     da_bia = kit.service.client_for(grant("~drive", assistant="~dela", principal=BIA))
     with pytest.raises(UnknownServer):
         await da_bia.discover(["~drive"])
+
+
+async def test_imagem_do_servidor_chega_como_anexo_e_o_teto_do_transporte_a_comporta() -> None:
+    """R17, FR-016, FR-017: o anexo sai fora do texto, e o teto do transporte soma quatro anexos em base64."""
+    png = b"\x89PNG\r\n\x1a\n" + b"p" * 64
+    remoto = RemoteResult(
+        parts=(RemotePart(kind="text", text="gastos"), RemotePart(kind="image", mime="image/png", data=png))
+    )
+    kit = build(servers={FINANCEIRO_URL: scripted(results={"saldo": remoto})})
+    limites: list[int] = []
+    original = kit.transport.call_tool
+
+    async def registra(target, name, arguments, *, limits):  # type: ignore[no-untyped-def]
+        limites.append(limits.max_bytes)
+        return await original(target, name, arguments, limits=limits)
+
+    kit.transport.call_tool = registra  # type: ignore[method-assign]
+    await kit.service.create_global(global_draft())
+    resultado = await kit.service.client_for(grant("financeiro")).execute("financeiro", "saldo", {})
+
+    assert resultado.content == "gastos"
+    assert [anexo.data for anexo in resultado.attachments] == [png]
+    folga_de_anexos = 4 * (-(-2_097_152 // 3) * 4)
+    assert limites == [policy().max_response_bytes + 1_048_576 + folga_de_anexos]

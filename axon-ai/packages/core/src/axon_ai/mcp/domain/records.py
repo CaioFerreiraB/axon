@@ -88,10 +88,15 @@ class RemoteTool:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class RemotePart:
-    """Uma parte do resultado: texto, ou o tipo de uma parte não textual (imagem, áudio, recurso)."""
+    """Uma parte do resultado: texto, ou uma parte não textual (imagem, áudio, recurso).
+
+    A imagem traz o tipo (`mime`) e os bytes (`data`); sem bytes, ela chegou inválida (R17).
+    """
 
     kind: str
     text: str | None = None
+    mime: str | None = None
+    data: bytes | None = field(default=None, repr=False)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

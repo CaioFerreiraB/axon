@@ -326,3 +326,25 @@ do SDK testa o protocolo de verdade sem serviço externo, e a exceção de hosts
 
 **Alternatives considered**: só servidores falsos em memória (não pegaria incompatibilidade de protocolo nem a política
 aplicada na conexão real).
+
+## R17 — Imagens no resultado (ADR-044, itens 2 e 3; FR-016, FR-017)
+
+**Decision**: `RemotePart` ganha `mime: str | None` e `data: bytes | None`. O adapter do SDK (`sdk_session._part`)
+decodifica `ImageContent` (`type: "image"`, `mimeType`, `data` em base64): base64 inválido vira `RemotePart(kind="image",
+mime=…)` sem bytes. Em `domain/results.py`, `to_tool_result(remote, max_bytes=…, max_attachment_bytes=…)` leva cada parte
+de imagem com bytes, tipo em `ATTACHMENT_MIME_TYPES` e tamanho no teto para `ToolResult.attachments`, na ordem, sem
+repetir `id`, e não escreve nada no texto por ela; a parte recusada vira `[conteúdo image omitido: <motivo>]` —
+`tipo <mime> não aceito`, `<n> bytes acima do teto de <teto>` ou `imagem inválida`. O corte de `max_response_bytes`
+continua só no texto. `McpService` recebe `max_attachment_bytes` (default `DEFAULT_MAX_ATTACHMENT_BYTES` = 2 MiB, em
+`api.py`) e o teto do transporte passa a `max_response_bytes + TRANSPORT_SLACK_BYTES + 4 × base64(max_attachment_bytes)`.
+O transporte em memória aceita resultados programados com partes de imagem.
+
+**Rationale** (ADR-044: "a 007 preserva a parte de imagem"; "o teto de texto do gateway não conta os anexos"): a marca
+no texto é da 004, que conhece o `id` e o `alt` e cerca o texto; a 007 só separa bytes de texto e recusa o que não pode
+sair. O teto do transporte continua sendo o limite de memória de uma chamada — sem a folga, um PNG de 2 MiB (2,7 MiB em
+base64) derrubaria a chamada inteira.
+
+**Alternatives considered**: a 007 escrever a marca `[imagem <id> …]` no texto (duas specs escreveriam a mesma marca, e
+tool nativa de pack, que não passa pela 007, ficaria sem ela); limitar a quantidade de imagens por resultado (o ADR não
+pede; o teto do transporte já limita o total); contar as imagens em `max_response_bytes` (o ADR o recusa: o teto é do
+texto que o modelo lê).
