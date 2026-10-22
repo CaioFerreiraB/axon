@@ -8,7 +8,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Required
+from typing import NotRequired, Required
 
 from typing_extensions import ReadOnly, TypedDict
 
@@ -20,15 +20,20 @@ from axon_ai_contracts._freeze import (
     require_aware,
     require_non_empty,
 )
+from axon_ai_contracts.attachments import Attachment
 from axon_ai_contracts.retrieval import Chunk
 from axon_ai_contracts.tools import ToolResult
 
 
 class Message(TypedDict):
-    """Mensagem do histórico da conversa. Papéis conhecidos: `system`, `user`, `assistant`, `tool`."""
+    """Mensagem do histórico da conversa. Papéis conhecidos: `system`, `user`, `assistant`, `tool`.
+
+    `attachments` (0.2.2, ADR-044) são as imagens da mensagem; `content` continua texto, com a marca de cada uma.
+    """
 
     role: ReadOnly[str]
     content: ReadOnly[str]
+    attachments: NotRequired[ReadOnly[Sequence[Attachment]]]
 
 
 class Citation(TypedDict, total=False):

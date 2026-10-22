@@ -4,7 +4,21 @@ Política de versões: [ADR-014](../../../docs/adr/ADR-014-politica-versoes-0x-c
 aditiva sobe o patch e breaking sobe o minor. Mudança só de semântica, sem mudança de forma, é registrada aqui e
 classificada na revisão (FR-020).
 
-## 0.2.1 — não lançada
+## 0.2.2 — não lançada
+
+Imagens na conversa ([ADR-044](../../../docs/adr/ADR-044-imagens-na-conversa.md); spec 001, FR-028 e FR-029).
+Aditiva: nenhum pack muda; quem devolve imagem pelas próprias tools ou lê os anexos das mensagens pede
+`axon-ai-contracts>=0.2.2,<0.3`.
+
+### Adicionado
+
+- `Attachment(mime, data, alt=None)`: imagem com `id` calculado dos bytes (`img-` + 12 hexadecimais do SHA-256), tipo
+  da lista fechada `ATTACHMENT_MIME_TYPES` (`image/png`, `image/jpeg`, `image/webp`, `image/gif`) e `alt` limpo na
+  construção (sem quebras de linha nem `[]()`, até 120 caracteres).
+- `ToolResult.attachments: tuple[Attachment, ...] = ()` e a chave opcional `Message.attachments`. `content` continua
+  texto; `ChatMessage` e `LLMProvider` não mudam.
+
+## 0.2.1
 
 O pack prepara os próprios dados no build ([ADR-041](../../../docs/adr/ADR-041-o-pack-prepara-os-proprios-dados-no-build.md);
 spec 001, FR-026 e FR-027). Aditiva: nenhum pack muda; quem implementa `prepare` ou lê `data_dir` pede

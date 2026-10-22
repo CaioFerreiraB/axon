@@ -48,6 +48,14 @@
 - Q: Que versão sai? → A: `0.2.1` (aditivo; FR-016). Pack que implementa `prepare` ou lê `data_dir` declara `contract_version` "0.2.1" ou depende de `axon-ai-contracts>=0.2.1,<0.3` (ADR-014); pack que não usa nenhum dos dois continua com "0.2".
 - Q: Como a suíte de conformidade exercita o hook? → A: Quando o pack tem `prepare` (todo pack que herda de `PackBase` tem), a suíte o chama **duas vezes** seguidas no mesmo diretório — temporário, ou o `data_dir` que o autor passar — e exige que nenhuma das duas levante e que ele seja síncrono e devolva `None` (idempotência). Os hooks seguintes recebem esse mesmo `data_dir`, como na carga com a raiz configurada.
 
+### Session 2026-10-22
+
+- Q: Como uma imagem atravessa os contratos ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md))? → A: Pelo value object `Attachment(id, mime, data, alt)`: bytes, um tipo da lista fechada `ATTACHMENT_MIME_TYPES` (`image/png`, `image/jpeg`, `image/webp`, `image/gif`; SVG fica fora, é documento ativo) e um texto alternativo opcional. `ToolResult` ganha `attachments` (tupla, default vazia) e `Message` ganha a chave opcional `attachments`. `content` continua texto nos dois.
+- Q: De onde vem o `id`? → A: Do conteúdo, calculado na construção e nunca informado: `img-` seguido dos 12 primeiros hexadecimais do SHA-256 dos bytes. É o que reconhece a mesma imagem quando ela volta pelo histórico do cliente, onde o markdown não carrega id, e junta repetições.
+- Q: Quem limpa o `alt`, que vem de fora (servidor MCP, pack)? → A: O próprio `Attachment`, na construção: quebras de linha viram espaço, `[`, `]`, `(` e `)` saem, espaços se juntam, o texto é cortado em 120 caracteres e o vazio vira `None`. Assim nenhum produtor entrega um `alt` que quebre o markdown em que a 008 o põe.
+- Q: O `ChatMessage` dos contratos passa a aceitar partes de imagem? → A: Não. Mudar o tipo de `content` é breaking pelo diff de superfície (FR-020) e levaria a série a `0.3.0`, contra a consequência do ADR-044 ("o contrato 001 muda de forma aditiva"); nenhum pack usa `ChatMessage` nem `LLMProvider`. A mensagem com partes é tipo da 006 (decisão do mantenedor, 2026-10-22; 006 research). `ChatMessage` e `LLMProvider` não mudam.
+- Q: Que versão sai? → A: `0.2.2` (aditivo; FR-016). Pack que devolve imagem pelas próprias tools ou lê os anexos das mensagens pede `axon-ai-contracts>=0.2.2,<0.3`; os demais não mudam.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Autor de pack constrói e testa um pack sem o core (Priority: P1)
@@ -198,6 +206,8 @@ A plataforma passa a se chamar Axon (ADR-037). Um autor de pack declara a depend
 - **FR-025**: O diff de superfície do FR-020 DEVE comparar os símbolos pelo nome relativo à raiz do import e tratar a mudança de distribuição ou de raiz entre a linha de base e o HEAD como uma única mudança breaking, que exige a minor enquanto 0.x e NÃO conta como remoção sem depreciação. O CI DEVE conseguir gerar a superfície da linha de base com o import que ela tinha (`ai_core_contracts` em `contracts-v0.1.2`). Textos da linha de base que citam a raiz antiga (anotações, `repr` de aliases) DEVEM ser comparados com a raiz nova.
 - **FR-026**: Os contratos DEVEM oferecer o protocolo opcional `PreparesData` — `prepare(ctx: PackContext) -> None`, síncrono — para o pack produzir, no build da instalação, os arquivos de que precisa em runtime ([ADR-041](../../docs/adr/ADR-041-o-pack-prepara-os-proprios-dados-no-build.md)); `PackBase` DEVE trazer o default que não faz nada, e o `AgentPack` NÃO DEVE mudar. O `PackContext` DEVE ganhar `data_dir: Path | None`, com default `None`. Versão `0.2.1`.
 - **FR-027**: A suíte de conformidade DEVE, quando o pack tem `prepare`, chamá-lo duas vezes seguidas no mesmo diretório (temporário ou o informado pelo autor) e reportar exceção, retorno diferente de `None` e hook assíncrono; os hooks seguintes da suíte DEVEM receber o mesmo `data_dir`.
+- **FR-028**: Os contratos DEVEM oferecer o value object `Attachment` — `id`, `mime`, `data: bytes`, `alt: str | None` — e a constante `ATTACHMENT_MIME_TYPES` (`image/png`, `image/jpeg`, `image/webp`, `image/gif`). O `id` DEVE ser calculado na construção, `img-` mais os 12 primeiros hexadecimais do SHA-256 de `data`; tipo fora da lista ou `data` vazio DEVE levantar `ValueError`; o `alt` DEVE sair limpo (sem quebras de linha nem `[`, `]`, `(`, `)`, no máximo 120 caracteres, vazio vira `None`) ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 1).
+- **FR-029**: `ToolResult` DEVE ganhar `attachments: tuple[Attachment, ...]`, com default vazio, e `Message` a chave opcional (`NotRequired`) `attachments`; `content` continua texto. `ChatMessage` e `LLMProvider` NÃO mudam. Versão `0.2.2`.
 
 ### Key Entities
 
@@ -205,7 +215,8 @@ A plataforma passa a se chamar Axon (ADR-037). Um autor de pack declara a depend
 - **Pack Manifest**: versão, flow preferido, dependências de fatia, esquema de configuração, coleções exigidas.
 - **Pack Context**: dados de carga do pack — nome, configuração validada e, desde 0.2.1, o diretório de dados (`data_dir`, FR-026); sem serviços (FR-019).
 - **Validator Context**: contexto próprio dos validators; nunca expõe modelos (FR-008, FR-019).
-- **Tool Spec** / **Tool Result**: capacidade invocável e seu resultado não-confiável.
+- **Tool Spec** / **Tool Result**: capacidade invocável e seu resultado não-confiável; desde 0.2.2, o resultado carrega anexos (FR-029).
+- **Attachment**: imagem com id derivado do conteúdo, tipo da lista fechada e `alt` limpo (FR-028, ADR-044).
 - **Chunk**: trecho recuperado com proveniência e score.
 - **Retriever** / **Reranker** / **Answer Validator** / **Validation Result**: capacidades de recuperação, ordenação e checagem.
 - **Named Retriever**: retriever declarado pelo pack com nome local, descrição e coleções consultadas; origem da tool `retrieval` e da checagem de coleções do grant.

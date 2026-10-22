@@ -197,3 +197,20 @@ git worktree remove --force "$tmp/base"
 **Esperado**: os testes verdes; no diff, só linhas `[additive]` — `PackBase.prepare`, `PackContext.data_dir`,
 `PreparesData`, o código `hook.not_sync` e o parâmetro `data_dir` em `pack_context`, `acheck_pack` e variantes — e
 `bump exigido: patch; declarado: patch`, saída 0.
+
+## 11. Anexos (0.2.2, ADR-044)
+
+A partir de `axon-ai/`, com `$tmp` como na seção 10:
+
+```bash
+uv run pytest packages/contracts/tests/unit/test_attachments.py -q
+git worktree add "$tmp/base" contracts-v0.2.1
+uv run --isolated --no-project --with "$tmp/base/axon-ai/packages/contracts" python packages/contracts/tools/api_surface.py \
+  dump --output "$tmp/old.json"
+uv run python packages/contracts/tools/api_surface.py dump --output "$tmp/new.json"
+uv run python packages/contracts/tools/api_surface.py diff "$tmp/old.json" "$tmp/new.json" --old-version 0.2.1 --new-version 0.2.2
+git worktree remove --force "$tmp/base"
+```
+
+**Esperado**: os testes verdes; no diff, só linhas `[additive]` — `ATTACHMENT_MIME_TYPES`, `Attachment`,
+`Message['attachments']` e `ToolResult.attachments` — e `bump exigido: patch; declarado: patch`.
