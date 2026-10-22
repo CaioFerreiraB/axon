@@ -8,6 +8,7 @@ reescrita do grafo uma troca de objeto injetado (ADR-011, SC-001). Não importa 
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping
+from datetime import UTC, tzinfo
 
 from axon_ai.capabilities.api import Capabilities
 from axon_ai.graph.api import (
@@ -43,6 +44,7 @@ class ExecutionService:
         clock: Clock,
         capabilities: Capabilities | None = None,
         rag: RagSettings | None = None,
+        timezone: tzinfo = UTC,
     ) -> None:
         self._flows = flows
         self._hooks = hooks
@@ -51,6 +53,7 @@ class ExecutionService:
         self._clock = clock
         self._capabilities = capabilities
         self._rag = rag or RagSettings()
+        self._timezone = timezone
 
     def flows(self) -> frozenset[str]:
         """Nomes de flow disponíveis; `assistants validate` (003) os usa como dado. Sem o gateway de tools da 004, os
@@ -91,6 +94,7 @@ class ExecutionService:
             max_context_tokens=grant.limits.max_context_tokens if tools else None,
             rag=self._rag if rag_first else None,
             escalate=rag_first and "controller" in declared,
+            timezone=self._timezone,
         )
         return self._events(plan, stream=request.stream)
 

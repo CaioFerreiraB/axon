@@ -730,3 +730,26 @@ que faltava estava no estado do grafo ou só no trace.
 **Alternatives considered**: texto mais rico no `detail` do `ProgressEvent`; mapeamento livre de fatos; ler o trace em
 tempo real (todas no ADR-028).
 
+
+### R50 — Robustez do loop com modelos pequenos (FR-006b, FR-006c, FR-012b; 2026-10-22)
+
+**Decision**: quatro políticas puras em `domain/`, sem mudança de seam.
+1. *Data de referência* (`transcript.date_instruction`): a `reference_time` da execução no fuso da instalação,
+   com dia da semana, no sistema do controller e da geração quando o loop correu (`agentic` ou `rag_first` escalado).
+   O fuso entra no `ExecutionService(timezone=…)`, vindo de `AXON_TIMEZONE` (011, default `UTC`).
+2. *Ação repetida* (`transcript.repeats`): nome e argumentos canônicos iguais aos de um `ToolStep` não sintético →
+   geração, com `RepeatedAction`. O desfecho e a decisão no trace seguem `tool` (foi o que o modelo pediu); o motivo
+   está no `notice`, sem valor novo no `ControllerDecision` da 009.
+3. *Marcação de tool no texto* (`markup.ToolMarkupFilter`): filtro de streaming antes do filtro dos validators;
+   segura só o fim que ainda pode ser começo de `<tool_call>`. Bloco sem fechamento é descartado até o fim.
+4. *Resposta vazia* (`outcome.EMPTY_ANSWER`): aplicada depois dos validators, para o `non_empty_answer` do
+   `axon-generic` continuar reprovando; o aviso sai como token e vira a resposta final.
+
+**Rationale**: traces de 2026-10-22 com o MCP do mango e `z-ai/glm-5.3-flash`: `inicio: 2023-10-01` por falta de data,
+três `listar_transacoes` iguais até o limite, `<tool_call>mango.grafico…` entregue ao usuário (e reaproveitado no
+histórico pelos turnos seguintes) e uma geração de 560 tokens de saída com conteúdo vazio (provável raciocínio sem
+texto).
+
+**Alternatives considered**: subir o limite de iterações (só adia a repetição); filtrar a marcação no adapter do
+provider (é sintoma do modelo, mas aparece em mais de um provider e o filtro é puro); erro `error` para resposta
+vazia (viraria 502 sem streaming por algo que o usuário pode simplesmente perguntar de novo).

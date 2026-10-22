@@ -21,7 +21,14 @@ from axon_ai.graph.domain.actions import AnswerAction, InvalidAction, ToolAction
 from axon_ai.graph.domain.budget import estimate_tokens, exceeds
 from axon_ai.graph.domain.limits import DecisionKind, after_decision
 from axon_ai.graph.domain.steps import tool_summary
-from axon_ai.graph.domain.transcript import InvalidStep, Step, ToolStep, controller_messages
+from axon_ai.graph.domain.transcript import (
+    InvalidStep,
+    Step,
+    ToolStep,
+    controller_messages,
+    date_instruction,
+    repeats,
+)
 from axon_ai.llm.api import ModelCallFailed
 from axon_ai.observability.api import ControllerDecision, DecisionAction, ExecutionError
 from axon_ai_contracts import RETRIEVAL_FILTERS_KEY, JSONValue
@@ -102,7 +109,8 @@ async def controller(state: AgentState) -> dict[str, Any]:
     tools = list(session.tools.values())
     done = state.get("iteration", 0)
     iteration = done + 1
-    messages = controller_messages(tools, state.get("messages", ()), state.get("steps", ()))
+    today = date_instruction(state["reference_time"], ctx.timezone)
+    messages = controller_messages(tools, state.get("messages", ()), state.get("steps", ()), today=today)
 
     ceiling = state.get("ceiling")
     if exceeds(messages, ceiling):
@@ -151,10 +159,29 @@ async def controller(state: AgentState) -> dict[str, Any]:
                 iteration=iteration, model=ref, action="tool", tool=action.name, arguments=action.arguments
             ),
         )
+        call = ToolCall(name=action.name, arguments=action.arguments)
+        if repeats(call, state.get("steps", ())):
+            # O resultado já está na transcrição: repetir só gastaria iteração. Vai à geração com o que há (R50).
+            return {
+                "iteration": iteration,
+                "route": "generate",
+                "decisions": [_decision(state, iteration, "tool", tool=action.name)],
+                "errors": [
+                    ExecutionIssue(
+                        stage=STAGE_CONTROLLER,
+                        kind="RepeatedAction",
+                        message=(
+                            f"iteração {iteration}: '{action.name}' pedida de novo com os mesmos argumentos; a "
+                            "resposta foi gerada com o que havia"
+                        ),
+                        severity="notice",
+                    )
+                ],
+            }
         return {
             "iteration": iteration,
             "route": STAGE_EXECUTE,
-            "pending": ToolCall(name=action.name, arguments=action.arguments),
+            "pending": call,
             "decisions": [_decision(state, iteration, "tool", tool=action.name)],
         }
     # A iteração conta mesmo inválida (US2 cen. 3): sem isso, um controller que só erra rodaria sem fim (SC-002).

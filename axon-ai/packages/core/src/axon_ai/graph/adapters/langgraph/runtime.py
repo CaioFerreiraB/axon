@@ -66,6 +66,7 @@ class LangGraphRuntime:
             capabilities=plan.capabilities,
             rag=plan.rag,
             escalate=plan.escalate,
+            timezone=plan.timezone,
         )
 
         generated = ""

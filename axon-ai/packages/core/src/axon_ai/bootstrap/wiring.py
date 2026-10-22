@@ -21,6 +21,7 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager, suppres
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Final
+from zoneinfo import ZoneInfo
 
 import psycopg
 from fastapi import FastAPI
@@ -393,6 +394,7 @@ def _engine(ctx: BootContext) -> None:
         clock=clock,
         capabilities=capabilities,
         rag=_rag(ctx.parts["settings"]),
+        timezone=ZoneInfo(ctx.parts["settings"].timezone),
     )
 
 

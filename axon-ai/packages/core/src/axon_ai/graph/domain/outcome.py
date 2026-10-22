@@ -8,12 +8,17 @@ marcação, que é o que o princípio IX pede (fonte não vigente citada é marc
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Final
 
 from axon_ai.graph.api import ExecutionIssue, FinalEvent
 from axon_ai.packs.api import ValidationOutcome
 
 VALIDATION_STAGE = "validate_answer"
 VALIDATOR_ISSUE = "ValidatorIssue"
+
+
+EMPTY_ANSWER: Final = "Não consegui produzir uma resposta desta vez. Tente perguntar de novo ou reformular a pergunta."
+"""O que o usuário recebe quando a geração não produz texto, em vez de uma resposta em branco (R50)."""
 
 
 def final_event(

@@ -161,6 +161,7 @@ variável. O harness de avaliação (009) não passa pela API e não entra na fi
 | `AXON_LANGFUSE_HOST`, `_PUBLIC_KEY`, `_SECRET_KEY` | — | tudo ou nada; definidas, prevalecem sobre a console (ADR-033) |
 | `AXON_LANGFUSE_CAPTURE_CONTENT` | — | `true`/`false`; definida, prevalece |
 | `AXON_USAGE_TIMEZONE` | `UTC` | fuso IANA padrão do relatório de uso |
+| `AXON_TIMEZONE` | `UTC` | fuso IANA da data de referência que o motor dá ao modelo no loop (005 R50) |
 | `AXON_USAGE_RETENTION_DAYS` | `400` | inteiro ≥ 30 |
 | `AXON_GOOGLE_*`, `AXON_GOOGLE_LOGIN`, `AXON_BOOTSTRAP_ADMIN_*`, `AXON_IDENTITY_SECRET_<REF>` | — | lidas pelas portas de segredo da 012 (ADR-020) |
 

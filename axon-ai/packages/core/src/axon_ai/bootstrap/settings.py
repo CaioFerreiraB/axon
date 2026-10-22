@@ -54,6 +54,7 @@ DEFAULT_DISPLAY_NAME: Final = "Axon"
 """Nome da instalação nas páginas do provedor e na console quando ela não define o seu (012 FR-023, ADR-038)."""
 MASTER_KEY_BYTES: Final = 32
 DEFAULT_USAGE_TIMEZONE: Final = "UTC"
+DEFAULT_TIMEZONE: Final = "UTC"
 DEFAULT_USAGE_RETENTION_DAYS: Final = 400
 MIN_USAGE_RETENTION_DAYS: Final = 30
 """Uso por dia (009 US5): fuso padrão do relatório e retenção das linhas brutas (research R36)."""
@@ -127,6 +128,8 @@ class Settings:
     langfuse_capture_content: bool | None = None
     """`AXON_LANGFUSE_CAPTURE_CONTENT`: definida, prevalece sobre a console (ADR-034)."""
     usage_timezone: str = DEFAULT_USAGE_TIMEZONE
+    timezone: str = DEFAULT_TIMEZONE
+    """`AXON_TIMEZONE`: o fuso da data de referência que o motor dá ao modelo no `agentic` (005 R50)."""
     usage_retention_days: int = DEFAULT_USAGE_RETENTION_DAYS
 
     @property
@@ -197,12 +200,11 @@ class Settings:
                 check_host(self.langfuse_host)
             except InvalidField as error:
                 raise ConfigurationError(f"{PREFIX}LANGFUSE_HOST: {str(error).removeprefix('host: ')}") from None
-        try:
-            ZoneInfo(self.usage_timezone)
-        except (ZoneInfoNotFoundError, ValueError):
-            raise ConfigurationError(
-                f"{PREFIX}USAGE_TIMEZONE: fuso IANA desconhecido: {self.usage_timezone!r}"
-            ) from None
+        for name, zone in (("USAGE_TIMEZONE", self.usage_timezone), ("TIMEZONE", self.timezone)):
+            try:
+                ZoneInfo(zone)
+            except (ZoneInfoNotFoundError, ValueError):
+                raise ConfigurationError(f"{PREFIX}{name}: fuso IANA desconhecido: {zone!r}") from None
         if self.usage_retention_days < MIN_USAGE_RETENTION_DAYS:
             raise ConfigurationError(
                 f"{PREFIX}USAGE_RETENTION_DAYS: precisa ser ao menos {MIN_USAGE_RETENTION_DAYS}: "
@@ -315,6 +317,7 @@ class EnvConfigSource:
             langfuse_secret_key=self._optional("LANGFUSE_SECRET_KEY"),
             langfuse_capture_content=self._optional_bool("LANGFUSE_CAPTURE_CONTENT"),
             usage_timezone=self._text("USAGE_TIMEZONE", DEFAULT_USAGE_TIMEZONE),
+            timezone=self._text("TIMEZONE", DEFAULT_TIMEZONE),
             usage_retention_days=self._int("USAGE_RETENTION_DAYS", DEFAULT_USAGE_RETENTION_DAYS),
         )
 

@@ -105,6 +105,7 @@ LANGFUSE = {"LANGFUSE_HOST": "https://lf.exemplo.org/", "LANGFUSE_PUBLIC_KEY": "
 def test_padroes_do_uso_e_sem_langfuse() -> None:
     settings = _env()
     assert (settings.usage_timezone, settings.usage_retention_days) == ("UTC", 400)
+    assert settings.timezone == "UTC"
     assert settings.langfuse_host is None and settings.langfuse_capture_content is None
 
 
@@ -129,6 +130,7 @@ def test_langfuse_e_uso_pelo_ambiente() -> None:
         (LANGFUSE | {"LANGFUSE_HOST": "http://lf.exemplo.org"}, "LANGFUSE_HOST"),
         ({"LANGFUSE_CAPTURE_CONTENT": "sim"}, "LANGFUSE_CAPTURE_CONTENT"),
         ({"USAGE_TIMEZONE": "Lua/Base"}, "USAGE_TIMEZONE"),
+        ({"TIMEZONE": "Lua/Base"}, "TIMEZONE"),
         ({"USAGE_RETENTION_DAYS": "29"}, "USAGE_RETENTION_DAYS"),
         ({"USAGE_RETENTION_DAYS": "um ano"}, "USAGE_RETENTION_DAYS"),
     ],
@@ -143,3 +145,8 @@ def test_langfuse_interno_do_compose_aceita_http() -> None:
     """Nome sem ponto é a rede interna do compose (009 `check_host`)."""
     settings = _env(**LANGFUSE | {"LANGFUSE_HOST": "http://langfuse:3000"})
     assert settings.langfuse_host == "http://langfuse:3000"
+
+
+def test_fuso_do_motor_pelo_ambiente() -> None:
+    """`AXON_TIMEZONE`: o fuso da data de referência do `agentic` (005 R50), independente do fuso do uso."""
+    assert _env(TIMEZONE="America/Sao_Paulo").timezone == "America/Sao_Paulo"

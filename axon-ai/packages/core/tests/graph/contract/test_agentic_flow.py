@@ -6,6 +6,7 @@ programáveis. Não importa o framework de grafo (SC-001).
 
 from __future__ import annotations
 
+from datetime import UTC
 from typing import Any
 
 import pytest
@@ -34,7 +35,7 @@ from axon_ai.capabilities.api import FENCE_INSTRUCTION, CatalogConflict
 from axon_ai.graph.api import ExecutionRequestInvalid, FinalEvent, ProgressEvent, TokenEvent
 from axon_ai.graph.domain.actions import response_format
 from axon_ai.graph.domain.budget import OMITTED, estimate_tokens
-from axon_ai.graph.domain.transcript import controller_messages
+from axon_ai.graph.domain.transcript import controller_messages, date_instruction
 from axon_ai.observability.api import ControllerDecision, ExecutionError, ExecutionFinished, ToolCall
 from axon_ai_contracts import ToolResult
 
@@ -188,7 +189,8 @@ async def test_teto_para_o_loop_antes_da_chamada_que_passaria_e_omite_o_resultad
     trace = RecordingTraceSink()
     llm = provider(deltas=("ok",))
     session = FakeSession((catalog_tool(),), results={CALC: "9" * 3000})
-    first = controller_messages(list(session.tools.values()), request().messages, ())
+    today = date_instruction(REFERENCE_TIME, UTC)
+    first = controller_messages(list(session.tools.values()), request().messages, (), today=today)
     ceiling = estimate_tokens(first) + 40
     events, controller, _ = run(
         script=[tool_action(CALC, expression="9")],
@@ -316,3 +318,39 @@ async def test_fechar_o_iterador_no_meio_do_loop_nao_levanta() -> None:
     assert len(controller.calls) == 1
     (finished,) = trace.of_type(ExecutionFinished)
     assert finished.ok is False and finished.reason == "cancelled"
+
+
+# --- R50: data de referência, ação repetida, marcação de tool --------------------------------------------------------
+
+
+async def test_a_data_de_referencia_vai_ao_controller_e_a_geracao() -> None:
+    llm = provider(deltas=("ok",))
+    events, controller, _ = run(script=[ANSWER], llm=llm)
+    await collect(events)
+    today = date_instruction(REFERENCE_TIME, UTC)
+    assert today in str(controller.calls[0]["messages"][0]["content"])
+    assert {"role": "system", "content": today} in llm.calls[0]["messages"]
+
+
+async def test_tool_repetida_com_os_mesmos_argumentos_vai_a_geracao() -> None:
+    trace = RecordingTraceSink()
+    script = [tool_action(CALC, expression="2+2"), tool_action(CALC, expression="2+2")]
+    events, controller, caps = run(script=script, trace=trace)
+    final = final_of(await collect(events))
+
+    assert len(controller.calls) == 2
+    assert [call.name for call in caps.session.calls] == [CALC]
+    assert ("RepeatedAction", "notice") in kinds(final)
+    assert ("IterationLimit", "notice") not in kinds(final)
+    assert decisions(trace) == [(1, "tool", CALC, None), (2, "tool", CALC, None)]
+
+
+async def test_chamada_de_tool_escrita_como_texto_nao_chega_ao_usuario() -> None:
+    llm = provider(deltas=("Veja: <tool_", "call>mango.grafico<arg_key>tipo</arg_key></tool_call>", " pronto."))
+    events, _, _ = run(script=[ANSWER], llm=llm)
+    emitted = await collect(events)
+    final = final_of(emitted)
+
+    assert final.answer == "Veja:  pronto."
+    assert "".join(event.text for event in emitted if isinstance(event, TokenEvent)) == "Veja:  pronto."
+    assert ("ToolMarkupRemoved", "notice") in kinds(final)

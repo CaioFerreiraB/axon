@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime, tzinfo
 from typing import Protocol
 
 from axon_ai.capabilities.api import Capabilities
@@ -64,6 +64,8 @@ class ExecutionPlan:
     max_context_tokens: int | None = None
     rag: RagSettings | None = None
     escalate: bool = False
+    timezone: tzinfo = UTC
+    """O fuso da instalação: a data de referência vai ao controller e à geração do `agentic` nele (R50)."""
 
 
 class FlowRuntime(Protocol):

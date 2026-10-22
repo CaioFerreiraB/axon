@@ -14,7 +14,7 @@ from __future__ import annotations
 import operator
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime, tzinfo
 from typing import Annotated, Literal, TypedDict
 
 from axon_ai.capabilities.api import Capabilities, ToolCall, ToolSession
@@ -100,3 +100,4 @@ class AgentContext:
     tools: ToolSlot = field(default_factory=ToolSlot)
     rag: RagSettings | None = None
     escalate: bool = False
+    timezone: tzinfo = UTC
