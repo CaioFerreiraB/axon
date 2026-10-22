@@ -17,6 +17,7 @@ from axon_ai.graph.adapters.langgraph.state import AgentContext, AgentState
 from axon_ai.graph.adapters.langgraph.view import turn_view
 from axon_ai.graph.api import FLOW_AGENTIC, ExecutionIssue, GenerationOutcome, StepOutcome
 from axon_ai.graph.domain.budget import Trimmed, estimate_tokens, trim_results
+from axon_ai.graph.domain.images import chosen
 from axon_ai.graph.domain.markup import ToolMarkupFilter
 from axon_ai.graph.domain.outcome import EMPTY_ANSWER
 from axon_ai.graph.domain.transcript import date_instruction, generation_messages
@@ -30,6 +31,7 @@ STAGE_VALIDATE = "validate_answer"
 TOKEN = "token"
 PROGRESS = "progress"
 STEP = "step"
+ATTACHMENT = "attachment"
 
 
 def _writer() -> Any:
@@ -70,7 +72,9 @@ async def generate(state: AgentState) -> dict[str, Any]:
     # A data vai onde o loop correu: no `agentic` e no `rag_first` que escalou (R50). O `chat` segue como na Fase 1.
     looped = state["flow"] == FLOW_AGENTIC or state.get("iteration", 0) > 0
     today = date_instruction(state["reference_time"], ctx.timezone) if looped else None
-    full = generation_messages(prompts, state.get("messages", ()), state.get("steps", ()), today=today)
+    full = generation_messages(
+        prompts, state.get("messages", ()), state.get("steps", ()), today=today, **generation_images(state)
+    )
     ceiling = state.get("ceiling")
     trimmed = trim_results(full, ceiling)
 
@@ -118,6 +122,12 @@ async def generate(state: AgentState) -> dict[str, Any]:
         "omitted": trimmed.omitted,
         "errors": issues,
     }
+
+
+def generation_images(state: AgentState) -> dict[str, Any]:
+    """As imagens da geração (ADR-044): as do usuário, se o papel as recebe, e as candidatas escolhidas."""
+    images = _context().images
+    return {"send_own": images.to_generation, "shown": chosen(images.candidates, state.get("viewed", ()))}
 
 
 def _budget_issues(trimmed: Trimmed, ceiling: int | None) -> list[ExecutionIssue]:

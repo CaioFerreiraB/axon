@@ -33,8 +33,11 @@ NOT_OBJECT: Final = "a ação precisa ser um objeto JSON"
 UNKNOWN_ACTION: Final = 'ação desconhecida: use "tool" ou "answer"'
 MISSING_NAME: Final = "ação tool sem nome de ferramenta"
 BAD_ARGUMENTS: Final = "os argumentos precisam ser um objeto JSON"
+UNKNOWN_IMAGE: Final = "view_image com id fora das imagens da resposta anterior"
 
-INVALID_REASONS: Final = frozenset({EMPTY, MALFORMED, NOT_OBJECT, UNKNOWN_ACTION, MISSING_NAME, BAD_ARGUMENTS})
+INVALID_REASONS: Final = frozenset(
+    {EMPTY, MALFORMED, NOT_OBJECT, UNKNOWN_ACTION, MISSING_NAME, BAD_ARGUMENTS, UNKNOWN_IMAGE}
+)
 """Os motivos possíveis de uma ação inválida. São texto do motor: nunca copiam a saída do modelo, que pode trazer
 argumentos ou conteúdo de tool — é o que mantém o evento de trace sem conteúdo (ADR-017)."""
 
@@ -51,11 +54,18 @@ class AnswerAction:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class ViewImageAction:
+    """Marca uma imagem da resposta anterior para a geração (ADR-044, item 8). Não é tool: não passa pelo gateway."""
+
+    id: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class InvalidAction:
     reason: str
 
 
-type Action = ToolAction | AnswerAction | InvalidAction
+type Action = ToolAction | AnswerAction | ViewImageAction | InvalidAction
 
 
 # --- esquema --------------------------------------------------------------------------------------------------------
@@ -130,8 +140,9 @@ def sanitize(parameters: Mapping[str, JSONValue]) -> dict[str, Any]:
     return cleaned
 
 
-def action_schema(tools: Sequence[CatalogTool]) -> dict[str, Any]:
-    """`anyOf`: o ramo `answer` primeiro, depois um ramo por tool, na ordem do catálogo."""
+def action_schema(tools: Sequence[CatalogTool], images: Sequence[str] = ()) -> dict[str, Any]:
+    """`anyOf`: o ramo `answer` primeiro, depois o de `view_image` — só com imagens candidatas, o id restrito a elas
+    (ADR-044, item 8) —, e um ramo por tool, na ordem do catálogo."""
     answer: dict[str, Any] = {
         "type": "object",
         "properties": {"action": {"const": "answer"}},
@@ -151,12 +162,22 @@ def action_schema(tools: Sequence[CatalogTool]) -> dict[str, Any]:
         }
         for tool in tools
     ]
-    return {"anyOf": [answer, *branches]}
+    view: list[dict[str, Any]] = []
+    if images:
+        view.append(
+            {
+                "type": "object",
+                "properties": {"action": {"const": "view_image"}, "id": {"type": "string", "enum": list(images)}},
+                "required": ["action", "id"],
+                "additionalProperties": False,
+            }
+        )
+    return {"anyOf": [answer, *view, *branches]}
 
 
-def response_format(tools: Sequence[CatalogTool]) -> dict[str, Any]:
+def response_format(tools: Sequence[CatalogTool], images: Sequence[str] = ()) -> dict[str, Any]:
     """O `response_format` do papel `controller`. Sem `strict`: a rigidez por provider é da 006 (US4)."""
-    return {"type": "json_schema", "json_schema": {"name": SCHEMA_NAME, "schema": action_schema(tools)}}
+    return {"type": "json_schema", "json_schema": {"name": SCHEMA_NAME, "schema": action_schema(tools, images)}}
 
 
 def catalog_text(tools: Sequence[CatalogTool]) -> str:
@@ -172,11 +193,12 @@ def catalog_text(tools: Sequence[CatalogTool]) -> str:
 # --- leitura ------------------------------------------------------------------------------------------------------
 
 
-def parse_action(content: str | None) -> Action:
+def parse_action(content: str | None, images: Sequence[str] = ()) -> Action:
     """Lê a saída do controller. Nunca levanta: o que não é ação vira `InvalidAction`, que conta como iteração.
 
     Nome fora do catálogo **não** é inválido — o gateway responde "tool inexistente" e o resultado volta ao
-    controller (US2 cen. 4). O nome não é aparado: a comparação no gateway é exata.
+    controller (US2 cen. 4). O nome não é aparado: a comparação no gateway é exata. `view_image` só vale com um id
+    entre as imagens candidatas: as imagens não são catálogo de ninguém, e o motor é quem as conhece.
     """
     if content is None or not content.strip():
         return InvalidAction(reason=EMPTY)
@@ -189,6 +211,13 @@ def parse_action(content: str | None) -> Action:
     action = data.get("action")
     if action == "answer":
         return AnswerAction()
+    if action == "view_image":
+        image = data.get("id")
+        return (
+            ViewImageAction(id=image)
+            if isinstance(image, str) and image in images
+            else InvalidAction(reason=UNKNOWN_IMAGE)
+        )
     if action != "tool":
         return InvalidAction(reason=UNKNOWN_ACTION)
     name = data.get("name")

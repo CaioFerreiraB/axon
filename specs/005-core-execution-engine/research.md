@@ -753,3 +753,37 @@ texto).
 **Alternatives considered**: subir o limite de iterações (só adia a repetição); filtrar a marcação no adapter do
 provider (é sintoma do modelo, mas aparece em mais de um provider e o filtro é puro); erro `error` para resposta
 vazia (viraria 502 sem streaming por algo que o usuário pode simplesmente perguntar de novo).
+
+### R51 — Imagens no motor (ADR-044, itens 4, 5 e 8; FR-019 a FR-023)
+
+**Decision**: políticas puras em `domain/images.py` — `candidates` (imagens da última mensagem do assistente antes da
+pergunta), `user_images`, `unique` (ordem da primeira ocorrência), `image_plan` (a tabela do item 8: candidatas só com
+`vision` na geração; no `agentic`, decisão do controller; no `chat`/`rag_first` com `controller`, etapa `image_gate`;
+sem `controller`, todas já escolhidas), `user_content` (a última mensagem do usuário ao modelo: texto e marcas, ou
+partes com as imagens do usuário e cada candidata escolhida precedida de `[imagem <id> mostrada ao usuário]`),
+`gate_format`/`parse_gate` e `IMAGE_TOKENS` = 1.000. `actions.py` ganha o ramo `view_image` (o `id` em `enum` das
+candidatas) e `ViewImageAction`; id fora das candidatas é `InvalidAction` (`UNKNOWN_IMAGE`). `transcript.py` ganha
+`ViewStep` (no controller, o aviso "A imagem <id> foi marcada para a resposta."; na geração, nada), `repeats_view`,
+`gate_messages` e o `IMAGES_INSTRUCTION` na geração quando algum passo trouxe imagem. `budget.py` soma
+`IMAGE_TOKENS` por parte `image_url`. `request.py`: só imagem vale como pergunta (a marca), `ensure_vision` recusa
+imagem sem `vision` na geração, `OPTIONAL_ROLES["chat"] = ("controller",)` e `roles_to_resolve` só resolve o
+`controller` do `chat` com a etapa de imagem. O serviço calcula o `ImagePlan` e o leva no `ExecutionPlan`. No adapter,
+o estado ganha `gate_images` e os acumuladores `viewed` e `attachments`; o `execute_tool` emite os `AttachmentEvent`
+novos depois do `finished`; o `controller` trata `view_image` (desfecho `ControllerOutcome(action="view_image",
+image=…)`, decisão `view_image` com `images`); o `load_capabilities` chama o controller com catálogo vazio se há
+candidata; a etapa `image_gate` (`nodes/images.py`) vem depois do `prepare_context` no `chat` e depois do `gate` no
+`rag_first` (rotas `generate` e `fallback`), com `ControllerDecision(iteration=1, action="view_image")` e
+`ImageGateOutcome`. Na API, `AttachmentEvent`, `ImageGateOutcome`, `FinalEvent.attachments` e a ação `view_image` no
+`ControllerOutcome`. A timeline da 008 ganhou as linhas do desfecho novo e do estágio `image_gate`, para continuar
+total (008 R60).
+
+**Rationale** ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md)): o plano é decidido antes do primeiro evento, como os papéis (FR-013), e é o que deixa o `chat`
+sem imagem idêntico ao da Fase 1 — sem etapa nova e sem resolver o `controller`. As candidatas vêm só da última
+mensagem do assistente, mesmo que o cliente mande mais: a 008 já descarta os bytes das outras, e o motor não depende
+disso. O custo fixo por imagem é o que o ADR pede; nenhuma regra de omissão tira uma imagem, porque quem a pôs ali foi
+a pergunta.
+
+**Alternatives considered**: `view_image` como tool do catálogo (o ADR a recusa: a imagem não é capacidade de nenhum
+servidor); etapa `image_gate` também no loop (o controller já está decidindo ali, e uma chamada a mais por turno não
+acrescenta); resolver o `controller` do `chat` sempre que declarado (mudaria o `chat` de quem nunca manda imagem e
+falharia Assistants que declaram um controller não usado).

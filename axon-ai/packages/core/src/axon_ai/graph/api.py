@@ -17,12 +17,13 @@ from typing import Final, Literal, Protocol
 
 from axon_ai.assistants.api import ExecutionGrant
 from axon_ai.llm.api import ModelRole
-from axon_ai_contracts import Citation, JSONValue, Message
+from axon_ai_contracts import Attachment, Citation, JSONValue, Message
 
 __all__ = [
     "FLOW_AGENTIC",
     "FLOW_CHAT",
     "FLOW_RAG_FIRST",
+    "AttachmentEvent",
     "CatalogOutcome",
     "ControllerAction",
     "ControllerOutcome",
@@ -37,6 +38,7 @@ __all__ = [
     "GateOutcome",
     "GateRoute",
     "GenerationOutcome",
+    "ImageGateOutcome",
     "IssueSeverity",
     "ProgressEvent",
     "RagSettings",
@@ -241,15 +243,17 @@ class GateOutcome:
         _require_size("delivered", self.delivered)
 
 
-type ControllerAction = Literal["tool", "answer", "invalid", "failed"]
-"""O que saiu de uma chamada ao controller. Os limites (iterações, contexto) não chamam o controller: são registros."""
+type ControllerAction = Literal["tool", "answer", "invalid", "failed", "view_image"]
+"""O que saiu de uma chamada ao controller. Os limites (iterações, contexto) não chamam o controller: são registros.
+`view_image`: marcou uma imagem da resposta anterior para a geração (ADR-044, item 8)."""
 
-_CONTROLLER_ACTIONS: Final = frozenset({"tool", "answer", "invalid", "failed"})
+_CONTROLLER_ACTIONS: Final = frozenset({"tool", "answer", "invalid", "failed", "view_image"})
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ControllerOutcome:
-    """`controller`: a ação de uma iteração e o modelo que a decidiu. `reason` é curto e escrito pelo motor."""
+    """`controller`: a ação de uma iteração e o modelo que a decidiu. `reason` é curto e escrito pelo motor; `image`
+    é o id escolhido em `view_image`."""
 
     iteration: int
     action: ControllerAction
@@ -257,6 +261,7 @@ class ControllerOutcome:
     tool: str | None = None
     arguments: Mapping[str, JSONValue] | None = None
     reason: str | None = None
+    image: str | None = None
 
     def __post_init__(self) -> None:
         _require_count("iteration", self.iteration)
@@ -265,6 +270,24 @@ class ControllerOutcome:
         _require_text("model", self.model)
         if self.arguments is not None:
             object.__setattr__(self, "arguments", _frozen(self.arguments))
+        if (self.action == "view_image") != (self.image is not None):
+            raise ValueError("image é obrigatório na ação view_image e ausente nas outras")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ImageGateOutcome:
+    """`image_gate` (ADR-044, item 8): quantas imagens da resposta anterior eram candidatas, quais o controller
+    escolheu para a geração e o modelo. `failed`: a chamada falhou ou a saída não era a pedida — seguiu sem imagem."""
+
+    model: str
+    candidates: int
+    viewed: tuple[str, ...] = ()
+    failed: bool = False
+
+    def __post_init__(self) -> None:
+        _require_text("model", self.model)
+        _require_size("candidates", self.candidates)
+        object.__setattr__(self, "viewed", tuple(self.viewed))
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -294,7 +317,13 @@ class CatalogOutcome:
 
 
 type StepOutcome = (
-    ToolCallsOutcome | RerankOutcome | GateOutcome | ControllerOutcome | GenerationOutcome | CatalogOutcome
+    ToolCallsOutcome
+    | RerankOutcome
+    | GateOutcome
+    | ControllerOutcome
+    | GenerationOutcome
+    | CatalogOutcome
+    | ImageGateOutcome
 )
 
 
@@ -335,21 +364,38 @@ class ExecutionIssue:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class AttachmentEvent:
+    """Uma imagem que uma tool devolveu, para o usuário (ADR-044, item 4). Sai depois do `StepFinished` da tool, uma
+    vez por `id` na execução. O modelo não a recebe neste turno: vê só a marca no resultado cercado (004)."""
+
+    attachment: Attachment
+    tool: str
+
+    def __post_init__(self) -> None:
+        _require_text("tool", self.tool)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class FinalEvent:
-    """Fecha toda execução, inclusive a que falhou no meio: resposta (possivelmente parcial), citações e erros."""
+    """Fecha toda execução, inclusive a que falhou no meio: resposta (possivelmente parcial), citações e erros.
+
+    `attachments`: as imagens que as tools devolveram, na ordem em que saíram e sem repetir `id` — as mesmas dos
+    `AttachmentEvent` (ADR-044, item 4)."""
 
     answer: str
     citations: tuple[Citation, ...] = ()
     errors: tuple[ExecutionIssue, ...] = ()
     flags: frozenset[str] = field(default_factory=frozenset)
+    attachments: tuple[Attachment, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "citations", tuple(self.citations))
         object.__setattr__(self, "errors", tuple(self.errors))
         object.__setattr__(self, "flags", frozenset(self.flags))
+        object.__setattr__(self, "attachments", tuple(self.attachments))
 
 
-type ExecutionEvent = TokenEvent | ProgressEvent | StepFinished | FinalEvent
+type ExecutionEvent = TokenEvent | ProgressEvent | StepFinished | AttachmentEvent | FinalEvent
 """O que o consumidor recebe. Toda execução termina com exatamente um `FinalEvent`, sempre o último. Quem não precisa do
 desfecho das etapas ignora o `StepFinished` (ADR-028)."""
 

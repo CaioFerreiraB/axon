@@ -22,6 +22,7 @@ from axon_ai.graph.adapters.langgraph.nodes.agentic import (
 from axon_ai.graph.adapters.langgraph.nodes.common import STAGE_GENERATE, STAGE_PREPARE, STAGE_VALIDATE, generate
 from axon_ai.graph.adapters.langgraph.nodes.common import prepare_context as prepare_context_node
 from axon_ai.graph.adapters.langgraph.nodes.common import validate_answer as validate_answer_node
+from axon_ai.graph.adapters.langgraph.nodes.images import STAGE_IMAGE_GATE, image_gate
 from axon_ai.graph.adapters.langgraph.nodes.rag import STAGE_GATE, STAGE_RERANK, STAGE_RETRIEVE, gate, rerank, retrieve
 from axon_ai.graph.adapters.langgraph.state import AgentContext, AgentState
 from axon_ai.graph.api import FLOW_AGENTIC, FLOW_CHAT, FLOW_RAG_FIRST
@@ -30,14 +31,22 @@ type FlowGraph = CompiledStateGraph[AgentState, AgentContext, AgentState, AgentS
 """Grafo compilado deste módulo. O alias existe para não espalhar os parâmetros do framework pelo código."""
 
 
+def _images_or_generate(state: AgentState) -> str:
+    """A etapa `image_gate` só existe na execução que a pede (ADR-044, R51); sem ela, o `chat` é o da Fase 1."""
+    return STAGE_IMAGE_GATE if state.get("gate_images") else STAGE_GENERATE
+
+
 def chat_graph() -> FlowGraph:
-    """`chat`: sem tools e sem RAG. Topologia da Fase 1 e fallback quando nenhuma capacidade é necessária."""
+    """`chat`: sem tools e sem RAG. Topologia da Fase 1 e fallback quando nenhuma capacidade é necessária — com a
+    etapa `image_gate` antes da geração quando há imagem da resposta anterior e `controller` (ADR-044)."""
     builder = StateGraph(AgentState, context_schema=AgentContext)
     builder.add_node(STAGE_PREPARE, prepare_context_node)
+    builder.add_node(STAGE_IMAGE_GATE, image_gate)
     builder.add_node(STAGE_GENERATE, generate)
     builder.add_node(STAGE_VALIDATE, validate_answer_node)
     builder.add_edge(START, STAGE_PREPARE)
-    builder.add_edge(STAGE_PREPARE, STAGE_GENERATE)
+    builder.add_conditional_edges(STAGE_PREPARE, _images_or_generate, [STAGE_IMAGE_GATE, STAGE_GENERATE])
+    builder.add_edge(STAGE_IMAGE_GATE, STAGE_GENERATE)
     builder.add_edge(STAGE_GENERATE, STAGE_VALIDATE)
     builder.add_edge(STAGE_VALIDATE, END)
     return builder.compile()
@@ -87,6 +96,7 @@ def rag_first_graph() -> FlowGraph:
     builder.add_node(STAGE_RETRIEVE, retrieve)
     builder.add_node(STAGE_RERANK, rerank)
     builder.add_node(STAGE_GATE, gate)
+    builder.add_node(STAGE_IMAGE_GATE, image_gate)
     builder.add_node(STAGE_CONTROLLER, controller)
     builder.add_node(STAGE_EXECUTE, execute_tool)
     builder.add_node(STAGE_GENERATE, generate)
@@ -95,7 +105,8 @@ def rag_first_graph() -> FlowGraph:
     builder.add_edge(STAGE_PREPARE, STAGE_RETRIEVE)
     builder.add_conditional_edges(STAGE_RETRIEVE, _end_or, [STAGE_RERANK, END])
     builder.add_edge(STAGE_RERANK, STAGE_GATE)
-    builder.add_conditional_edges(STAGE_GATE, _route, [STAGE_GENERATE, STAGE_CONTROLLER])
+    builder.add_conditional_edges(STAGE_GATE, _route, [STAGE_GENERATE, STAGE_IMAGE_GATE, STAGE_CONTROLLER])
+    builder.add_edge(STAGE_IMAGE_GATE, STAGE_GENERATE)
     builder.add_conditional_edges(STAGE_CONTROLLER, _route, [STAGE_EXECUTE, STAGE_CONTROLLER, STAGE_GENERATE])
     builder.add_conditional_edges(STAGE_EXECUTE, _route, [STAGE_CONTROLLER, STAGE_GENERATE])
     builder.add_edge(STAGE_GENERATE, STAGE_VALIDATE)

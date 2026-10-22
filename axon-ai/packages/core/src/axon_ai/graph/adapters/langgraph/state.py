@@ -20,11 +20,12 @@ from typing import Annotated, Literal, TypedDict
 from axon_ai.capabilities.api import Capabilities, ToolCall, ToolSession
 from axon_ai.graph.api import ExecutionGrant, ExecutionIssue, RagSettings
 from axon_ai.graph.domain.gate import Passage
+from axon_ai.graph.domain.images import ImagePlan
 from axon_ai.graph.domain.transcript import Step
 from axon_ai.llm.api import ModelRouter
 from axon_ai.observability.api import TraceSink
 from axon_ai.packs.api import Composition, PackHooks, StreamedValidation, ValidationOutcome
-from axon_ai_contracts import Citation, JSONValue, Message
+from axon_ai_contracts import Attachment, Citation, JSONValue, Message
 
 
 class AgentState(TypedDict, total=False):
@@ -59,7 +60,7 @@ class AgentState(TypedDict, total=False):
     iteration: int
     limit: int | None
     ceiling: int | None
-    route: Literal["controller", "execute_tool", "generate", "rerank", "end"]
+    route: Literal["controller", "execute_tool", "generate", "rerank", "image_gate", "end"]
     pending: ToolCall | None
     omitted: int
 
@@ -67,10 +68,17 @@ class AgentState(TypedDict, total=False):
     retrieved: tuple[Passage, ...]
     reranked: tuple[Passage, ...]
 
+    # imagens (ADR-044) — research R51
+    gate_images: bool
+
     # acumuladores (reducer obrigatório)
     errors: Annotated[list[ExecutionIssue], operator.add]
     steps: Annotated[list[Step], operator.add]
     decisions: Annotated[list[str], operator.add]
+    viewed: Annotated[list[str], operator.add]
+    """Ids das imagens da resposta anterior que vão à geração: as escolhidas pelo controller ou, sem ele, todas."""
+    attachments: Annotated[list[Attachment], operator.add]
+    """Imagens que as tools devolveram, na ordem em que saíram, uma vez por `id` — o que o usuário recebe."""
 
 
 class ToolSlot:
@@ -101,3 +109,4 @@ class AgentContext:
     rag: RagSettings | None = None
     escalate: bool = False
     timezone: tzinfo = UTC
+    images: ImagePlan = field(default_factory=ImagePlan)

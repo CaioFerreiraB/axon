@@ -14,8 +14,8 @@ DEFAULT_MAX_ITERATIONS: Final = 3
 """Limite quando o Assistant não declara outro (clarificação 3 de 2026-10-01). Constante, não configuração: quem precisa
 de mais declara no Assistant."""
 
-type DecisionKind = Literal["tool", "invalid", "answer", "failed"]
-"""`failed`: a chamada ao controller falhou (FR-006a)."""
+type DecisionKind = Literal["tool", "invalid", "answer", "failed", "view_image"]
+"""`failed`: a chamada ao controller falhou (FR-006a). `view_image` conta como iteração, como `tool` (ADR-044)."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -31,7 +31,8 @@ def effective_limit(declared: int | None) -> int:
 def after_decision(kind: DecisionKind, iteration: int, limit: int) -> Route:
     """Para onde o loop vai depois da decisão da iteração `iteration` (contada a partir de 1).
 
-    `tool` e `invalid` voltam ao controller enquanto houver iteração; na última, vão à geração com truncamento.
+    `tool`, `view_image` e `invalid` voltam ao controller enquanto houver iteração; na última, vão à geração com
+    truncamento.
     `answer` e `failed` vão sempre à geração, sem truncamento — não houve corte, houve fim.
     """
     if kind in ("answer", "failed"):
