@@ -267,6 +267,8 @@ class UserAssistantDraft:
     mcp: tuple[str, ...] = ()
     collections: tuple[str, ...] = ()
     models: Mapping[ModelRole, ModelRef]
+    vision: frozenset[ModelRole] = frozenset()
+    """Papéis com `vision: true` (ADR-044, item 10); só papel de `models`."""
     limits: DraftLimits = field(default_factory=DraftLimits)
     allowed_tools: tuple[str, ...] | None = None
     write_tools: tuple[str, ...] = ()
@@ -290,6 +292,10 @@ class UserAssistantDraft:
         if "generation" not in self.models:
             raise RequestRejected("models precisa declarar ao menos 'generation'", field="models.generation")
         object.__setattr__(self, "models", MappingProxyType(dict(self.models)))
+        object.__setattr__(self, "vision", frozenset(self.vision))
+        undeclared = sorted(str(role) for role in self.vision if role not in self.models)
+        if undeclared:
+            raise RequestRejected(f"vision em papel não declarado: {', '.join(undeclared)}", field="models")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -374,9 +380,15 @@ class ModelsOverride:
     """Os modelos por papel de um Assistant de sistema, cada um dentro da allowlist do YAML (que só muda por deploy)."""
 
     roles: Mapping[ModelRole, ModelRef]
+    vision: frozenset[ModelRole] = frozenset()
+    """Papéis com `vision: true` (ADR-044, item 10); a sobreposição de `models` é a seção inteira, `vision` incluso."""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "roles", MappingProxyType(dict(self.roles)))
+        object.__setattr__(self, "vision", frozenset(self.vision))
+        undeclared = sorted(str(role) for role in self.vision if role not in self.roles)
+        if undeclared:
+            raise ValueError(f"vision em papel não declarado: {', '.join(undeclared)}")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

@@ -14,6 +14,7 @@ from typing import Final
 from axon_ai.llm.api import (
     ModelCallFailed,
     ModelHealth,
+    ModelMessage,
     ModelPolicy,
     ModelRef,
     ModelRole,
@@ -21,11 +22,12 @@ from axon_ai.llm.api import (
     ProviderStatus,
     UnknownProvider,
 )
+from axon_ai.llm.domain.images import image_marker, vision_problem
 from axon_ai.llm.domain.output import constraint_problem
 from axon_ai.llm.domain.policy import ensure_allowed, resolve
 from axon_ai.llm.ports import Clock, ModelProvider
 from axon_ai.observability.api import ExchangeMessage, ModelCall, ModelExchange, TraceSink
-from axon_ai_contracts import ChatChunk, ChatMessage, ChatResponse, ChatTool, ChatToolCall, ChatUsage, JSONValue
+from axon_ai_contracts import ChatChunk, ChatResponse, ChatTool, ChatToolCall, ChatUsage, JSONValue
 
 ERROR_FINISH_REASON = "error"
 """Desfecho registrado quando a chamada falha — o trace cobre sucesso e falha (SC-002)."""
@@ -47,8 +49,10 @@ class TracedModel:
         trace: TraceSink,
         clock: Clock,
         request_id: str,
+        vision: bool = False,
     ) -> None:
         self._role = role
+        self._vision = vision
         self._ref = ref
         self._provider = provider
         self._trace = trace
@@ -63,9 +67,13 @@ class TracedModel:
     def ref(self) -> ModelRef:
         return self._ref
 
+    @property
+    def vision(self) -> bool:
+        return self._vision
+
     async def complete(
         self,
-        messages: Sequence[ChatMessage],
+        messages: Sequence[ModelMessage],
         *,
         tools: Sequence[ChatTool] | None = None,
         response_format: Mapping[str, JSONValue] | None = None,
@@ -73,6 +81,7 @@ class TracedModel:
         started = self._clock.monotonic()
         try:
             self._ensure_constraint(response_format)
+            self._ensure_vision(messages)
             response = await self._provider.chat(
                 messages, self._ref.model, tools=tools, response_format=response_format, stream=False
             )
@@ -85,7 +94,7 @@ class TracedModel:
 
     async def stream(
         self,
-        messages: Sequence[ChatMessage],
+        messages: Sequence[ModelMessage],
         *,
         tools: Sequence[ChatTool] | None = None,
         response_format: Mapping[str, JSONValue] | None = None,
@@ -98,6 +107,7 @@ class TracedModel:
         output: list[str] = []
         try:
             self._ensure_constraint(response_format)
+            self._ensure_vision(messages)
             chunks = await self._provider.chat(
                 messages, self._ref.model, tools=tools, response_format=response_format, stream=True
             )
@@ -124,7 +134,12 @@ class TracedModel:
         if problem is not None:
             raise ModelCallFailed(provider=self._ref.provider, model=self._ref.model, reason=problem)
 
-    def _exchange(self, messages: Sequence[ChatMessage], output: str) -> None:
+    def _ensure_vision(self, messages: Sequence[ModelMessage]) -> None:
+        problem = vision_problem(self._role, messages, vision=self._vision)
+        if problem is not None:
+            raise ModelCallFailed(provider=self._ref.provider, model=self._ref.model, reason=problem)
+
+    def _exchange(self, messages: Sequence[ModelMessage], output: str) -> None:
         """O texto da chamada (ADR-034, 009 R35): o `TraceService` o descarta com a captura desligada. Sem cabeçalho nem
         credencial — só as mensagens e a saída."""
         self._trace.emit(
@@ -161,14 +176,18 @@ def _tool_call_text(call: ChatToolCall) -> str:
     return f"[tool {call['name']}: {call['arguments']}]"
 
 
-def _text_of(message: ChatMessage) -> str:
-    """Texto da mensagem; chamadas de tool viram marcadores com nome e argumentos."""
-    parts = [message.get("content") or ""]
+def _text_of(message: ModelMessage) -> str:
+    """Texto da mensagem; chamadas de tool viram marcadores com nome e argumentos, e imagens, a marca com o id."""
+    content = message.get("content")
+    if content is None or isinstance(content, str):
+        parts = [content or ""]
+    else:
+        parts = [part["text"] if part["type"] == "text" else image_marker(part["image_url"]["url"]) for part in content]
     parts.extend(_tool_call_text(call) for call in message.get("tool_calls") or ())
     return "\n".join(part for part in parts if part)
 
 
-def _exchange_message(message: ChatMessage) -> ExchangeMessage:
+def _exchange_message(message: ModelMessage) -> ExchangeMessage:
     role = message["role"] if message["role"] in _EXCHANGE_ROLES else "user"
     return ExchangeMessage(role=role, content=_text_of(message))  # type: ignore[arg-type]
 
@@ -201,6 +220,7 @@ class ExecutionRouter:
             trace=self._trace,
             clock=self._clock,
             request_id=self._request_id,
+            vision=role in self._policy.vision,
         )
 
 

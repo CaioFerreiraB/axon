@@ -51,6 +51,14 @@
 - Q: A administração pode conceder grupos a uma chave na emissão e, em particular, o grupo de administração? → A: Grupos comuns, sim. O grupo de administração, não: emissão pela administração com ele é recusada nomeando `groups`, e chave de admin continua sendo emitida só pelo operador, na linha de comando. Rotacionar e revogar uma chave de admin existente pela administração continua permitido (não amplia privilégio). Regra provisória: pode mudar quando houver gestão de acessos pela API.
 - Q: Para editar `allow` pela console, a 003 precisa expor algo novo, e uma entrada que não vai casar com ninguém deve bloquear a gravação? → A: Nada novo na 003: os sistemas saem da listagem de chaves (subjects `svc:…` com chave ativa) e os grupos, da 012, pela 008. Entradas pendentes — sistema sem chave ativa, grupo inexistente, `svc:…` sem o esquema `api_key` — não são erro nem na gravação nem na validação do YAML; o aviso é apresentação (013). O que o seletor oferece (`*` só em público, `user:…` digitado) é da 013.
 
+### Session 2026-10-22
+
+- Q: Onde se declara que o modelo de um papel enxerga imagem ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 10)? → A: No próprio papel, em `models`: além de `provider/modelo`, o papel aceita `{model: provider/modelo, vision: true}`. A definição guarda os papéis com `vision`, e o grant leva `vision` na `ModelPolicy` da 006 (ADR-016). Chave desconhecida no objeto, `model` ausente ou `vision` que não é booleano são problema do Assistant, nomeando o campo.
+- Q: A sobreposição de `models` (ADR-032) cobre `vision`? → A: Sim: é a seção inteira, papéis e `vision`. A impressão digital da seção só muda de forma quando o YAML declara `vision`, para as sobreposições gravadas antes continuarem ativas.
+- Q: Um modelo pedido na requisição (US4) herda o `vision` do `generation` declarado? → A: Não: `vision` é do modelo declarado. Pedido outro modelo, o grant sai sem `vision` no `generation`.
+- Q: Assistant `chat` pode declarar `controller`? → A: Pode — o `controller` passa a ser papel opcional também no `chat` (ADR-019; 005), e é ele quem decide se uma imagem antiga vai à geração. A validação continua exigindo só os papéis obrigatórios do flow.
+- Q: E o Assistant de usuário? → A: O rascunho ganha `vision` (só papel de `models`); a 008 o lê do corpo.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Operador define Assistants de sistema (Priority: P1)
@@ -406,6 +414,7 @@ a receber 404. Mudar `auth` no YAML e recarregar; a sobreposição aparece inati
 - **FR-034**: O seam System Assistant Admin DEVE expor, para todo Assistant de sistema, o `auth` do YAML e o efetivo — inclusive quando `auth` não está em `overrides`, para leitura — e, quando liberado, a operação de gravar e descartar a sobreposição de `auth`, com versão e histórico como as demais (FR-021, FR-022).
 - **FR-035**: O armazenamento persistente DEVE acompanhar as duas mudanças por migrações novas do próprio módulo — o instante da rotação nas chaves e `auth` entre as seções de sobreposição —, aplicáveis sobre uma instalação com dados, sem perder chaves nem sobreposições existentes.
 - **FR-036**: Pela administração, a emissão DEVE aceitar grupos comuns e DEVE recusar, nomeando `groups`, o grupo de administração; chave com o grupo de administração só é emitida pelo operador, na linha de comando. Rotação e revogação pela administração valem para qualquer chave ativa, inclusive as do grupo de administração. *(Provisória: revista quando houver gestão de acessos pela API.)*
+- **FR-037**: Um papel em `models` DEVE aceitar `{model, vision}` além de `provider/modelo`; a definição, a sobreposição de `models`, o rascunho de Assistant de usuário e a `ModelPolicy` do grant DEVEM carregar `vision`, e um modelo pedido na requisição diferente do declarado NÃO DEVE herdá-lo ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 10).
 
 
 ### Key Entities

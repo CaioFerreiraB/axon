@@ -13,7 +13,7 @@ from typing import Any, ClassVar, Final, Literal, overload
 import httpx2
 from openai import APIConnectionError, APIStatusError, APITimeoutError, AsyncOpenAI, OpenAIError
 
-from axon_ai.llm.api import ModelCallFailed
+from axon_ai.llm.api import ContentPart, ModelCallFailed, ModelMessage
 from axon_ai.llm.ports import ProbeResult
 from axon_ai_contracts import (
     ChatChunk,
@@ -80,7 +80,7 @@ class OpenAICompatProvider:
     @overload
     async def chat(
         self,
-        messages: Sequence[ChatMessage],
+        messages: Sequence[ModelMessage],
         model: str,
         *,
         tools: Sequence[ChatTool] | None = None,
@@ -91,7 +91,7 @@ class OpenAICompatProvider:
     @overload
     async def chat(
         self,
-        messages: Sequence[ChatMessage],
+        messages: Sequence[ModelMessage],
         model: str,
         *,
         tools: Sequence[ChatTool] | None = None,
@@ -101,7 +101,7 @@ class OpenAICompatProvider:
 
     async def chat(
         self,
-        messages: Sequence[ChatMessage],
+        messages: Sequence[ModelMessage],
         model: str,
         *,
         tools: Sequence[ChatTool] | None = None,
@@ -155,7 +155,7 @@ class OpenAICompatProvider:
 
     def _payload(
         self,
-        messages: Sequence[ChatMessage],
+        messages: Sequence[ModelMessage],
         model: str,
         *,
         tools: Sequence[ChatTool] | None,
@@ -203,9 +203,14 @@ def _listed(ids: Sequence[str]) -> str:
     return f"{shown} (+{hidden})" if hidden > 0 else shown
 
 
-def _to_wire_message(message: ChatMessage) -> dict[str, Any]:
-    """Traduz para o corpo da camada compatível. Chave ausente não vira `None`: só vai o que foi declarado."""
-    wire: dict[str, Any] = {"role": message["role"], "content": message["content"]}
+def _to_wire_message(message: ModelMessage) -> dict[str, Any]:
+    """Traduz para o corpo da camada compatível. Chave ausente não vira `None`: só vai o que foi declarado. Conteúdo em
+    partes (texto e imagem em data URI, ADR-044) vai como lista, no formato da OpenAI."""
+    content = message["content"]
+    wire: dict[str, Any] = {
+        "role": message["role"],
+        "content": content if isinstance(content, str | None) else [_to_wire_part(part) for part in content],
+    }
     if "name" in message:
         wire["name"] = message["name"]
     if "tool_call_id" in message:
@@ -220,6 +225,12 @@ def _to_wire_message(message: ChatMessage) -> dict[str, Any]:
             for call in message["tool_calls"]
         ]
     return wire
+
+
+def _to_wire_part(part: ContentPart) -> dict[str, Any]:
+    if part["type"] == "text":
+        return {"type": "text", "text": part["text"]}
+    return {"type": "image_url", "image_url": {"url": part["image_url"]["url"]}}
 
 
 def _to_wire_tool(tool: ChatTool) -> dict[str, Any]:

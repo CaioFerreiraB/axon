@@ -121,3 +121,24 @@ def test_adapters_cumprem_a_porta(case: Any) -> None:
     assert callable(provider.chat)
     assert callable(provider.probe)
     assert callable(provider.ready)
+
+
+PNG_URL = "data:image/png;base64,iVBORw0KGgo="
+WITH_IMAGE: list[Any] = [
+    {
+        "role": "user",
+        "content": [{"type": "text", "text": "o que é isto?"}, {"type": "image_url", "image_url": {"url": PNG_URL}}],
+    }
+]
+
+
+async def test_mensagem_em_partes_chega_no_formato_da_openai(case: Any) -> None:
+    """ADR-044, item 10 (R32): `text` e `image_url` com data URI, na ordem, nos quatro adapters."""
+    provider = case.ok()
+    await provider.chat(WITH_IMAGE, MODEL, stream=False)
+    (sent,) = case.sent_messages()
+    assert sent["role"] == "user"
+    assert [dict(part) for part in sent["content"]] == [
+        {"type": "text", "text": "o que é isto?"},
+        {"type": "image_url", "image_url": {"url": PNG_URL}},
+    ]

@@ -40,6 +40,13 @@
 - Q: Os aliases de versão do OpenRouter (`~autor/família-latest`, que apontam sempre para o modelo mais recente de uma família) contam como roteamento automático? → A: Não, e são aceitos. O alias nomeia o autor e a família; o OpenRouter não escolhe o modelo por requisição. Quem quiser fixar a versão declara o id concreto. Decidido depois de um teste real em que `openrouter/~z-ai/glm-flash-latest` atendeu os papéis `controller` e `generation`.
 - Q: Como a OpenAI serve de controller, se o modo estrito dela exige raiz objeto, todo campo em `required` e `additionalProperties: false`? → A: O adapter da OpenAI — e o do OpenRouter para modelos `openai/…` — converte o esquema para o subconjunto estrito na ida (raiz embrulhada em `value`, opcional vira obrigatório e anulável, `additionalProperties: false`, `oneOf` → `anyOf`) e desfaz a conversão na volta; o que não tem equivalente estrito é recusado antes da rede (ADR-023, supera a R19 "o esquema não é reescrito").
 
+### Session 2026-10-22
+
+- Q: Como uma imagem chega ao modelo ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md))? → A: Na mensagem, com `content` em partes no formato compatível com a OpenAI — `{"type": "text", …}` e `{"type": "image_url", "image_url": {"url": "data:<mime>;base64,…"}}`, sempre data URI —, que os três providers falam. O tipo é `ModelMessage`, da 006: o `ChatMessage` dos contratos não muda (alargar `content` seria breaking pelo FR-020 da 001; decisão do mantenedor). As chaves do `ModelMessage` são somente-leitura, então todo `ChatMessage` vale como `ModelMessage`.
+- Q: Quem diz se o modelo enxerga imagem? → A: A política de modelos: `vision` por papel (`ModelPolicy.vision`, os papéis declarados com `vision: true` no Assistant da 003, sobreponível pela console). O cliente devolvido pelo roteador expõe `vision` e recusa mensagem com imagem a papel sem ele, antes do provider e com `ModelCall` de erro — como a guarda do `response_format` do controller: é erro de programação, e a 005 nunca a envia.
+- Q: O que o `model_exchange` registra da imagem? → A: A marca `[imagem <id>]`, com o id do conteúdo (contrato 001), nunca o data URI.
+- Q: O provider simulado aceita imagem? → A: Sim: registra os data URIs recebidos em `images`, para as suítes provarem o que chegou ao modelo.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Geração local em streaming (Priority: P1)
@@ -159,6 +166,8 @@ Cada chamada informa ao trace provider, modelo, papel, tokens de entrada e saíd
 - **FR-010**: Todo provider DEVE aplicar um timeout de conexão e um timeout de inatividade entre pedaços do stream, ambos configuráveis por provider, e NÃO DEVE impor teto de tempo total à chamada. Estouro de qualquer um dos dois DEVE resultar em erro explícito que nomeia provider e modelo.
 - **FR-011**: Provider remoto sem credencial DEVE ser registrado mesmo assim e relatado indisponível na verificação de saúde, com o motivo "sem credencial" e o nome da variável esperada. Toda chamada a ele DEVE falhar antes de qualquer acesso à rede, com erro explícito que nomeia provider, modelo e variável. A ausência NÃO DEVE impedir o boot, e o valor de uma credencial NÃO DEVE aparecer em erro, log ou trace.
 - **FR-012**: Junto com cada entrada da FR-008, o cliente DEVE emitir pelo Trace Sink o evento de conteúdo da chamada (`ModelExchange` da 009): as mensagens enviadas e a saída devolvida — em streaming, a saída acumulada ao fim do stream. O que fazer com ele (descartar, redigir, cortar, entregar só a destinos que aceitam conteúdo) é da 009; este módulo só o produz. Credenciais e cabeçalhos de autenticação NÃO DEVEM fazer parte dele. *(Fase 9, [ADR-034](../../docs/adr/ADR-034-trace-com-destinos-e-conteudo-opcional.md).)*
+- **FR-013**: O seam DEVE aceitar mensagens com `content` em partes `text` e `image_url` (data URI), no tipo `ModelMessage` da 006, e os adapters DEVEM entregá-las ao provider no formato da OpenAI ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 10).
+- **FR-014**: A `ModelPolicy` DEVE declarar `vision` por papel (só papel declarado); o cliente instrumentado DEVE expor `vision` e recusar, antes do provider e com `ModelCall` de erro, mensagem com imagem a papel sem `vision`. O `model_exchange` DEVE levar a marca `[imagem <id>]` no lugar de cada imagem.
 
 ### Key Entities
 

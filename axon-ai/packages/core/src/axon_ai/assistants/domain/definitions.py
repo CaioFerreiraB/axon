@@ -70,6 +70,8 @@ class AssistantDefinition:
     write_tools: tuple[str, ...] = ()
     roles: Mapping[ModelRole, ModelRef] = field(default_factory=lambda: MappingProxyType({}))
     allow: tuple[str, ...] = ()
+    vision: frozenset[ModelRole] = frozenset()
+    """Papéis declarados com `vision: true` (ADR-044, item 10; research R45)."""
     limits: Limits = field(default_factory=Limits)
     overrides: frozenset[OverrideSection] = frozenset()
     """Seções que a administração pode sobrepor (só Assistant de sistema; ADR-032). Vazio = só por deploy."""
@@ -80,6 +82,7 @@ class AssistantDefinition:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "roles", MappingProxyType(dict(self.roles)))
+        object.__setattr__(self, "vision", frozenset(self.vision))
         object.__setattr__(self, "overrides", frozenset(self.overrides))
         object.__setattr__(self, "overridden", frozenset(self.overridden))
         for name in ("packs", "mcp", "collections", "write_tools", "allow", "problems"):
@@ -242,7 +245,7 @@ def _system_assistant(name: str, body: object) -> AssistantDefinition:
     if flow is None and len(packs) >= 2:
         problems.add("flow", "obrigatório em composição de dois ou mais packs: o flow é escolhido pelo Assistant")
 
-    roles, allow = _models(body.get("models"), problems)
+    roles, allow, vision = _models(body.get("models"), problems)
     allowed_tools = _texts(body, "allowed_tools", problems) if "allowed_tools" in body else None
 
     return AssistantDefinition(
@@ -259,6 +262,7 @@ def _system_assistant(name: str, body: object) -> AssistantDefinition:
         write_tools=write_tools,
         roles=roles,
         allow=allow,
+        vision=vision,
         limits=_limits(body.get("limits"), problems),
         overrides=_overrides(body, problems),
         problems=tuple(problems.items),
@@ -314,23 +318,30 @@ def _access(raw: object, problems: _Problems) -> AccessRule:
     return AccessRule(schemes=frozenset(cast("tuple[Scheme, ...]", schemes)), allow=allow)
 
 
-def _models(raw: object, problems: _Problems) -> tuple[dict[ModelRole, ModelRef], tuple[str, ...]]:
+def _models(
+    raw: object, problems: _Problems
+) -> tuple[dict[ModelRole, ModelRef], tuple[str, ...], frozenset[ModelRole]]:
     if not isinstance(raw, Mapping):
         problems.add("models", "obrigatório, com ao menos `generation` e `allow`")
         problems.add("models.allow", "obrigatória e não vazia")
-        return {}, ()
+        return {}, (), frozenset()
 
     allow = _texts(raw, "allow", problems, label="models.allow") if "allow" in raw else ()
     if not allow:
         problems.add("models.allow", "obrigatória e não vazia")
 
     roles: dict[ModelRole, ModelRef] = {}
+    vision: set[ModelRole] = set()
     for key, value in raw.items():
         if key == "allow":
             continue
         if key not in MODEL_ROLES:
             problems.add(f"models.{key}", f"papel desconhecido; papéis: {', '.join(MODEL_ROLES)}")
             continue
+        declared = _role_value(key, value, problems)
+        if declared is None:
+            continue
+        value, sees_images = declared
         try:
             ref = ModelRef.parse(str(value))
         except ValueError as error:
@@ -340,9 +351,32 @@ def _models(raw: object, problems: _Problems) -> tuple[dict[ModelRole, ModelRef]
             problems.add(f"models.{key}", f"{ref} fora da allowlist ({', '.join(allow)})")
             continue
         roles[cast("ModelRole", key)] = ref
+        if sees_images:
+            vision.add(cast("ModelRole", key))
     if "generation" not in raw:
         problems.add("models.generation", "obrigatório")
-    return roles, allow
+    return roles, allow, frozenset(vision)
+
+
+_ROLE_KEYS: Final = frozenset({"model", "vision"})
+
+
+def _role_value(key: str, value: object, problems: _Problems) -> tuple[object, bool] | None:
+    """Um papel é `provider/modelo` ou `{model: provider/modelo, vision: true}` (ADR-044, item 10; R45)."""
+    if not isinstance(value, Mapping):
+        return value, False
+    unknown = sorted(str(name) for name in value if name not in _ROLE_KEYS)
+    if unknown:
+        problems.add(f"models.{key}", f"chaves desconhecidas: {', '.join(unknown)}; aceitas: model, vision")
+        return None
+    if "model" not in value:
+        problems.add(f"models.{key}.model", "obrigatório")
+        return None
+    vision = value.get("vision", False)
+    if not isinstance(vision, bool):
+        problems.add(f"models.{key}.vision", "precisa ser true ou false")
+        return None
+    return value["model"], vision
 
 
 def _limit_values(raw: Mapping[str, object], problems: _Problems | None, where: str) -> dict[str, int | None]:

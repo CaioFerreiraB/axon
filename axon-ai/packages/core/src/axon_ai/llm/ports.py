@@ -5,10 +5,12 @@ Não são seams: são internas do módulo, e só a composition root (spec 011) e
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Literal, Protocol, overload
 
-from axon_ai_contracts import LLMProvider
+from axon_ai.llm.api import ModelMessage
+from axon_ai_contracts import ChatChunk, ChatResponse, ChatTool, JSONValue, LLMProvider
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -30,6 +32,30 @@ class ModelProvider(LLMProvider, Protocol):
     def name(self) -> str:
         """Nome do provider no registro da composition root."""
         ...
+
+    # `chat` do `LLMProvider` com a mensagem da 006, que também leva imagem (ADR-044, research R32): o parâmetro só
+    # alarga, então quem cumpre esta porta continua cumprindo o contrato 001.
+    @overload
+    async def chat(
+        self,
+        messages: Sequence[ModelMessage],
+        model: str,
+        *,
+        tools: Sequence[ChatTool] | None = None,
+        response_format: Mapping[str, JSONValue] | None = None,
+        stream: Literal[False] = False,
+    ) -> ChatResponse: ...
+
+    @overload
+    async def chat(
+        self,
+        messages: Sequence[ModelMessage],
+        model: str,
+        *,
+        tools: Sequence[ChatTool] | None = None,
+        response_format: Mapping[str, JSONValue] | None = None,
+        stream: Literal[True],
+    ) -> AsyncIterator[ChatChunk]: ...
 
     async def probe(self, model: str) -> ProbeResult:
         """Diz se o provider responde e conhece o modelo. NUNCA levanta e NUNCA gera tokens."""

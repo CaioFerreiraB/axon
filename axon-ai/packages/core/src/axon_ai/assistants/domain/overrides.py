@@ -99,6 +99,9 @@ def section_fingerprint(definition: AssistantDefinition, section: OverrideSectio
     data: object
     if section == "models":
         data = {role: str(ref) for role, ref in sorted(definition.roles.items())}
+        if definition.vision:
+            # Só com `vision` a forma muda: as impressões gravadas antes do ADR-044 continuam valendo (R45).
+            data = {"roles": data, "vision": sorted(definition.vision)}
     elif section == "auth":
         auth = yaml_auth(definition)
         data = {"schemes": sorted(auth.schemes), "allow": sorted(auth.allow)}
@@ -114,7 +117,8 @@ def section_fingerprint(definition: AssistantDefinition, section: OverrideSectio
 
 def payload_of(override: OverridePayload) -> dict[str, object]:
     if isinstance(override, ModelsOverride):
-        return {"roles": {role: str(ref) for role, ref in sorted(override.roles.items())}}
+        roles = {role: str(ref) for role, ref in sorted(override.roles.items())}
+        return {"roles": roles, "vision": sorted(override.vision)} if override.vision else {"roles": roles}
     if isinstance(override, AuthOverride):
         return {"schemes": sorted(override.schemes), "allow": list(override.allow)}
     return {"aliases": list(override.aliases), "allowed": sorted(override.allowed), "write": sorted(override.write)}
@@ -126,11 +130,14 @@ def read_payload(section: OverrideSection, payload: Mapping[str, object]) -> Ove
         return _read_auth(payload)
     try:
         if section == "models":
-            roles = payload.get("roles")
+            roles, vision = payload.get("roles"), payload.get("vision", [])
             if not isinstance(roles, Mapping) or not all(role in MODEL_ROLES for role in roles):
                 return None
+            if not isinstance(vision, list) or not all(role in roles for role in vision):
+                return None
             return ModelsOverride(
-                roles={cast("ModelRole", role): ModelRef.parse(str(ref)) for role, ref in roles.items()}
+                roles={cast("ModelRole", role): ModelRef.parse(str(ref)) for role, ref in roles.items()},
+                vision=frozenset(cast("list[ModelRole]", vision)),
             )
         aliases, allowed, write = payload.get("aliases"), payload.get("allowed"), payload.get("write")
         if not all(isinstance(value, list) for value in (aliases, allowed, write)):
@@ -172,7 +179,9 @@ def apply_models(definition: AssistantDefinition, override: ModelsOverride) -> A
         for role, ref in sorted(override.roles.items())
         if not allowed_model(ref, definition.allow)
     )
-    return dataclasses.replace(definition, roles=override.roles, problems=(*definition.problems, *problems))
+    return dataclasses.replace(
+        definition, roles=override.roles, vision=override.vision, problems=(*definition.problems, *problems)
+    )
 
 
 def apply_mcp(definition: AssistantDefinition, override: McpOverride, *, pack_tools: PackTools) -> AssistantDefinition:

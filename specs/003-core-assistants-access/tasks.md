@@ -967,3 +967,18 @@ T115; T116 em paralelo com a T114.
   consumidor; corrigidos na passada da 008, que mostra a seção `auth` em `/admin/v1`.
 - À mão (`persistent`): `keys create --subject svc:relatorios`, `keys rotate`, `keys list` ("ativa, rotacionada em …");
   a chave antiga recebe 401 e a nova 200 em `/private/v1/health`; `svc:Relatorios` recusado nomeando o padrão.
+
+
+---
+
+## Passada de 2026-10-22: `vision` por papel ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md); research R45)
+
+**Goal**: o Assistant declara quais papéis enxergam imagem, e o grant leva isso à 006.
+
+**Independent Test**: `tests/assistants/unit/test_vision.py`.
+
+- [X] T117 `_models`/`_role_value`; `AssistantDefinition.vision`, `ModelsOverride.vision`, `UserAssistantDraft.vision`;
+  conteúdo, leitura e aplicação da sobreposição; impressão digital estável sem `vision` (R45)
+- [X] T118 `select_models` com `vision`; modelo pedido diferente sem `vision`
+- [X] T119 [P] Testes: objeto por papel, malformados, grant, modelo pedido, impressão digital antiga, sobreposição ida e
+  volta, rascunho de usuário, `controller` declarado no `chat`

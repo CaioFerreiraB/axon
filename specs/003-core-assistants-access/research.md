@@ -729,3 +729,20 @@ cenários e o caso de R42); `unit/test_overrides.py` (impressão digital, `apply
 
 **Alternatives considered**: uma migração só para as duas mudanças (misturaria duas US num arquivo; separadas, cada
 uma tem o seu teste).
+
+## R45 — `vision` por papel (ADR-044, item 10; FR-037)
+
+**Decision**: `_models` lê cada papel como texto ou objeto `{model, vision}` (`_role_value`) e devolve também o
+conjunto de papéis com `vision`; `AssistantDefinition.vision`, `ModelsOverride.vision` e `UserAssistantDraft.vision`
+(`frozenset[ModelRole]`, só papel declarado). A sobreposição guarda `vision` no conteúdo só quando não vazio;
+`apply_models` troca papéis e `vision` juntos. Em `section_fingerprint`, a forma canônica de `models` só ganha
+`{"roles", "vision"}` quando o YAML declara `vision`. `select_models` leva `vision ∩ papéis` à `ModelPolicy` e tira o
+`generation` quando o modelo pedido difere do declarado. O `controller` no `chat` não exige regra nova aqui: a
+validação só confere os papéis obrigatórios do flow (R19).
+
+**Rationale** (ADR-044: "`vision: true` é um campo do papel … escrito no Assistant da 003 e sobreponível pela console";
+ADR-032: a sobreposição de `models` é a seção inteira): o objeto por papel mantém a forma curta para quem não usa
+imagem. Mudar a impressão digital de todo Assistant inativaria todas as sobreposições gravadas no primeiro deploy.
+
+**Alternatives considered**: lista `models.vision: [generation]` ao lado da allowlist (separa o atributo do papel que
+ele qualifica); herdar `vision` no modelo pedido (o operador declarou um modelo, não todos os da allowlist).
