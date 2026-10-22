@@ -15,7 +15,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Final, Literal, Protocol
 
-from axon_ai_contracts import JSONValue
+from axon_ai_contracts import Attachment, JSONValue
 
 
 class TraceQueryUnavailable(RuntimeError):
@@ -135,6 +135,24 @@ class ExecutionFinished:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class AttachmentInfo:
+    """O que o trace, o uso e a auditoria guardam de uma imagem: id, tipo e tamanho, nunca os bytes (ADR-044)."""
+
+    id: str
+    mime: str
+    size_bytes: int
+
+    def __post_init__(self) -> None:
+        _require_text("id", self.id)
+        _require_text("mime", self.mime)
+        _require_non_negative("size_bytes", self.size_bytes)
+
+
+def attachment_info(attachment: Attachment) -> AttachmentInfo:
+    return AttachmentInfo(id=attachment.id, mime=attachment.mime, size_bytes=len(attachment.data))
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ToolCall:
     """Uma chamada de tool pelo gateway (004 FR-014). Sem argumentos nem conteúdo: o trace não guarda dado de usuário;
     a auditoria guarda os de escrita. `kind` é `None` quando a tool não existe no catálogo."""
@@ -146,6 +164,8 @@ class ToolCall:
     duration_ms: float
     size_bytes: int
     truncated: bool = False
+    attachments: tuple[AttachmentInfo, ...] = ()
+    """As imagens do resultado (ADR-044); `size_bytes` continua sendo o do texto."""
 
     def __post_init__(self) -> None:
         _require_text("request_id", self.request_id)

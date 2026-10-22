@@ -345,3 +345,21 @@ Task: "integration/test_session_mcp.py (T019)"
 - **005**: o flow `agentic` sobre a sessão
 - **011**: `Capabilities` nos perfis, `AuditLog` (memória ou Postgres, `migrate` do schema `capabilities`),
   `GatewayLimits` por `AI_CORE_TOOL_TIMEOUT_MS` e `AI_CORE_TOOL_MAX_RESPONSE_BYTES`, registro de `ai-core audit`
+
+
+---
+
+## Passada de 2026-10-22: imagens fora da cerca ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md); research R13)
+
+**Goal**: o resultado de tool com imagem chega ao motor com os anexos fora da cerca e a marca dentro; auditoria e
+trace sem bytes.
+
+**Independent Test**: `tests/capabilities/` — sessão com MCP programado devolvendo PNG e tool nativa devolvendo
+`ToolResult` com anexo.
+
+- [X] T038 `FencedToolResult.attachments`, `_Outcome.attachments`; `ToolResult` de handler nativo; marcas depois do corte
+  (`rendering.attachment_markers`) (R13)
+- [X] T039 `AttachmentInfo` e `ToolCall.attachments` na 009; `AuditLog.finish(attachments=)`, `AuditRecord.attachments`,
+  migração `002_audit_attachments.sql`, memória e Postgres; contagem no `axon audit`
+- [X] T040 [P] Testes: marca com e sem `alt`, marca neutralizada e fora do corte, repetição, nativa com `ToolResult`,
+  evento e auditoria (memória e Postgres) sem bytes

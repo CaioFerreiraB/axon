@@ -12,6 +12,7 @@ from datetime import datetime
 
 from axon_ai.capabilities.api import AuditEntry, AuditFilter, AuditRecord, AuditStatus
 from axon_ai.capabilities.ports import PackTool
+from axon_ai.observability.api import AttachmentInfo
 from axon_ai.packs.api import Composition
 
 
@@ -40,10 +41,20 @@ class InMemoryAuditLog:
         )
         return record_id
 
-    async def finish(self, record_id: str, *, status: AuditStatus, result: str, at: datetime) -> None:
+    async def finish(
+        self,
+        record_id: str,
+        *,
+        status: AuditStatus,
+        result: str,
+        at: datetime,
+        attachments: Sequence[AttachmentInfo] = (),
+    ) -> None:
         for index, record in enumerate(self._records):
             if record.id == record_id:
-                self._records[index] = dataclasses.replace(record, status=status, result=result, finished_at=at)
+                self._records[index] = dataclasses.replace(
+                    record, status=status, result=result, finished_at=at, attachments=tuple(attachments)
+                )
                 return
         raise LookupError(f"registro de auditoria '{record_id}' não existe")
 

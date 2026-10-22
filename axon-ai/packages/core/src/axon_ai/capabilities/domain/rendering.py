@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from typing import Final
 
 from axon_ai.capabilities.domain.fencing import cut
-from axon_ai_contracts import Chunk
+from axon_ai_contracts import Attachment, Chunk
 
 NO_RESULTS: Final = "nenhum resultado"
 OMITTED_CHUNKS: Final = "\n\n[… {count} trecho(s) omitido(s): limite de resposta]"
@@ -26,6 +26,19 @@ def render_value(value: object) -> str:
     if isinstance(value, str):
         return value
     return json.dumps(_plain(value), ensure_ascii=False, sort_keys=True, default=str)
+
+
+def attachment_markers(attachments: Sequence[Attachment]) -> str:
+    """Uma marca por imagem, no lugar dos bytes: o modelo sabe que ela existe e que o usuário a viu (ADR-044, R13).
+
+    O `alt` já sai limpo do `Attachment` (contrato 001): sem quebras de linha nem colchetes ou parênteses.
+    """
+    return "".join(
+        f"\n[imagem {item.id} mostrada ao usuário: {item.alt}]"
+        if item.alt
+        else f"\n[imagem {item.id} mostrada ao usuário]"
+        for item in attachments
+    )
 
 
 def render_chunks(chunks: Sequence[Chunk]) -> str:

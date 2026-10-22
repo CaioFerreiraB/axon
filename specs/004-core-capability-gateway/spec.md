@@ -29,6 +29,13 @@
 - Q: O registro de auditoria de uma tool de escrita guarda o conteúdo do resultado, ou só o desfecho? → A: Guarda os argumentos inteiros e o resultado como o modelo o recebeu — já delimitado e cortado no limite do gateway —, mais o status (sucesso, erro, prazo). É o que permite investigar uma escrita indevida pelo que o modelo viu, e o corte impede volume grande.
 - Q: Como o operador consulta a auditoria de tools de escrita nesta fase? → A: Pelo comando `axon audit`, com filtros por Principal, Assistant, tool e período — a função do comando é deste módulo, e o registro na raiz é da 011. Nenhuma rota de rede nesta fase: a superfície privada pode ganhar uma quando houver painel.
 
+### Session 2026-10-22
+
+- Q: Onde fica a imagem que uma tool devolve ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md))? → A: Fora da cerca. O texto cercado leva, no fim e na ordem dos anexos, uma marca por imagem — `[imagem <id> mostrada ao usuário: <alt>]`, ou `[imagem <id> mostrada ao usuário]` sem `alt` —, e os bytes vão em `FencedToolResult.attachments`, sem repetir `id`. O modelo sabe que a imagem existe e que o usuário a viu, sem receber os bytes.
+- Q: Como uma tool nativa de pack devolve imagem? → A: Devolvendo um `ToolResult` (contrato 001, 0.2.2) com `attachments`; o gateway usa o `content`, o `error`, o `truncated` e os anexos dele. Qualquer outro valor segue renderizado como hoje. Resultado de MCP traz os anexos que a 007 preservou.
+- Q: O que a auditoria e o trace registram da imagem? → A: Só `id`, tipo e tamanho, nunca bytes: a auditoria ganha a coluna `attachments` (migração `002`), e o evento `tool_call` da 009, o campo `attachments` (aditivo, ADR-017). O `size_bytes` do evento continua sendo o do texto.
+- Q: O corte do gateway (`max_response_bytes`) conta a marca? → A: Não: o conteúdo é cortado primeiro e as marcas entram depois, sempre visíveis; os anexos não contam (ADR-044, item 2).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - O catálogo é exatamente o que o Assistant permite (Priority: P1)
@@ -151,6 +158,8 @@ O catálogo entregue ao modelo de controle tem tamanho limitado por configuraç�
 - **FR-013**: O número de tools entregues ao controller DEVE ser limitado por configuração. *(US6, P3 — entra quando houver caso de uso; fora da Fase 3.)*
 - **FR-014**: Cada chamada DEVE emitir, pelo Trace Sink (009), dados de trace: tool, tipo, latência, status, tamanho e truncamento.
 - **FR-015**: A auditoria DEVE ser consultável pelo comando `axon audit`, com filtros por Principal, Assistant, tool e período; nenhuma superfície de rede expõe a auditoria nesta fase.
+- **FR-016**: O gateway DEVE entregar as imagens de um resultado fora da cerca, em `FencedToolResult.attachments` (ordem de chegada, sem `id` repetido), e pôr no texto cercado, depois do conteúdo cortado, a marca `[imagem <id> mostrada ao usuário: <alt>]` de cada uma ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 3). Tool nativa devolve imagem por um `ToolResult` com `attachments`.
+- **FR-017**: A auditoria de escrita e o evento `tool_call` DEVEM registrar de cada anexo só `id`, tipo e tamanho, nunca os bytes.
 
 ### Key Entities
 

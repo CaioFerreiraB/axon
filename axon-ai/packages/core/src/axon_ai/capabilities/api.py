@@ -16,7 +16,8 @@ from types import MappingProxyType
 from typing import Final, Literal, Protocol
 
 from axon_ai.assistants.api import ExecutionGrant
-from axon_ai_contracts import Chunk, JSONValue, ToolKind
+from axon_ai.observability.api import AttachmentInfo
+from axon_ai_contracts import Attachment, Chunk, JSONValue, ToolKind
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Vocabulário
@@ -103,6 +104,8 @@ class FencedToolResult:
     truncated: bool = False
     error: str | None = None
     chunks: tuple[Chunk, ...] = ()
+    attachments: tuple[Attachment, ...] = ()
+    """As imagens do resultado, fora da cerca; o texto leva uma marca por imagem (ADR-044, R13)."""
 
 
 def _bounded(name: str, value: int, low: int, high: int) -> None:
@@ -150,6 +153,8 @@ class AuditRecord:
     result: str | None
     started_at: datetime
     finished_at: datetime | None
+    attachments: tuple[AttachmentInfo, ...] = ()
+    """Id, tipo e tamanho das imagens do resultado, nunca os bytes (ADR-044, R13)."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

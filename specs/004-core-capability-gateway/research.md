@@ -226,3 +226,23 @@ auditoria precisa da conformidade contra o adapter real.
 **Rationale** (princípio XII).
 
 **Alternatives considered**: nenhuma.
+
+## R13 — Imagens fora da cerca (ADR-044, item 3; FR-016, FR-017)
+
+**Decision**: `_Outcome` e `FencedToolResult` ganham `attachments: tuple[Attachment, ...] = ()`. Handler nativo que
+devolve `ToolResult` tem `content`, `error`, `truncated` e `attachments` usados como os de um resultado MCP; outro valor
+segue em `render_value`. Em `_finish`, o conteúdo é cortado pelo limite do gateway e só depois recebe, no fim, as
+marcas de `domain/rendering.attachment_markers` (`[imagem <id> mostrada ao usuário: <alt>]`; sem `alt`, sem o sufixo),
+e o texto é cercado — a cerca neutraliza a marca como qualquer conteúdo. Repetição de `id` cai. `AttachmentInfo(id,
+mime, size_bytes)` é tipo publicado da 009 (`observability/api.py`); o evento `ToolCall` ganha `attachments:
+tuple[AttachmentInfo, ...] = ()`, e `AuditLog.finish` ganha `attachments` (só nome), gravado na coluna `attachments
+jsonb` (migração `002_audit_attachments.sql`) e devolvido em `AuditRecord.attachments`. `axon audit` mostra a contagem.
+
+**Rationale** (ADR-044: "A 004 tira o anexo da cerca"; "nunca bytes"): a marca é o único rastro da imagem que o modelo
+vê, por isso fica fora do alcance do corte. Pôr as marcas no fim, e não no lugar exato da parte, vale igual para MCP e
+para tool nativa, que não tem posição; a 007 já tira a imagem do texto (007 R17). O tipo do resumo mora na 009 porque é
+o evento dela que o leva, e a 004 já importa o `api.py` dela.
+
+**Alternatives considered**: a marca no lugar exato da parte (exigiria um marcador de posição combinado entre 007 e
+004, sem ganho para o modelo); `size_bytes` somando os anexos (mudaria o significado do campo, que mede o que o modelo
+lê); bytes na auditoria (o ADR proíbe).

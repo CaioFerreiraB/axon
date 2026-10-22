@@ -29,12 +29,12 @@ from axon_ai.capabilities.api import (
 from axon_ai.capabilities.domain.arguments import validate_arguments
 from axon_ai.capabilities.domain.catalog import Entry, assemble
 from axon_ai.capabilities.domain.fencing import cut, fence
-from axon_ai.capabilities.domain.rendering import render_value, render_within
+from axon_ai.capabilities.domain.rendering import attachment_markers, render_value, render_within
 from axon_ai.capabilities.ports import AuditLog, Clock, PackToolSource
 from axon_ai.mcp.api import McpClients, RestrictedMcpClient, UnknownServer
-from axon_ai.observability.api import ExecutionError, TraceSink
+from axon_ai.observability.api import ExecutionError, TraceSink, attachment_info
 from axon_ai.observability.api import ToolCall as ToolCallEvent
-from axon_ai_contracts import Chunk, ToolInvocation, ToolSpec
+from axon_ai_contracts import Attachment, Chunk, ToolInvocation, ToolResult, ToolSpec
 
 logger: Final = logging.getLogger("axon_ai.capabilities")
 
@@ -117,6 +117,7 @@ class _Outcome:
     error: str | None = None
     chunks: tuple[Chunk, ...] = ()
     truncated: bool = False
+    attachments: tuple[Attachment, ...] = ()
 
 
 class Session:
@@ -178,6 +179,7 @@ class Session:
                 duration_ms=max(0.0, (self._clock.monotonic() - started) * 1000),
                 size_bytes=len(result.text.encode("utf-8")),
                 truncated=result.truncated,
+                attachments=tuple(attachment_info(item) for item in result.attachments),
             )
         )
         return result
@@ -202,7 +204,10 @@ class Session:
                 request_id=self._context.request_id,
                 reference_time=self._context.reference_time,
             )
-            return _Outcome(status="ok", content=render_value(await entry.handler(invocation)))
+            value = await entry.handler(invocation)
+            if isinstance(value, ToolResult):
+                return _from_result(value)
+            return _Outcome(status="ok", content=render_value(value))
         if kind == "retrieval":
             assert entry.retriever is not None and entry.pack is not None
             query = str(call.arguments["query"])
@@ -215,11 +220,7 @@ class Session:
                 found = await retriever.search(query, filters=filters)
             return self._chunks_outcome(tuple(found))
         assert entry.alias is not None
-        result = await self._client.execute(entry.alias, entry.local_name, call.arguments)
-        content = render_value(result.content)
-        if result.error is not None:
-            return _Outcome(status="error", content=content, error=result.error, truncated=result.truncated)
-        return _Outcome(status="ok", content=content, truncated=result.truncated)
+        return _from_result(await self._client.execute(entry.alias, entry.local_name, call.arguments))
 
     def fence_chunks(self, name: str, chunks: Sequence[Chunk]) -> FencedToolResult:
         """Trechos já recuperados, na cerca de um resultado de recuperação (ADR-026; 005 research R41)."""
@@ -238,6 +239,9 @@ class Session:
         content = outcome.content or outcome.error or ""
         content, cut_here = cut(content, max_bytes=self._limits.max_response_bytes)
         truncated = cut_here or outcome.truncated
+        # As marcas das imagens entram depois do corte: são o único rastro delas que o modelo vê (R13).
+        attachments = tuple({item.id: item for item in outcome.attachments}.values())
+        content += attachment_markers(attachments)
         return FencedToolResult(
             name=name,
             kind=entry.tool.kind if entry is not None else None,
@@ -246,6 +250,7 @@ class Session:
             truncated=truncated,
             error=outcome.error,
             chunks=outcome.chunks,
+            attachments=attachments,
         )
 
     # --- escrita auditada (R8) --------------------------------------------------------------------------------------
@@ -269,11 +274,26 @@ class Session:
         result = self._finish(call.name, entry, await self._dispatch(entry, call))
         status: AuditStatus = "ok" if result.status == "ok" else "timeout" if result.status == "timeout" else "error"
         try:
-            await self._audit.finish(record_id, status=status, result=result.text, at=self._clock.now())
+            await self._audit.finish(
+                record_id,
+                status=status,
+                result=result.text,
+                at=self._clock.now(),
+                attachments=tuple(attachment_info(item) for item in result.attachments),
+            )
         except Exception:
             # A tentativa já está registrada como `started`; o resultado segue para o modelo.
             logger.exception("auditoria: não foi possível fechar o registro %s", record_id)
         return result
+
+
+def _from_result(result: ToolResult) -> _Outcome:
+    """Um `ToolResult` — de MCP ou de tool nativa — com os anexos fora do texto (R13)."""
+    content = render_value(result.content)
+    status: ToolStatus = "error" if result.error is not None else "ok"
+    return _Outcome(
+        status=status, content=content, error=result.error, truncated=result.truncated, attachments=result.attachments
+    )
 
 
 def _describe(error: BaseException) -> str:
