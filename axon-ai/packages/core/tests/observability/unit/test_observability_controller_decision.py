@@ -78,3 +78,16 @@ def test_os_dois_backends_guardam_o_tipo_controller_decision(backend: str, tmp_p
     (record,) = store.read("req-1")
     assert record.type == "controller_decision"
     assert dict(record.attributes) == {"iteration": 1, "action": "tool", "tool": "generic.calculate"}
+
+
+def test_view_image_leva_os_ids_e_so_ela() -> None:
+    """ADR-044, item 8: os ids no lugar do nome da tool; vazio vale (a etapa `image_gate` não escolheu nenhuma)."""
+    event = ControllerDecision(request_id="req-1", iteration=1, action="view_image", images=["img-0123456789ab"])
+    assert event.images == ("img-0123456789ab",)
+    record = to_record(event, AT)
+    assert dict(record.attributes) == {"iteration": 1, "action": "view_image", "images": ["img-0123456789ab"]}
+    assert ControllerDecision(request_id="req-1", iteration=1, action="view_image", images=()).images == ()
+    with pytest.raises(ValueError):
+        ControllerDecision(request_id="req-1", iteration=1, action="view_image")
+    with pytest.raises(ValueError):
+        ControllerDecision(request_id="req-1", iteration=1, action="answer", images=())

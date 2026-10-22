@@ -46,6 +46,12 @@
 - Q: O que acontece com o segredo gravado antes da troca? → A: Corte seco, sem migração (ADR-037, item 3): o segredo selado com o rótulo antigo não abre. O Langfuse configurado pela console fica sem credencial, e a saúde mostra, no item do Langfuse, que o segredo gravado não abre — o caminho que já existe para chave mestra errada. O admin grava o segredo de novo pela console. O Langfuse configurado pela instalação (variáveis `AXON_LANGFUSE_*`) não passa pelo selo e não muda.
 - Q: Os comandos de avaliação e de auditoria mudam? → A: Não nesta passada: `axon eval run|compare` e `axon audit` já existem sob a raiz `axon` desde a passada da 011.
 
+### Session 2026-10-22
+
+- Q: O que o trace guarda de uma imagem ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 11)? → A: Só `id`, tipo e tamanho, nunca os bytes. O `tool_call` (004) ganha `attachments` com esse resumo (`AttachmentInfo`, tipo publicado pelo `api.py` desta spec e usado também pela auditoria da 004); o `size_bytes` dele continua sendo o do texto.
+- Q: Como o trace registra a decisão de ver uma imagem? → A: Pelo `controller_decision`, com a ação nova `view_image` (aditiva, ADR-017) e os ids em `images`, no lugar do nome da tool — no loop, um por iteração; na etapa `image_gate` do `chat` e do `rag_first`, os escolhidos de uma vez, possivelmente nenhum. Nas outras ações, `images` não aparece.
+- Q: E a captura opcional (`model_exchange`)? → A: Leva `[imagem <id>]` no lugar de cada imagem da mensagem (a 006 a escreve ao emitir), nunca o data URI. Uso e custo não mudam: o custo da imagem vem nos tokens que o provider informa.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Entender por que uma execução se comportou assim (Priority: P1)
@@ -244,6 +250,7 @@ A plataforma passa a se chamar Axon (ADR-037). O operador filtra no Langfuse os 
 - **FR-021**: Os traces enviados ao Langfuse DEVEM identificar o serviço como `axon` (ADR-037).
 - **FR-022**: O segredo do Langfuse gravado pela console DEVE ser selado com a subchave de rótulo `axon-ai/observability/v1`, própria da 009 (ADR-033, ADR-037). Segredo selado com outro rótulo, inclusive o antigo, NÃO DEVE abrir; o destino da console fica sem credencial e a saúde DEVE dizer que o segredo gravado não abre, sem migração nem janela de compatibilidade.
 - **FR-023**: Os consumidores no workspace que citam o rótulo ou o nome do serviço — testes de outros módulos e documentos vivos — DEVEM usar os nomes novos na mesma passada (ADR-037, item 7).
+- **FR-024**: Nenhum registro de trace, de uso ou de captura DEVE levar os bytes de uma imagem: o `tool_call` DEVE trazer `attachments` com `id`, tipo e tamanho; o `controller_decision` DEVE aceitar a ação `view_image` com os ids em `images`; o `model_exchange` DEVE trazer `[imagem <id>]` no lugar de cada imagem ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), itens 3, 8 e 11).
 
 
 ### Key Entities
