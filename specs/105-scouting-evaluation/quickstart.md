@@ -98,3 +98,15 @@ relatório: marcos por ramo 1,0 exceto `marco-pioneiro` (0,0); agregados 0,2–0
 0. Uma correção da 102, 101 ou 103 mostra o antes e o depois deste número (SC-004). Sem os PDFs no git, o CI confere o
 artefato contra o catálogo (`uv run pytest tests/rag/ingestion/test_artifact_catalog.py`) no lugar da reingestão
 (FR-016); o passo 6 vale com isso.
+
+## 8. O prompt com modelo real (101 R36, R17)
+
+```bash
+export AXON_OPENROUTER_API_KEY=…   # sem eco
+AXON_PROFILE=memory AXON_PACKS_FILE=eval/packs.yaml AXON_ASSISTANTS_FILE=eval/assistants-openrouter.yaml \
+  uv run --python 3.14 --group platform axon eval run --golden eval/regression.yaml \
+    --judge openrouter/<modelo> --report .cache/real-depois.json --annotate "prompt 101 R36"
+```
+
+Para o "antes", a mesma rodada com o pack no commit anterior ao prompt (`git stash` não basta: o prompt é código do
+pacote). Esperado: `scouting:absence_claim_rate` menor depois, fidelidade sem queda; `fact_recall` igual nas duas.

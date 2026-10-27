@@ -237,3 +237,16 @@ Qwen3 1.7B, Gemma 4 E2B) ficam como estão.
 - **Rationale**: a busca por faceta depende da derivação; um léxico que deixe de casar "cada ramo" aparece aqui antes de
   aparecer no `fact_recall`.
 - **Alternatives**: nenhum.
+
+## R17 — `absence_claim_rate` e a rodada com modelo real
+
+- **Decision**: `AbsenceClaimRate` em `eval/metrics.py`: sobre a resposta normalizada pela 101, três padrões —
+  "não existe/há/consta … nos documentos", "os documentos (oficiais) não trazem/contêm/mencionam…" e "nenhum documento
+  (oficial) foi encontrado/trata…"; "trechos" não casa. Só em item com `extra.facts`; `better: lower`, não
+  determinística. `eval/assistants-openrouter.yaml` dá ao Assistant o modelo de geração da instalação
+  (`openrouter/z-ai/glm-5.3-flash`); a rodada é manual, com `AXON_OPENROUTER_API_KEY` e `--judge`.
+- **Rationale**: o defeito que a revisão achou na geração é uma afirmação sobre o acervo feita a partir de cinco
+  trechos; o juiz da 009 mede fidelidade e cobertura, não isso. Os padrões são estreitos de propósito: um falso
+  negativo custa menos que punir "não apareceu nos trechos", que é o que o prompt pede (101 R36).
+- **Alternatives**: pedir ao juiz um julgamento a mais (muda o contrato do juiz na 009).
+- **Pendente**: a rodada antes/depois do prompt — sem a chave nesta máquina em 2026-10-27.

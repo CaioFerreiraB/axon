@@ -323,7 +323,9 @@ vez de `branch`, e o `ScoutingRetriever` faz uma busca por ramo, intercaladas co
 metadados, que o `MetadataReranker` respeita — `fact_recall` 0,81. O reranker que lê a pergunta foi medido e **não**
 adotado (103 R14): dois cross-encoders em ONNX empatam ou ganham 0,01 por segundos e GB a cada pergunta, e tirar o
 corte do gateway piora; com `AXON_RAG_PASSAGES=10` o v1 vai a 0,86. O que falta é recuperação dentro da faceta e o POR
-geral (faixas etárias). Próximo: o prompt (101, cobertura parcial).
+geral (faixas etárias). O prompt (101 R36) trata cobertura parcial, o conceito perguntado e a resposta por ramo, e a
+105 tem `scouting:absence_claim_rate` (não determinística) e `eval/assistants-openrouter.yaml` para a rodada manual com
+modelo real — pendente (105 T029, quickstart passo 8).
 
 **A Fase 7 do roadmap está completa.** Da 008 (US6, US8), a API pronta para o Open WebUI: admissão
 (`domain/admission.py`, puro; `ExecutionSlots` no `service.py`, vagas e fila FIFO em memória, por processo) entre a

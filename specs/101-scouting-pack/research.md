@@ -550,3 +550,15 @@ seguem no Qdrant embutido com `store: qdrant`.
   …" casa o marcador ("os ramos") e dá os cinco.
 - **Alternatives**: decompor por modelo (contra o princípio V: derivação sem modelo); só o número "5 ramos" como
   marcador (perde "cada ramo" e "os ramos").
+
+## R36 — Cobertura parcial, conceito perguntado e resposta por ramo no prompt
+
+- **Decision**: três parágrafos novos no `SYSTEM_PROMPT`, antes da vigência: cobertura parcial (o que não veio nos
+  trechos não é o que não existe; sugerir a pergunta mais específica), o conceito perguntado (os vizinhos do domínio
+  nomeados como exemplo, sem nenhum valor deles) e a resposta por ramo na ordem das idades. Testes de frase em
+  `tests/test_prompt.py`, e um que proíbe fatos do conjunto de regressão no prompt.
+- **Rationale**: a resposta de produção afirmou ausência a partir de cinco trechos e preencheu com ênfase educativa e
+  símbolos (revisão, §3). O efeito é medido com modelo real pela `scouting:absence_claim_rate` da 105 (R17) e pelo juiz;
+  o gerador simulado do perfil `test` não lê o prompt.
+- **Alternatives**: um glossário dos conceitos no prompt (fatos do corpus no prompt, contra FR-022); validar a resposta
+  depois (um validator não sabe o que os trechos deixaram de fora).

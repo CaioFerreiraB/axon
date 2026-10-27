@@ -58,6 +58,7 @@
 
 Revisão do RAG ([relatório](../../docs/revisao-rag-scouting-2026-10.md)) e [ADR-045](../../docs/adr/ADR-045-filhotes-e-consulta-multifaceta-no-scouting.md).
 
+- Q: O que o prompt faz quando os trechos cobrem só parte da pergunta? → A: Responde, com citação, o que eles cobrem e diz o que não apareceu **nos trechos recebidos** — nunca que os documentos não tratam do assunto: os trechos são uma amostra da busca. Responde ao conceito perguntado, sem pôr um vizinho (lema, marco simbólico, ênfase educativa, símbolo, sinal) no lugar dele, e, numa pergunta sobre vários ramos, organiza por ramo e marca os que faltaram. Sem fato de nenhuma pergunta no prompt.
 - Q: Como a derivação trata o Ramo Filhotes e uma pergunta sobre vários ramos? → A: `filhotes` é um ramo do léxico (filhote, filhotes, ramo filhotes, ninhada, ninhadas). Dois ramos ou mais casados, ou um marcador de totalidade ("cada ramo", "os ramos", "5 ramos"…, com os cinco ramos), viram **facetas**: `branches` no contexto e nos `retrieval_filters`, na ordem do léxico, e nenhum `branch`. Um ramo só continua `branch`; termo ambíguo continua não filtrando.
 
 ## User Scenarios & Testing *(mandatory)*
@@ -178,6 +179,27 @@ da 105, a `context_accuracy` dos itens com facetas é 1 e o `fact_recall` dos ag
 
 ---
 
+### User Story 8 - Resposta honesta com cobertura parcial (Priority: P1)
+
+Quando os trechos respondem só parte da pergunta, a resposta traz o que eles cobrem e diz o que não apareceu neles, sem
+afirmar que os documentos oficiais não tratam do assunto e sem trocar o conceito perguntado por um vizinho.
+
+**Why this priority**: Na pergunta que abriu a revisão do RAG de 2026-10-27, a resposta deu a ênfase educativa e os
+símbolos no lugar do marco simbólico e afirmou que as demais formulações não estavam disponíveis — que existiam no
+corpus.
+
+**Independent Test**: Na rodada com modelo real do conjunto de regressão da 105, `scouting:absence_claim_rate` cai, e
+o juiz não aponta troca de conceito.
+
+**Acceptance Scenarios**:
+
+1. **Given** trechos com o marco simbólico de dois ramos de cinco pedidos, **When** gerada, **Then** a resposta dá os
+   dois, com citação, e diz que os outros três não vieram nos trechos — sem dizer que os documentos não os trazem.
+2. **Given** uma pergunta sobre o lema e trechos só com o marco simbólico, **When** gerada, **Then** a resposta não
+   apresenta o marco como lema.
+
+---
+
 ### Edge Cases
 
 - Termos ambíguos de ramo (formas antigas ou regionais): o léxico mapeia sinônimos; na dúvida, não aplica filtro.
@@ -214,6 +236,7 @@ da 105, a `context_accuracy` dos itens com facetas é 1 e o `fact_recall` dos ag
 - **FR-019**: A configuração DEVE oferecer `store` (`memory`, default, ou `qdrant`), `index_dir` (só com `memory`; default, o artefato do pacote) e `embedder` (`e5`, `pplx` ou `hashing`); campos do Qdrant fora de `store: qdrant` e `index_dir` fora de `store: memory` DEVEM ser recusados nomeando o campo. Com `memory`, a carga DEVE recusar um diretório sem artefato ([ADR-043](../../docs/adr/ADR-043-indice-do-scouting-gerado-no-desenvolvimento.md)).
 - **FR-020**: A chave do embedder remoto DEVE vir só de `AXON_SCOUTING_EMBEDDING_API_KEY`; a carga NÃO DEVE exigi-la, e nenhuma mensagem DEVE trazer o valor.
 - **FR-021**: O léxico DEVE ter o Ramo Filhotes (`filhotes`) e os marcadores de totalidade; a derivação DEVE publicar `branches` — dois ramos ou mais, na ordem do léxico; com o marcador, os cinco — no contexto e nos `retrieval_filters`, e então nenhum `branch` ([ADR-045](../../docs/adr/ADR-045-filhotes-e-consulta-multifaceta-no-scouting.md)).
+- **FR-022**: O prompt DEVE orientar a responder a parte coberta pelos trechos e dizer o que não apareceu neles, sem afirmar ausência nos documentos; a responder ao conceito perguntado, sem substituí-lo por um vizinho; e a organizar por ramo uma pergunta sobre vários ramos. O prompt NÃO DEVE conter fato do corpus que uma pergunta do conjunto espere.
 
 ### Key Entities
 

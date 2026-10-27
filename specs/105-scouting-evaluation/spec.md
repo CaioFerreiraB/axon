@@ -166,6 +166,7 @@ não teriam como provar ganho nem como evitar piora.
 - **FR-014**: O pack DEVE fornecer a métrica determinística `fact_recall`: a fração dos fatos que o item declara em `extra.facts` (texto, ou lista de redações alternativas) presentes, palavra a palavra depois da normalização da 101, no texto dos trechos entregues à geração; item sem `extra.facts` não conta. O texto vem do artefato do índice, lido pelo `pack.py` só quando uma rodada consulta a métrica; com o Qdrant, a métrica não é declarada.
 - **FR-015**: O conjunto de regressão da recuperação (`eval/regression.yaml`) DEVE cobrir, para os mesmos conceitos, perguntas individuais por ramo, paráfrases, agregados com os cinco ramos, comparação e regras normativas (`extra.group`); todo fato DEVE existir no texto do artefato, validado sem o core; tem linha de base própria e roda no CI ao lado da semente.
 - **FR-016**: Sem os PDFs no git, o CI DEVE conferir o artefato contra o catálogo — os mesmos documentos e, para cada um, metadados, vigência derivada da linhagem e proveniência —, no lugar da reingestão a partir dos originais (que continua sendo `axon-scouting-corpus ingest`, na máquina de quem os tem).
+- **FR-017**: O pack DEVE fornecer a métrica não determinística `absence_claim_rate`: em item com `extra.facts` (a informação existe no corpus), 1 se a resposta afirma que os documentos não trazem a informação, senão 0; dizer que algo não apareceu nos trechos não conta. A rodada com modelo real que a mede usa `eval/assistants-openrouter.yaml`.
 
 ### Key Entities
 

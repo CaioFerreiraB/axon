@@ -570,3 +570,4 @@ T063 → T064 → T065 → T066 ∥ T067 (veem falhar) → T068 → T069 → T07
 - [X] T076 [US7] `filhotes` e `all_branches` em `context/lexicon.py`; `ScoutingContext.branches` e `to_slice` em
   `context/derivation.py`; casos em `tests/test_derivation.py` e `tests/test_lexicon.py`; o contrato
   `retrieval_filters` com `branches`.
+- [X] T077 [US8] Os três parágrafos no `prompts/domain.py` e os testes de frase e de "nenhum fato" (R36).

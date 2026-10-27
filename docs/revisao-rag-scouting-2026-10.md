@@ -155,8 +155,10 @@ vários ramos no scouting": `BRANCHES` e o catálogo (102), `retrieval_filters` 
    geral nas faixas etárias), não ordem. Ganho barato que sobrou: `AXON_RAG_PASSAGES=10` na instalação (0,81 → 0,86,
    uns 2 mil tokens a mais por pergunta) — decisão do operador.
 5. **Core** *(descartado)*: sem o corte do gateway, a recuperação piora; nenhum ADR.
-6. **101 — prompt** (em paralelo a 2). Aceite, nas rodadas manuais com modelo real e juiz: nenhuma afirmação de
-   ausência no corpus com recuperação parcial; nenhuma troca de lema por marco simbólico.
+6. **101 — prompt** *(feito, 101 US8, R36; medição pendente)*. Cobertura parcial, conceito perguntado e resposta por
+   ramo, sem fato do corpus no prompt; a 105 ganhou `scouting:absence_claim_rate` e `eval/assistants-openrouter.yaml`.
+   Aceite, na rodada manual com modelo real e juiz (105 quickstart, passo 8): a métrica cai, sem queda de fidelidade;
+   ainda não rodada — sem a chave do OpenRouter nesta máquina.
 7. **Curadoria**: precedência e `branch: filhotes` no catálogo; marcar os "Competências… PRELIMINAR".
 
 Depois de 2–4: um artefato novo do índice na instalação (`axon-cfblabs/packages/scouting-index` e `PACKS`), com o deploy
