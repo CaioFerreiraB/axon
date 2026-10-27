@@ -73,7 +73,12 @@ async def generate(state: AgentState) -> dict[str, Any]:
     looped = state["flow"] == FLOW_AGENTIC or state.get("iteration", 0) > 0
     today = date_instruction(state["reference_time"], ctx.timezone) if looped else None
     full = generation_messages(
-        prompts, state.get("messages", ()), state.get("steps", ()), today=today, **generation_images(state)
+        prompts,
+        state.get("messages", ()),
+        state.get("steps", ()),
+        today=today,
+        tools=looped,
+        **generation_images(state),
     )
     ceiling = state.get("ceiling")
     trimmed = trim_results(full, ceiling)
