@@ -406,3 +406,13 @@ T072 → T073.
 - Suítes: `npm ci`, typecheck e lint limpos (com `no-console` em `src/`); 146 testes de unidade; e2e 48 passed e 4
   skipped (o teste de fumaça do nginx, sem `CONSOLE_NGINX_URL`), inclusive `keys.spec.ts`, `permissions.spec.ts` e o
   axe nas telas novas e no diálogo, nos temas claro e escuro e na largura de tablet.
+
+
+---
+
+## Passada de 2026-10-22: `vision` na aba Modelos ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md); research R28)
+
+- [X] T074 `roleValue`, `refOfRole`, `sees` em `api/schemas.ts`; PUT de `models` com `{model, vision}`; a aba Modelos com
+  a caixa "Enxerga imagens" e o selo "Visão"; resumo, histórico e lista lendo as duas formas (R28)
+- [X] T075 [P] Testes: Vitest (marcar e enviar; ler o objeto e mostrar o selo) e e2e (`assistant-models.spec.ts`: 400
+  `vision_unsupported` antes, 200 depois de salvar)

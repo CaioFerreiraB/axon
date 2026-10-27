@@ -36,6 +36,35 @@ test("troca o modelo de geração e a conversa seguinte já usa o novo (SC-001)"
     .toBeGreaterThan(0);
 });
 
+test("marcar vision no papel libera a pergunta com imagem (ADR-044)", async ({ page, request }) => {
+  const pergunta = {
+    model: "geral",
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "o que é isto?" },
+          { type: "image_url", image_url: { url: "data:image/png;base64,iVBORw0KGgo=" } },
+        ],
+      },
+    ],
+  };
+  const chat = () =>
+    request.post("http://127.0.0.1:8765/private/v1/chat/completions", {
+      headers: { Authorization: `Bearer ${TEST_API_KEY}`, "x-axon-store": "false" },
+      data: pergunta,
+    });
+  const recusada = await chat();
+  expect(recusada.status()).toBe(400);
+  expect(((await recusada.json()) as { error: { code: string } }).error.code).toBe("vision_unsupported");
+
+  await login(page, "/assistentes/geral/modelos");
+  await page.getByRole("checkbox", { name: "Enxerga imagens" }).first().check();
+  await page.getByRole("button", { name: "Salvar sobreposição" }).click();
+  await expect(page.getByText("Visão", { exact: true })).toBeVisible();
+  await expect.poll(async () => (await chat()).status(), { timeout: 10_000 }).toBe(200);
+});
+
 test("modelo fora da allowlist: a recusa da API aparece junto ao papel", async ({ page }) => {
   await login(page, "/assistentes/geral/modelos");
   await page.getByRole("combobox", { name: "Provedor de generation" }).selectOption("openai");

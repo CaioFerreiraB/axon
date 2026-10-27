@@ -4,7 +4,7 @@
 import { useState, type ReactNode } from "react";
 
 import { isApiError } from "../../api/errors";
-import { isAuthPayload, isMcpPayload, type OverrideView } from "../../api/schemas";
+import { isAuthPayload, isMcpPayload, refOfRole, sees, type OverrideView } from "../../api/schemas";
 import { formatInstant, formatInstantDay } from "../../i18n/format";
 import { Button } from "../../ui/Button";
 import { Notice } from "../../ui/Notice";
@@ -26,7 +26,7 @@ export function overrideMeta(override: OverrideView | undefined, none: string, c
       : isMcpPayload(override.payload)
         ? override.payload.aliases.join(", ") || "nenhum servidor"
         : Object.entries(override.payload)
-            .map(([role, ref]) => `${role} = ${ref}`)
+            .map(([role, value]) => `${role} = ${refOfRole(value) ?? ""}${sees(value) ? " (visão)" : ""}`)
             .join(", ")
     : null;
   const base =

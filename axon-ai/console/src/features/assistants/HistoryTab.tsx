@@ -1,7 +1,7 @@
 /** Aba Histórico (013 FR-005; 003 FR-021): sobreposições gravadas e descartadas, com autor, data e versão. */
 
 import { useHistory } from "../../api/hooks/assistants";
-import { isAuthPayload, isMcpPayload, type HistoryEntry } from "../../api/schemas";
+import { isAuthPayload, isMcpPayload, refOfRole, sees, type HistoryEntry } from "../../api/schemas";
 import { formatInstant } from "../../i18n/format";
 import { SECTION_TEXT } from "../../i18n/pt-BR";
 import { Badge } from "../../ui/Badge";
@@ -23,7 +23,7 @@ function content(entry: HistoryEntry): string {
     return `${entry.payload.aliases.join(", ") || "nenhum servidor"} · ${tools} ${tools === 1 ? "tool" : "tools"}`;
   }
   return Object.entries(entry.payload)
-    .map(([role, ref]) => `${role} = ${ref}`)
+    .map(([role, value]) => `${role} = ${refOfRole(value) ?? ""}${sees(value) ? " (visão)" : ""}`)
     .join(" · ");
 }
 

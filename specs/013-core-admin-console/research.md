@@ -369,3 +369,17 @@ rotação, `rotated_at`, `PUT …/auth`, `yaml.auth`/`effective.auth`, 409 `key_
   `/assistentes/<nome>/permissoes`; `e2e/serve_platform.py` com um Assistant `overrides: [auth]`.
 - **Rationale**: SC-009, SC-010.
 - **Alternatives considered**: —
+
+## R28 — `vision` na aba Modelos ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 10; FR-032)
+
+**Decision**: em `api/schemas.ts`, o papel é `string | {model, vision?}` (`roleValue`), com os auxiliares
+`refOfRole` e `sees`; o resto da console lê o modelo por `refOfRole` (lista de Assistants, resumo, histórico). A aba
+Modelos guarda `vision` no rascunho, conta a mudança dele como alteração, manda `{model, vision: true}` no PUT e mostra
+o selo "Visão" no efetivo. Vitest com MSW (`tests/assistants/models.test.tsx`) e um e2e que prova o efeito na plataforma:
+a pergunta com imagem a `geral` é 400 `vision_unsupported` antes e 200 depois de marcar e salvar.
+
+**Rationale**: a forma do YAML na API (008 R60) só muda para quem usa imagem; normalizar no esquema deixaria a console
+sem saber o que gravar de volta.
+
+**Alternatives considered**: um controle de `vision` fora da tabela de papéis (separa o atributo do papel); converter
+para uma estrutura própria na leitura (cada tela leria um formato diferente do da API).

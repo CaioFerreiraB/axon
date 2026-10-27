@@ -1,7 +1,7 @@
 /** Aba Modelos (013 US2, FR-006): para cada papel, o que o YAML define, a sobreposição e o valor efetivo. Só edita se
  * o YAML libera `models` em `overrides`; a allowlist e os papéis exigidos aparecem como referência, e toda recusa vem
  * da API junto ao papel (FR-001). A sobreposição escolhe o provider numa lista — só os prontos, mais o que o papel já
- * usa (ADR-035) — e digita o modelo sem o prefixo. */
+ * usa (ADR-035) —, digita o modelo sem o prefixo e diz se ele enxerga imagens (`vision`, ADR-044). */
 
 import { useId, useMemo, useState } from "react";
 
@@ -14,11 +14,22 @@ import {
   useSaveModels,
 } from "../../api/hooks/assistants";
 import { usePrices } from "../../api/hooks/usage";
-import { isModelsPayload, ROLES, type AssistantView, type ModelCheck, type Provider } from "../../api/schemas";
+import {
+  isModelsPayload,
+  refOfRole,
+  ROLES,
+  sees,
+  type AssistantView,
+  type ModelCheck,
+  type ModelsMap,
+  type Provider,
+  type RoleValue,
+} from "../../api/schemas";
 import { formatInteger } from "../../i18n/format";
 import { DEPLOY_ONLY, ROLE_TEXT } from "../../i18n/pt-BR";
 import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
+import { Checkbox } from "../../ui/Checkbox";
 import { Select, TextInput } from "../../ui/Field";
 import { Icon } from "../../ui/icons";
 import { Notice } from "../../ui/Notice";
@@ -29,14 +40,20 @@ import { DiscardButton, overrideMeta, SaveError } from "./editorParts";
 import { defaultProvider, joinRef, optionLabel, providerOptions, splitRef, type RefParts } from "./modelRef";
 import { overrideOf, sentence } from "./status";
 
-/** Por papel, o provider (vazio = o primeiro pronto) e o modelo sem o prefixo. */
-type Draft = Record<string, RefParts>;
+/** Por papel, o provider (vazio = o primeiro pronto), o modelo sem o prefixo e se ele enxerga imagens. */
+type RoleDraft = RefParts & { vision: boolean };
+type Draft = Record<string, RoleDraft>;
 
 function draftOf(view: AssistantView): Draft {
   const override = overrideOf(view, "models");
-  const stored: Record<string, string> =
+  const stored: ModelsMap =
     override?.state === "active" && override.payload && isModelsPayload(override.payload) ? override.payload : {};
-  return Object.fromEntries(ROLES.map((role) => [role, splitRef(stored[role] ?? view.yaml.models[role])]));
+  return Object.fromEntries(
+    ROLES.map((role) => {
+      const value: RoleValue | undefined = stored[role] ?? view.yaml.models[role];
+      return [role, { ...splitRef(refOfRole(value)), vision: sees(value) }];
+    }),
+  );
 }
 
 /** A referência do papel, com o provider padrão quando nenhum foi escolhido. */
@@ -44,11 +61,21 @@ function refOf(parts: RefParts | undefined, fallback: string): string {
   return parts ? joinRef({ provider: parts.provider || fallback, model: parts.model }) : "";
 }
 
+/** O papel como vai à API: o texto de sempre, ou `{model, vision: true}` quando ele enxerga imagens (ADR-044). */
+function valueOf(parts: RoleDraft | undefined, fallback: string): RoleValue {
+  const ref = refOf(parts, fallback);
+  return parts?.vision && ref ? { model: ref, vision: true } : ref;
+}
+
 /** A sobreposição substitui a seção inteira (003 FR-018): vão todos os papéis preenchidos; o vazio fica sem modelo. */
-function rolesOf(draft: Draft, fallback: string): Record<string, string> {
+function rolesOf(draft: Draft, fallback: string): ModelsMap {
   return Object.fromEntries(
-    ROLES.map((role) => [role, refOf(draft[role], fallback)] as const).filter(([, value]) => value !== ""),
+    ROLES.map((role) => [role, valueOf(draft[role], fallback)] as const).filter(([, value]) => refOfRole(value) !== ""),
   );
+}
+
+function sameRole(a: RoleDraft | undefined, b: RoleDraft | undefined, fallback: string): boolean {
+  return refOf(a, fallback) === refOf(b, fallback) && Boolean(a?.vision) === Boolean(b?.vision);
 }
 
 function useKnownModels(view: AssistantView): string[] {
@@ -57,10 +84,11 @@ function useKnownModels(view: AssistantView): string[] {
   return useMemo(() => {
     const known = new Set<string>();
     for (const item of [view, ...(assistants.data ?? [])]) {
-      Object.values(item.yaml.models).forEach((ref) => known.add(ref));
-      Object.values(item.effective.models).forEach((ref) => known.add(ref));
+      Object.values(item.yaml.models).forEach((value) => known.add(refOfRole(value) ?? ""));
+      Object.values(item.effective.models).forEach((value) => known.add(refOfRole(value) ?? ""));
     }
     (prices.data ?? []).forEach((price) => known.add(`${price.provider}/${price.model}`));
+    known.delete("");
     return [...known].sort();
   }, [view, assistants.data, prices.data]);
 }
@@ -108,8 +136,8 @@ function RoleRow({
 }: {
   role: string;
   view: AssistantView;
-  value: RefParts;
-  onChange: (value: RefParts) => void;
+  value: RoleDraft;
+  onChange: (value: RoleDraft) => void;
   editable: boolean;
   saveError: unknown;
   listId: string;
@@ -117,10 +145,14 @@ function RoleRow({
   providers: Provider[] | undefined;
 }) {
   const check = useCheckModel(view.name);
-  const yaml = view.yaml.models[role];
-  const effective = view.effective.models[role];
+  const yaml = refOfRole(view.yaml.models[role]);
+  const effective = refOfRole(view.effective.models[role]);
+  const effectiveVision = sees(view.effective.models[role]);
   const override = overrideOf(view, "models");
-  const overridden = override?.state === "active" && effective !== undefined && effective !== yaml;
+  const overridden =
+    override?.state === "active" &&
+    effective !== undefined &&
+    (effective !== yaml || effectiveVision !== sees(view.yaml.models[role]));
   // A forma do corpo é conferida pela 008 (`roles.<papel>`); a regra, pela 003 (`models.<papel>`).
   const error = fieldError(saveError, `roles.${role}`) ?? fieldError(saveError, `models.${role}`);
   const required = view.required_roles.includes(role);
@@ -208,6 +240,16 @@ function RoleRow({
                 onClick={() => check.mutate({ role, model: target })}
               />
             </div>
+            <Checkbox
+              label="Enxerga imagens"
+              checked={value.vision}
+              disabled={value.model === ""}
+              onChange={(event) => onChange({ ...value, vision: event.target.checked })}
+              aria-describedby={`${listId}-${role}-visao`}
+            />
+            <span id={`${listId}-${role}-visao`} className={styles.hint}>
+              Só marque se o modelo aceita imagem: a pergunta com imagem a um Assistant sem visão é recusada.
+            </span>
             <div id={`${listId}-${role}-ajuda`} aria-live="polite">
               {error ? (
                 <span className={styles.fieldError} role="alert">
@@ -233,6 +275,7 @@ function RoleRow({
             {effective ?? "—"}
           </span>
           {effective ? overridden ? <Badge tone="accent">Sobreposto</Badge> : <Badge>Do YAML</Badge> : null}
+          {effective && effectiveVision ? <Badge>Visão</Badge> : null}
         </div>
       </td>
     </tr>
@@ -253,7 +296,7 @@ export default function ModelsTab() {
 
   const fallback = defaultProvider(providers.data);
   const pristine = draftOf(view);
-  const changes = ROLES.filter((role) => refOf(draft[role], fallback) !== refOf(pristine[role], fallback)).length;
+  const changes = ROLES.filter((role) => !sameRole(draft[role], pristine[role], fallback)).length;
   const roles = rolesOf(draft, fallback);
   const nothingToOverride = Object.keys(roles).length === 0;
 
@@ -335,7 +378,7 @@ export default function ModelsTab() {
               key={role}
               role={role}
               view={view}
-              value={draft[role] ?? { provider: "", model: "" }}
+              value={draft[role] ?? { provider: "", model: "", vision: false }}
               onChange={(value) => setDraft((current) => ({ ...current, [role]: value }))}
               editable={editable}
               saveError={save.error}

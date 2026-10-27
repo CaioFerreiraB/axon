@@ -43,6 +43,52 @@ describe("aba Modelos", () => {
     );
   });
 
+  it("marca o papel que enxerga imagens e o manda como {model, vision} (ADR-044)", async () => {
+    let body: unknown = null;
+    server.use(
+      http.put("*/admin/v1/assistants/geral/models", async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json(f.geral);
+      }),
+    );
+    renderAt("/assistentes/geral/modelos", routes);
+    await screen.findByRole("combobox", { name: "Modelo de generation" });
+    const generationVision = screen.getAllByRole("checkbox", { name: "Enxerga imagens" })[0] as HTMLElement;
+    expect(generationVision).not.toBeChecked();
+    await userEvent.click(generationVision);
+    expect(screen.getByText(/1 alteração não salva/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Salvar sobreposição" }));
+    await waitFor(() =>
+      expect(body).toEqual({
+        roles: {
+          generation: { model: "openrouter/openai/gpt-4.1-mini", vision: true },
+          controller: "openrouter/openai/gpt-4.1-nano",
+        },
+        version: 3,
+      }),
+    );
+  });
+
+  it("lê vision na forma de objeto e mostra o selo no efetivo", async () => {
+    server.use(
+      http.get("*/admin/v1/assistants/geral", () =>
+        HttpResponse.json({
+          ...f.geral,
+          effective: {
+            ...f.geral.effective,
+            models: {
+              ...f.geral.effective.models,
+              generation: { model: "openrouter/openai/gpt-4.1-mini", vision: true },
+            },
+          },
+        }),
+      ),
+    );
+    renderAt("/assistentes/geral/modelos", routes);
+    await screen.findByRole("combobox", { name: "Modelo de generation" });
+    expect(await screen.findByText("Visão")).toBeInTheDocument();
+  });
+
   it("a recusa da API aparece junto ao papel", async () => {
     server.use(
       http.put("*/admin/v1/assistants/geral/models", () =>

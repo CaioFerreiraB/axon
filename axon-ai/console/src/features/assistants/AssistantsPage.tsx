@@ -5,7 +5,7 @@ import { useSearchParams } from "react-router";
 import { Link } from "react-router";
 
 import { useAssistants } from "../../api/hooks/assistants";
-import type { AssistantView } from "../../api/schemas";
+import { refOfRole, type AssistantView } from "../../api/schemas";
 import { formatInstantDay, plural } from "../../i18n/format";
 import { SECTION_TEXT } from "../../i18n/pt-BR";
 import { Badge } from "../../ui/Badge";
@@ -42,7 +42,7 @@ function matches(view: AssistantView, filter: Filter, query: string): boolean {
 
 function Row({ view }: { view: AssistantView }) {
   const models = overrideOf(view, "models");
-  const generation = view.effective.models.generation ?? "—";
+  const generation = refOfRole(view.effective.models.generation) ?? "—";
   const reason = statusReason(view);
   return (
     <tr className={styles.row}>
