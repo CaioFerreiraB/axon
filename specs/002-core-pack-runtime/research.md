@@ -958,3 +958,16 @@ re-pesquisa. Os R21–R61 sobre a instalação ficam como foram executados.
   definida — vence o default do `ARG`, e o pack sumia do build sem aviso; e o build local e o do CI podiam divergir.
 - **Alternatives**: manter a variável do repositório e não ter default no `Dockerfile` (dois lugares para a mesma
   informação, como antes).
+
+### R73 — Anexos na Turn View (ADR-044, item 1; FR-035)
+
+**Decision**: nenhum código novo no Pack Hooks: `scope_view` usa `dataclasses.replace`, e os `Message` e `ToolResult`
+congelados pela Turn View carregam os anexos como vieram. A projeção do motor (005, `adapters/langgraph/view.py`) passa a
+pôr os anexos do `FencedToolResult` no `ToolResult` de `tool_results`. Provado por um teste da regra pura
+(`test_packs_hook_rules.py`) e por um do motor que lê a Turn View que os hooks receberam na preparação e na validação.
+
+**Rationale** ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md): "Os packs passam a ver os anexos das mensagens pela Turn View"): a Turn View é o único canal de
+dados por execução para os packs (001 FR-019), e o recorte por pack nunca filtrou mensagens.
+
+**Alternatives considered**: um campo `attachments` à parte na Turn View (duplicaria o que já está nas mensagens, sem
+saber de qual delas cada imagem veio).

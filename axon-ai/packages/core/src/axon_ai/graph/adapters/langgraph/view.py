@@ -15,6 +15,9 @@ from axon_ai_contracts import Chunk, ToolResult, TurnView
 def turn_view(state: AgentState) -> TurnView:
     """Visão somente-leitura da execução, como os hooks de pack a enxergam.
 
+    `messages` são as do pedido, com os anexos de cada uma (`Message.attachments`, ADR-044): a imagem da pergunta e as
+    da resposta anterior.
+
     No `chat` não há retrieval nem tools, então `retrieved`, `reranked`, `generation_context` e `tool_results` ficam
     vazios — `generation_context` é o campo que os validators leem para verificar citação (ADR-007), e vazio é a
     resposta correta para um flow que não entrega chunk nenhum à geração.
@@ -51,7 +54,12 @@ def _chunks(steps: list[ToolStep]) -> tuple[Chunk, ...]:
 
 
 def _tool_result(step: ToolStep) -> ToolResult:
-    """O resultado como a geração o recebeu: o texto cercado, sempre não confiável (princípio VI)."""
+    """O resultado como a geração o recebeu — o texto cercado, sempre não confiável (princípio VI) — e as imagens que a
+    tool devolveu, que o pack vê como anexos (ADR-044)."""
     return ToolResult(
-        content=step.result.text, untrusted=True, truncated=step.result.truncated, error=step.result.error
+        content=step.result.text,
+        untrusted=True,
+        truncated=step.result.truncated,
+        error=step.result.error,
+        attachments=step.result.attachments,
     )

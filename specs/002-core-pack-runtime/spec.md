@@ -63,6 +63,10 @@
 - Q: A configuração é montada? → A: Não: `packs.yaml`, `assistants.yaml`, `identity.yaml` e o logotipo opcional vão na imagem (`/etc/axon`), e o build valida o que roda. Mudar a configuração é um commit e uma imagem nova; em runtime, pela console (ADR-032, ADR-040). Nenhum arquivo de segredo é obrigatório: segredos só no ambiente da stack; o primeiro administrador sai de `axon users create` no console do contêiner.
 - Q: Como o proxy reverso alcança a instalação? → A: Pela rede externa `AXON_PROXY_NETWORK`, sem porta publicada: a console com o apelido `axon-console`, o Open WebUI com `axon-chat` e a API com `axon-api` (o modo sem interface também precisa de um caminho). O domínio da console é o `AXON_PUBLIC_URL`. Um `compose.local.yml` acrescenta o build e as portas para rodar na máquina do operador.
 
+### Session 2026-10-22
+
+- Q: Como os packs veem as imagens da conversa ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 1)? → A: Pela Turn View, sem hook novo: `messages` traz em cada mensagem os `attachments` (contrato 001, 0.2.2) — a imagem da pergunta e as da resposta anterior —, e `tool_results` traz as imagens que cada tool devolveu. O recorte por pack (`own_slice`, `dependency_slices`) não mexe neles. Um pack devolve imagem pelas próprias tools com `ToolResult.attachments` (004).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Operador instala um pack e o core o descobre (Priority: P1)
@@ -273,6 +277,7 @@ A plataforma passa a se chamar Axon (ADR-037). Quem escreve um pack anuncia-o no
 - **FR-032**: O `axon-deploy` DEVE publicar, a partir de uma tag do `axon`, as imagens base `axon-build` (contratos, core e `axon-generic`, com `uv`, git e cliente SSH), `axon-runtime` (o mesmo ambiente sem `uv`, `pip` nem `ensurepip`, usuário sem escrita, `axon serve`) e `axon-console`, com a versão do core como tag, imutável e nunca `latest`, e NÃO DEVE conter pack além do `axon-generic`, endereço de instalação nem segredo ([ADR-042](../../docs/adr/ADR-042-instalacao-por-camadas.md)).
 - **FR-033**: O modelo de instalação DEVE trazer um `Dockerfile` sem linha específica de pack (`PACKS`, `packs prepare`, `packs check`), a configuração em `config/` copiada para a imagem, um compose só com imagens e tags fixadas, sem porta publicada, com os serviços alcançados pelo proxy numa rede externa com apelidos próprios, um compose local com build e portas, o modelo do ambiente e o workflow de release da instalação.
 - **FR-034**: Nenhum arquivo de segredo nem de configuração DEVE ser montado no modelo de instalação: segredos só no ambiente da stack, configuração só na imagem.
+- **FR-035**: A Turn View entregue a cada hook DEVE preservar os anexos das mensagens e dos resultados de tool, sem filtro por pack ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 1).
 
 ### Key Entities
 

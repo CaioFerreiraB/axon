@@ -652,3 +652,12 @@ sobre eles.
   trabalho). Correção: padrões só da raiz (`/config/`, `/secrets/`), e o `check-build.sh` monta o contexto do modelo
   com `git ls-files`. Na segunda, `build.yml` e `images.yml` verdes; `axon-build`, `axon-runtime` e `axon-console`
   `:0.7.0-rc4` publicadas em `ghcr.io/caioferreirab/`.
+
+
+---
+
+## Passada de 2026-10-22: anexos na Turn View ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md); research R73)
+
+- [X] T114 Projeção da 005 com os anexos em `tool_results`; o recorte por pack os preserva (R73)
+- [X] T115 [P] Testes: `test_packs_hook_rules.py` (recorte) e `test_graph_images_flow.py` (o pack os vê na preparação e
+  na validação)

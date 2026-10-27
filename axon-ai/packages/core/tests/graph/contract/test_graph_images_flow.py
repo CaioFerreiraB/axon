@@ -366,3 +366,21 @@ async def test_rag_first_sem_controller_manda_as_candidatas() -> None:
     events = await coletar(motor.run(grant, request(messages=historico())))
     assert "image_gate" not in [e.stage for e in events if isinstance(e, ProgressEvent)]
     assert imagens_na_ultima(enviadas(generation)) == [url(GRAFICO), url(OUTRO)]
+
+
+async def test_o_pack_ve_os_anexos_das_mensagens_e_dos_resultados_de_tool() -> None:
+    """ADR-044, item 1 (002): a Turn View leva a imagem da pergunta e as imagens que a tool devolveu."""
+    from graph_testkit import ScriptedHooks
+
+    hooks = ScriptedHooks()
+    session = FakeSession((catalog_tool("mango.grafico"),), attachments={"mango.grafico": (GRAFICO,)})
+    controller = ScriptedController((tool_action("mango.grafico", expression="x"), ANSWER))
+    motor = engine(capabilities=FakeCapabilities(session), controller=controller, hooks=hooks)
+    pedido = request(messages=({"role": "user", "content": "e isto?", "attachments": (FOTO,)},))
+
+    await coletar(motor.run(agentic(models=models(vision=COM_VISAO)), pedido))
+
+    assert hooks.prepare_views[0].messages[-1]["attachments"] == (FOTO,)
+    validada = hooks.validate_views[-1]
+    assert validada.messages[-1]["attachments"] == (FOTO,)
+    assert validada.tool_results[0].attachments == (GRAFICO,)
