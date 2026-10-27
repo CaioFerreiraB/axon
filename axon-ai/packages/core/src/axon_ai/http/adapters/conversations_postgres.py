@@ -15,7 +15,8 @@ from psycopg.types.json import Jsonb
 from psycopg_pool import AsyncConnectionPool
 
 from axon_ai.http.domain.conversations import decode_cursor, encode_cursor
-from axon_ai.http.ports import Conversation, ConversationPage, MessageRole, StoredMessage
+from axon_ai.http.ports import Conversation, ConversationPage, MessageRole, StoredAttachment, StoredMessage
+from axon_ai_contracts import Attachment
 
 _CONVERSATION = "id, owner, assistant, model, created_at, last_activity_at, message_count"
 
@@ -68,11 +69,19 @@ class PostgresConversationStore:
             if await owned.fetchone() is None:
                 return None
             cursor = await connection.execute(
-                "SELECT role, content, at, request_id, citations, flags FROM http.messages "
+                "SELECT seq, role, content, at, request_id, citations, flags FROM http.messages "
                 "WHERE conversation_id = %s ORDER BY seq",
                 (conversation_id,),
             )
             rows = await cursor.fetchall()
+            files = await connection.execute(
+                "SELECT seq, id, mime, size_bytes FROM http.attachments WHERE conversation_id = %s "
+                "ORDER BY seq, position",
+                (conversation_id,),
+            )
+            by_seq: dict[int, list[StoredAttachment]] = {}
+            for seq, aid, mime, size in await files.fetchall():
+                by_seq.setdefault(seq, []).append(StoredAttachment(id=aid, mime=mime, size_bytes=size))
         return tuple(
             StoredMessage(
                 role=cast("MessageRole", role),
@@ -81,13 +90,31 @@ class PostgresConversationStore:
                 request_id=request_id,
                 citations=tuple(citations),
                 flags=tuple(flags),
+                attachments=tuple(by_seq.get(seq, ())),
             )
-            for role, content, at, request_id, citations, flags in rows
+            for seq, role, content, at, request_id, citations, flags in rows
         )
 
+    async def attachment(self, owner: str, conversation_id: str, attachment_id: str) -> Attachment | None:
+        async with self._pool.connection() as connection:
+            cursor = await connection.execute(
+                "SELECT a.mime, a.data FROM http.attachments a JOIN http.conversations c ON c.id = a.conversation_id "
+                "WHERE c.owner = %s AND c.id = %s AND a.id = %s LIMIT 1",
+                (owner, conversation_id, attachment_id),
+            )
+            row = await cursor.fetchone()
+        return Attachment(mime=row[0], data=bytes(row[1])) if row is not None else None
+
     async def append(
-        self, owner: str, conversation_id: str, messages: Sequence[StoredMessage], *, at: datetime
+        self,
+        owner: str,
+        conversation_id: str,
+        messages: Sequence[StoredMessage],
+        *,
+        at: datetime,
+        files: Sequence[Attachment] = (),
     ) -> bool:
+        by_id = {item.id: item for item in files}
         async with self._pool.connection() as connection, connection.transaction():
             cursor = await connection.execute(
                 "SELECT message_count FROM http.conversations WHERE owner = %s AND id = %s FOR UPDATE",
@@ -112,6 +139,20 @@ class PostgresConversationStore:
                         list(message.flags),
                     ),
                 )
+                for position, meta in enumerate(message.attachments):
+                    await connection.execute(
+                        "INSERT INTO http.attachments (conversation_id, seq, position, id, mime, size_bytes, data) "
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                        (
+                            conversation_id,
+                            count + offset,
+                            position,
+                            meta.id,
+                            meta.mime,
+                            meta.size_bytes,
+                            by_id[meta.id].data,
+                        ),
+                    )
             await connection.execute(
                 "UPDATE http.conversations SET message_count = %s, last_activity_at = %s WHERE id = %s",
                 (count + len(messages), at, conversation_id),

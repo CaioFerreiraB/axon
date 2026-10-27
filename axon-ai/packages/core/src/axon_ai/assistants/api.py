@@ -451,6 +451,9 @@ class SystemAssistantView:
     overrides: tuple[OverrideView, ...] = ()
     effective_models: Mapping[ModelRole, ModelRef] = field(default_factory=lambda: MappingProxyType({}))
     effective_mcp: McpOverride = field(default_factory=McpOverride)
+    yaml_vision: frozenset[ModelRole] = frozenset()
+    """Papéis com `vision` no YAML e na definição efetiva (ADR-044, item 10)."""
+    effective_vision: frozenset[ModelRole] = frozenset()
     required_roles: tuple[ModelRole, ...] = ()
     yaml_auth: AuthOverride = field(default_factory=AuthOverride)
     effective_auth: AuthOverride = field(default_factory=AuthOverride)

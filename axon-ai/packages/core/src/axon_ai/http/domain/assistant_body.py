@@ -31,6 +31,7 @@ def draft_from_json(body: Mapping[str, Any], *, name: str | None = None) -> User
         raise InvalidRequest("campo 'name' é obrigatório", field="name")
 
     allowed = fields.get("allowed_tools")
+    models, vision = _models(fields.get("models"))
     return UserAssistantDraft(
         name=raw_name,
         description=_optional_text(fields, "description"),
@@ -38,7 +39,8 @@ def draft_from_json(body: Mapping[str, Any], *, name: str | None = None) -> User
         packs=_texts(fields, "packs"),
         mcp=_texts(fields, "mcp"),
         collections=_texts(fields, "collections"),
-        models=_models(fields.get("models")),
+        models=models,
+        vision=vision,
         limits=_limits(fields.get("limits")),
         allowed_tools=None if allowed is None else _texts(fields, "allowed_tools"),
         write_tools=_texts(fields, "write_tools"),
@@ -53,7 +55,10 @@ def draft_json(draft: UserAssistantDraft) -> dict[str, Any]:
         "packs": list(draft.packs),
         "mcp": list(draft.mcp),
         "collections": list(draft.collections),
-        "models": {role: str(ref) for role, ref in draft.models.items()},
+        "models": {
+            role: {"model": str(ref), "vision": True} if role in draft.vision else str(ref)
+            for role, ref in draft.models.items()
+        },
         "limits": {name: getattr(draft.limits, name) for name in LIMIT_FIELDS},
         "allowed_tools": list(draft.allowed_tools) if draft.allowed_tools is not None else None,
         "write_tools": list(draft.write_tools),
@@ -89,16 +94,30 @@ def _texts(fields: Mapping[str, Any], key: str) -> tuple[str, ...]:
     return tuple(value)
 
 
-def _models(value: Any) -> dict[ModelRole, ModelRef]:
+def _models(value: Any) -> tuple[dict[ModelRole, ModelRef], frozenset[ModelRole]]:
+    """Papel → `provider/modelo`, ou `{model, vision}` no papel que enxerga imagem (ADR-044, item 10)."""
     if not isinstance(value, Mapping):
         raise InvalidRequest("campo 'models' precisa ser um objeto papel → 'provider/modelo'", field="models")
     models: dict[ModelRole, ModelRef] = {}
-    for role, ref in value.items():
+    vision: set[ModelRole] = set()
+    for role, item in value.items():
+        name = cast("ModelRole", str(role))
+        ref = item
+        if isinstance(item, Mapping):
+            unknown = sorted(str(key) for key in item if key not in ("model", "vision"))
+            if unknown:
+                raise InvalidRequest(f"chave desconhecida em models.{role}: '{unknown[0]}'", field=f"models.{role}")
+            sees = item.get("vision", False)
+            if not isinstance(sees, bool):
+                raise InvalidRequest(f"models.{role}.vision precisa ser booleano", field=f"models.{role}.vision")
+            if sees:
+                vision.add(name)
+            ref = item.get("model")
         try:
-            models[cast("ModelRole", str(role))] = ModelRef.parse(str(ref))
+            models[name] = ModelRef.parse(str(ref))
         except ValueError as error:
             raise InvalidRequest(str(error), field=f"models.{role}") from None
-    return models
+    return models, frozenset(vision)
 
 
 def _limits(value: Any) -> DraftLimits:

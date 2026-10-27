@@ -527,6 +527,8 @@ class AssistantsService:
             overrides=tuple(views),
             effective_models=definition.roles,
             effective_mcp=yaml_mcp(definition),
+            yaml_vision=yaml.vision,
+            effective_vision=definition.vision,
             required_roles=required,
             yaml_auth=yaml_auth(yaml),
             effective_auth=yaml_auth(definition),

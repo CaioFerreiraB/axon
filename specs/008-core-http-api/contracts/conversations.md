@@ -20,8 +20,11 @@ durante a execução não recebe a troca (FR-018).
 | `GET /v1/conversations?limit=&cursor=` | 200 `{"data": [...], "next_cursor": …}`, mais recente primeiro |
 | `GET /v1/conversations/{id}` | 200, estado e mensagens |
 | `DELETE /v1/conversations/{id}` | 204 |
+| `GET /v1/conversations/{id}/attachments/{attachment_id}` | 200, os bytes da imagem com o `mime` dela, `Cache-Control: private, no-store` e `X-Content-Type-Options: nosniff` (ADR-044) |
 
-`limit` entre 1 e 100 (default 20). Conversa de outro subject ou inexistente → 404 nas três.
+`limit` entre 1 e 100 (default 20). Conversa de outro subject ou inexistente → 404 nas quatro; imagem inexistente
+também. Cada mensagem lida traz `attachments`: `[{"id", "mime", "size_bytes"}]` (vazia sem imagem); o texto leva a
+marca de cada imagem, nunca o data URI.
 
 ## Expiração
 

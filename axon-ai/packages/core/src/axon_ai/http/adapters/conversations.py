@@ -30,6 +30,17 @@ def conversations_router(*, surface: str) -> APIRouter:
         conversation, messages = await service(request).read(principal, conversation_id)
         return conversation_json(conversation, messages)
 
+    @router.get("/conversations/{conversation_id}/attachments/{attachment_id}")
+    async def attachment(request: Request, conversation_id: str, attachment_id: str) -> Response:
+        """Os bytes de uma imagem da conversa (ADR-044, item 9): mesma autenticação e mesmo 404 das mensagens."""
+        principal = await authenticated(request, surface)
+        image = await service(request).attachment(principal, conversation_id, attachment_id)
+        return Response(
+            content=image.data,
+            media_type=image.mime,
+            headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
+        )
+
     @router.delete("/conversations/{conversation_id}", status_code=204)
     async def remove(request: Request, conversation_id: str) -> Response:
         principal = await authenticated(request, surface)

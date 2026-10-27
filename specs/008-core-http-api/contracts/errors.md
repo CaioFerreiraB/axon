@@ -44,3 +44,18 @@ Conformidade: `tests/http/unit/test_errors.py` (envelope e tabela) e as suítes 
 
 O 503 de sobrecarga não leva `x-should-retry`: nada rodou, e repetir depois do `Retry-After` é seguro. Ele vem depois
 das recusas de 404, 400, 424 e 429 e antes de qualquer chamada de modelo.
+
+## Imagens (2026-10-22, [ADR-044](../../../docs/adr/ADR-044-imagens-na-conversa.md); FR-040, FR-041)
+
+| Causa | Status | `type` | `code` | `param` |
+|---|---|---|---|---|
+| corpo acima de `AXON_MAX_REQUEST_BYTES` | 413 | `invalid_request_error` | `request_too_large` | — |
+| imagem da pergunta que não é data URI | 400 | `invalid_request_error` | `image_url_not_allowed` | `messages[i].content[j].image_url.url` |
+| tipo fora de `image/png`, `image/jpeg`, `image/webp`, `image/gif` | 400 | `invalid_request_error` | `unsupported_image_type` | idem |
+| base64 inválido ou imagem vazia | 400 | `invalid_request_error` | `invalid_image` | idem |
+| imagem acima de `AXON_MAX_INPUT_IMAGE_BYTES` | 400 | `invalid_request_error` | `image_too_large` | idem |
+| mais de `AXON_MAX_INPUT_IMAGES` imagens na pergunta | 400 | `invalid_request_error` | `too_many_images` | `messages[i].content` |
+| imagem na pergunta e papel `generation` sem `vision` | 400 | `invalid_request_error` | `vision_unsupported` | `messages` |
+
+O 413 vem antes de decodificar o JSON; o `vision_unsupported`, depois do grant e antes de qualquer chamada de modelo.
+Imagens das mensagens anteriores nunca geram erro.

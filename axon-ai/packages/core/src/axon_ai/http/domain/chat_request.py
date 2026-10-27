@@ -13,6 +13,7 @@ from typing import Any, Final, Literal
 
 from axon_ai.assistants.api import WIDENING_FIELDS
 from axon_ai.http.domain.errors import InvalidRequest
+from axon_ai.http.domain.images import ImageLimits, read_messages
 from axon_ai_contracts import Message
 
 CAPABILITY_FIELDS: Final = tuple(sorted(WIDENING_FIELDS))
@@ -57,7 +58,11 @@ class ChatRequest:
 
 
 def parse(
-    body: Mapping[str, Any], *, store_header: str | None = None, progress_header: str | None = None
+    body: Mapping[str, Any],
+    *,
+    store_header: str | None = None,
+    progress_header: str | None = None,
+    limits: ImageLimits | None = None,
 ) -> ChatRequest:
     """Valida o corpo no formato OpenAI (e os cabeçalhos `x-axon-store` e `x-axon-progress`) e devolve só o que a
     execução usa."""
@@ -70,7 +75,7 @@ def parse(
     conversation_id = parse_conversation_id(body)
     return ChatRequest(
         model=model,
-        messages=parse_messages(body.get("messages")),
+        messages=parse_messages(body.get("messages"), limits),
         stream=parse_stream(body),
         conversation_id=conversation_id,
         store=parse_store(store_header, conversation_id),
@@ -164,21 +169,26 @@ def reject_forbidden(body: Mapping[str, Any]) -> None:
             )
 
 
-def parse_messages(raw: Any) -> tuple[Message, ...]:
+def parse_messages(raw: Any, limits: ImageLimits | None = None) -> tuple[Message, ...]:
+    """As mensagens no formato da OpenAI: `content` em texto ou em partes `text`/`image_url` (ADR-044, R60). A última
+    mensagem do usuário é a pergunta, validada com as imagens dela; as anteriores levam marcas no lugar das imagens."""
     if not isinstance(raw, Sequence) or isinstance(raw, str | bytes) or not raw:
         raise ChatRequestInvalid("campo 'messages' é obrigatório e precisa de ao menos uma mensagem", field="messages")
 
-    messages: list[Message] = []
     for index, item in enumerate(raw):
         if not isinstance(item, Mapping):
             raise ChatRequestInvalid(f"mensagem {index} precisa ser um objeto com 'role' e 'content'", field="messages")
         role, content = item.get("role"), item.get("content")
         if not isinstance(role, str) or not role.strip():
             raise ChatRequestInvalid(f"mensagem {index} precisa de 'role'", field="messages")
-        if not isinstance(content, str):
-            raise ChatRequestInvalid(f"mensagem {index} precisa de 'content' em texto", field="messages")
-        messages.append({"role": role, "content": content})
+        if not isinstance(content, str) and (isinstance(content, bytes | Mapping) or not isinstance(content, Sequence)):
+            raise ChatRequestInvalid(f"mensagem {index} precisa de 'content' em texto ou em partes", field="messages")
 
-    if not any(message["role"] == USER_ROLE and message["content"].strip() for message in messages):
+    if not any(item["role"] == USER_ROLE for item in raw):
         raise ChatRequestInvalid("é preciso ao menos uma mensagem de papel 'user' com conteúdo", field="messages")
-    return tuple(messages)
+    try:
+        return read_messages(raw, limits or ImageLimits())
+    except ChatRequestInvalid:
+        raise
+    except InvalidRequest as error:
+        raise ChatRequestInvalid(str(error), field=error.field, code=error.code) from None

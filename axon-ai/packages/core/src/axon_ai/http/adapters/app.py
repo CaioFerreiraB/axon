@@ -32,6 +32,7 @@ from axon_ai.http.adapters.models import models_router
 from axon_ai.http.adapters.private import private_router
 from axon_ai.http.adapters.user_assistants import user_assistants_router
 from axon_ai.http.domain.admission import AdmissionLimits as AdmissionLimits  # a 011 monta os limites (R36)
+from axon_ai.http.domain.images import ImageLimits
 from axon_ai.http.ports import (
     AdminGate,
     AdminSeams,
@@ -72,6 +73,7 @@ def create_app(
     admission: AdmissionLimits | None = None,
     admin_seams: AdminSeams | None = None,
     instance: InstanceBranding | None = None,
+    image_limits: ImageLimits | None = None,
 ) -> FastAPI:
     """Monta a app com os seams já injetados. A API não instancia nada de outro módulo (princípio XIII)."""
     app = FastAPI(title="Axon", version="0.1.0", lifespan=lifespan)
@@ -97,6 +99,7 @@ def create_app(
     app.state.conversation_ids = conversation_ids
     app.state.clock = clock
     app.state.mcp = mcp
+    app.state.image_limits = image_limits or ImageLimits()
     errors.install(app)
     for surface, prefix in ((PUBLIC_SURFACE, PUBLIC_PREFIX), (PRIVATE_SURFACE, PRIVATE_PREFIX)):
         app.include_router(chat_router(surface=surface), prefix=prefix)

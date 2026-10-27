@@ -90,3 +90,36 @@ async def test_postgres_sobrevive_a_um_armazenamento_novo(http_pg_pool: Any) -> 
     await PostgresConversationStore(http_pg_pool).append("user:ana", "conv_1", (mensagem("user", "oi"),), at=T0)
     novo = PostgresConversationStore(http_pg_pool)
     assert [m.content for m in await novo.messages("user:ana", "conv_1")] == ["oi"]
+
+
+async def test_imagens_presas_a_mensagem_so_do_dono_e_em_cascata(conversation_store: Any) -> None:
+    """ADR-044, item 9 (R60): metadados na leitura, bytes pela consulta própria, só para o dono; a exclusão e a
+    expiração da conversa levam as imagens."""
+    from axon_ai.http.ports import StoredAttachment
+    from axon_ai_contracts import Attachment
+
+    imagem = Attachment(mime="image/png", data=b"\x89PNG" + b"x" * 40)
+    meta = StoredAttachment(id=imagem.id, mime="image/png", size_bytes=len(imagem.data))
+    for cid in ("conv_img", "conv_velha"):
+        await conversation_store.create(conversa(cid))
+        await conversation_store.append(
+            "user:ana",
+            cid,
+            [
+                mensagem("user", "veja"),
+                mensagem("assistant", f"[imagem {imagem.id} mostrada ao usuário]", attachments=(meta,)),
+            ],
+            at=T0,
+            files=(imagem,),
+        )
+
+    (_, resposta) = await conversation_store.messages("user:ana", "conv_img")
+    assert resposta.attachments == (meta,)
+    assert await conversation_store.attachment("user:ana", "conv_img", imagem.id) == imagem
+    assert await conversation_store.attachment("user:bia", "conv_img", imagem.id) is None
+    assert await conversation_store.attachment("user:ana", "conv_img", "img-000000000000") is None
+
+    await conversation_store.delete("user:ana", "conv_img")
+    assert await conversation_store.attachment("user:ana", "conv_img", imagem.id) is None
+    await conversation_store.delete_inactive(before=T0 + timedelta(days=1))
+    assert await conversation_store.attachment("user:ana", "conv_velha", imagem.id) is None

@@ -20,11 +20,13 @@ from axon_ai.http.domain.records import (
     HealthItem,
     HealthReport,
     MessageRole,
+    StoredAttachment,
     StoredMessage,
 )
 from axon_ai.identity.api import AccountAdmin, LoginSettings
 from axon_ai.llm.api import ModelRouting
 from axon_ai.observability.api import PriceBook, TraceDestinations, UsageReportSeam
+from axon_ai_contracts import Attachment
 
 __all__ = [
     "AdminGate",
@@ -39,6 +41,7 @@ __all__ = [
     "InstanceBranding",
     "MessageRole",
     "RequestIds",
+    "StoredAttachment",
     "StoredMessage",
 ]
 
@@ -73,9 +76,20 @@ class ConversationStore(Protocol):
         ...
 
     async def append(
-        self, owner: str, conversation_id: str, messages: Sequence[StoredMessage], *, at: datetime
+        self,
+        owner: str,
+        conversation_id: str,
+        messages: Sequence[StoredMessage],
+        *,
+        at: datetime,
+        files: Sequence[Attachment] = (),
     ) -> bool:
-        """Grava e atualiza a última atividade. `False` se a conversa foi apagada — a troca não é gravada (FR-018)."""
+        """Grava e atualiza a última atividade. `False` se a conversa foi apagada — a troca não é gravada (FR-018).
+        `files` traz os bytes das imagens que os `attachments` das mensagens citam, presas a elas (ADR-044)."""
+        ...
+
+    async def attachment(self, owner: str, conversation_id: str, attachment_id: str) -> Attachment | None:
+        """Os bytes de uma imagem da conversa; `None` como em `get` — outro dono recebe o mesmo 404 (ADR-044)."""
         ...
 
     async def list(self, owner: str, *, limit: int, cursor: str | None) -> ConversationPage: ...

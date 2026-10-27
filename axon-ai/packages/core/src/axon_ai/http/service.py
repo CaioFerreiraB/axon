@@ -26,7 +26,7 @@ from axon_ai.graph.api import (
 )
 from axon_ai.http.domain.admission import AdmissionLimits, decide, retry_after
 from axon_ai.http.domain.chat_request import ChatRequest
-from axon_ai.http.domain.conversations import exchange, execution_messages, last_user_message
+from axon_ai.http.domain.conversations import exchange, execution_messages, last_assistant, last_user_message
 from axon_ai.http.domain.errors import (
     NOT_FOUND,
     QUEUE_TIMEOUT_KIND,
@@ -34,10 +34,12 @@ from axon_ai.http.domain.errors import (
     ConversationMismatch,
     Overloaded,
 )
+from axon_ai.http.domain.images import VisionUnsupported
 from axon_ai.http.domain.openai_chunks import (
     completion,
     final_chunk,
     finish_reason,
+    images_tail,
     opening_chunk,
     progress_chunk,
     progress_of,
@@ -48,7 +50,7 @@ from axon_ai.http.domain.openai_chunks import (
 )
 from axon_ai.http.domain.timeline import Timeline
 from axon_ai.http.ports import Clock, Conversation, ConversationPage, ConversationStore, RequestIds, StoredMessage
-from axon_ai_contracts import Message
+from axon_ai_contracts import Attachment, Message
 
 FINISH_ERROR: Final = "error"
 CONVERSATION_PREFIX: Final = "conv_"
@@ -242,6 +244,10 @@ class ChatService:
                         for status in timeline.finished(event, self._clock.now()):
                             yield status_chunk(status, **envelope)
                     case FinalEvent():
+                        # As imagens das tools ficaram retidas: saem depois do último token (ADR-044, item 9).
+                        tail = images_tail(event)
+                        if tail:
+                            yield token_chunk(TokenEvent(text=tail), **envelope)
                         # Grava antes do último chunk: quando o cliente vê o fim, a troca já está no histórico.
                         await self._record(turn, event, request_id)
                         if timeline is not None:
@@ -303,13 +309,30 @@ class ChatService:
                 )
 
         grant = await self._grants.resolve(model=request.model, principal=principal)
+        if user.get("attachments") and "generation" not in grant.models.vision:
+            # Antes de qualquer custo: o usuário fica sabendo que mandou a imagem ao lugar errado (ADR-044, item 5).
+            raise VisionUnsupported(grant.assistant)
 
         if existing is not None:
             history = await self._conversations.messages(principal.subject, existing.id) or ()
+            candidates = await self._candidates(principal.subject, existing.id, history)
             return _Prepared(
-                grant=grant, existing=existing, messages=execution_messages(history, request.messages), user=user
+                grant=grant,
+                existing=existing,
+                messages=execution_messages(history, request.messages, candidates),
+                user=user,
             )
         return _Prepared(grant=grant, existing=None, messages=tuple(request.messages), user=user)
+
+    async def _candidates(self, owner: str, conversation_id: str, history: Sequence[StoredMessage]) -> list[Attachment]:
+        """As imagens da última resposta da conversa, lidas do banco: as candidatas do turno (ADR-044, item 9)."""
+        last = last_assistant(history)
+        found: list[Attachment] = []
+        for meta in last.attachments if last is not None else ():
+            image = await self._conversations.attachment(owner, conversation_id, meta.id)
+            if image is not None:
+                found.append(image)
+        return found
 
     async def _start(self, prepared: _Prepared, request: ChatRequest, principal: Principal) -> _Turn:
         """Admitido (ou na fila, em streaming): sem id, a conversa nasce agora, para que o id saia no primeiro chunk
@@ -351,9 +374,11 @@ class ChatService:
         if turn.conversation is None:
             return
         now = self._clock.now()
-        records = exchange(turn.user, final, request_id=request_id, at=now)
+        records, files = exchange(turn.user, final, request_id=request_id, at=now)
         if records:
-            await self._conversations.append(turn.conversation.owner, turn.conversation.id, records, at=now)
+            await self._conversations.append(
+                turn.conversation.owner, turn.conversation.id, records, at=now, files=files
+            )
 
     @staticmethod
     def _execution_request(turn: _Turn, request: ChatRequest, request_id: str) -> ExecutionRequest:
@@ -393,6 +418,13 @@ class ConversationService:
         if conversation is None or messages is None:
             raise NotFound(NOT_FOUND)
         return conversation, messages
+
+    async def attachment(self, principal: Principal, conversation_id: str, attachment_id: str) -> Attachment:
+        """Os bytes de uma imagem da conversa, só para o dono: outro usuário recebe o 404 de sempre (ADR-044)."""
+        image = await self._store.attachment(principal.subject, conversation_id, attachment_id)
+        if image is None:
+            raise NotFound(NOT_FOUND)
+        return image
 
     async def delete(self, principal: Principal, conversation_id: str) -> None:
         if not await self._store.delete(principal.subject, conversation_id):

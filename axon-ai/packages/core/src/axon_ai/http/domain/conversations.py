@@ -14,9 +14,10 @@ from typing import Any, Final, cast
 
 from axon_ai.graph.api import FinalEvent
 from axon_ai.http.domain.errors import InvalidRequest
+from axon_ai.http.domain.images import SENT, SHOWN, summary, with_markers
 from axon_ai.http.domain.openai_chunks import FINISH_ERROR, finish_reason
-from axon_ai.http.domain.records import Conversation, StoredMessage
-from axon_ai_contracts import JSONValue, Message
+from axon_ai.http.domain.records import Conversation, StoredAttachment, StoredMessage
+from axon_ai_contracts import Attachment, JSONValue, Message
 
 DEFAULT_PAGE: Final = 20
 MAX_PAGE: Final = 100
@@ -59,38 +60,75 @@ USER: Final = "user"
 
 
 def last_user_message(messages: Sequence[Message]) -> Message:
-    """A última mensagem de usuário do pedido — o parser garante que existe ao menos uma."""
+    """A última mensagem de usuário do pedido, com as imagens dela — o parser garante que existe ao menos uma."""
     for message in reversed(messages):
         if message["role"] == USER:
+            images = tuple(message.get("attachments", ()))
+            if images:
+                return {"role": USER, "content": message["content"], "attachments": images}
             return {"role": USER, "content": message["content"]}
     raise InvalidRequest("é preciso ao menos uma mensagem de papel 'user'", field="messages")
 
 
-def execution_messages(history: Sequence[StoredMessage], requested: Sequence[Message]) -> tuple[Message, ...]:
+def last_assistant(history: Sequence[StoredMessage]) -> StoredMessage | None:
+    for message in reversed(history):
+        if message.role == "assistant":
+            return message
+    return None
+
+
+def execution_messages(
+    history: Sequence[StoredMessage], requested: Sequence[Message], candidates: Sequence[Attachment] = ()
+) -> tuple[Message, ...]:
     """Histórico armazenado + a última mensagem de usuário do pedido.
 
     O que o cliente manda como resposta anterior (papel `assistant` ou `tool`) é descartado: o histórico armazenado é a
-    fonte de verdade, e uma resposta forjada nunca entra numa execução com id de conversa (SC-005).
+    fonte de verdade, e uma resposta forjada nunca entra numa execução com id de conversa (SC-005). As imagens da última
+    resposta, lidas do banco, voltam presas a ela: são as candidatas do turno (ADR-044, item 9).
     """
-    stored: tuple[Message, ...] = tuple({"role": m.role, "content": m.content} for m in history)
+    last = last_assistant(history)
+    stored: list[Message] = []
+    for message in history:
+        if message is last and candidates:
+            stored.append({"role": message.role, "content": message.content, "attachments": tuple(candidates)})
+        else:
+            stored.append({"role": message.role, "content": message.content})
     return (*stored, last_user_message(requested))
 
 
-def exchange(user: Message, final: FinalEvent, *, request_id: str, at: datetime) -> tuple[StoredMessage, ...]:
-    """A troca a gravar: a mensagem do usuário e a resposta, com citações e marcações. Execução que falhou não grava
-    nada — o usuário tenta de novo sem deixar uma resposta parcial no histórico."""
+def exchange(
+    user: Message, final: FinalEvent, *, request_id: str, at: datetime
+) -> tuple[tuple[StoredMessage, ...], tuple[Attachment, ...]]:
+    """A troca a gravar e os bytes das imagens dela: a mensagem do usuário e a resposta, com citações, marcações e uma
+    marca por imagem no texto — nunca o data URI (ADR-044, item 9). Execução que falhou não grava nada — o usuário
+    tenta de novo sem deixar uma resposta parcial no histórico."""
     if finish_reason(final) == FINISH_ERROR:
-        return ()
-    return (
-        StoredMessage(role="user", content=user["content"], at=at, request_id=request_id),
+        return (), ()
+    sent = tuple(user.get("attachments", ()))
+    records = (
+        StoredMessage(
+            role="user",
+            content=with_markers(user["content"], sent, SENT),
+            at=at,
+            request_id=request_id,
+            attachments=_stored(sent),
+        ),
         StoredMessage(
             role="assistant",
-            content=final.answer,
+            content=with_markers(final.answer, final.attachments, SHOWN),
             at=at,
             request_id=request_id,
             citations=tuple(cast("JSONValue", dict(citation)) for citation in final.citations),
             flags=tuple(sorted(final.flags)),
+            attachments=_stored(final.attachments),
         ),
+    )
+    return records, (*sent, *final.attachments)
+
+
+def _stored(images: Sequence[Attachment]) -> tuple[StoredAttachment, ...]:
+    return tuple(
+        StoredAttachment(id=item["id"], mime=item["mime"], size_bytes=item["size_bytes"]) for item in summary(images)
     )
 
 
@@ -112,6 +150,7 @@ def conversation_json(conversation: Conversation, messages: Sequence[StoredMessa
                 "request_id": m.request_id,
                 "citations": list(m.citations),
                 "flags": list(m.flags),
+                "attachments": [{"id": a.id, "mime": a.mime, "size_bytes": a.size_bytes} for a in m.attachments],
             }
             for m in messages
         ]

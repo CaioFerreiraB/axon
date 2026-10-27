@@ -980,5 +980,6 @@ T115; T116 em paralelo com a T114.
 - [X] T117 `_models`/`_role_value`; `AssistantDefinition.vision`, `ModelsOverride.vision`, `UserAssistantDraft.vision`;
   conteúdo, leitura e aplicação da sobreposição; impressão digital estável sem `vision` (R45)
 - [X] T118 `select_models` com `vision`; modelo pedido diferente sem `vision`
+- [X] T120 `SystemAssistantView.yaml_vision`/`effective_vision`, para a administração mostrar `vision` (008 R60)
 - [X] T119 [P] Testes: objeto por papel, malformados, grant, modelo pedido, impressão digital antiga, sobreposição ida e
   volta, rascunho de usuário, `controller` declarado no `chat`

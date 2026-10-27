@@ -29,8 +29,18 @@ class Conversation:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class StoredAttachment:
+    """Uma imagem de mensagem gravada, sem os bytes: eles saem pela rota própria, só para o dono (ADR-044, item 9)."""
+
+    id: str
+    mime: str
+    size_bytes: int
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class StoredMessage:
-    """Uma mensagem gravada. Só `user` e `assistant`: o histórico armazenado é a fonte de verdade (FR-013)."""
+    """Uma mensagem gravada. Só `user` e `assistant`: o histórico armazenado é a fonte de verdade (FR-013). O texto
+    leva a marca de cada imagem, nunca o data URI; `attachments` são os metadados delas (ADR-044)."""
 
     role: MessageRole
     content: str
@@ -38,10 +48,12 @@ class StoredMessage:
     request_id: str
     citations: tuple[JSONValue, ...] = ()
     flags: tuple[str, ...] = ()
+    attachments: tuple[StoredAttachment, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "citations", tuple(self.citations))
         object.__setattr__(self, "flags", tuple(self.flags))
+        object.__setattr__(self, "attachments", tuple(self.attachments))
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

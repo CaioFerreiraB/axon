@@ -19,12 +19,17 @@ from axon_ai.http.domain.chat_request import (
     parse_stream,
     reject_forbidden,
 )
+from axon_ai.http.domain.images import ImageLimits
 
 NATIVE_FIELDS: Final = frozenset({"assistant", "model", "messages", "stream", "conversation_id"})
 
 
 def parse_native(
-    body: Mapping[str, Any], *, store_header: str | None = None, progress_header: str | None = None
+    body: Mapping[str, Any],
+    *,
+    store_header: str | None = None,
+    progress_header: str | None = None,
+    limits: ImageLimits | None = None,
 ) -> ChatRequest:
     reject_forbidden(body)
     for field in sorted(str(key) for key in body if key not in NATIVE_FIELDS):
@@ -40,7 +45,7 @@ def parse_native(
     conversation_id = parse_conversation_id(body)
     return ChatRequest(
         model=assistant if model is None else f"{assistant}/{model}",
-        messages=parse_messages(body.get("messages")),
+        messages=parse_messages(body.get("messages"), limits),
         stream=parse_stream(body),
         conversation_id=conversation_id,
         store=parse_store(store_header, conversation_id),
