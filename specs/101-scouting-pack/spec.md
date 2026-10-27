@@ -61,6 +61,12 @@ Revisão do RAG ([relatório](../../docs/revisao-rag-scouting-2026-10.md)) e [AD
 - Q: O que o prompt faz quando os trechos cobrem só parte da pergunta? → A: Responde, com citação, o que eles cobrem e diz o que não apareceu **nos trechos recebidos** — nunca que os documentos não tratam do assunto: os trechos são uma amostra da busca. Responde ao conceito perguntado, sem pôr um vizinho (lema, marco simbólico, ênfase educativa, símbolo, sinal) no lugar dele, e, numa pergunta sobre vários ramos, organiza por ramo e marca os que faltaram. Sem fato de nenhuma pergunta no prompt.
 - Q: Como a derivação trata o Ramo Filhotes e uma pergunta sobre vários ramos? → A: `filhotes` é um ramo do léxico (filhote, filhotes, ramo filhotes, ninhada, ninhadas). Dois ramos ou mais casados, ou um marcador de totalidade ("cada ramo", "os ramos", "5 ramos"…, com os cinco ramos), viram **facetas**: `branches` no contexto e nos `retrieval_filters`, na ordem do léxico, e nenhum `branch`. Um ramo só continua `branch`; termo ambíguo continua não filtrando.
 
+### Session 2026-10-27 (teste no ambiente de dev)
+
+- Q: O tipo de documento que um tema sugere deve filtrar a busca? → A: Não. Só o tipo que a pergunta cita filtra; o sugerido por tema ou sinal vai em `suggested_types` e só desempata a ordem ([ADR-046](../../docs/adr/ADR-046-tipo-sugerido-ordena-no-scouting.md)). O léxico só sugere e só reconhece tipos que existem no catálogo; "programa educativo" é assunto, não tipo.
+- Q: Como a resposta diz que não encontrou algo? → A: Fala dos documentos consultados ("não encontrei essa informação nos documentos que consultei"), nunca de "trechos", "busca" ou "ferramenta" — quem pergunta não sabe o que isso significa —, e continua sem afirmar que o documento não existe.
+- Q: E o tempo relativo? → A: "Último ano", "ano passado" e "ano anterior" são o ano anterior ao dia de referência; "este ano" e "ano atual", o ano dele.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Pack carregado e respondendo com instruções de domínio (Priority: P1)
@@ -237,6 +243,9 @@ o juiz não aponta troca de conceito.
 - **FR-020**: A chave do embedder remoto DEVE vir só de `AXON_SCOUTING_EMBEDDING_API_KEY`; a carga NÃO DEVE exigi-la, e nenhuma mensagem DEVE trazer o valor.
 - **FR-021**: O léxico DEVE ter o Ramo Filhotes (`filhotes`) e os marcadores de totalidade; a derivação DEVE publicar `branches` — dois ramos ou mais, na ordem do léxico; com o marcador, os cinco — no contexto e nos `retrieval_filters`, e então nenhum `branch` ([ADR-045](../../docs/adr/ADR-045-filhotes-e-consulta-multifaceta-no-scouting.md)).
 - **FR-022**: O prompt DEVE orientar a responder a parte coberta pelos trechos e dizer o que não apareceu neles, sem afirmar ausência nos documentos; a responder ao conceito perguntado, sem substituí-lo por um vizinho; e a organizar por ramo uma pergunta sobre vários ramos. O prompt NÃO DEVE conter fato do corpus que uma pergunta do conjunto espere.
+- **FR-023**: A derivação DEVE publicar como `document_types` só os tipos que a pergunta cita, e os sugeridos pelos temas e sinais como `suggested_types`, que não filtram ([ADR-046](../../docs/adr/ADR-046-tipo-sugerido-ordena-no-scouting.md)); o léxico NÃO DEVE sugerir nem reconhecer tipo que nenhum documento do catálogo tenha.
+- **FR-024**: A resposta NÃO DEVE usar, com quem pergunta, as palavras do mecanismo ("trecho", "busca", "ferramenta", "contexto", "recuperação"); a ausência é dita como "não encontrei nos documentos que consultei".
+- **FR-025**: A derivação DEVE reconhecer o ano relativo: "último ano", "ano passado" e "ano anterior" → o ano anterior ao dia de referência; "este ano" e "ano atual" → o ano dele.
 
 ### Key Entities
 

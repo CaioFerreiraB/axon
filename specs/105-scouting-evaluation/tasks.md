@@ -251,3 +251,5 @@ T011 eval/packs.yaml + eval/assistants.yaml
 - [X] T029 Rodada com modelo real e juiz no conjunto de regressão, antes (prompt de `f84efad`) e depois (101 R36), e
   a leitura das respostas de cobertura parcial (R17).
 - [X] T030 A faixa etária na redação da Regra 013; linha de base 0,90 (R18).
+- [X] T031 Os 8 itens do teste no dev, os grupos `lista` e `pessoa`, `suggested_types` no contexto esperado; linha de
+  base 0,8705 (R19).

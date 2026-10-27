@@ -281,3 +281,15 @@ Qwen3 1.7B, Gemma 4 E2B) ficam como estão.
   entregue pela recuperação; o conjunto media 0 porque só conhecia a outra redação. É correção do instrumento, não
   ganho do sistema — a recuperação é a mesma.
 - **Alternatives**: trocar o fato pela redação da Regra 013 (perderia a outra fonte, que também responde).
+
+## R19 — As perguntas do teste no dev viram itens; `suggested_types` no contexto
+
+- **Decision**: 8 itens novos no conjunto de regressão, tirados do teste do mantenedor no Open WebUI local:
+  especialidades (três variações), etapas do Escoteiro e de cada ramo (Lobinho, Escoteiro, Sênior e Pioneiro — o
+  corpus não nomeia etapas de Filhotes), ciclo de vida do adulto, políticas nacionais (grupo `lista`) e uma pessoa
+  (grupo `pessoa`). Perguntas sem resposta no corpus não viram item. O fato de especialidades aceita "certificação
+  externa" e "as especialidades nos Ramos Sênior e Pioneiro": a primeira versão exigia um trecho só, e a busca
+  corrigida trazia outros que respondem. `CONTEXT_FIELDS` ganha `suggested_types` ([ADR-046](../../docs/adr/ADR-046-tipo-sugerido-ordena-no-scouting.md)).
+- **Rationale**: medir cada correção pelas perguntas que o mantenedor fez. Antes do ADR-046, 0,7634 nos 28 itens
+  (especialidades 0, etapas de cada ramo 0, políticas 0,375); depois, 0,8705, com o mesmo instrumento nas duas pontas.
+- **Alternatives**: nenhum.

@@ -566,3 +566,18 @@ seguem no Qdrant embutido com `store: qdrant`.
   **Medido em 2026-10-27** (105 R17): fidelidade 0,95 → 1,00 e cobertura 0,89 → 0,92 pelo juiz; a troca de conceito
   (caracterização do ramo dada como marco simbólico) e uma invenção no lema somem nas respostas lidas; o
   `fact_recall` não muda, e cada resposta usa uns 400 tokens a mais.
+
+## R37 — Tipo citado filtra, sugerido ordena; a resposta sem "trechos"; ano relativo ([ADR-046](../../docs/adr/ADR-046-tipo-sugerido-ordena-no-scouting.md))
+
+- **Decision**: `ScoutingContext.document_types` (citados, `_cited_types`) e `suggested_types` (temas e sinais, só sem
+  citado, `_suggested_types`); `to_slice` publica os dois no contexto e, nos filtros, só os não vazios. Léxico:
+  `programa_educativo` sai de `document_types` (as citações); os temas e os sinais sugerem tipos citáveis, com `guia`
+  (especialidades → guia; insígnias → guia e POR; progressão, método, serviço, liderança e competências → manual e
+  guia; uniforme → POR e resolução); "guia de" cita `guia`. Prompt: a cobertura parcial diz "não encontrei essa
+  informação nos documentos que consultei", e um parágrafo proíbe as palavras do mecanismo na resposta. `periods.py`:
+  `_LAST_YEAR` com "último ano" e "ano anterior"; `_THIS_YEAR` com "este ano", "neste ano", "deste ano", "ano atual" e
+  "ano corrente".
+- **Rationale**: no teste do mantenedor (17 perguntas), as 4 de especialidades voltaram sem trecho (o tipo sugerido
+  `programa_educativo` não existe no catálogo), as de progressão perdiam os guias dos jovens, e as respostas falavam de
+  "trechos recebidos", que o usuário não entende. Medido com o conjunto de regressão (105 R19): 0,7634 → 0,8705.
+- **Alternatives**: no ADR-046.

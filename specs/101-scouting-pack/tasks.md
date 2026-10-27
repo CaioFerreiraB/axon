@@ -571,3 +571,9 @@ T063 → T064 → T065 → T066 ∥ T067 (veem falhar) → T068 → T069 → T07
   `context/derivation.py`; casos em `tests/test_derivation.py` e `tests/test_lexicon.py`; o contrato
   `retrieval_filters` com `branches`.
 - [X] T077 [US8] Os três parágrafos no `prompts/domain.py` e os testes de frase e de "nenhum fato" (R36).
+
+## Passada de 2026-10-27, teste no ambiente de dev (research R37; [ADR-046](../../docs/adr/ADR-046-tipo-sugerido-ordena-no-scouting.md))
+
+- [X] T078 `document_types` citados e `suggested_types` na derivação e na fatia; léxico só com tipos citáveis
+  (`programa_educativo` fora, `guia` nos temas, "guia de"); ano relativo em `periods.py`; testes.
+- [X] T079 Prompt sem as palavras do mecanismo (FR-024); teste.

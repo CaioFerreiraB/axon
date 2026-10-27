@@ -155,6 +155,7 @@ qualquer um), sem trecho repetido, e a ordem sobrevive ao reranker.
 - **FR-009**: Os temas (`topics`) recebidos nos filtros NÃO DEVEM restringir nem reforçar a busca na v1; o retriever usa só vigência, ramo e tipos de documento.
 - **FR-010**: A busca DEVE codificar a pergunta com o embedder escolhido na configuração do pack, e uma falha dele DEVE chegar ao core como falha da recuperação, sem resultado parcial.
 - **FR-011**: Com `branches` nos filtros, o retriever DEVE fazer uma busca por ramo (a pergunta seguida do nome do ramo, com o filtro dele), repartir o `top_k` entre as facetas e intercalá-las sem repetir trecho; a ordem (posição na faceta, ordem da faceta, depois a da FR-005) DEVE ir nos metadados, para o reranker reconstruí-la ([ADR-045](../../docs/adr/ADR-045-filhotes-e-consulta-multifaceta-no-scouting.md)).
+- **FR-012**: `suggested_types` nos filtros NÃO DEVE restringir a busca: só liga a marca de tipo da ordem (FR-005), como o tipo citado ([ADR-046](../../docs/adr/ADR-046-tipo-sugerido-ordena-no-scouting.md)).
 
 ### Key Entities
 

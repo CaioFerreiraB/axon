@@ -234,3 +234,12 @@ da 005, o N do rerank e o limiar do portão.
   na medição local sugere que a ordem seja o gargalo; fica para quando um candidato de recuperação deixar a evidência
   entre os candidatos e a ordem voltar a importar. O mMiniLM com 10 trechos e o bge-m3 com 40 candidatos e 10 trechos
   não terminaram (memória, rodando em paralelo); não mudam a conclusão.
+
+## R15 — `suggested_types` como marca de ordem ([ADR-046](../../docs/adr/ADR-046-tipo-sugerido-ordena-no-scouting.md))
+
+- **Decision**: `domain/filters.py` aceita `suggested_types` (lista de tipos conhecidos; outro valor é
+  `InvalidFilters`) e o expõe por `suggested_types(raw)`; `ordering.marks(chunk, filters, preferred)` liga
+  `type_match` para o tipo citado ou o sugerido; o retriever passa os sugeridos a cada `_to_chunk`, também por faceta.
+- **Rationale**: o tipo sugerido é palpite do léxico; como filtro, escondia os guias e zerava as perguntas de
+  especialidades.
+- **Alternatives**: peso numérico na fusão (FR-005 proíbe peso na v1; outro ADR se a medição pedir).

@@ -300,3 +300,4 @@ Task: "tests/rag/retrieval/test_reranker.py — US4 (T016)"
   sem repetir, posição 0 em toda faceta, a ordem depois do reranker, facetas inválidas).
 - [X] T027 Medição do reranker que lê a pergunta (R14): dois cross-encoders locais contra o v1, com e sem o corte do
   gateway, com 5 e 10 trechos; não adotado; nenhuma mudança de código.
+- [X] T028 `suggested_types` em `domain/filters.py`, `ordering.marks` e o retriever; testes (R15, FR-012).

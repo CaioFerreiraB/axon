@@ -326,7 +326,14 @@ corte do gateway piora; com `AXON_RAG_PASSAGES=10` o v1 vai a 0,86. O que falta 
 geral (faixas etárias). O prompt (101 R36) trata cobertura parcial, o conceito perguntado e a resposta por ramo, e a
 105 tem `scouting:absence_claim_rate` (não determinística) e `eval/assistants-openrouter.yaml` para a rodada manual com
 modelo real: com o `glm-5.3-flash` e juiz `gpt-4.1-mini`, fidelidade 0,95 → 1,00 e a troca de conceito some (105 R17).
-Os fatos de faixa etária aceitam a redação da Regra 013 (105 R18): `fact_recall` da linha de base 0,90. A chave do
+Os fatos de faixa etária aceitam a redação da Regra 013 (105 R18): `fact_recall` da linha de base 0,90. Depois do
+teste do mantenedor no dev (17 perguntas; relatório "RAG do scouting por dentro"), o ADR-046: só o tipo de documento
+**citado** filtra; o sugerido por tema vai em `suggested_types` e só desempata a ordem (o tema "especialidades" filtrava
+por `programa_educativo`, que nenhum documento tem, e nenhum tema incluía `guia`); o prompt fala de "documentos
+consultados", nunca de "trechos"; e "último ano"/"este ano" viram período. O conjunto de regressão tem 28 itens (8 das
+perguntas do dev, grupos `lista` e `pessoa`), linha de base 0,8705. O ambiente de dev local (`axon-scouting/.cache/dev/
+dev.sh`, fora do git: Postgres e Open WebUI em contêiner, `axon serve` do venv do pack, trace em `.cache/dev/trace/`)
+serve para testar antes de publicar. A chave do
 OpenRouter da instalação está em `~/Documents/cfblabs-management/stacks/axon/env` (materializada do cofre); use-a só no
 ambiente do processo, nunca em arquivo.
 
