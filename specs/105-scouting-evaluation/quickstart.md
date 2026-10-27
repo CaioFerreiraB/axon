@@ -83,3 +83,18 @@ conjunto for a semente (FR-001).
 Num PR que muda `corpus/`, `src/axon_scouting/{rag,prompts,context,eval}/`, `pack.py`, `eval/`, `pyproject.toml` ou
 `uv.lock`, o job `eval` roda o passo 3 com Qdrant de serviço e o e5 do cache; o relatório fica como artefato. Um PR que
 só muda `README.md` não dispara o job.
+
+## 7. Conjunto de regressão da recuperação (US6, passada de 2026-10-27)
+
+```bash
+uv run axon-scouting-corpus model fetch .cache/e5
+AXON_PROFILE=test AXON_PACKS_FILE=eval/packs.yaml AXON_ASSISTANTS_FILE=eval/assistants.yaml \
+  uv run --python 3.14 --group platform axon eval run \
+    --golden eval/regression.yaml --baseline eval/regression-baseline.json --report .cache/regression.json
+```
+
+Esperado na linha de base (corpus de 593 documentos, e5): `scouting:fact_recall` 0,52, sem regressão. Por item, no
+relatório: marcos por ramo 1,0 exceto `marco-pioneiro` (0,0); agregados 0,2–0,4; lemas e faixas etárias quase sempre
+0. Uma correção da 102, 101 ou 103 mostra o antes e o depois deste número (SC-004). Sem os PDFs no git, o CI confere o
+artefato contra o catálogo (`uv run pytest tests/rag/ingestion/test_artifact_catalog.py`) no lugar da reingestão
+(FR-016); o passo 6 vale com isso.

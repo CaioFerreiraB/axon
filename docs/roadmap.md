@@ -49,6 +49,14 @@ barram. Da 105, a infraestrutura está pronta sobre um conjunto **semente provis
 105 (calibração do RAG, escolha de embedding e de modelo local) esperam a curadoria das perguntas reais, que o
 mantenedor fará depois do desenvolvimento; até lá, nenhum número do RAG muda.
 
+**Revisão do RAG do scouting (2026-10-27).** Com o corpus de 593 documentos, uma pergunta sobre os cinco ramos chegava
+à geração com a resposta de um ramo só. A [revisão](revisao-rag-scouting-2026-10.md) achou causas estruturais —
+seleção que não lê a pergunta, nenhuma decomposição de pergunta multifaceta, defeitos de ingestão (55% das regras do POR
+sem corpo) e prompt sem cobertura parcial — e as distribuiu pelas specs 102, 101 e 103, em ordem. A primeira etapa está
+feita: a 105 US6 mede pelo conteúdo (`scouting:fact_recall`, conjunto de regressão com linha de base 0,52), e o CI do
+pack confere o artefato contra o catálogo, já que os PDFs saíram do git. Não é calibração: os números do RAG continuam
+esperando a curadoria.
+
 **Fase 7 concluída em 2026-10-13.** Os Assistants aparecem como modelos no Open WebUI v0.12, sem código de interface:
 o usuário entra por SSO no provedor OIDC e a conexão repassa o token dele à plataforma, que mostra só os Assistants que
 a ACL resolve para ele. A API (008) limita as execuções simultâneas com fila curta — quem espera vê o aviso na hora, e

@@ -32,6 +32,15 @@
 - Q: Como se compara o `pplx` ao `e5` ([ADR-043](../../docs/adr/ADR-043-indice-do-scouting-gerado-no-desenvolvimento.md), item 7)? → A: Pelo mesmo conjunto dourado, numa rodada por modelo — `eval/packs.yaml` (e5) e `eval/packs-pplx.yaml` (pplx, com `AXON_SCOUTING_EMBEDDING_API_KEY`) — e `axon eval compare` dos dois relatórios, pelas métricas determinísticas (recall@k, MRR). O embedder é configuração do pack, que vale para a instalação inteira; por isso são duas rodadas com o mesmo Assistant, e não dois Assistants na mesma plataforma. O default só muda depois disso.
 - Q: A linha de base muda com o índice em memória? → A: Não: o artefato em memória dá os mesmos números do Qdrant no conjunto semente (as mesmas fórmulas), e o workflow `eval` deixa de subir um Qdrant e de ingerir.
 
+### Session 2026-10-27
+
+Revisão do RAG ([docs/revisao-rag-scouting-2026-10.md](../../docs/revisao-rag-scouting-2026-10.md)): "Qual o marco
+simbólico dos 5 ramos?" chegava à geração com a formulação de um ramo só, embora as cinco estejam no corpus.
+
+- Q: Como medir que a informação **chegou** à geração, se a evidência da 009 casa por documento e o `EvalChunk` (contrato 001) não traz texto? → A: Pelo conteúdo: o item declara em `extra.facts` os fatos que precisam chegar — texto do corpus, com redações alternativas —, e a métrica do pack `scouting:fact_recall` acha cada fato no texto dos trechos entregues, que o `pack.py` lê do artefato do índice e injeta na métrica. Determinística; nenhuma mudança de contrato. Só existe com o índice em memória (FR-013).
+- Q: O conjunto de regressão substitui a semente ou a curadoria? → A: Não. É um segundo arquivo (`eval/regression.yaml`), com linha de base própria, que cobre **padrões** que a revisão achou — o mesmo conceito por ramo, paráfrases, agregados ("cada ramo"), comparação e regras do POR — e diz se uma mudança estrutural (ingestão, seleção, prompt) melhorou ou piorou a recuperação. Nenhuma calibração numérica se decide sobre ele (FR-001 continua valendo).
+- Q: Os PDFs do corpus saíram do git (decisão do mantenedor em 2026-10-26). Como o CI confere que o artefato espelha o corpus? → A: Pelo que o catálogo decide — o conjunto de documentos, os metadados, a vigência derivada da linhagem e a proveniência —, sem reingerir; a reingestão byte a byte fica com quem tem os originais. A semente troca o documento retirado (s08, s09) pelo Manual do Escotista — Ramo Lobinho, e a cobertura exige os tipos normativos, não todos os títulos do catálogo.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Conjunto dourado de perguntas reais (Priority: P1)
@@ -112,6 +121,32 @@ Os modelos locais candidatos são comparados em qualidade em português, confiab
 
 ---
 
+### User Story 6 - Regressão da recuperação por fato e por faceta (Priority: P1)
+
+Cada mudança no corpus, na ingestão, na recuperação ou no prompt roda um conjunto de perguntas cujos fatos precisam
+chegar aos trechos entregues à geração — uma pergunta por ramo, paráfrases, perguntas que pedem os cinco ramos, uma
+comparação e regras do POR —, comparado com a linha de base.
+
+**Why this priority**: A revisão do RAG de 2026-10-27 achou falhas que a semente não via (ela casa evidência por
+documento, e nenhuma pergunta pedia várias facetas). Sem uma medida pelo conteúdo, as correções da 102, da 101 e da 103
+não teriam como provar ganho nem como evitar piora.
+
+**Independent Test**: O conjunto roda pelo harness da 009 no perfil `test`, com o artefato e o e5, e a métrica
+`scouting:fact_recall` sai no relatório, por item e agregada; a linha de base registra o estado antes das correções.
+
+**Acceptance Scenarios**:
+
+1. **Given** um item cujos fatos estão em trechos entregues, **When** medido, **Then** `fact_recall` é 1; com metade
+   dos fatos, 0,5; sem trecho entregue, 0.
+2. **Given** um fato que nenhum trecho do artefato contém, **When** o conjunto é validado, **Then** a validação falha
+   nomeando o item e o fato.
+3. **Given** uma mudança que faz um fato deixar de chegar, **When** o CI roda, **Then** a regressão determinística
+   barra o job.
+4. **Given** uma mudança no catálogo sem reingestão, **When** o CI roda sem os PDFs, **Then** a conferência do
+   artefato contra o catálogo falha.
+
+---
+
 ### Edge Cases
 
 - Pergunta cuja resposta mudou com uma nova versão de documento: o item antigo continua válido na sua data de referência (ADR-013); quando a mudança for relevante, acrescenta-se um item com a data nova, e o histórico é preservado.
@@ -128,11 +163,15 @@ Os modelos locais candidatos são comparados em qualidade em português, confiab
 - **FR-005**: O CI do `axon-scouting` DEVE rodar o conjunto em mudanças de chunking, prompt, retriever ou modelo — um job disparado por mudanças em `corpus/`, `rag/`, `prompts/`, `pack.py`, `eval/` ou nas dependências, com Qdrant de serviço, o e5 em cache por sha256, a ingestão do corpus real e o gerador simulado do perfil `test` (sem modelo pago nem juiz), comparando com a linha de base; só as métricas determinísticas barram. Rodadas com modelo real e juiz são manuais.
 - **FR-006**: Todo item DEVE fixar a data de referência da execução (ADR-013), para que o resultado não mude quando documentos forem revogados ou substituídos depois da curadoria.
 - **FR-013**: A avaliação DEVE rodar sobre o artefato do índice em memória, sem serviço, e oferecer a configuração da rodada com o embedder `pplx`, para a comparação dos modelos por `axon eval compare`.
+- **FR-014**: O pack DEVE fornecer a métrica determinística `fact_recall`: a fração dos fatos que o item declara em `extra.facts` (texto, ou lista de redações alternativas) presentes, palavra a palavra depois da normalização da 101, no texto dos trechos entregues à geração; item sem `extra.facts` não conta. O texto vem do artefato do índice, lido pelo `pack.py` só quando uma rodada consulta a métrica; com o Qdrant, a métrica não é declarada.
+- **FR-015**: O conjunto de regressão da recuperação (`eval/regression.yaml`) DEVE cobrir, para os mesmos conceitos, perguntas individuais por ramo, paráfrases, agregados com os cinco ramos, comparação e regras normativas (`extra.group`); todo fato DEVE existir no texto do artefato, validado sem o core; tem linha de base própria e roda no CI ao lado da semente.
+- **FR-016**: Sem os PDFs no git, o CI DEVE conferir o artefato contra o catálogo — os mesmos documentos e, para cada um, metadados, vigência derivada da linhagem e proveniência —, no lugar da reingestão a partir dos originais (que continua sendo `axon-scouting-corpus ingest`, na máquina de quem os tem).
 
 ### Key Entities
 
 - **Scouting Golden Item**: pergunta, documentos esperados, resposta de referência, citações esperadas, data de referência (obrigatória em todo item) e, em `extra.context`, o contexto esperado da derivação (opcional).
 - **Calibration Decision**: parâmetro, valores comparados, relatório, escolha, data.
+- **Regression Item**: pergunta, data de referência, grupo (`individual`, `agregado`, `comparativo`, `normativo`) e os fatos que precisam chegar à geração.
 
 ## Success Criteria *(mandatory)*
 
@@ -141,6 +180,7 @@ Os modelos locais candidatos são comparados em qualidade em português, confiab
 - **SC-001**: Linha de base registrada antes de qualquer mudança de calibração.
 - **SC-002**: 100% das decisões de calibração têm relatório antes/depois.
 - **SC-003**: A decisão de embedding é tomada com dados de pelo menos dois candidatos.
+- **SC-004**: A linha de base do conjunto de regressão é registrada antes de qualquer correção estrutural do RAG (102, 101, 103), e cada correção mostra o `fact_recall` antes e depois.
 
 ## Assumptions
 

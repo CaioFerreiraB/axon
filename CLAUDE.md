@@ -305,6 +305,15 @@ validado sem o core contra `corpus/corpus.yaml` e o léxico (`tests/eval/test_go
 o gerador simulado do perfil `test`. O workflow `eval.yml` (filtro de caminhos: corpus, `rag/`, `prompts/`,
 `context/`, `eval/`, `pack.py`, dependências) ingere o corpus num Qdrant de serviço com o e5 em cache e roda `axon-ai
 eval run` contra a base; a integração (`tests/integration/test_eval.py`) chama o comando `axon` em subprocesso. 
+**Revisão do RAG do scouting (2026-10-27)** — `docs/revisao-rag-scouting-2026-10.md`: diagnóstico com evidências e a
+ordem das correções (102 ingestão → ADR do pack + 101/103 Filhotes e facetas → 103 reranker que lê a pergunta → core
+só se medido → 101 prompt). O corpus tem 593 documentos e os PDFs ficam **fora do git** (`.gitignore` do pack; os
+originais só na máquina de quem ingere, com URL e sha256 em `corpus/fontes.yaml`). Feito: a 105 US6 —
+`scouting:fact_recall` (fatos de `extra.facts` no texto dos trechos entregues; o `pack.py` injeta a leitura do artefato,
+só com `store: memory`), `eval/regression.yaml` com `eval/regression-baseline.json` (0,52) e o CI que confere o artefato
+contra o catálogo (`tests/rag/ingestion/test_artifact_catalog.py`) em vez de reingerir. Toda correção do RAG mostra o
+`fact_recall` antes e depois.
+
 **A Fase 7 do roadmap está completa.** Da 008 (US6, US8), a API pronta para o Open WebUI: admissão
 (`domain/admission.py`, puro; `ExecutionSlots` no `service.py`, vagas e fila FIFO em memória, por processo) entre a
 resolução do grant e o motor — vaga livre executa, vagas cheias com fila livre esperam (em streaming, o aviso de fila sai

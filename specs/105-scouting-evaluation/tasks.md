@@ -231,3 +231,17 @@ T011 eval/packs.yaml + eval/assistants.yaml
 - [X] T020 A comparação `e5` × `pplx` (`axon eval compare`, perfil `test`, conjunto semente): recall@5 e recall@20
   0,889 nos dois, MRR 0,722 (e5) e 0,833 (pplx), `context_accuracy` 0,9 e `current_document_rate` 1,0 nos dois; as
   duas rodadas sem regressão contra a base. Semente provisória: nada se decide; o default segue `e5` até a curadoria
+
+## Passada de 2026-10-27 (revisão do RAG; research R13–R15)
+
+- [X] T021 [US6] `FactRecall` e `expected_facts` em `src/axon_scouting/eval/metrics.py` (FR-014, R13), com os casos em
+  `tests/eval/test_metrics.py`.
+- [X] T022 [US6] `chunk_texts(root)` em `rag/index/adapters/artifact.py`; `pack.py` declara a `fact_recall` com
+  `store: memory` (`_artifact_root` compartilhado com `retrievers`); caso em `tests/test_pack.py`.
+- [X] T023 [US6] `eval/regression.yaml` (R15) e `tests/eval/test_regression.py` (FR-015).
+- [X] T024 Semente: s08 e s09 no Manual do Escotista — Ramo Lobinho; cobertura por tipo em `tests/eval/test_golden.py`
+  (R14).
+- [X] T025 `tests/rag/ingestion/test_artifact_catalog.py` e o workflow `eval` sem reingestão, com o conjunto de
+  regressão (FR-016, R14).
+- [X] T026 Linhas de base: `eval/baseline.json` refeita (`--force`, R14) e `eval/regression-baseline.json` nova (R15);
+  README do pack (corpus sem PDFs, conjunto de regressão).

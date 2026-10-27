@@ -181,3 +181,50 @@ Qwen3 1.7B, Gemma 4 E2B) ficam como estão.
 - **Rationale** (ADR-043, item 7): o embedder é configuração do pack, que vale para a instalação; a comparação são duas
   rodadas, cada uma com o próprio `packs.yaml`, e não dois Assistants — a leitura do ADR que o harness da 009 permite.
 - **Alternatives**: dois packs com nomes diferentes (o mesmo código instalado duas vezes).
+
+---
+
+## Passada de 2026-10-27 (revisão do RAG; [relatório](../../docs/revisao-rag-scouting-2026-10.md))
+
+## R13 — Fatos pelo conteúdo: `scouting:fact_recall`
+
+- **Decision**: o item declara `extra.facts` (texto, ou lista de redações alternativas); a métrica normaliza fatos e
+  textos com o `normalize` da 101 e casa palavra a palavra (`contains_term`) no texto dos trechos de
+  `EvalObservation.delivered`. O texto vem de uma função `chunk_id → texto` que o `pack.py` injeta: `chunk_texts` do
+  adapter do artefato (`rag/index/adapters/artifact.py`), que lê `chunks.jsonl` na primeira consulta, conferindo o
+  sha256 do manifesto. Só com `store: memory`; com o Qdrant, a métrica não é declarada. Determinística (o texto é do
+  artefato, não da geração).
+- **Rationale**: a evidência da 009 casa por documento, seção ou `chunk_id`; um stub "O Marco Simbólico" do manual
+  certo contaria como acerto, e o `chunk_id` muda com o chunking — que a 102 vai mudar. O `EvalChunk` não traz texto, e
+  o pack já tem o artefato: a injeção mantém a métrica pura (R10) e evita mudar o contrato 001.
+- **Alternatives**: `EvalChunk.text` no contrato 001 (ADR e versão de contrato para o que o pack já resolve); uma suíte
+  que simula o pipeline no pack (duplicaria o corte do gateway e o rerank do core, e mediria uma cópia).
+
+## R14 — Corpus sem os PDFs no git: conferência pelo catálogo, semente e linha de base
+
+- **Decision**: com os originais fora do git (decisão do mantenedor em 2026-10-26), o passo "o artefato espelha o
+  corpus" do workflow `eval` deixa de reingerir e roda `tests/rag/ingestion/test_artifact_catalog.py`: valida o
+  `corpus.yaml`, deriva a linhagem e compara, documento a documento, `fields`, `source_file` e `source_url` do
+  `documents.jsonl` com o que a ingestão gravaria. A semente troca s08 e s09 (o "Escotistas em Ação — Ramo Lobinho"
+  saiu do catálogo) pelas mesmas perguntas no Manual do Escotista — Ramo Lobinho (`cap4@p116`, `cap9@p297`), e a
+  cobertura exige os tipos `por`, `estatuto`, `resolucao` e `manual` em vez de todos os títulos. A linha de base é
+  refeita com o corpus de 593 documentos: recall@5 0,8889 → 0,7778 e MRR 0,7222 → 0,5778 — s02 (POR, data de fundação
+  da UEL) e s07 (consulta de 2022) deixaram de achar a evidência entre os novos documentos.
+- **Rationale**: o que se confere sem os PDFs é o que o catálogo decide; uma mudança de catálogo sem reingestão é o erro
+  que o passo existia para pegar. O conteúdo dos PDFs só muda com quem os tem, e a reingestão continua lá.
+- **Alternatives**: conferir o sha256 do `fontes.yaml` contra o `source_sha256` do artefato (acopla o teste a um arquivo
+  de curadoria sem contrato); manter os PDFs no git (decisão contrária do mantenedor).
+
+## R15 — O conjunto de regressão
+
+- **Decision**: `eval/regression.yaml`, 20 itens com data de 2026-10-27: marco simbólico por ramo (5) e duas paráfrases;
+  quatro agregados com os cinco ramos ("dos 5 ramos", "de cada ramo", "dos cinco ramos", os cinco nomeados); uma
+  comparação (Lobinho × Sênior); lema por ramo (3) e de cada ramo; faixa etária do Lobinho e de cada ramo; a Regra 054
+  e o sinal do Ramo Filhotes. `extra.group` agrupa (`individual`, `agregado`, `comparativo`, `normativo`). Validado em
+  `tests/eval/test_regression.py`: formato, grupos e todo fato presente no texto do artefato. Linha de base em
+  `eval/regression-baseline.json` (perfil `test`, artefato e e5): `fact_recall` 0,52 — marcos por ramo 4/5 (Pioneiro
+  0), agregados 0,2–0,4, lemas e faixas etárias quase sempre 0 (só o POR os enuncia), Regra 054 0.
+- **Rationale**: o mesmo conceito em várias formas e outros conceitos com o mesmo padrão (lema, faixa etária) impedem
+  que uma correção acerte só a pergunta do exemplo. Os fatos de lema e faixa etária estão só no POR, então os itens
+  medem também o defeito da ingestão das regras.
+- **Alternatives**: acrescentar os itens à semente (a semente tem 8–12 itens e será trocada pela curadoria, FR-001).
