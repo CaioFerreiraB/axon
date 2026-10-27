@@ -490,6 +490,27 @@ só quando ele é o escolhido. CLI: `ingest`/`reindex --embedder e5|pplx --dir`,
 artefato num Qdrant, sem PDF nem modelo) e `model fetch`. O workflow `eval` roda sem Qdrant e confere que o artefato
 espelha o corpus; a comparação dos modelos é `eval/packs-pplx.yaml` + `axon eval compare`.
 
+Imagens na conversa (ADR-044; verificação do Open WebUI v0.12 na clarificação de 2026-10-22 da 008): os contratos
+`0.2.2` têm `Attachment(mime, data, alt)` — `id` calculado (`img-` + 12 hexadecimais do SHA-256), tipos fechados em
+`ATTACHMENT_MIME_TYPES` (PNG, JPEG, WebP, GIF), `alt` limpo na construção —, `ToolResult.attachments` e
+`Message.attachments`; o `ChatMessage` não mudou (alargá-lo seria breaking): a mensagem com partes `text`/`image_url`
+é o `ModelMessage` da 006, e `vision` é por papel na `ModelPolicy`, declarado no Assistant como `{model, vision: true}`
+(003, sobreponível pela console e na mesma forma na administração da 008), com a guarda no cliente instrumentado. A 007
+preserva a imagem do MCP (teto `AXON_TOOL_MAX_ATTACHMENT_BYTES`; fora da lista ou acima dele, a marca de omissão com o
+motivo; o transporte ganhou folga para quatro anexos), e a 004 a tira da cerca (`[imagem <id> mostrada ao usuário:
+<alt>]` no texto, resumo sem bytes no `tool_call` e na auditoria, migração `002`). O motor publica `AttachmentEvent` e
+`FinalEvent.attachments` e não manda a imagem ao modelo no turno em que ela nasce; a do usuário vai à geração; as da
+resposta anterior só quando a pergunta é sobre elas — `view_image` no loop (`controller_decision` com `images`),
+etapa `image_gate` no `chat` e no `rag_first` com `controller` (opcional no `chat`, resolvido só com a etapa), todas
+sem `controller` —, com custo fixo de 1.000 tokens por imagem no teto (`graph/domain/images.py`). A 008 aceita partes
+e valida só a pergunta (data URI, tipo, tamanho, quantidade, `vision_unsupported`), troca as imagens do histórico por
+marcas (bytes só da última resposta), devolve as imagens das tools em markdown depois do texto (no streaming, depois
+do último token) com `x_axon.attachments`, guarda-as em `http.attachments` (migração `002`, cascata da conversa) e as
+serve em `GET /v1/conversations/{id}/attachments/{attachment_id}`; o corpo tem teto (`AXON_MAX_REQUEST_BYTES`, 413).
+A 011 lê `AXON_TOOL_MAX_ATTACHMENT_BYTES`, `AXON_MAX_REQUEST_BYTES`, `AXON_MAX_INPUT_IMAGE_BYTES` e
+`AXON_MAX_INPUT_IMAGES`; a prova sem rede é `tests/bootstrap/integration/test_platform_images.py`. Os packs veem os
+anexos pela Turn View.
+
 O `axon-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
 true }`, suíte de conformidade nos próprios testes e zero import do core (import-linter, nas duas direções). Ele é
