@@ -248,5 +248,6 @@ T011 eval/packs.yaml + eval/assistants.yaml
 - [X] T027 `branches` em `CONTEXT_FIELDS`, na derivação refeita e na validação da semente; facetas declaradas no conjunto
   de regressão; linha de base regravada (R16).
 - [X] T028 `AbsenceClaimRate` (FR-017, R17), declarada pelo pack; `eval/assistants-openrouter.yaml`.
-- [ ] T029 Rodada com modelo real e juiz no conjunto de regressão, antes (prompt de `f84efad`) e depois (101 R36) —
-  espera `AXON_OPENROUTER_API_KEY` (quickstart, passo 8).
+- [X] T029 Rodada com modelo real e juiz no conjunto de regressão, antes (prompt de `f84efad`) e depois (101 R36), e
+  a leitura das respostas de cobertura parcial (R17).
+- [X] T030 A faixa etária na redação da Regra 013; linha de base 0,90 (R18).

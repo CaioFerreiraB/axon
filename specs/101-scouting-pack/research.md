@@ -562,3 +562,7 @@ seguem no Qdrant embutido com `store: qdrant`.
   o gerador simulado do perfil `test` não lê o prompt.
 - **Alternatives**: um glossário dos conceitos no prompt (fatos do corpus no prompt, contra FR-022); validar a resposta
   depois (um validator não sabe o que os trechos deixaram de fora).
+
+  **Medido em 2026-10-27** (105 R17): fidelidade 0,95 → 1,00 e cobertura 0,89 → 0,92 pelo juiz; a troca de conceito
+  (caracterização do ramo dada como marco simbólico) e uma invenção no lema somem nas respostas lidas; o
+  `fact_recall` não muda, e cada resposta usa uns 400 tokens a mais.

@@ -157,8 +157,11 @@ vários ramos no scouting": `BRANCHES` e o catálogo (102), `retrieval_filters` 
 5. **Core** *(descartado)*: sem o corte do gateway, a recuperação piora; nenhum ADR.
 6. **101 — prompt** *(feito, 101 US8, R36; medição pendente)*. Cobertura parcial, conceito perguntado e resposta por
    ramo, sem fato do corpus no prompt; a 105 ganhou `scouting:absence_claim_rate` e `eval/assistants-openrouter.yaml`.
-   Aceite, na rodada manual com modelo real e juiz (105 quickstart, passo 8): a métrica cai, sem queda de fidelidade;
-   ainda não rodada — sem a chave do OpenRouter nesta máquina.
+   Rodada com o modelo de produção e juiz (105 R17): fidelidade 0,95 → 1,00, cobertura 0,89 → 0,92; a troca de
+   conceito que abriu a revisão (a caracterização do ramo dada como marco simbólico) e uma invenção no lema somem. A
+   `absence_claim_rate` ficou em 0 nas duas — o modelo já falava em "trechos"; o defeito era a troca de conceito. A
+   leitura também corrigiu o instrumento: as faixas etárias estavam certas pela Regra 013, que o conjunto não
+   reconhecia (105 R18) — `fact_recall` medido 0,90.
 7. **Curadoria**: precedência e `branch: filhotes` no catálogo; marcar os "Competências… PRELIMINAR".
 
 Depois de 2–4: um artefato novo do índice na instalação (`axon-cfblabs/packages/scouting-index` e `PACKS`), com o deploy

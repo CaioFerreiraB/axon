@@ -325,7 +325,10 @@ adotado (103 R14): dois cross-encoders em ONNX empatam ou ganham 0,01 por segund
 corte do gateway piora; com `AXON_RAG_PASSAGES=10` o v1 vai a 0,86. O que falta é recuperação dentro da faceta e o POR
 geral (faixas etárias). O prompt (101 R36) trata cobertura parcial, o conceito perguntado e a resposta por ramo, e a
 105 tem `scouting:absence_claim_rate` (não determinística) e `eval/assistants-openrouter.yaml` para a rodada manual com
-modelo real — pendente (105 T029, quickstart passo 8).
+modelo real: com o `glm-5.3-flash` e juiz `gpt-4.1-mini`, fidelidade 0,95 → 1,00 e a troca de conceito some (105 R17).
+Os fatos de faixa etária aceitam a redação da Regra 013 (105 R18): `fact_recall` da linha de base 0,90. A chave do
+OpenRouter da instalação está em `~/Documents/cfblabs-management/stacks/axon/env` (materializada do cofre); use-a só no
+ambiente do processo, nunca em arquivo.
 
 **A Fase 7 do roadmap está completa.** Da 008 (US6, US8), a API pronta para o Open WebUI: admissão
 (`domain/admission.py`, puro; `ExecutionSlots` no `service.py`, vagas e fila FIFO em memória, por processo) entre a

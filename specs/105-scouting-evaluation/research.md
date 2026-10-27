@@ -249,4 +249,35 @@ Qwen3 1.7B, Gemma 4 E2B) ficam como estão.
   trechos; o juiz da 009 mede fidelidade e cobertura, não isso. Os padrões são estreitos de propósito: um falso
   negativo custa menos que punir "não apareceu nos trechos", que é o que o prompt pede (101 R36).
 - **Alternatives**: pedir ao juiz um julgamento a mais (muda o contrato do juiz na 009).
-- **Pendente**: a rodada antes/depois do prompt — sem a chave nesta máquina em 2026-10-27.
+- **Rodada de 2026-10-27** (modelo de geração `openrouter/z-ai/glm-5.3-flash`, juiz `openrouter/openai/gpt-4.1-mini`,
+  conjunto de regressão; "antes" = o pack com o prompt anterior, pelo `PYTHONPATH` de uma cópia de trabalho; a chave
+  só no ambiente do processo):
+
+  | | antes | depois |
+  |---|---:|---:|
+  | fidelidade | 0,95 | 1,00 |
+  | cobertura | 0,89 | 0,92 |
+  | citação resolvível / inventada | 1,0 / 0 | 1,0 / 0 |
+  | `flag_rate:ungrounded` | 0,05 | 0 |
+  | `absence_claim_rate` | 0 | 0 |
+  | `fact_recall` | 0,81 | 0,81 |
+  | tokens por resposta | 3.435 | 3.847 |
+
+  A `absence_claim_rate` não discrimina: o modelo já falava em "trechos" antes. A leitura das respostas (6 perguntas de
+  cobertura parcial, pela superfície privada com uma chave de desenvolvimento descartável) mostrou o efeito real do
+  prompt: **antes**, a caracterização de cada ramo ("autonomia acompanhada", "a exploração e as descobertas") aparecia
+  como o marco simbólico, e o lema ganhou uma invenção ("Filhotes, Lobinho, Escoteiro e Sênior compartilham também o
+  'Sempre Alerta'"); **depois**, as caracterizações vêm marcadas como tais, com "a frase do Marco Simbólico não apareceu
+  nos trechos recebidos", e o lema cita as Regras 054, 064, 076 e 092. Antes, uma resposta saiu como chamada de
+  ferramenta crua (`<tool_call>scouting.search_docs…`), que o validator marcou como sem fundamento; depois, não — uma
+  amostra só.
+
+## R18 — A faixa etária também na redação da Regra 013
+
+- **Decision**: os fatos de faixa etária do conjunto de regressão aceitam as duas redações do POR — a das regras de
+  cada ramo ("entre 11 e 14 anos") e a da Regra 013 ("de 11 a 14 anos"). Linha de base regravada: `fact_recall`
+  0,81 → 0,90 (idade do Lobinho 0 → 1,0; de cada ramo 0 → 0,8).
+- **Rationale**: na rodada com modelo real (R17), as respostas de faixa etária estavam certas e citavam a Regra 013,
+  entregue pela recuperação; o conjunto media 0 porque só conhecia a outra redação. É correção do instrumento, não
+  ganho do sistema — a recuperação é a mesma.
+- **Alternatives**: trocar o fato pela redação da Regra 013 (perderia a outra fonte, que também responde).
