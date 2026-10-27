@@ -459,3 +459,21 @@ Task: "contract/test_transport.py, parte stdio (T014)"
   recusado), que dependem da 003 montada com este catálogo
 - **008**: CRUD de MCPs em `/v1` e `/private/v1` e saúde por servidor
 - **004**: catálogo e execução de tools com o cliente restrito
+
+---
+
+## Passada de 2026-10-22: imagens no resultado ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md); research R17)
+
+**Goal**: a parte de imagem de um resultado MCP chega à 004 como `ToolResult.attachments`; tipo fora da lista ou acima
+do teto vira a marca de omissão com motivo.
+
+**Independent Test**: `tests/mcp/unit/test_results.py` e o transporte real contra o servidor MCP do SDK devolvendo
+texto e PNG.
+
+- [X] T049 `RemotePart.mime`/`data`; `_part` do adapter do SDK decodifica `ImageContent` (R17)
+- [X] T050 `results.to_tool_result` com `max_attachment_bytes`: anexo na ordem e sem repetição; marca com motivo
+  para tipo, tamanho e base64 inválido; o corte de texto não conta os anexos
+- [X] T051 `McpService(max_attachment_bytes=)`, `DEFAULT_MAX_ATTACHMENT_BYTES` em `api.py`; teto do transporte com
+  a folga de quatro anexos
+- [X] T052 [P] Testes: unidade do resultado (PNG aceito, SVG e acima do teto recusados com motivo, inválido, repetição,
+  texto cortado sem perder o anexo) e contrato do transporte HTTP real com uma tool que devolve PNG

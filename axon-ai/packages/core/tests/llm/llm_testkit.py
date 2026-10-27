@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Mapping
-from typing import Final
+from typing import Any, Final
 
 import httpx2
 
@@ -57,12 +57,13 @@ def policy(
     generation: str = f"ollama/{MODEL}",
     controller: str | None = None,
     allow: tuple[str, ...] = (),
+    vision: frozenset[str] = frozenset(),
 ) -> ModelPolicy:
-    """Política de exemplo: sempre com `generation`, opcionalmente com `controller`."""
+    """Política de exemplo: sempre com `generation`, opcionalmente com `controller` e papéis com `vision`."""
     roles = {"generation": ModelRef.parse(generation)}
     if controller is not None:
         roles["controller"] = ModelRef.parse(controller)
-    return ModelPolicy(roles=roles, allow=allow)  # type: ignore[arg-type]
+    return ModelPolicy(roles=roles, allow=allow, vision=vision)  # type: ignore[arg-type]
 
 
 def sse(*chunks: Mapping[str, object]) -> bytes:
@@ -208,6 +209,9 @@ class ScriptedCase:
     def sent_response_format(self) -> Mapping[str, object] | None:
         return self.provider.calls[-1]["response_format"]
 
+    def sent_messages(self) -> list[Any]:
+        return [dict(message) for message in self.provider.calls[-1]["messages"]]
+
     def call_count(self) -> int:
         return len(self.provider.calls)
 
@@ -252,6 +256,9 @@ class HttpCase:
     def sent_response_format(self) -> Mapping[str, object] | None:
         value = self.transport.bodies()[-1].get("response_format")
         return value if value is None else dict(value)
+
+    def sent_messages(self) -> list[Any]:
+        return list(self.transport.bodies()[-1]["messages"])  # type: ignore[call-overload]
 
     def call_count(self) -> int:
         return len(self.transport.requests)

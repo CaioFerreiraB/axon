@@ -28,6 +28,7 @@ def test_tool_call_vira_registro_tool_call_sem_argumentos_nem_conteudo() -> None
         "duration_ms": 12.5,
         "size_bytes": 340,
         "truncated": False,
+        "attachments": [],
     }
 
 

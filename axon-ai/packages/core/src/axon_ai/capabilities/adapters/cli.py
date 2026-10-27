@@ -44,6 +44,8 @@ async def audit_command(
         return EXIT_INVALID_FILTER
     for record in await query.records(filter):
         print(_line(record), file=out)
+        if record.attachments:
+            print(f"  imagens: {len(record.attachments)}", file=out)
         if results and record.result is not None:
             print(f"  resultado: {record.result}", file=out)
     return EXIT_OK

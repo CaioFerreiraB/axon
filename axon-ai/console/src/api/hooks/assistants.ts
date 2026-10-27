@@ -10,6 +10,7 @@ import {
   type AssistantView,
   type AuthSelection,
   type McpSelection,
+  type ModelsMap,
   type Section,
 } from "../schemas";
 import { keys } from "./keys";
@@ -51,7 +52,7 @@ function useWrite<Vars>(name: string, write: (vars: Vars) => Promise<AssistantVi
 
 export function useSaveModels(name: string) {
   const api = useApi();
-  return useWrite(name, (vars: { roles: Record<string, string>; version: number | null }) =>
+  return useWrite(name, (vars: { roles: ModelsMap; version: number | null }) =>
     api.send("PUT", `${path(name)}/models`, vars, assistantViewSchema),
   );
 }

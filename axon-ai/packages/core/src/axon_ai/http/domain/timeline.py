@@ -21,6 +21,7 @@ from axon_ai.graph.api import (
     FinalEvent,
     GateOutcome,
     GenerationOutcome,
+    ImageGateOutcome,
     ProgressEvent,
     RerankOutcome,
     SourceRef,
@@ -123,6 +124,8 @@ def outcome_lines(stage: str, outcome: StepOutcome | None) -> list[str]:
             return [gate_line(outcome)]
         case GenerationOutcome():
             return [generation_line(outcome)]
+        case ImageGateOutcome():
+            return [image_gate_line(outcome)]
 
 
 def call_line(call: ToolCallSummary) -> str:
@@ -149,9 +152,20 @@ def controller_line(outcome: ControllerOutcome) -> str:
         what = f"chamar {outcome.tool}({arguments_text(outcome.arguments or {})})"
     elif outcome.action == "invalid":
         what = "ação inválida" + (f" ({outcome.reason})" if outcome.reason else "")
+    elif outcome.action == "view_image":
+        what = f"ver a imagem {outcome.image}"
     else:
         what = _DECISION[outcome.action]
     return f"Decisão (iteração {outcome.iteration}, {outcome.model}): {what}"
+
+
+def image_gate_line(outcome: ImageGateOutcome) -> str:
+    """ADR-044, item 8: quantas imagens anteriores a resposta vai ver."""
+    if outcome.failed:
+        return f"Imagens anteriores ({outcome.model}): a escolha falhou; segue sem elas"
+    if not outcome.viewed:
+        return f"Imagens anteriores ({outcome.model}): nenhuma entra na resposta"
+    return f"Imagens anteriores ({outcome.model}): a resposta vê {listing(list(outcome.viewed))}"
 
 
 def rerank_line(outcome: RerankOutcome) -> str:

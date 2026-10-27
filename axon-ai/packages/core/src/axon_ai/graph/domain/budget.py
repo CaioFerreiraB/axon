@@ -4,7 +4,8 @@ Puro e sem tokenizador: `ceil(caracteres / 3) + 4` por mensagem sobrestima portu
 teto que é proteção, não cobrança. No `agentic`, a omissão troca o **conteúdo** de resultados de tool, do mais antigo
 para o mais novo, por uma marca visível; a mensagem continua lá, e os passos acumulados no estado ficam intactos
 (FR-009, SC-005). No `rag_first` (Fase 5, R42), `fit_chunks` tira os trechos de menor posição até caber — a mesma regra:
-o que vale menos sai primeiro, e nenhum trecho é cortado no meio (quebraria a citação).
+o que vale menos sai primeiro, e nenhum trecho é cortado no meio (quebraria a citação). Uma imagem enviada ao modelo
+conta um custo fixo (`IMAGE_TOKENS`, ADR-044), e nenhuma regra a tira: quem decidiu enviá-la foi a pergunta.
 """
 
 from __future__ import annotations
@@ -14,7 +15,8 @@ from dataclasses import dataclass
 from math import ceil
 from typing import Final
 
-from axon_ai_contracts import ChatMessage
+from axon_ai.graph.domain.images import IMAGE_TOKENS
+from axon_ai.llm.api import ModelMessage
 
 CHARS_PER_TOKEN: Final = 3
 MESSAGE_OVERHEAD: Final = 4
@@ -23,31 +25,46 @@ OMITTED: Final = "[resultado omitido: teto de contexto]"
 TOOL_ROLE: Final = "tool"
 
 
-def _chars(message: ChatMessage) -> int:
-    total = len(message.get("content") or "")
+def _chars(message: ModelMessage) -> int:
+    content = message.get("content")
+    if content is None or isinstance(content, str):
+        total = len(content or "")
+    else:
+        total = sum(len(part["text"]) for part in content if part["type"] == "text")
     for call in message.get("tool_calls", ()):
         total += len(call["name"]) + len(call["arguments"])
     return total
 
 
-def estimate_tokens(messages: Sequence[ChatMessage]) -> int:
-    return sum(ceil(_chars(message) / CHARS_PER_TOKEN) + MESSAGE_OVERHEAD for message in messages)
+def _images(message: ModelMessage) -> int:
+    content = message.get("content")
+    if content is None or isinstance(content, str):
+        return 0
+    return sum(part["type"] == "image_url" for part in content)
 
 
-def exceeds(messages: Sequence[ChatMessage], ceiling: int | None) -> bool:
+def estimate_tokens(messages: Sequence[ModelMessage]) -> int:
+    """Cada imagem enviada custa `IMAGE_TOKENS`, fixo (ADR-044): o tamanho do data URI não diz nada do custo real."""
+    return sum(
+        ceil(_chars(message) / CHARS_PER_TOKEN) + MESSAGE_OVERHEAD + IMAGE_TOKENS * _images(message)
+        for message in messages
+    )
+
+
+def exceeds(messages: Sequence[ModelMessage], ceiling: int | None) -> bool:
     """Sem teto declarado, nada excede."""
     return ceiling is not None and estimate_tokens(messages) > ceiling
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Trimmed:
-    messages: tuple[ChatMessage, ...]
+    messages: tuple[ModelMessage, ...]
     omitted: int
     overflow: bool
     """Ainda acima do teto depois de omitir todos os resultados — o histórico não é cortado nesta fase."""
 
 
-def trim_results(messages: Sequence[ChatMessage], ceiling: int | None) -> Trimmed:
+def trim_results(messages: Sequence[ModelMessage], ceiling: int | None) -> Trimmed:
     """Omite resultados de tool, do mais antigo para o mais novo, até caber no teto."""
     current = list(messages)
     if ceiling is None:
@@ -71,7 +88,7 @@ class Fitted[T]:
 
 
 def fit_chunks[T](
-    items: Sequence[T], build: Callable[[Sequence[T]], Sequence[ChatMessage]], ceiling: int | None
+    items: Sequence[T], build: Callable[[Sequence[T]], Sequence[ModelMessage]], ceiling: int | None
 ) -> Fitted[T]:
     """Tira itens do **fim** (menor posição) até `build(prefixo)` caber no teto; nunca reordena.
 

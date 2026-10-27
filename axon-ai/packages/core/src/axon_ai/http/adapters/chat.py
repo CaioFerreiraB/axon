@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any, Final
 
 from fastapi import APIRouter, Request, Response
@@ -22,7 +23,8 @@ from axon_ai.http.domain.chat_request import (
     parse,
     reject_legacy_headers,
 )
-from axon_ai.http.domain.errors import EXTRA, InvalidRequest, error_for
+from axon_ai.http.domain.errors import EXTRA, InvalidRequest, RequestTooLarge, error_for
+from axon_ai.http.domain.images import ImageLimits
 from axon_ai.http.domain.native_request import parse_native
 from axon_ai.http.service import ChatService
 
@@ -43,6 +45,7 @@ def chat_router(*, surface: str) -> APIRouter:
             await json_body(request),
             store_header=request.headers.get(STORE_HEADER),
             progress_header=request.headers.get(PROGRESS_HEADER),
+            limits=image_limits(request),
         )
         return await _run(request, response, chat, principal)
 
@@ -55,6 +58,7 @@ def chat_router(*, surface: str) -> APIRouter:
             await json_body(request),
             store_header=request.headers.get(STORE_HEADER),
             progress_header=request.headers.get(PROGRESS_HEADER),
+            limits=image_limits(request),
         )
         return await _run(request, response, chat, principal)
 
@@ -68,10 +72,26 @@ async def _run(request: Request, response: Response, chat_request: ChatRequest, 
     return await _complete(service, chat_request, principal, response)
 
 
+def image_limits(request: Request) -> ImageLimits:
+    """Os tetos do operador, que a 011 põe no estado da app; sem eles, os padrões (ADR-044)."""
+    limits = getattr(request.app.state, "image_limits", None)
+    return limits if isinstance(limits, ImageLimits) else ImageLimits()
+
+
 async def json_body(request: Request) -> dict[str, Any]:
-    """O corpo como objeto JSON, ou 400 no envelope."""
+    """O corpo como objeto JSON, ou 400 no envelope. Acima de `AXON_MAX_REQUEST_BYTES`, 413 antes de decodificar —
+    pelo `Content-Length` declarado, ou contando enquanto lê (ADR-044, item 6)."""
+    limit = image_limits(request).max_request_bytes
+    declared = request.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > limit:
+        raise RequestTooLarge(limit)
+    raw = bytearray()
+    async for piece in request.stream():
+        raw.extend(piece)
+        if len(raw) > limit:
+            raise RequestTooLarge(limit)
     try:
-        body = await request.json()
+        body = json.loads(raw)
     except Exception as error:
         raise ApiError(_bad_body("corpo precisa ser JSON")) from error
     if not isinstance(body, dict):

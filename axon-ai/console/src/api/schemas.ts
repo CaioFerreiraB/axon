@@ -27,7 +27,21 @@ export type Role = (typeof ROLES)[number];
 export const SECTIONS = ["models", "mcp", "auth"] as const;
 export type Section = (typeof SECTIONS)[number];
 
-const modelsMap = z.record(z.string(), z.string());
+/** Um papel: `provider/modelo`, ou `{model, vision: true}` quando o modelo enxerga imagem — a forma do YAML (ADR-044). */
+const roleValue = z.union([z.string(), z.object({ model: z.string(), vision: z.boolean().optional() })]);
+export type RoleValue = z.infer<typeof roleValue>;
+const modelsMap = z.record(z.string(), roleValue);
+export type ModelsMap = z.infer<typeof modelsMap>;
+
+/** O `provider/modelo` de um papel, nas duas formas. */
+export function refOfRole(value: RoleValue | undefined): string | undefined {
+  return value === undefined || typeof value === "string" ? value : value.model;
+}
+
+/** O papel declara `vision` (ADR-044, item 10). */
+export function sees(value: RoleValue | undefined): boolean {
+  return typeof value === "object" && value.vision === true;
+}
 export const mcpSelectionSchema = z.object({
   aliases: z.array(z.string()),
   allowed: z.array(z.string()),
@@ -64,8 +78,8 @@ export function isAuthPayload(payload: OverrideView["payload"]): payload is Auth
   return payload !== null && Array.isArray((payload as AuthSelection).schemes);
 }
 
-/** O conteúdo de uma sobreposição de modelos: papel → modelo. */
-export function isModelsPayload(payload: OverrideView["payload"]): payload is Record<string, string> {
+/** O conteúdo de uma sobreposição de modelos: papel → modelo (com `vision`, na forma de objeto). */
+export function isModelsPayload(payload: OverrideView["payload"]): payload is ModelsMap {
   return payload !== null && !isMcpPayload(payload) && !isAuthPayload(payload);
 }
 

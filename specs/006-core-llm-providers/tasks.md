@@ -541,3 +541,19 @@ Task: "integration/test_ollama_real.py (T014)"
 - Fase 3: `adapters/openai.py` e `adapters/openrouter.py` sobre `openai_compat.py`, porta `SecretResolver`, papéis
   múltiplos (US2), rejeição de roteamento automático (US3), restrição de formato no controller (US4) e `ttft_ms` na 009
   (US6)
+
+
+---
+
+## Passada de 2026-10-22: imagens na mensagem ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md); research R32)
+
+**Goal**: o seam aceita mensagem com imagem, só para papel com `vision`, e os adapters a entregam no formato da OpenAI.
+
+**Independent Test**: `tests/llm/unit/test_llm_vision.py` e a conformidade da porta com mensagem em partes.
+
+- [X] T062 `ModelMessage` e partes em `api.py`; `image_part`, `has_image`; assinaturas do seam e da porta (R32)
+- [X] T063 `ModelPolicy.vision`, `BoundModel.vision`; guarda `vision_problem` e marca `image_marker` em
+  `domain/images.py`; `model_exchange` com a marca
+- [X] T064 `openai_compat` com partes; `ScriptedProvider.images`
+- [X] T065 [P] Testes: guarda nos dois modos (sem chamada ao provider, `ModelCall` de erro), papel com `vision`,
+  `model_exchange` com marca, `vision` em papel não declarado, conformidade da porta com partes nos quatro adapters

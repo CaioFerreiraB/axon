@@ -65,3 +65,16 @@ async def test_dois_registros_para_duas_chamadas_iguais(audit_log: Any) -> None:
     first = await audit_log.begin(entry())
     second = await audit_log.begin(entry())
     assert first != second and len(await audit_log.query(AuditFilter())) == 2
+
+
+async def test_finish_grava_o_resumo_das_imagens_sem_bytes(audit_log: Any) -> None:
+    """R13, FR-017: id, tipo e tamanho; sem imagens, a lista vazia."""
+    from axon_ai.observability.api import AttachmentInfo
+
+    com, sem = await audit_log.begin(entry(1)), await audit_log.begin(entry(2))
+    info = AttachmentInfo(id="img-0123456789ab", mime="image/png", size_bytes=2048)
+    await audit_log.finish(com, status="ok", result="r", at=T0, attachments=(info,))
+    await audit_log.finish(sem, status="ok", result="r", at=T0)
+    records = {record.id: record for record in await audit_log.query(AuditFilter())}
+    assert records[com].attachments == (info,)
+    assert records[sem].attachments == ()

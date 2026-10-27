@@ -52,6 +52,14 @@ class Overloaded(Exception):
         self.retry_after = retry_after
 
 
+class RequestTooLarge(Exception):
+    """Corpo acima de `AXON_MAX_REQUEST_BYTES`: 413, antes de decodificar o JSON (ADR-044, item 6)."""
+
+    def __init__(self, limit: int) -> None:
+        super().__init__(f"o corpo da requisição passa do limite de {limit} bytes")
+        self.limit = limit
+
+
 QUEUE_TIMEOUT_KIND: Final = "QueueTimeout"
 QUEUE_TIMEOUT_STAGE: Final = "admission"
 """O registro do chunk final quando a espera na fila esgota com o stream já aberto (FR-017, R35)."""
@@ -143,6 +151,8 @@ def error_for(error: BaseException) -> ErrorResponse | None:
                 message=message,
                 extra={"reasons": list(error.reasons)},
             )
+        case RequestTooLarge():
+            return ErrorResponse(status=413, type="invalid_request_error", code="request_too_large", message=message)
         case Overloaded():
             # Sem `x-should-retry`: nada rodou, e repetir depois do `Retry-After` é seguro (contracts/errors.md).
             return ErrorResponse(

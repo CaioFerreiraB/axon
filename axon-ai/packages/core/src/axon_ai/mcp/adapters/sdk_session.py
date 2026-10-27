@@ -6,6 +6,8 @@ O SDK só aparece em `adapters/` (import-linter).
 
 from __future__ import annotations
 
+import base64
+import binascii
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import AbstractAsyncContextManager
 from typing import Any, Final
@@ -134,7 +136,20 @@ def _part(item: Any) -> RemotePart:
     kind = getattr(item, "type", None) or type(item).__name__
     if kind == "text":
         return RemotePart(kind="text", text=getattr(item, "text", ""))
+    if kind == "image":
+        mime = getattr(item, "mime_type", None) or getattr(item, "mimeType", None)
+        return RemotePart(kind="image", mime=str(mime) if mime else None, data=_decoded(getattr(item, "data", None)))
     return RemotePart(kind=str(kind))
+
+
+def _decoded(data: object) -> bytes | None:
+    """Os bytes de uma imagem em base64; `None` se não decodifica — o domínio a omite com o motivo (R17)."""
+    if not isinstance(data, str):
+        return None
+    try:
+        return base64.b64decode(data, validate=True) or None
+    except (binascii.Error, ValueError):
+        return None
 
 
 def _plain(arguments: Mapping[str, JSONValue]) -> dict[str, Any]:

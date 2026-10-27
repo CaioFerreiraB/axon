@@ -1,4 +1,4 @@
-"""T029 e T038 — resultado remoto → `ToolResult` (research R9; FR-008; princípio VI)."""
+"""T029, T038 e T050 — resultado remoto → `ToolResult` (research R9, R17; FR-008, FR-016; princípio VI)."""
 
 from __future__ import annotations
 
@@ -33,8 +33,8 @@ def test_estruturado_so_quando_nao_ha_texto() -> None:
 
 @pytest.mark.us3
 def test_parte_nao_textual_vira_marcador() -> None:
-    remoto = RemoteResult(parts=(RemotePart(kind="text", text="veja"), RemotePart(kind="image")))
-    assert to_tool_result(remoto, max_bytes=LIMITE).content == "veja\n\n[conteúdo image omitido]"
+    remoto = RemoteResult(parts=(RemotePart(kind="text", text="veja"), RemotePart(kind="audio")))
+    assert to_tool_result(remoto, max_bytes=LIMITE).content == "veja\n\n[conteúdo audio omitido]"
 
 
 @pytest.mark.us3
@@ -77,3 +77,55 @@ def test_estruturado_grande_e_cortado_como_texto() -> None:
     resultado = to_tool_result(RemoteResult(structured={"dados": "y" * 5000}), max_bytes=1024)
     assert resultado.truncated and isinstance(resultado.content, str)
     assert resultado.content.startswith('{"dados": "yyy')
+
+
+# --- imagens (T050, R17, ADR-044) -------------------------------------------------------------------------------------
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"p" * 100
+TETO = 1_000
+
+
+def imagem(data: bytes | None = PNG, mime: str | None = "image/png") -> RemotePart:
+    return RemotePart(kind="image", mime=mime, data=data)
+
+
+def test_imagem_aceita_vira_anexo_fora_do_texto() -> None:
+    remoto = RemoteResult(parts=(RemotePart(kind="text", text="gastos"), imagem()))
+    resultado = to_tool_result(remoto, max_bytes=LIMITE, max_attachment_bytes=TETO)
+    assert resultado.content == "gastos"
+    [anexo] = resultado.attachments
+    assert anexo.mime == "image/png" and anexo.data == PNG and anexo.id.startswith("img-")
+
+
+def test_imagens_na_ordem_e_sem_repeticao() -> None:
+    outra = b"GIF89a" + b"g" * 10
+    remoto = RemoteResult(parts=(imagem(), imagem(outra, "image/gif"), imagem()))
+    resultado = to_tool_result(remoto, max_bytes=LIMITE, max_attachment_bytes=TETO)
+    assert [anexo.data for anexo in resultado.attachments] == [PNG, outra]
+
+
+@pytest.mark.parametrize(
+    ("parte", "motivo"),
+    [
+        (imagem(mime="image/svg+xml"), "tipo image/svg+xml não aceito"),
+        (imagem(mime=None), "tipo desconhecido não aceito"),
+        (imagem(data=None), "imagem inválida"),
+        (imagem(data=b"x" * (TETO + 1)), f"{TETO + 1} bytes acima do teto de {TETO}"),
+    ],
+)
+def test_imagem_recusada_vira_marca_com_motivo(parte: RemotePart, motivo: str) -> None:
+    resultado = to_tool_result(RemoteResult(parts=(parte,)), max_bytes=LIMITE, max_attachment_bytes=TETO)
+    assert resultado.content == f"[conteúdo image omitido: {motivo}]"
+    assert resultado.attachments == ()
+
+
+def test_sem_teto_de_anexo_toda_imagem_e_recusada() -> None:
+    resultado = to_tool_result(RemoteResult(parts=(imagem(),)), max_bytes=LIMITE)
+    assert resultado.attachments == () and "acima do teto de 0" in str(resultado.content)
+
+
+def test_corte_do_texto_nao_conta_nem_perde_os_anexos() -> None:
+    remoto = RemoteResult(parts=(RemotePart(kind="text", text="x" * 5000), imagem(b"y" * 900)))
+    resultado = to_tool_result(remoto, max_bytes=1024, max_attachment_bytes=TETO)
+    assert resultado.truncated and len(str(resultado.content).encode()) <= 1024
+    assert len(resultado.attachments) == 1

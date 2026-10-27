@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from axon_ai_contracts._freeze import JSONValue
 from axon_ai_contracts._version import __version__
+from axon_ai_contracts.attachments import ATTACHMENT_MIME_TYPES, Attachment
 from axon_ai_contracts.compat import (
     BumpKind,
     ChangeKind,
@@ -61,11 +62,13 @@ from axon_ai_contracts.validation import (
 from axon_ai_contracts.view import Citation, Message, TurnView
 
 __all__ = [
+    "ATTACHMENT_MIME_TYPES",
     "RETRIEVAL_FILTERS_KEY",
     "RETRIEVAL_TOOL_PARAMETERS",
     "AgentPack",
     "AnswerStream",
     "AnswerValidator",
+    "Attachment",
     "BumpKind",
     "ChangeKind",
     "ChatChunk",

@@ -7,6 +7,7 @@ torna o grafo reescrevível: a lógica vive nos serviços, o grafo só ordena (A
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import replace
 from typing import Any
 
 from langgraph.config import get_stream_writer
@@ -14,9 +15,12 @@ from langgraph.runtime import get_runtime
 
 from axon_ai.graph.adapters.langgraph.state import AgentContext, AgentState
 from axon_ai.graph.adapters.langgraph.view import turn_view
-from axon_ai.graph.api import ExecutionIssue, GenerationOutcome, StepOutcome
+from axon_ai.graph.api import FLOW_AGENTIC, ExecutionIssue, GenerationOutcome, StepOutcome
 from axon_ai.graph.domain.budget import Trimmed, estimate_tokens, trim_results
-from axon_ai.graph.domain.transcript import generation_messages
+from axon_ai.graph.domain.images import chosen
+from axon_ai.graph.domain.markup import ToolMarkupFilter
+from axon_ai.graph.domain.outcome import EMPTY_ANSWER
+from axon_ai.graph.domain.transcript import date_instruction, generation_messages
 from axon_ai.observability.api import Retrieval, RetrievedChunk, ValidationRun
 from axon_ai_contracts import ChatUsage, Chunk
 
@@ -27,6 +31,7 @@ STAGE_VALIDATE = "validate_answer"
 TOKEN = "token"
 PROGRESS = "progress"
 STEP = "step"
+ATTACHMENT = "attachment"
 
 
 def _writer() -> Any:
@@ -64,25 +69,45 @@ async def generate(state: AgentState) -> dict[str, Any]:
     writer({"kind": PROGRESS, "stage": STAGE_GENERATE})
 
     prompts = ctx.hooks.system_prompts(ctx.composition)
-    full = generation_messages(prompts, state.get("messages", ()), state.get("steps", ()))
+    # A data vai onde o loop correu: no `agentic` e no `rag_first` que escalou (R50). O `chat` segue como na Fase 1.
+    looped = state["flow"] == FLOW_AGENTIC or state.get("iteration", 0) > 0
+    today = date_instruction(state["reference_time"], ctx.timezone) if looped else None
+    full = generation_messages(
+        prompts, state.get("messages", ()), state.get("steps", ()), today=today, **generation_images(state)
+    )
     ceiling = state.get("ceiling")
     trimmed = trim_results(full, ceiling)
 
     # Os validators que reescrevem em streaming filtram cada pedaço antes de ele sair (ADR-024): só o que o filtro
     # libera vira token, e a cauda sai no fim. Sem esses validators, o filtro deixa tudo passar.
     answer_filter = ctx.hooks.open_answer_stream(ctx.composition, turn_view(state), state.get("packs", {}))
+    # Antes deles, sai a marcação de chamada de tool que o modelo escreva como texto (`domain/markup.py`).
+    markup = ToolMarkupFilter()
     model = ctx.router.for_role("generation")
     usage: ChatUsage | None = None
+
+    def release(text: str) -> None:
+        released = answer_filter.feed(text) if text else ""
+        if released:
+            writer({"kind": TOKEN, "text": released})
+
     async for chunk in model.stream(trimmed.messages):
         usage = chunk.get("usage", usage)
-        text = chunk["delta"]
-        if text:
-            released = answer_filter.feed(text)
-            if released:
-                writer({"kind": TOKEN, "text": released})
+        release(markup.feed(chunk["delta"]))
+    release(markup.finish())
     streamed = answer_filter.finish()
     if streamed.tail:
         writer({"kind": TOKEN, "text": streamed.tail})
+    issues = _budget_issues(trimmed, ceiling)
+    if markup.removed:
+        issues.append(
+            ExecutionIssue(
+                stage=STAGE_GENERATE,
+                kind="ToolMarkupRemoved",
+                message=f"{markup.removed} chamada(s) de tool escrita(s) como texto pelo modelo, fora da resposta",
+                severity="notice",
+            )
+        )
     finished(
         STAGE_GENERATE,
         GenerationOutcome(
@@ -95,8 +120,14 @@ async def generate(state: AgentState) -> dict[str, Any]:
         "answer": streamed.answer,
         "streamed": streamed,
         "omitted": trimmed.omitted,
-        "errors": _budget_issues(trimmed, ceiling),
+        "errors": issues,
     }
+
+
+def generation_images(state: AgentState) -> dict[str, Any]:
+    """As imagens da geração (ADR-044): as do usuário, se o papel as recebe, e as candidatas escolhidas."""
+    images = _context().images
+    return {"send_own": images.to_generation, "shown": chosen(images.candidates, state.get("viewed", ()))}
 
 
 def _budget_issues(trimmed: Trimmed, ceiling: int | None) -> list[ExecutionIssue]:
@@ -145,6 +176,20 @@ async def validate_answer(state: AgentState) -> dict[str, Any]:
             )
         )
     errors = _deliver_rest(state.get("answer"), outcome.answer)
+    final = outcome.answer if outcome.answer is not None else state.get("answer")
+    if not (final or "").strip():
+        # Depois dos validators, que precisam ver a resposta vazia (o `non_empty_answer` do `axon-generic`). O usuário
+        # recebe um aviso em vez de uma resposta em branco (R50).
+        _writer()({"kind": TOKEN, "text": EMPTY_ANSWER})
+        outcome = replace(outcome, answer=EMPTY_ANSWER)
+        errors.append(
+            ExecutionIssue(
+                stage=STAGE_GENERATE,
+                kind="EmptyAnswer",
+                message="a geração não produziu texto; o usuário recebeu o aviso padrão",
+                severity="notice",
+            )
+        )
     finished(STAGE_VALIDATE)
     return {"validation": outcome, "errors": errors}
 

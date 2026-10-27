@@ -72,3 +72,24 @@ def test_dependency_must_come_before_the_dependent() -> None:
     assert before is not None and before[1] == ("b", "a") and "precisa vir antes" in before[0]
     absent = composition_error(("b",), entries)
     assert absent is not None and absent[1] == ("b", "a") and "não está na composição" in absent[0]
+
+
+def test_o_recorte_por_pack_preserva_os_anexos_das_mensagens_e_dos_resultados() -> None:
+    """ADR-044, item 1: o pack vê as imagens das mensagens e dos resultados de tool pela Turn View."""
+    from datetime import UTC, datetime
+
+    from axon_ai.packs.domain.hooks import scope_view
+    from axon_ai_contracts import Attachment, ToolResult, TurnView
+
+    imagem = Attachment(mime="image/png", data=b"\x89PNG" + b"i" * 10)
+    view = TurnView(
+        request_id="req-1",
+        assistant="geral",
+        reference_time=datetime(2026, 10, 22, tzinfo=UTC),
+        question="o que é isto?",
+        messages=({"role": "user", "content": "o que é isto?", "attachments": (imagem,)},),
+        tool_results=(ToolResult(content="ok", attachments=(imagem,)),),
+    )
+    scoped = scope_view(view, "generic", (), {})
+    assert scoped.messages[0]["attachments"] == (imagem,)
+    assert scoped.tool_results[0].attachments == (imagem,)

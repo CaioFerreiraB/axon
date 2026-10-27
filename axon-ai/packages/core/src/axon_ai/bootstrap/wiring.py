@@ -21,6 +21,7 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager, suppres
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Final
+from zoneinfo import ZoneInfo
 
 import psycopg
 from fastapi import FastAPI
@@ -51,6 +52,7 @@ from axon_ai.graph.api import RagSettings
 from axon_ai.graph.service import ExecutionService
 from axon_ai.http.adapters import postgres_schema as http_schema
 from axon_ai.http.adapters.app import AdmissionLimits, create_app
+from axon_ai.http.domain.images import ImageLimits
 from axon_ai.http.ports import AdminSeams, InstanceBranding
 from axon_ai.http.service import ConversationService
 from axon_ai.identity.adapters import postgres_schema as identity_schema
@@ -342,6 +344,7 @@ def mcp_service(parts: Mapping[str, Any], *, store: Any) -> McpService:
         cache=parts["mcp_cache"],
         clock=parts["clock"],
         discovery_ttl=timedelta(seconds=settings.mcp_discovery_ttl),
+        max_attachment_bytes=settings.tool_max_attachment_bytes,
     )
 
 
@@ -393,6 +396,7 @@ def _engine(ctx: BootContext) -> None:
         clock=clock,
         capabilities=capabilities,
         rag=_rag(ctx.parts["settings"]),
+        timezone=ZoneInfo(ctx.parts["settings"].timezone),
     )
 
 
@@ -555,6 +559,11 @@ def _api(ctx: BootContext) -> None:
             login=identity,
         ),
         instance=_instance(settings, identity),
+        image_limits=ImageLimits(
+            max_request_bytes=settings.max_request_bytes,
+            max_input_image_bytes=settings.max_input_image_bytes,
+            max_input_images=settings.max_input_images,
+        ),
     )
     if identity is not None:
         # O protocolo e as páginas da 012 são o adapter primário dela, montado no mesmo app (ADR-030).

@@ -60,3 +60,12 @@ def test_sem_models_generation_e_recusado() -> None:
     with pytest.raises(RequestRejected) as caught:
         draft_from_json(COMPLETO | {"models": {"controller": "ollama/x"}})
     assert caught.value.field == "models.generation"
+
+
+def test_assistant_de_usuario_com_vision() -> None:
+    """ADR-044, item 10: o papel aceita `{model, vision}`, e o JSON devolve a mesma forma."""
+    draft = draft_from_json({"name": "meu", "models": {"generation": {"model": "ollama/m", "vision": True}}})
+    assert draft.models["generation"] == ModelRef.parse("ollama/m") and draft.vision == {"generation"}
+    assert draft_json(draft)["models"] == {"generation": {"model": "ollama/m", "vision": True}}
+    with pytest.raises(InvalidRequest):
+        draft_from_json({"name": "meu", "models": {"generation": {"model": "ollama/m", "vision": 1}}})

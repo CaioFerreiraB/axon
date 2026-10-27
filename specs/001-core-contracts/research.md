@@ -520,3 +520,24 @@ ao kit, sem re-pesquisa.
   carga real faz. O kit não confere o conteúdo do diretório — só o pack sabe o que é íntegro.
 - **Alternatives**: chamar `prepare` sem diretório (`data_dir=None`; não exercita a escrita); exigir que a segunda
   chamada não escreva nada (exigiria observar o sistema de arquivos e confundiria atualização de `mtime` com download).
+
+### R34 — `Attachment`, anexos no `ToolResult` e na `Message` (contratos 0.2.2)
+
+- **Decision**: módulo novo `attachments.py` com `ATTACHMENT_MIME_TYPES` (frozenset dos quatro tipos) e o dataclass
+  congelado `Attachment(mime, data, alt=None)`, com `id` `field(init=False)` calculado no `__post_init__`
+  (`img-` + `hashlib.sha256(data).hexdigest()[:12]`) e `data` fora do `repr`. `mime` é comparado em minúsculas e
+  guardado assim; `data` precisa ser `bytes` não vazio; o `alt` passa por `_clean_alt` (quebra de linha e espaços
+  repetidos → um espaço; `[]()` removidos; corte em 120; vazio → `None`). `ToolResult.attachments: tuple[Attachment,
+  ...] = ()`, congelado como os outros campos e conferido item a item (`TypeError` para o que não é `Attachment`);
+  `Message.attachments: NotRequired[ReadOnly[Sequence[Attachment]]]`. `Attachment` e `ATTACHMENT_MIME_TYPES`
+  exportados na raiz. `ChatMessage` e `LLMProvider` não mudam: a mensagem com partes é tipo da 006. Versão `0.2.2`;
+  o diff de superfície contra `contracts-v0.2.1` classifica tudo como aditivo (símbolos novos, campo com default,
+  chave opcional).
+- **Rationale** (ADR-044, item 1 e Consequências; ADR-014): o `id` calculado e não informado não pode divergir dos
+  bytes, e a 008 o recalcula do histórico do cliente sem regra própria. A limpeza do `alt` na construção cumpre "antes
+  de sair em qualquer lugar" para todo produtor — servidor MCP, pack ou histórico — com uma regra só. `hashlib` é
+  biblioteca padrão sem I/O e fica fora do deny-list do R20.
+- **Alternatives**: `id` como argumento conferido contra o hash (dois jeitos de construir e um erro a mais);
+  limpar o `alt` só no motor (cada produtor e cada consumidor teria de lembrar); alargar `ChatMessage.content`
+  (breaking pelo FR-020, série `0.3.0` e packs fora da faixa — recusado pelo mantenedor em 2026-10-22); `data` como
+  base64 em `str` (dobraria a conversão em cada ponta e esconderia o tamanho real).

@@ -649,3 +649,14 @@ paralelo com T077.
 - [X] T083 `settings.py`: `packs_data_dir`; `wiring.py`: `LocalPackDataDirs` em `pack_runtime`; `bootstrap/cli.py`:
   `packs prepare` na lista de registro (R54)
 - [X] T084 [P] Documentos vivos: `contracts/configuration.md` e `contracts/cli.md` (feito nesta passada), `CLAUDE.md`
+
+
+---
+
+## Passada de 2026-10-22: tetos das imagens ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md); research R56)
+
+- [X] T085 `Settings` com as quatro variáveis e faixas; ligação ao `McpService` e ao `create_app`;
+  `contracts/configuration.md` (R56)
+- [X] T086 [P] Testes: `test_settings_phase9.py` (padrões, leitura, faixas) e a prova ponta a ponta
+  `test_platform_images.py` (tool MCP com PNG → imagem na resposta → turno seguinte com `view_image` → imagem no
+  provider simulado)

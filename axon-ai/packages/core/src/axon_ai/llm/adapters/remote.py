@@ -19,7 +19,7 @@ import httpx2
 from openai import OpenAIError
 
 from axon_ai.llm.adapters.openai_compat import OpenAICompatProvider
-from axon_ai.llm.api import ModelCallFailed
+from axon_ai.llm.api import ModelCallFailed, ModelMessage
 from axon_ai.llm.domain.names import function_name
 from axon_ai.llm.domain.strict import StrictPlan, StrictSchemaError, from_strict, to_strict
 from axon_ai.llm.ports import ProbeResult, SecretResolver
@@ -62,7 +62,7 @@ class RemoteProvider(OpenAICompatProvider):
     @overload
     async def chat(
         self,
-        messages: Sequence[ChatMessage],
+        messages: Sequence[ModelMessage],
         model: str,
         *,
         tools: Sequence[ChatTool] | None = None,
@@ -73,7 +73,7 @@ class RemoteProvider(OpenAICompatProvider):
     @overload
     async def chat(
         self,
-        messages: Sequence[ChatMessage],
+        messages: Sequence[ModelMessage],
         model: str,
         *,
         tools: Sequence[ChatTool] | None = None,
@@ -83,7 +83,7 @@ class RemoteProvider(OpenAICompatProvider):
 
     async def chat(
         self,
-        messages: Sequence[ChatMessage],
+        messages: Sequence[ModelMessage],
         model: str,
         *,
         tools: Sequence[ChatTool] | None = None,
@@ -164,11 +164,11 @@ def _restored_content(content: str | None, plan: StrictPlan) -> str | None:
     return json.dumps(from_strict(value, plan), ensure_ascii=False)
 
 
-def _aliased_message(message: ChatMessage, originals: dict[str, str]) -> ChatMessage:
+def _aliased_message(message: ModelMessage, originals: dict[str, str]) -> ModelMessage:
     calls = message.get("tool_calls")
     if not calls:
         return message
-    aliased: ChatMessage = {**message, "tool_calls": [_aliased_call(call, originals) for call in calls]}
+    aliased: ModelMessage = {**message, "tool_calls": [_aliased_call(call, originals) for call in calls]}
     return aliased
 
 

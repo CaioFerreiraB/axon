@@ -20,6 +20,7 @@ from graph_testkit import (
 from axon_ai.graph.adapters.clock import FixedClock
 from axon_ai.graph.adapters.langgraph import langgraph_runtime
 from axon_ai.graph.api import FinalEvent, ProgressEvent, TokenEvent
+from axon_ai.graph.domain.outcome import EMPTY_ANSWER
 from axon_ai.graph.service import ExecutionService
 from axon_ai.llm.service import ModelRoutingService
 from axon_ai.observability.api import ExecutionFinished, ExecutionStarted, ModelCall, ValidationRun
@@ -104,7 +105,8 @@ async def test_resposta_vazia_e_reprovada_pelo_validator_do_pack() -> None:
     final = events[-1]
     assert isinstance(final, FinalEvent)
     assert trace.of_type(ValidationRun)[0].ok is False
-    assert final.errors and final.errors[0].kind == "ValidatorIssue"
+    assert {issue.kind for issue in final.errors} == {"ValidatorIssue", "EmptyAnswer"}
+    assert final.answer == EMPTY_ANSWER
     assert trace.of_type(ExecutionFinished)[0].ok is True
 
 

@@ -842,3 +842,25 @@ Task: "domain/budget.py (T043)"
   `transcript.py`; a porta de checkpoint foi adiada (R30)
 - Depois da Fase 3 da 005: a 011 liga `capabilities`, a 008 adota `severity`, a 003 valida o papel `controller` (R33)
 - Fase 5 (Phases 8–12 acima): `rag_first`, `domain/gate.py`, `fit_chunks` e os toques na 002, 004, 009 e 011
+
+
+---
+
+## Passada de 2026-10-22: imagens na execução ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md); research R51)
+
+**Goal**: imagens das tools ao usuário, a do usuário à geração e as da resposta anterior só quando a pergunta é sobre
+elas, nos três flows.
+
+**Independent Test**: `tests/graph/contract/test_images.py` e `tests/graph/unit/test_graph_images.py`.
+
+- [X] T098 `domain/images.py` (candidatas, plano, conteúdo, etapa de imagem, custo fixo); `view_image` em
+  `actions.py` e `limits.py`; `ViewStep`, `gate_messages` e `IMAGES_INSTRUCTION` em `transcript.py`; imagem no
+  `budget.py`; pergunta só de imagem, `ensure_vision` e `roles_to_resolve` em `request.py` (R51)
+- [X] T099 `api.py`: `AttachmentEvent`, `FinalEvent.attachments`, `ImageGateOutcome`, `view_image` no `ControllerOutcome`;
+  `ImagePlan` no `ExecutionPlan` e no serviço
+- [X] T100 Adapter: estado (`gate_images`, `viewed`, `attachments`), runtime (`AttachmentEvent`, imagens no evento final),
+  `execute_tool`, `controller`, `load_capabilities`, `generate`, `gate` e a etapa `image_gate` nos grafos
+- [X] T101 [P] Testes: imagem de tool (ordem, repetição, aviso na geração, nada ao modelo), imagem do usuário (sem
+  decisão, só imagem, sem `vision`, controller com e sem `vision`), `view_image` no loop (ids, repetida, id estranho,
+  sem `vision`, catálogo vazio), `image_gate` no `chat` (escolha, nenhuma, falhas, sem controller, sem imagem) e no
+  `rag_first`; unidade da tabela, do conteúdo, da escolha e do custo

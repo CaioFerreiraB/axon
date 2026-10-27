@@ -12,6 +12,7 @@ from typing import Protocol
 
 from axon_ai.capabilities.api import AuditEntry, AuditFilter, AuditRecord, AuditStatus
 from axon_ai.capabilities.domain.records import PackTool
+from axon_ai.observability.api import AttachmentInfo
 from axon_ai.packs.api import Composition
 
 __all__ = ["AuditLog", "Clock", "PackTool", "PackToolSource"]
@@ -32,7 +33,15 @@ class AuditLog(Protocol):
         """Grava o registro com `status="started"` e devolve o id."""
         ...
 
-    async def finish(self, record_id: str, *, status: AuditStatus, result: str, at: datetime) -> None: ...
+    async def finish(
+        self,
+        record_id: str,
+        *,
+        status: AuditStatus,
+        result: str,
+        at: datetime,
+        attachments: Sequence[AttachmentInfo] = (),
+    ) -> None: ...
 
     async def query(self, filter: AuditFilter) -> Sequence[AuditRecord]: ...
 

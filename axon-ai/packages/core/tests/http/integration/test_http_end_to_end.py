@@ -15,6 +15,7 @@ from http_testkit import CREATED, answer_of, app_with, chunks_of, has_done
 from axon_ai.assistants.api import AssistantNotFound, Principal
 from axon_ai.graph.adapters.clock import FixedClock as GraphFixedClock
 from axon_ai.graph.adapters.langgraph import langgraph_runtime
+from axon_ai.graph.domain.outcome import EMPTY_ANSWER
 from axon_ai.graph.service import ExecutionService
 from axon_ai.http.adapters.development import AnonymousAuthenticator
 from axon_ai.llm.api import ModelPolicy, ModelRef
@@ -123,7 +124,8 @@ def test_resposta_vazia_e_reprovada_pelo_validator_do_pack_sem_virar_erro_http()
     assert response.status_code == 200
     payload = response.json()
     assert payload["choices"][0]["finish_reason"] == "stop"
-    assert payload["x_axon"]["errors"][0]["kind"] == "ValidatorIssue"
+    assert {error["kind"] for error in payload["x_axon"]["errors"]} == {"ValidatorIssue", "EmptyAnswer"}
+    assert payload["choices"][0]["message"]["content"] == EMPTY_ANSWER
     assert trace.of_type(ValidationRun)[0].ok is False
 
 

@@ -27,8 +27,11 @@ def auth_json(auth: AuthOverride) -> dict[str, Any]:
     return {"schemes": sorted(auth.schemes), "allow": list(auth.allow)}
 
 
-def models_json(roles: Mapping[ModelRole, ModelRef]) -> dict[str, str]:
-    return {role: str(ref) for role, ref in sorted(roles.items())}
+def models_json(roles: Mapping[ModelRole, ModelRef], vision: frozenset[ModelRole] = frozenset()) -> dict[str, Any]:
+    """Papel → `provider/modelo`, ou `{model, vision: true}` no papel que enxerga imagem — a forma do YAML (ADR-044)."""
+    return {
+        role: {"model": str(ref), "vision": True} if role in vision else str(ref) for role, ref in sorted(roles.items())
+    }
 
 
 def provider_json(status: ProviderStatus) -> dict[str, Any]:
@@ -40,7 +43,7 @@ def payload_json(payload: OverridePayload | None) -> dict[str, Any] | None:
     if payload is None:
         return None
     if isinstance(payload, ModelsOverride):
-        return models_json(payload.roles)
+        return models_json(payload.roles, payload.vision)
     if isinstance(payload, AuthOverride):
         return auth_json(payload)
     return mcp_json(payload)
@@ -57,7 +60,7 @@ def view_json(view: SystemAssistantView) -> dict[str, Any]:
         "required_roles": list(view.required_roles),
         "allow": list(view.allow),
         "yaml": {
-            "models": models_json(view.yaml_models),
+            "models": models_json(view.yaml_models, view.yaml_vision),
             "mcp": mcp_json(view.yaml_mcp),
             "auth": auth_json(view.yaml_auth),
         },
@@ -74,7 +77,7 @@ def view_json(view: SystemAssistantView) -> dict[str, Any]:
             for override in view.overrides
         ],
         "effective": {
-            "models": models_json(view.effective_models),
+            "models": models_json(view.effective_models, view.effective_vision),
             "mcp": mcp_json(view.effective_mcp),
             "auth": auth_json(view.effective_auth),
         },
@@ -117,8 +120,24 @@ def models_body(body: Mapping[str, Any]) -> tuple[ModelsOverride, int | None]:
     roles = required(body, "roles")
     if not isinstance(roles, Mapping) or not roles:
         raise AdminInvalid("roles: precisa ser um objeto papel → modelo, com ao menos um papel", field="roles")
-    parsed = {_role(role, f"roles.{role}"): _ref(ref, f"roles.{role}") for role, ref in roles.items()}
-    return ModelsOverride(roles=parsed), version_of(body, nullable=True)
+    parsed: dict[ModelRole, ModelRef] = {}
+    vision: set[ModelRole] = set()
+    for role, value in roles.items():
+        field = f"roles.{role}"
+        name = _role(role, field)
+        if isinstance(value, Mapping):
+            unknown = sorted(str(key) for key in value if key not in ("model", "vision"))
+            if unknown:
+                raise AdminInvalid(f"{field}.{unknown[0]}: campo desconhecido", field=f"{field}.{unknown[0]}")
+            sees = value.get("vision", False)
+            if not isinstance(sees, bool):
+                raise AdminInvalid(f"{field}.vision: precisa ser true ou false", field=f"{field}.vision")
+            parsed[name] = _ref(value.get("model"), f"{field}.model")
+            if sees:
+                vision.add(name)
+        else:
+            parsed[name] = _ref(value, field)
+    return ModelsOverride(roles=parsed, vision=frozenset(vision)), version_of(body, nullable=True)
 
 
 def mcp_body(body: Mapping[str, Any]) -> tuple[McpOverride, int | None]:

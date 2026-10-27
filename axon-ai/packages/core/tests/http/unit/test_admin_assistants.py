@@ -101,3 +101,30 @@ def test_auth_json_ordena_esquemas_e_mantem_a_ordem_de_allow() -> None:
     override = AuthOverride(schemes=frozenset({"oidc", "api_key"}), allow=("svc:z", "group:a"))
     assert auth_json(override) == {"schemes": ["api_key", "oidc"], "allow": ["svc:z", "group:a"]}
     assert payload_json(override) == auth_json(override)
+
+
+def test_models_com_vision_na_forma_do_yaml() -> None:
+    """ADR-044, item 10: papel com `vision` vira `{model, vision}`; sem ele, continua o texto de antes."""
+    from axon_ai.http.domain.admin_assistants import models_body, models_json
+    from axon_ai.llm.api import ModelRef
+
+    override, version = models_body(
+        {
+            "roles": {"generation": {"model": "openrouter/a/b", "vision": True}, "controller": "openrouter/a/c"},
+            "version": 3,
+        }
+    )
+    assert override.vision == {"generation"} and version == 3
+    assert models_json(override.roles, override.vision) == {
+        "controller": "openrouter/a/c",
+        "generation": {"model": "openrouter/a/b", "vision": True},
+    }
+    assert models_json({"generation": ModelRef.parse("openrouter/a/b")}) == {"generation": "openrouter/a/b"}
+    for ruim, campo in (
+        ({"generation": {"model": "openrouter/a/b", "vision": "sim"}}, "roles.generation.vision"),
+        ({"generation": {"model": "openrouter/a/b", "cor": 1}}, "roles.generation.cor"),
+        ({"generation": {"vision": True}}, "roles.generation.model"),
+    ):
+        with pytest.raises(AdminInvalid) as caught:
+            models_body({"roles": ruim})
+        assert caught.value.field == campo

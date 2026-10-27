@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Mapping, Sequence
 from typing import Any, Literal, overload
 
-from axon_ai.llm.api import ModelCallFailed
+from axon_ai.llm.api import ModelCallFailed, ModelMessage
 from axon_ai.llm.ports import ProbeResult
 from axon_ai_contracts import ChatChunk, ChatMessage, ChatResponse, ChatTool, ChatUsage, JSONValue
 
@@ -51,6 +51,8 @@ class ScriptedProvider:
         self._known_models = None if known_models is None else tuple(known_models)
         self._unready = unready
         self.calls: list[dict[str, Any]] = []
+        self.images: list[str] = []
+        """Os data URIs que chegaram, na ordem: as suítes provam o que chegou ao modelo (ADR-044, item 12)."""
 
     @property
     def name(self) -> str:
@@ -63,7 +65,7 @@ class ScriptedProvider:
     @overload
     async def chat(
         self,
-        messages: Sequence[ChatMessage],
+        messages: Sequence[ModelMessage],
         model: str,
         *,
         tools: Sequence[ChatTool] | None = None,
@@ -74,7 +76,7 @@ class ScriptedProvider:
     @overload
     async def chat(
         self,
-        messages: Sequence[ChatMessage],
+        messages: Sequence[ModelMessage],
         model: str,
         *,
         tools: Sequence[ChatTool] | None = None,
@@ -84,7 +86,7 @@ class ScriptedProvider:
 
     async def chat(
         self,
-        messages: Sequence[ChatMessage],
+        messages: Sequence[ModelMessage],
         model: str,
         *,
         tools: Sequence[ChatTool] | None = None,
@@ -99,6 +101,13 @@ class ScriptedProvider:
                 "response_format": None if response_format is None else dict(response_format),
                 "stream": stream,
             }
+        )
+        self.images.extend(
+            part["image_url"]["url"]
+            for message in messages
+            if not isinstance(message["content"], str | None)
+            for part in message["content"]
+            if part["type"] == "image_url"
         )
         if stream:
             return self._stream()

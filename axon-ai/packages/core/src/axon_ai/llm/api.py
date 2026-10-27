@@ -9,12 +9,15 @@ módulo — as implementações destes Protocols estão em `service.py` e em `ad
 
 from __future__ import annotations
 
+import base64
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Final, Literal, Protocol
+from typing import Final, Literal, NotRequired, Protocol
 
-from axon_ai_contracts import ChatChunk, ChatMessage, ChatResponse, ChatTool, JSONValue
+from typing_extensions import ReadOnly, TypedDict
+
+from axon_ai_contracts import ChatChunk, ChatResponse, ChatTool, ChatToolCall, JSONValue
 
 type ModelRole = Literal["controller", "generation", "rerank"]
 """Papéis do ADR-008. Vocabulário fechado: o roteador nunca inventa papel nem escolhe modelo por conta própria."""
@@ -25,6 +28,55 @@ MODEL_ROLES: tuple[ModelRole, ...] = ("controller", "generation", "rerank")
 AUTO_ROUTING_PROVIDER: Final = "openrouter"
 """O provider cujos roteadores escolhem o modelo sozinhos (FR-004, research R16). É também o nome com que o adapter do
 OpenRouter se registra — o adapter importa esta constante, para os dois nunca divergirem."""
+
+
+class TextPart(TypedDict):
+    """Parte de texto de uma mensagem, no formato compatível com a OpenAI."""
+
+    type: Literal["text"]
+    text: str
+
+
+class ImageUrl(TypedDict):
+    """Sempre data URI (`data:<mime>;base64,…`): o core nunca manda o provider buscar endereço (ADR-044, item 5)."""
+
+    url: str
+
+
+class ImagePart(TypedDict):
+    """Parte de imagem de uma mensagem, no formato compatível com a OpenAI que os três providers falam."""
+
+    type: Literal["image_url"]
+    image_url: ImageUrl
+
+
+type ContentPart = TextPart | ImagePart
+
+
+class ModelMessage(TypedDict):
+    """Mensagem enviada ao modelo: o `ChatMessage` dos contratos com `content` também em partes (ADR-044, item 10).
+
+    Tipo da 006, não dos contratos: alargar o `ChatMessage` seria breaking pelo FR-020 da 001 (research R32). As chaves
+    são somente-leitura, então todo `ChatMessage` é um `ModelMessage` — quem não manda imagem não muda nada.
+    """
+
+    role: ReadOnly[str]
+    content: ReadOnly[str | Sequence[ContentPart] | None]
+    name: NotRequired[ReadOnly[str]]
+    tool_calls: NotRequired[ReadOnly[Sequence[ChatToolCall]]]
+    tool_call_id: NotRequired[ReadOnly[str]]
+
+
+def image_part(mime: str, data: bytes) -> ImagePart:
+    """A parte de imagem de uma mensagem, com os bytes em data URI."""
+    encoded = base64.b64encode(data).decode("ascii")
+    return {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{encoded}"}}
+
+
+def has_image(message: ModelMessage) -> bool:
+    """Se a mensagem leva alguma parte de imagem."""
+    content = message["content"]
+    return not isinstance(content, str | None) and any(part["type"] == "image_url" for part in content)
 
 
 class ModelRoutingError(RuntimeError):
@@ -112,6 +164,8 @@ class ModelPolicy:
 
     roles: Mapping[ModelRole, ModelRef]
     allow: tuple[str, ...] = ()
+    vision: frozenset[ModelRole] = frozenset()
+    """Papéis cujo modelo enxerga imagem (`vision: true` no papel, ADR-044, item 10). Só papel declarado."""
 
     def __post_init__(self) -> None:
         if not self.roles:
@@ -120,6 +174,10 @@ class ModelPolicy:
         if unknown:
             raise ValueError(f"papéis desconhecidos: {', '.join(unknown)}")
         object.__setattr__(self, "roles", MappingProxyType(dict(self.roles)))
+        object.__setattr__(self, "vision", frozenset(self.vision))
+        undeclared = sorted(str(role) for role in self.vision if role not in self.roles)
+        if undeclared:
+            raise ValueError(f"vision em papel não declarado: {', '.join(undeclared)}")
 
     def configured_roles(self) -> tuple[ModelRole, ...]:
         """Papéis declarados, na ordem canônica."""
@@ -161,9 +219,14 @@ class BoundModel(Protocol):
         """Provider e modelo resolvidos."""
         ...
 
+    @property
+    def vision(self) -> bool:
+        """O papel declara `vision`: só então o cliente aceita mensagem com imagem (ADR-044, item 10)."""
+        ...
+
     async def complete(
         self,
-        messages: Sequence[ChatMessage],
+        messages: Sequence[ModelMessage],
         *,
         tools: Sequence[ChatTool] | None = None,
         response_format: Mapping[str, JSONValue] | None = None,
@@ -173,7 +236,7 @@ class BoundModel(Protocol):
 
     def stream(
         self,
-        messages: Sequence[ChatMessage],
+        messages: Sequence[ModelMessage],
         *,
         tools: Sequence[ChatTool] | None = None,
         response_format: Mapping[str, JSONValue] | None = None,

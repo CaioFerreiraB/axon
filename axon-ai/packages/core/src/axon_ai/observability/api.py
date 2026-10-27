@@ -15,7 +15,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Final, Literal, Protocol
 
-from axon_ai_contracts import JSONValue
+from axon_ai_contracts import Attachment, JSONValue
 
 
 class TraceQueryUnavailable(RuntimeError):
@@ -135,6 +135,24 @@ class ExecutionFinished:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class AttachmentInfo:
+    """O que o trace, o uso e a auditoria guardam de uma imagem: id, tipo e tamanho, nunca os bytes (ADR-044)."""
+
+    id: str
+    mime: str
+    size_bytes: int
+
+    def __post_init__(self) -> None:
+        _require_text("id", self.id)
+        _require_text("mime", self.mime)
+        _require_non_negative("size_bytes", self.size_bytes)
+
+
+def attachment_info(attachment: Attachment) -> AttachmentInfo:
+    return AttachmentInfo(id=attachment.id, mime=attachment.mime, size_bytes=len(attachment.data))
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ToolCall:
     """Uma chamada de tool pelo gateway (004 FR-014). Sem argumentos nem conteúdo: o trace não guarda dado de usuário;
     a auditoria guarda os de escrita. `kind` é `None` quando a tool não existe no catálogo."""
@@ -146,6 +164,8 @@ class ToolCall:
     duration_ms: float
     size_bytes: int
     truncated: bool = False
+    attachments: tuple[AttachmentInfo, ...] = ()
+    """As imagens do resultado (ADR-044); `size_bytes` continua sendo o do texto."""
 
     def __post_init__(self) -> None:
         _require_text("request_id", self.request_id)
@@ -155,9 +175,9 @@ class ToolCall:
         _require_non_negative("size_bytes", self.size_bytes)
 
 
-type DecisionAction = Literal["tool", "answer", "invalid", "limit"]
+type DecisionAction = Literal["tool", "answer", "invalid", "limit", "view_image"]
 
-_DECISION_ACTIONS: Final[frozenset[str]] = frozenset({"tool", "answer", "invalid", "limit"})
+_DECISION_ACTIONS: Final[frozenset[str]] = frozenset({"tool", "answer", "invalid", "limit", "view_image"})
 _LIMIT_REASONS: Final[frozenset[str]] = frozenset({"iterations", "context"})
 
 
@@ -168,6 +188,10 @@ class ControllerDecision:
     Nunca leva argumentos de tool nem saída do modelo: só a iteração, a ação, o nome pedido (em `tool`) e um motivo
     curto escrito pelo motor (em `invalid` e `limit`). `iteration` 0 só existe em `limit`, quando o teto de contexto
     impede até a primeira chamada.
+
+    `view_image` (ADR-044, item 8): o controller marcou imagens da resposta anterior para a geração — no loop, uma por
+    iteração; na etapa `image_gate` do `chat` e do `rag_first`, as escolhidas de uma vez, possivelmente nenhuma. Os ids
+    vão em `images`, no lugar do nome da tool.
     """
 
     request_id: str
@@ -175,6 +199,7 @@ class ControllerDecision:
     action: DecisionAction
     tool: str | None = None
     reason: str | None = None
+    images: tuple[str, ...] | None = None
 
     def __post_init__(self) -> None:
         _require_text("request_id", self.request_id)
@@ -194,6 +219,12 @@ class ControllerDecision:
             _require_text("reason", self.reason)
         if self.action == "limit" and self.reason not in _LIMIT_REASONS:
             raise ValueError(f"motivo de limite desconhecido: {self.reason!r}")
+        if (self.action == "view_image") != (self.images is not None):
+            raise ValueError("images é obrigatório na ação view_image (vazio vale) e ausente nas outras")
+        if self.images is not None:
+            object.__setattr__(self, "images", tuple(self.images))
+            for image in self.images:
+                _require_text("images", image)
 
 
 type GateRoute = Literal["generate", "controller", "fallback"]

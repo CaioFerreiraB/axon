@@ -600,3 +600,18 @@ T072 → T073 ∥ T074 (veem falhar) → T075 → T076 → T077 → T078; T079 e
   de 120 colunas e o `ruff format` a quebrou. Um travessão no comentário do teste novo virou "a" (RUF003).
 - Suítes: workspace 3130 passed, 168 skipped; com `AXON_TEST_POSTGRES_DSN` (contêiner `postgres:17` temporário), 3287
   passed, 11 skipped; mypy sem erro; ruff limpo; import-linter 69 kept.
+
+
+---
+
+## Passada de 2026-10-22: imagens no trace ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md); research R43)
+
+**Goal**: o trace registra imagens só por id, tipo e tamanho, e a decisão `view_image` do controller.
+
+**Independent Test**: `tests/observability/unit/` — `tool_call` com `attachments`, `controller_decision` com
+`view_image`, e `tests/llm/` com a marca no `model_exchange`.
+
+- [X] T080 `AttachmentInfo`, `attachment_info`, `ToolCall.attachments` (feito na passada da 004, R13)
+- [X] T081 `view_image` em `DecisionAction`; `ControllerDecision.images`; `contracts/record-format.md`
+- [X] T082 [P] Testes: registro do `tool_call` com `attachments`; `view_image` com e sem ids, `images` fora da ação
+  recusado; marca no `model_exchange` (`tests/llm/unit/test_llm_vision.py`)

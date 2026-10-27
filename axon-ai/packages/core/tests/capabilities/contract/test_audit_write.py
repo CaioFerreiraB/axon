@@ -11,6 +11,7 @@ from capabilities_testkit import EMPTY_SCHEMA, Calls, FakeServer, build, context
 
 from axon_ai.capabilities.adapters.memory import InMemoryAuditLog
 from axon_ai.capabilities.api import AuditEntry, AuditFilter, AuditRecord, AuditStatus, GatewayLimits, ToolCall
+from axon_ai.observability.api import AttachmentInfo
 
 pytestmark = pytest.mark.us4
 
@@ -31,10 +32,18 @@ class SpyAudit(InMemoryAuditLog):
             raise ConnectionError("banco fora")
         return await super().begin(entry)
 
-    async def finish(self, record_id: str, *, status: AuditStatus, result: str, at: datetime) -> None:
+    async def finish(
+        self,
+        record_id: str,
+        *,
+        status: AuditStatus,
+        result: str,
+        at: datetime,
+        attachments: Sequence[AttachmentInfo] = (),
+    ) -> None:
         if self.fail_finish:
             raise ConnectionError("banco caiu no meio")
-        await super().finish(record_id, status=status, result=result, at=at)
+        await super().finish(record_id, status=status, result=result, at=at, attachments=attachments)
 
 
 async def montar(audit: InMemoryAuditLog, **native_kwargs: Any) -> tuple[Any, Any, Calls, list[Sequence[AuditRecord]]]:

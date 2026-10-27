@@ -13,9 +13,18 @@ from typing import Any, Final, Literal, cast
 from axon_ai.capabilities.api import CatalogConflict
 from axon_ai.graph.adapters.langgraph.flows import FlowGraph, compiled_flows
 from axon_ai.graph.adapters.langgraph.nodes.agentic import STAGE_LOAD
-from axon_ai.graph.adapters.langgraph.nodes.common import PROGRESS, STEP, TOKEN
+from axon_ai.graph.adapters.langgraph.nodes.common import ATTACHMENT, PROGRESS, STEP, TOKEN
 from axon_ai.graph.adapters.langgraph.state import AgentContext, AgentState
-from axon_ai.graph.api import ExecutionEvent, ExecutionIssue, FinalEvent, ProgressEvent, StepFinished, TokenEvent
+from axon_ai.graph.api import (
+    AttachmentEvent,
+    ExecutionEvent,
+    ExecutionIssue,
+    FinalEvent,
+    ProgressEvent,
+    StepFinished,
+    TokenEvent,
+)
+from axon_ai.graph.domain.images import unique
 from axon_ai.graph.domain.outcome import final_event
 from axon_ai.graph.ports import ExecutionPlan
 from axon_ai.llm.api import ModelCallFailed
@@ -56,6 +65,9 @@ class LangGraphRuntime:
             "omitted": 0,
             "retrieved": (),
             "reranked": (),
+            "gate_images": plan.images.gate,
+            "viewed": list(plan.images.viewed),
+            "attachments": [],
         }
         context = AgentContext(
             composition=plan.composition,
@@ -66,6 +78,8 @@ class LangGraphRuntime:
             capabilities=plan.capabilities,
             rag=plan.rag,
             escalate=plan.escalate,
+            timezone=plan.timezone,
+            images=plan.images,
         )
 
         generated = ""
@@ -92,7 +106,8 @@ class LangGraphRuntime:
                 )
             )
             accumulated = tuple(last.get("errors", ())) if last is not None else ()
-            yield FinalEvent(answer=generated, errors=(*accumulated, issue))
+            images = unique(tuple(last.get("attachments", ()))) if last is not None else ()
+            yield FinalEvent(answer=generated, errors=(*accumulated, issue), attachments=images)
             return
 
         yield _final(last, generated)
@@ -105,6 +120,8 @@ def _from_custom(chunk: Any) -> ExecutionEvent:
         return ProgressEvent(stage=chunk["stage"], detail=chunk.get("detail"))
     if chunk.get("kind") == STEP:
         return StepFinished(stage=chunk["stage"], outcome=chunk.get("outcome"))
+    if chunk.get("kind") == ATTACHMENT:
+        return AttachmentEvent(attachment=chunk["attachment"], tool=chunk["tool"])
     raise ValueError(f"pedaço de stream desconhecido: {chunk!r}")
 
 
@@ -115,6 +132,7 @@ def _final(last: AgentState | None, generated: str) -> FinalEvent:
         generated=last.get("answer", generated),
         outcome=last.get("validation"),
         errors=tuple(last.get("errors", ())),
+        attachments=tuple(last.get("attachments", ())),
     )
 
 

@@ -57,6 +57,10 @@ ADR-037, ADR-038, ADR-039. Fase 9 (2026-10-21): chaves de API e acesso dos Assis
 - Q: O formulário de criação concede grupos à chave? → A: Não. O sistema ganha acesso pela entrada `svc:` na aba "Permissões" de cada Assistant, o que deixa explícito o que cada sistema alcança; os grupos de chaves existentes aparecem na lista, e a API e a CLI continuam podendo concedê-los.
 - Q: Além de sistemas e grupos, o que "Adicionar" oferece na aba "Permissões"? → A: Um campo de texto com sugestões (como o de modelo): sistemas com chave ativa e grupos como sugestões, e `user:<nome>` digitado; num Assistant público, "Qualquer pessoa autenticada (`*`)" é uma opção à parte, com nota; num privado, ela não aparece, com o motivo.
 
+### Session 2026-10-22
+
+- Q: Como a console mostra e muda o `vision` de um papel ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 10)? → A: Na aba Modelos, cada papel ganha a caixa "Enxerga imagens" na coluna da sobreposição (desligada sem modelo), com a dica de que a pergunta com imagem a um Assistant sem visão é recusada; o efetivo mostra o selo "Visão". A sobreposição de `models` é a seção inteira, então o `vision` vai junto: papel marcado sai como `{model, vision: true}`, o resto como o texto de sempre. O resumo da sobreposição e o histórico mostram "(visão)" no papel.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Admin entra na console (Priority: P1)
@@ -423,6 +427,7 @@ salvar; a visão efetiva traz o esquema e a entrada; o histórico registra a gra
   inexistente) e as que nunca casam com os esquemas ligados (sistema com "Chave de API" desligada); e DEVE impedir salvar
   com os dois esquemas desligados ou sem entradas, explicando o porquê, como a plataforma também recusa (003 FR-031).
 - **FR-031**: O histórico do Assistant DEVE mostrar as gravações e os descartes de acesso com os esquemas e as entradas, e
+- **FR-032**: A aba Modelos DEVE ler as duas formas de papel da API (`provider/modelo` e `{model, vision}`), permitir marcar `vision` por papel na sobreposição e mostrar o `vision` efetivo ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 10).
   a lista de Assistants DEVE contar `auth` nas marcas de "sobreposto", "sobreposição inativa" e "travado" (FR-004).
 
 ### Key Entities

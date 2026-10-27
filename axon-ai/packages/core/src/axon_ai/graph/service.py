@@ -8,9 +8,11 @@ reescrita do grafo uma troca de objeto injetado (ADR-011, SC-001). Não importa 
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping
+from datetime import UTC, tzinfo
 
 from axon_ai.capabilities.api import Capabilities
 from axon_ai.graph.api import (
+    FLOW_AGENTIC,
     FLOW_RAG_FIRST,
     ExecutionEvent,
     ExecutionGrant,
@@ -19,9 +21,10 @@ from axon_ai.graph.api import (
     FinalEvent,
     RagSettings,
 )
+from axon_ai.graph.domain.images import image_plan
 from axon_ai.graph.domain.limits import effective_limit
 from axon_ai.graph.domain.outcome import succeeded
-from axon_ai.graph.domain.request import TOOL_FLOWS, offered, optional_roles, required_roles, validate
+from axon_ai.graph.domain.request import TOOL_FLOWS, offered, required_roles, roles_to_resolve, validate
 from axon_ai.graph.ports import Clock, ExecutionPlan, FlowRuntime
 from axon_ai.llm.api import ModelRole, ModelRouter, ModelRouting, ModelRoutingError
 from axon_ai.observability.api import ExecutionFinished, ExecutionStarted, TraceSink
@@ -43,6 +46,7 @@ class ExecutionService:
         clock: Clock,
         capabilities: Capabilities | None = None,
         rag: RagSettings | None = None,
+        timezone: tzinfo = UTC,
     ) -> None:
         self._flows = flows
         self._hooks = hooks
@@ -51,6 +55,7 @@ class ExecutionService:
         self._clock = clock
         self._capabilities = capabilities
         self._rag = rag or RagSettings()
+        self._timezone = timezone
 
     def flows(self) -> frozenset[str]:
         """Nomes de flow disponíveis; `assistants validate` (003) os usa como dado. Sem o gateway de tools da 004, os
@@ -70,7 +75,14 @@ class ExecutionService:
         question = validate(request, grant, self.flows())
         router = self._routing.for_execution(policy=grant.models, request_id=request.request_id)
         declared = set(grant.models.configured_roles())
-        _resolve_roles(router, (*required_roles(grant.flow), *(r for r in optional_roles(grant.flow) if r in declared)))
+        images = image_plan(
+            request.messages,
+            loop_flow=grant.flow == FLOW_AGENTIC,
+            controller="controller" in declared,
+            generation_vision="generation" in grant.models.vision,
+            controller_vision="controller" in grant.models.vision,
+        )
+        _resolve_roles(router, roles_to_resolve(grant.flow, declared, image_gate=images.gate))
         reference_time = request.reference_time or self._clock.now()
         tools = grant.flow in TOOL_FLOWS
         rag_first = grant.flow == FLOW_RAG_FIRST
@@ -91,6 +103,8 @@ class ExecutionService:
             max_context_tokens=grant.limits.max_context_tokens if tools else None,
             rag=self._rag if rag_first else None,
             escalate=rag_first and "controller" in declared,
+            timezone=self._timezone,
+            images=images,
         )
         return self._events(plan, stream=request.stream)
 

@@ -38,6 +38,15 @@ DEFAULT_TOOL_MAX_RESPONSE_BYTES: Final = 16_384
 TOOL_TIMEOUT_RANGE: Final = (1_000, 300_000)
 TOOL_MAX_RESPONSE_RANGE: Final = (1_024, 1_048_576)
 """As faixas de `GatewayLimits` (004), repetidas aqui para que o erro nomeie a variável (FR-001, research R27)."""
+DEFAULT_TOOL_MAX_ATTACHMENT_BYTES: Final = 2_097_152
+DEFAULT_MAX_REQUEST_BYTES: Final = 33_554_432
+DEFAULT_MAX_INPUT_IMAGE_BYTES: Final = 5_242_880
+DEFAULT_MAX_INPUT_IMAGES: Final = 4
+"""Imagens na conversa (ADR-044, item 12): teto por imagem de tool, do corpo, por imagem e de imagens na pergunta."""
+TOOL_MAX_ATTACHMENT_RANGE: Final = (1_024, 20_971_520)
+MAX_REQUEST_RANGE: Final = (65_536, 268_435_456)
+MAX_INPUT_IMAGE_RANGE: Final = (1_024, 20_971_520)
+MAX_INPUT_IMAGES_RANGE: Final = (0, 16)
 DEFAULT_RAG_CANDIDATES: Final = 20
 DEFAULT_RAG_PASSAGES: Final = 5
 """Os defaults de `RagSettings` (005, research R44). Sem limiar por default: a 105 calibra (princípio X)."""
@@ -54,6 +63,7 @@ DEFAULT_DISPLAY_NAME: Final = "Axon"
 """Nome da instalação nas páginas do provedor e na console quando ela não define o seu (012 FR-023, ADR-038)."""
 MASTER_KEY_BYTES: Final = 32
 DEFAULT_USAGE_TIMEZONE: Final = "UTC"
+DEFAULT_TIMEZONE: Final = "UTC"
 DEFAULT_USAGE_RETENTION_DAYS: Final = 400
 MIN_USAGE_RETENTION_DAYS: Final = 30
 """Uso por dia (009 US5): fuso padrão do relatório e retenção das linhas brutas (research R36)."""
@@ -99,6 +109,11 @@ class Settings:
     mcp_discovery_ttl: float = DEFAULT_MCP_DISCOVERY_TTL
     tool_timeout_ms: int = DEFAULT_TOOL_TIMEOUT_MS
     tool_max_response_bytes: int = DEFAULT_TOOL_MAX_RESPONSE_BYTES
+    tool_max_attachment_bytes: int = DEFAULT_TOOL_MAX_ATTACHMENT_BYTES
+    max_request_bytes: int = DEFAULT_MAX_REQUEST_BYTES
+    max_input_image_bytes: int = DEFAULT_MAX_INPUT_IMAGE_BYTES
+    max_input_images: int = DEFAULT_MAX_INPUT_IMAGES
+    """0 = a API não aceita imagem do usuário."""
     rag_candidates: int = DEFAULT_RAG_CANDIDATES
     rag_passages: int = DEFAULT_RAG_PASSAGES
     rag_min_score: float | None = None
@@ -127,6 +142,8 @@ class Settings:
     langfuse_capture_content: bool | None = None
     """`AXON_LANGFUSE_CAPTURE_CONTENT`: definida, prevalece sobre a console (ADR-034)."""
     usage_timezone: str = DEFAULT_USAGE_TIMEZONE
+    timezone: str = DEFAULT_TIMEZONE
+    """`AXON_TIMEZONE`: o fuso da data de referência que o motor dá ao modelo no `agentic` (005 R50)."""
     usage_retention_days: int = DEFAULT_USAGE_RETENTION_DAYS
 
     @property
@@ -167,6 +184,10 @@ class Settings:
             raise ConfigurationError(f"{PREFIX}MCP_DISCOVERY_TTL: precisa ser positivo")
         _within(f"{PREFIX}TOOL_TIMEOUT_MS", self.tool_timeout_ms, TOOL_TIMEOUT_RANGE)
         _within(f"{PREFIX}TOOL_MAX_RESPONSE_BYTES", self.tool_max_response_bytes, TOOL_MAX_RESPONSE_RANGE)
+        _within(f"{PREFIX}TOOL_MAX_ATTACHMENT_BYTES", self.tool_max_attachment_bytes, TOOL_MAX_ATTACHMENT_RANGE)
+        _within(f"{PREFIX}MAX_REQUEST_BYTES", self.max_request_bytes, MAX_REQUEST_RANGE)
+        _within(f"{PREFIX}MAX_INPUT_IMAGE_BYTES", self.max_input_image_bytes, MAX_INPUT_IMAGE_RANGE)
+        _within(f"{PREFIX}MAX_INPUT_IMAGES", self.max_input_images, MAX_INPUT_IMAGES_RANGE)
         # As regras de `RagSettings` (005), aqui para que o erro nomeie a variável.
         if self.rag_candidates < 1:
             raise ConfigurationError(f"{PREFIX}RAG_CANDIDATES: precisa ser ao menos 1: {self.rag_candidates}")
@@ -197,12 +218,11 @@ class Settings:
                 check_host(self.langfuse_host)
             except InvalidField as error:
                 raise ConfigurationError(f"{PREFIX}LANGFUSE_HOST: {str(error).removeprefix('host: ')}") from None
-        try:
-            ZoneInfo(self.usage_timezone)
-        except (ZoneInfoNotFoundError, ValueError):
-            raise ConfigurationError(
-                f"{PREFIX}USAGE_TIMEZONE: fuso IANA desconhecido: {self.usage_timezone!r}"
-            ) from None
+        for name, zone in (("USAGE_TIMEZONE", self.usage_timezone), ("TIMEZONE", self.timezone)):
+            try:
+                ZoneInfo(zone)
+            except (ZoneInfoNotFoundError, ValueError):
+                raise ConfigurationError(f"{PREFIX}{name}: fuso IANA desconhecido: {zone!r}") from None
         if self.usage_retention_days < MIN_USAGE_RETENTION_DAYS:
             raise ConfigurationError(
                 f"{PREFIX}USAGE_RETENTION_DAYS: precisa ser ao menos {MIN_USAGE_RETENTION_DAYS}: "
@@ -294,6 +314,10 @@ class EnvConfigSource:
             mcp_discovery_ttl=self._float("MCP_DISCOVERY_TTL", DEFAULT_MCP_DISCOVERY_TTL),
             tool_timeout_ms=self._int("TOOL_TIMEOUT_MS", DEFAULT_TOOL_TIMEOUT_MS),
             tool_max_response_bytes=self._int("TOOL_MAX_RESPONSE_BYTES", DEFAULT_TOOL_MAX_RESPONSE_BYTES),
+            tool_max_attachment_bytes=self._int("TOOL_MAX_ATTACHMENT_BYTES", DEFAULT_TOOL_MAX_ATTACHMENT_BYTES),
+            max_request_bytes=self._int("MAX_REQUEST_BYTES", DEFAULT_MAX_REQUEST_BYTES),
+            max_input_image_bytes=self._int("MAX_INPUT_IMAGE_BYTES", DEFAULT_MAX_INPUT_IMAGE_BYTES),
+            max_input_images=self._int("MAX_INPUT_IMAGES", DEFAULT_MAX_INPUT_IMAGES),
             rag_candidates=self._int("RAG_CANDIDATES", DEFAULT_RAG_CANDIDATES),
             rag_passages=self._int("RAG_PASSAGES", DEFAULT_RAG_PASSAGES),
             rag_min_score=self._optional_float("RAG_MIN_SCORE"),
@@ -315,6 +339,7 @@ class EnvConfigSource:
             langfuse_secret_key=self._optional("LANGFUSE_SECRET_KEY"),
             langfuse_capture_content=self._optional_bool("LANGFUSE_CAPTURE_CONTENT"),
             usage_timezone=self._text("USAGE_TIMEZONE", DEFAULT_USAGE_TIMEZONE),
+            timezone=self._text("TIMEZONE", DEFAULT_TIMEZONE),
             usage_retention_days=self._int("USAGE_RETENTION_DAYS", DEFAULT_USAGE_RETENTION_DAYS),
         )
 

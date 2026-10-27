@@ -6,12 +6,13 @@ Não são seams: são internas do módulo, e só a composition root (spec 011) e
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Sequence
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, tzinfo
 from typing import Protocol
 
 from axon_ai.capabilities.api import Capabilities
 from axon_ai.graph.api import ExecutionEvent, ExecutionGrant, RagSettings
+from axon_ai.graph.domain.images import ImagePlan
 from axon_ai.llm.api import ModelRouter
 from axon_ai.observability.api import TraceSink
 from axon_ai.packs.api import Composition, PackHooks
@@ -64,6 +65,11 @@ class ExecutionPlan:
     max_context_tokens: int | None = None
     rag: RagSettings | None = None
     escalate: bool = False
+    timezone: tzinfo = UTC
+    """O fuso da instalação: a data de referência vai ao controller e à geração do `agentic` nele (R50)."""
+    images: ImagePlan = field(default_factory=ImagePlan)
+    """O que a execução faz com as imagens do pedido (ADR-044, R51): candidatas, as já escolhidas e a etapa
+    `image_gate`."""
 
 
 class FlowRuntime(Protocol):

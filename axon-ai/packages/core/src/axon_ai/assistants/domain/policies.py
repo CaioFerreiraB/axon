@@ -51,6 +51,7 @@ def user_definition(
         allowed_tools=draft.allowed_tools,
         write_tools=draft.write_tools,
         roles=draft.models,
+        vision=draft.vision & frozenset(draft.models),
         allow=allow,
         limits=limits,
         problems=problems,

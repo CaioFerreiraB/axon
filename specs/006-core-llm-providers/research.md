@@ -478,3 +478,25 @@ e o OpenRouter com outro autor sem conversão; integração paga opcional com o 
 ## R31 — Nenhum toque fora da 006
 
 **Decision**: a 005 não muda; a pendência "esquema de ação de raiz objeto" sai do roadmap e do CLAUDE.md.
+
+## R32 — Imagens: `ModelMessage`, `vision` por papel e a guarda (ADR-044, itens 10 a 12)
+
+**Decision**: em `api.py`, `TextPart`, `ImageUrl`, `ImagePart`, `ContentPart` e `ModelMessage` (TypedDict com as chaves
+do `ChatMessage`, todas `ReadOnly`, e `content: str | Sequence[ContentPart] | None`), mais `image_part(mime, data)` e
+`has_image(message)`. `BoundModel.complete`/`stream` e a porta `ModelProvider` (que redeclara o `chat` do `LLMProvider`
+com o parâmetro mais largo) recebem `Sequence[ModelMessage]`; a resposta continua `ChatResponse`. `ModelPolicy.vision:
+frozenset[ModelRole]` (papel não declarado é `ValueError`); `BoundModel.vision`; o `ExecutionRouter` liga
+`vision=role in policy.vision`. `domain/images.py` (puro): `vision_problem` — chamada com imagem a papel sem `vision`
+vira `ModelCallFailed` dentro do bloco medido, como `constraint_problem` — e `image_marker`, que põe `[imagem <id>]`
+(id do `Attachment` dos contratos) no texto do `model_exchange`. `openai_compat._to_wire_message` manda a lista de
+partes; o `ScriptedProvider` guarda em `images` os data URIs recebidos.
+
+**Rationale** (ADR-044, item 10: "como a guarda do `response_format` do controller"; decisão do mantenedor de
+2026-10-22 sobre o tipo): o `ChatMessage` dos contratos fica como está e nenhum pack sai da faixa; com as chaves
+somente-leitura, toda mensagem de texto já existente cabe no tipo novo sem conversão. O parâmetro do `chat` só alarga,
+então os adapters continuam cumprindo o `LLMProvider` do contrato 001.
+
+**Alternatives considered**: alargar `ChatMessage.content` nos contratos (breaking, série `0.3.0`); chave nova
+`parts` no `ChatMessage` (diverge do formato da OpenAI do ADR); deixar a 005 decidir sem guarda (o ADR pede a guarda no
+cliente instrumentado); `vision` como capacidade descoberta do provider (o ADR a põe na política, declarada pelo
+operador).

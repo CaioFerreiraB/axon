@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 
 import pytest
 from graph_testkit import MESSAGES, catalog_tool, fenced
@@ -13,7 +15,9 @@ from axon_ai.graph.domain.transcript import (
     InvalidStep,
     ToolStep,
     controller_messages,
+    date_instruction,
     generation_messages,
+    repeats,
 )
 
 pytestmark = pytest.mark.us2
@@ -106,3 +110,27 @@ def test_passo_sintetico_entra_na_geracao_como_um_passo_executado() -> None:
     assert not executado.synthetic and sintetico.synthetic
     assert generation_messages(PROMPTS, MESSAGES, (sintetico,)) == generation_messages(PROMPTS, MESSAGES, (executado,))
     assert generation_messages(PROMPTS, MESSAGES, (sintetico,))[len(PROMPTS)]["content"] == FENCE_INSTRUCTION
+
+
+# --- R50: data de referência e ação repetida ---------------------------------------------------------------------
+
+
+def test_data_de_referencia_no_fuso_da_instalacao() -> None:
+    instant = datetime(2026, 10, 22, 3, 42, tzinfo=UTC)
+    text = date_instruction(instant, ZoneInfo("America/Sao_Paulo"))
+    assert "quinta-feira, 22/10/2026, 00:42 (America/Sao_Paulo)" in text
+
+
+def test_data_vai_ao_sistema_do_controller_e_da_geracao() -> None:
+    today = date_instruction(datetime(2026, 10, 22, tzinfo=UTC), UTC)
+    controller = controller_messages([catalog_tool()], MESSAGES, (), today=today)
+    assert today in str(controller[0]["content"])
+    generation = generation_messages(PROMPTS, MESSAGES, (), today=today)
+    assert generation[len(PROMPTS)] == {"role": "system", "content": today}
+
+
+def test_repeticao_compara_nome_e_argumentos() -> None:
+    steps = [tool_step(1)]
+    assert repeats(ToolCall(name="generic.calculate", arguments={"expression": "2+2"}), steps)
+    assert not repeats(ToolCall(name="generic.calculate", arguments={"expression": "3+3"}), steps)
+    assert not repeats(ToolCall(name="generic.outra", arguments={"expression": "2+2"}), steps)

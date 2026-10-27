@@ -101,7 +101,20 @@ def test_rag_first_exige_so_generation_e_o_controller_e_opcional() -> None:
 
     assert REQUIRED_ROLES[FLOW_RAG_FIRST] == ("generation",)
     assert optional_roles(FLOW_RAG_FIRST) == ("controller",)
-    assert optional_roles(FLOW_AGENTIC) == () and optional_roles(FLOW_CHAT) == () and optional_roles("x") == ()
+    assert optional_roles(FLOW_AGENTIC) == () and optional_roles("x") == ()
+
+
+def test_no_chat_o_controller_e_opcional_e_so_resolvido_com_a_etapa_de_imagem() -> None:
+    """ADR-044, item 8 (R51): o `controller` declarado no `chat` decide as imagens anteriores; sem elas, nem é
+    resolvido."""
+    from axon_ai.graph.domain.request import optional_roles, roles_to_resolve
+
+    assert optional_roles(FLOW_CHAT) == ("controller",)
+    declared = {"generation", "controller"}
+    assert roles_to_resolve(FLOW_CHAT, declared, image_gate=False) == ("generation",)
+    assert roles_to_resolve(FLOW_CHAT, declared, image_gate=True) == ("generation", "controller")
+    assert roles_to_resolve(FLOW_CHAT, {"generation"}, image_gate=True) == ("generation",)
+    assert roles_to_resolve(FLOW_AGENTIC, declared, image_gate=False) == ("controller", "generation")
 
 
 @pytest.mark.us3

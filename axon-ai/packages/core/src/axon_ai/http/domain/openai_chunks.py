@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Any, Final
 
 from axon_ai.graph.api import ExecutionIssue, FinalEvent, ProgressEvent, TokenEvent
+from axon_ai.http.domain.images import images_markdown, summary
 from axon_ai.http.domain.progress_text import QUEUE_STAGE, progress_line, queue_line
 from axon_ai.http.domain.timeline import Status
 
@@ -121,7 +122,7 @@ def completion(
     body["choices"] = [
         {
             "index": 0,
-            "message": {"role": ASSISTANT_ROLE, "content": event.answer},
+            "message": {"role": ASSISTANT_ROLE, "content": event.answer + images_tail(event)},
             "finish_reason": finish_reason(event),
         }
     ]
@@ -129,6 +130,13 @@ def completion(
     if conversation_id is not None:
         body[EXTRA]["conversation_id"] = conversation_id
     return body
+
+
+def images_tail(event: FinalEvent) -> str:
+    """As imagens das tools em markdown, depois do texto (ADR-044, item 9). Em streaming, sai como o último token —
+    retida até o fim da resposta; sem resposta, sem o parágrafo em branco antes."""
+    tail = images_markdown(event.attachments)
+    return tail if event.answer else tail.lstrip("\n")
 
 
 def finish_reason(event: FinalEvent) -> str:
@@ -147,6 +155,7 @@ def extra_field(event: FinalEvent, *, request_id: str) -> dict[str, Any]:
         "citations": [dict(citation) for citation in event.citations],
         "flags": sorted(event.flags),
         "errors": _issues(event.errors),
+        "attachments": summary(event.attachments),
     }
 
 

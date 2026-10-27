@@ -53,6 +53,11 @@
 - Q: Como o operador configura a raiz dos dados dos packs ([ADR-041](../../docs/adr/ADR-041-o-pack-prepara-os-proprios-dados-no-build.md))? → A: Por `AXON_PACKS_DATA_DIR`, um caminho; sem ela, não há raiz, e cada pack recebe `data_dir=None`. A raiz vale nos três perfis e é a mesma no build (`axon packs prepare`) e em runtime (a carga dos packs no boot e em `packs list|check`). A composition root não cria nem confere o diretório: quem cria cada `<raiz>/<pack>` é o `packs prepare` da 002.
 - Q: Como o `packs prepare` entra na raiz `axon`? → A: Como `packs list|check`: uma entrada na lista de registro de `bootstrap/cli.py`, que monta só configuração e adapters (sem os hooks de catálogo nem a carga do registry) e repassa os códigos da 002 (0, 1, 2).
 
+### Session 2026-10-22
+
+- Q: Que configuração as imagens na conversa trazem ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 12)? → A: Quatro variáveis, com os valores propostos no ADR: `AXON_TOOL_MAX_ATTACHMENT_BYTES` (2 MiB; vai ao `McpService` da 007), `AXON_MAX_REQUEST_BYTES` (32 MiB), `AXON_MAX_INPUT_IMAGE_BYTES` (5 MiB) e `AXON_MAX_INPUT_IMAGES` (4; 0 desliga a imagem do usuário) — as três últimas vão ao `create_app` da 008 como `ImageLimits`. Fora da faixa, o boot para nomeando a variável.
+- Q: Como se prova sem rede? → A: No perfil `test`, com o controller e o servidor MCP programados pelas trocas de porta de sempre: a tool devolve PNG, a resposta leva a imagem em markdown, e no turno seguinte (histórico do cliente) o `view_image` leva a imagem ao provider simulado da geração, que a registra.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Operador sobe a plataforma e o boot segue uma ordem fixa (Priority: P1)
@@ -254,6 +259,7 @@ configuração nomeando `AXON_PROFILE`; a suíte inteira do workspace passa com 
 - **FR-026**: O nome exibido padrão da instalação (FR-016, 012 FR-023) DEVE ser "Axon" (ADR-038).
 - **FR-027**: As credenciais do perfil `test` exportadas para as suítes (FR-014, FR-015, FR-021) DEVEM estar em `axon_ai.bootstrap.profiles`, com os mesmos nomes. O nome do pool de conexões do perfil `persistent` DEVE ser `axon`.
 - **FR-028**: A configuração DEVE aceitar `AXON_PACKS_DATA_DIR`, a raiz dos diretórios de dados dos packs, e entregá-la à 002 nos três perfis; ausente, nenhum pack recebe diretório. A raiz de comandos DEVE registrar `packs prepare` (002 FR-030), e só ele chama o hook `prepare` (002 FR-031).
+- **FR-029**: A configuração DEVE ler `AXON_TOOL_MAX_ATTACHMENT_BYTES`, `AXON_MAX_REQUEST_BYTES`, `AXON_MAX_INPUT_IMAGE_BYTES` e `AXON_MAX_INPUT_IMAGES`, com faixas que nomeiam a variável, e ligá-las à 007 e à 008 nos três perfis ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 12).
 
 ### Key Entities
 

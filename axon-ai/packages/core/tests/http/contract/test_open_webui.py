@@ -102,11 +102,12 @@ def test_modo_nativo_de_ferramentas_e_recusado() -> None:
     assert response.json()["error"]["code"] == "widening_field"
 
 
-def test_conteudo_multimodal_e_recusado_em_messages() -> None:
+def test_conteudo_multimodal_com_data_uri_invalido_e_recusado_nomeando_a_parte() -> None:
+    """ADR-044, item 5: o anexo do Open WebUI chega em partes; data URI que não decodifica é 400 com o `param`."""
     client = TestClient(Platform(llm=provider()).app)
     partes = [{"type": "text", "text": "o que é isto?"}, {"type": "image_url", "image_url": {"url": "data:,"}}]
     response = client.post(
         "/v1/chat/completions", headers=headers(ANA_TOKEN), json=body(messages=[{"role": "user", "content": partes}])
     )
     assert response.status_code == 400
-    assert response.json()["error"]["param"] == "messages"
+    assert response.json()["error"]["param"] == "messages[0].content[1].image_url.url"

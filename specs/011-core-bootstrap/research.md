@@ -872,3 +872,18 @@ create` no console do contêiner.
 o que muda é a instalação.
 
 **Alternatives considered**: —
+
+## R56 — Os tetos das imagens ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 12; FR-029)
+
+**Decision**: quatro campos no `Settings`, com os padrões do ADR e faixas (`TOOL_MAX_ATTACHMENT_RANGE` e
+`MAX_INPUT_IMAGE_RANGE` 1 KiB–20 MiB, `MAX_REQUEST_RANGE` 64 KiB–256 MiB, `MAX_INPUT_IMAGES_RANGE` 0–16); o
+`mcp_service` passa `max_attachment_bytes`, e o `create_app` recebe `ImageLimits` da 008. Nenhuma porta nova: o provider
+simulado do perfil `test` já registra as imagens (`ScriptedProvider.images`, 006). A prova é
+`tests/bootstrap/integration/test_platform_images.py`.
+
+**Rationale**: os números são do operador, como os da fila e do `rag_first` (princípio X); os tetos mínimos impedem uma
+configuração que recusaria toda requisição. As faixas moram aqui, como as do gateway (R27), para o erro nomear a
+variável.
+
+**Alternatives considered**: um teto único para imagem de tool e do usuário (o ADR os separa: a da tool vem de um
+servidor que o operador escolheu; a do usuário, de qualquer cliente).

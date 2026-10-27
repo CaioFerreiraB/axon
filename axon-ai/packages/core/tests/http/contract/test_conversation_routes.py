@@ -135,9 +135,9 @@ def test_conversa_de_outro_assistant_e_400_antes_de_executar() -> None:
 
 def test_conversa_apagada_durante_a_execucao_nao_recebe_a_troca() -> None:
     class ApagaAntesDeGravar(InMemoryConversationStore):
-        async def append(self, owner: str, conversation_id: str, messages: Any, *, at: Any) -> bool:
+        async def append(self, owner: str, conversation_id: str, messages: Any, *, at: Any, files: Any = ()) -> bool:
             await self.delete(owner, conversation_id)
-            return await super().append(owner, conversation_id, messages, at=at)
+            return await super().append(owner, conversation_id, messages, at=at, files=files)
 
     store = ApagaAntesDeGravar()
     client = TestClient(Platform(conversations=store).app)

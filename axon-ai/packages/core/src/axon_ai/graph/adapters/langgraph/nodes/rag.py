@@ -15,7 +15,8 @@ from langgraph.runtime import get_runtime
 
 from axon_ai.capabilities.api import ToolCall
 from axon_ai.graph.adapters.langgraph.nodes.agentic import STAGE_CONTROLLER, open_session
-from axon_ai.graph.adapters.langgraph.nodes.common import PROGRESS, STAGE_GENERATE, finished
+from axon_ai.graph.adapters.langgraph.nodes.common import PROGRESS, STAGE_GENERATE, finished, generation_images
+from axon_ai.graph.adapters.langgraph.nodes.images import STAGE_IMAGE_GATE
 from axon_ai.graph.adapters.langgraph.state import AgentContext, AgentState
 from axon_ai.graph.api import (
     ExecutionIssue,
@@ -173,10 +174,12 @@ async def gate(state: AgentState) -> dict[str, Any]:
     if route == "controller":
         finished(STAGE_GATE, decision)
         return {"route": STAGE_CONTROLLER}
+    # Indo à geração, as imagens da resposta anterior passam antes pela escolha do controller (ADR-044, R51).
+    next_stage = STAGE_IMAGE_GATE if state.get("gate_images") else STAGE_GENERATE
     if route == "fallback":
         finished(STAGE_GATE, decision)
         return {
-            "route": STAGE_GENERATE,
+            "route": next_stage,
             "errors": [
                 ExecutionIssue(
                     stage=STAGE_GATE,
@@ -202,7 +205,9 @@ async def gate(state: AgentState) -> dict[str, Any]:
 
     fitted = fit_chunks(
         reranked,
-        lambda kept: generation_messages(prompts, state.get("messages", ()), steps_for(list(kept))),
+        lambda kept: generation_messages(
+            prompts, state.get("messages", ()), steps_for(list(kept)), **generation_images(state)
+        ),
         state.get("ceiling"),
     )
     issues: list[ExecutionIssue] = []
@@ -219,7 +224,7 @@ async def gate(state: AgentState) -> dict[str, Any]:
             )
         )
     finished(STAGE_GATE, replace(decision, delivered=len(fitted.items)))
-    return {"route": STAGE_GENERATE, "steps": steps_for(fitted.items), "errors": issues}
+    return {"route": next_stage, "steps": steps_for(fitted.items), "errors": issues}
 
 
 def _insufficient(passages: int, min_score: float | None, *, controller: bool) -> str:

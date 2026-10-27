@@ -306,7 +306,12 @@ def test_typeddict_qualifiers_come_from_annotation_text(api_surface: ModuleType)
     }
     assert all(info["readonly"] for info in citation.values())
     message = modules["Message"]["keys"]
-    assert all(info["required"] and info["readonly"] for info in message.values())
+    assert {name: info["required"] for name, info in message.items()} == {
+        "attachments": False,
+        "content": True,
+        "role": True,
+    }
+    assert all(info["readonly"] for info in message.values())
 
 
 def test_not_required_key_in_synthetic_typeddict(api_surface: ModuleType, tmp_path: Path, monkeypatch) -> None:

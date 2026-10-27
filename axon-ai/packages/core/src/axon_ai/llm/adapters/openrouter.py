@@ -11,8 +11,8 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from axon_ai.llm.adapters.remote import RemoteProvider
-from axon_ai.llm.api import AUTO_ROUTING_PROVIDER
-from axon_ai_contracts import ChatMessage, ChatTool, JSONValue
+from axon_ai.llm.api import AUTO_ROUTING_PROVIDER, ModelMessage
+from axon_ai_contracts import ChatTool, JSONValue
 
 
 class OpenRouterProvider(RemoteProvider):
@@ -34,7 +34,7 @@ class OpenRouterProvider(RemoteProvider):
 
     def _payload(
         self,
-        messages: Sequence[ChatMessage],
+        messages: Sequence[ModelMessage],
         model: str,
         *,
         tools: Sequence[ChatTool] | None,

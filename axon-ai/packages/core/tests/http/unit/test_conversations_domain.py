@@ -41,7 +41,8 @@ def test_ultima_mensagem_de_usuario() -> None:
 
 def test_troca_gravada_tem_usuario_e_resposta_com_request_id_citacoes_e_marcacoes() -> None:
     final = FinalEvent(answer="Brasília", citations=({"source": "doc", "locator": "p1"},), flags=frozenset({"z", "a"}))
-    usuario, resposta = exchange({"role": "user", "content": "capital?"}, final, request_id="req-7", at=T0)
+    (usuario, resposta), arquivos = exchange({"role": "user", "content": "capital?"}, final, request_id="req-7", at=T0)
+    assert arquivos == ()
 
     assert (usuario.role, usuario.content, usuario.request_id) == ("user", "capital?", "req-7")
     assert (resposta.role, resposta.content, resposta.request_id) == ("assistant", "Brasília", "req-7")
@@ -53,10 +54,10 @@ def test_execucao_com_erro_nao_grava_troca() -> None:
     final = FinalEvent(
         answer="parcial", errors=(ExecutionIssue(stage="generate", kind="ModelCallFailed", message="x"),)
     )
-    assert exchange({"role": "user", "content": "oi"}, final, request_id="req-1", at=T0) == ()
+    assert exchange({"role": "user", "content": "oi"}, final, request_id="req-1", at=T0) == ((), ())
 
 
 def test_apontamento_de_validator_nao_e_falha_e_grava() -> None:
     aviso = ExecutionIssue(stage="validate", kind="ValidatorIssue", message="x", severity="notice")
     final = FinalEvent(answer="ok", errors=(aviso,))
-    assert len(exchange({"role": "user", "content": "oi"}, final, request_id="req-1", at=T0)) == 2
+    assert len(exchange({"role": "user", "content": "oi"}, final, request_id="req-1", at=T0)[0]) == 2

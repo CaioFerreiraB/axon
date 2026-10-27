@@ -926,3 +926,31 @@ token do chat, `no-store`, varredura de segredo); casos da US11 (cen. 1–7) em 
 **Rationale**: SC-011; mesma régua da US9.
 
 **Alternatives considered**: `GET /admin/v1/subjects` (rota nova sem regra própria; ADR-040, item 3).
+
+## R60 — Imagens na borda (ADR-044, itens 5 a 10; FR-040 a FR-044)
+
+**Decision**: `domain/images.py` (puro): `ImageLimits` (32 MiB, 5 MiB, 4), `decode`/`attachment_of` de data URI,
+`read_messages` — a pergunta validada (`_question`, códigos `image_url_not_allowed`, `unsupported_image_type`,
+`invalid_image`, `image_too_large`, `too_many_images`, `param` `messages[i].content[j].image_url.url`), o histórico com
+marcas (`_history`, `_assistant`, que troca o markdown `![…](data:…)` e as partes `image_url` e guarda os bytes só da
+última resposta) —, `with_markers`, `images_markdown`, `summary` e `VisionUnsupported`. `parse_messages` passa a aceitar
+partes e converte as recusas em `ChatRequestInvalid`; `RequestTooLarge` (413) mora em `errors.py`; o `json_body` lê o
+corpo com o teto de `app.state.image_limits` (o `create_app` recebe `image_limits`; a 011 os monta). O `ChatService`
+recusa `vision_unsupported` logo depois do grant, retém as imagens e as emite num token antes do chunk final, e lê do
+banco as imagens da última resposta (`_candidates`). `exchange` devolve as mensagens (texto com marcas e
+`StoredAttachment`) e os bytes; a porta `ConversationStore` ganha `append(..., files=)` e `attachment(owner, id,
+attachment_id)`, com memória e Postgres (`002_attachments.sql`: chave (conversa, seq, posição), FK para a mensagem com
+`ON DELETE CASCADE`). A rota de bytes responde com o `mime`, `Cache-Control: private, no-store` e `nosniff`.
+`models_json`/`models_body` e o corpo do Assistant de usuário leem e escrevem `{model, vision}`; a visão da 003 ganhou
+`yaml_vision`/`effective_vision`. A timeline mostra o desfecho de `image_gate` e o `view_image` do controller (feito
+na passada da 005, R51). A verificação do Open WebUI está na clarificação de 2026-10-22.
+
+**Rationale** ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md)): validar só a pergunta é o que mantém viva a conversa em que o usuário trocou de Assistant; o
+teto do corpo vem antes do JSON porque, com a conversa no cliente, o histórico inteiro com imagens volta a cada turno. O
+markdown com data URI é o que o Open WebUI renderiza e devolve intacto (verificado), e serve a qualquer cliente que
+renderize markdown. Os metadados na leitura e os bytes numa rota própria evitam carregar imagens a cada listagem.
+
+**Alternatives considered**: teto só nas rotas de chat (as outras rotas com corpo ficariam sem limite nenhum);
+guardar o data URI no texto da mensagem (o ADR proíbe; a leitura da conversa viraria megabytes); responder a imagem por
+URL própria (alternativa rejeitada no ADR); recusar parte desconhecida também no histórico (um cliente que mandou
+áudio uma vez travaria a conversa).

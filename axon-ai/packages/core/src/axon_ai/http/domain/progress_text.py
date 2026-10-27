@@ -23,6 +23,7 @@ PROGRESS_LINES: Final[Mapping[str, str]] = MappingProxyType(
         "retrieve": "Consultando os documentos…",
         "rerank": "Ordenando os trechos encontrados…",
         "gate": "Conferindo se os trechos cobrem a pergunta…",
+        "image_gate": "Conferindo se a pergunta é sobre as imagens anteriores…",
         "generate": "Escrevendo a resposta…",
         "validate_answer": "Conferindo a resposta…",
     }

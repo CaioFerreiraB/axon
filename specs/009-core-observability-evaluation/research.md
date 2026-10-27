@@ -615,3 +615,18 @@ pela tabela do ADR-037.
   mestra errada).
 - **Alternatives**: teste ponta a ponta com um Langfuse de verdade (já existe a integração opcional; o nome do serviço se
   prova no exportador em memória).
+
+### R43 — Imagens no trace (ADR-044, itens 3, 8 e 11; FR-024)
+
+- **Decision**: `AttachmentInfo(id, mime, size_bytes)` e `attachment_info(attachment)` em `api.py`; `ToolCall.attachments:
+  tuple[AttachmentInfo, ...] = ()` (sempre no registro, vazio sem imagem); `DecisionAction` ganha `view_image`, e
+  `ControllerDecision.images: tuple[str, ...] | None` — obrigatório (vazio vale) em `view_image` e ausente nas outras
+  ações, então os registros das decisões de antes não mudam. O `model_exchange` não muda de forma: a 006 escreve a marca
+  `[imagem <id>]` no `content` (006 R32). O serializador genérico de `domain/records.py` já cobre os campos novos; o
+  Langfuse os leva como atributos, como os outros eventos do motor.
+- **Rationale** (ADR-017: o trace cresce por eventos e campos aditivos; ADR-044: "trace e uso sem bytes"): o resumo é
+  o mesmo para o trace e para a auditoria (004 R13), e mora aqui porque é o evento da 009 que o leva. `images` como
+  campo próprio, e não em `tool`, mantém a regra "`tool` só na ação `tool`" e não confunde as métricas do harness, que
+  contam decisões por ação.
+- **Alternatives**: ids em `tool` separados por vírgula (misturaria duas coisas num campo que o harness e a 008 leem
+  como nome de tool); evento novo `image_decision` (a decisão é do controller, e o evento dele já existe).

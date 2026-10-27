@@ -56,6 +56,8 @@ arquivo truncado por queda de processo não impede consultar o resto ([research.
  "tool": "financeiro.saldo"}
 {"at": "…", "type": "controller_decision", "request_id": "req-7f3a", "iteration": 3, "action": "limit",
  "reason": "iterations"}
+{"at": "…", "type": "controller_decision", "request_id": "req-c4d0", "iteration": 1, "action": "view_image",
+ "images": ["img-3f9a0c1b2d4e"]}
 {"at": "…", "type": "coverage_gate", "request_id": "req-9b21", "candidates": 20, "passages": 5,
  "best_score": 0.88, "covered": true, "route": "generate"}
 {"at": "…", "type": "retrieval", "request_id": "req-9b21",
@@ -91,3 +93,13 @@ truncado, com a marca `… [truncado: N caracteres]`.
 | `output` | `str` | redigido e cortado igual |
 
 Nunca aparece no JSONL nem na memória (backends primários).
+
+## Imagens (2026-10-22, [ADR-044](../../../docs/adr/ADR-044-imagens-na-conversa.md))
+
+- `tool_call` ganha `attachments`: lista de `{id, mime, size_bytes}` das imagens do resultado (vazia sem imagem);
+  `size_bytes` do evento continua sendo o do texto.
+- `controller_decision` ganha a ação `view_image` e o campo `images`, só nela: os ids escolhidos — um por iteração no
+  loop; os da etapa `image_gate`, de uma vez, possivelmente nenhum.
+- `model_exchange` leva `[imagem <id>]` no lugar de cada imagem de uma mensagem, nunca o data URI.
+
+Nenhum registro leva os bytes de uma imagem.

@@ -14,8 +14,11 @@ from psycopg.types.json import Jsonb
 from psycopg_pool import AsyncConnectionPool
 
 from axon_ai.capabilities.api import AuditEntry, AuditFilter, AuditRecord, AuditStatus
+from axon_ai.observability.api import AttachmentInfo
 
-_COLUMNS = "id, request_id, principal, assistant, tool, kind, arguments, status, result, started_at, finished_at"
+_COLUMNS = (
+    "id, request_id, principal, assistant, tool, kind, arguments, status, result, started_at, finished_at, attachments"
+)
 
 
 def _plain(value: object) -> Any:
@@ -27,7 +30,7 @@ def _plain(value: object) -> Any:
 
 
 def _record(row: Sequence[Any]) -> AuditRecord:
-    record_id, request_id, principal, assistant, tool, kind, arguments, status, result, started, finished = row
+    record_id, request_id, principal, assistant, tool, kind, arguments, status, result, started, finished, images = row
     return AuditRecord(
         id=str(record_id),
         request_id=request_id,
@@ -40,6 +43,7 @@ def _record(row: Sequence[Any]) -> AuditRecord:
         result=result,
         started_at=started,
         finished_at=finished,
+        attachments=tuple(AttachmentInfo(**image) for image in images or ()),
     )
 
 
@@ -67,11 +71,21 @@ class PostgresAuditLog:
         assert row is not None
         return str(row[0])
 
-    async def finish(self, record_id: str, *, status: AuditStatus, result: str, at: datetime) -> None:
+    async def finish(
+        self,
+        record_id: str,
+        *,
+        status: AuditStatus,
+        result: str,
+        at: datetime,
+        attachments: Sequence[AttachmentInfo] = (),
+    ) -> None:
+        images = [{"id": item.id, "mime": item.mime, "size_bytes": item.size_bytes} for item in attachments]
         async with self._pool.connection() as connection:
             cursor = await connection.execute(
-                "UPDATE capabilities.audit SET status = %s, result = %s, finished_at = %s WHERE id = %s",
-                (status, result, at, int(record_id)),
+                "UPDATE capabilities.audit SET status = %s, result = %s, finished_at = %s, attachments = %s "
+                "WHERE id = %s",
+                (status, result, at, Jsonb(images), int(record_id)),
             )
             if cursor.rowcount != 1:
                 raise LookupError(f"registro de auditoria '{record_id}' não existe")

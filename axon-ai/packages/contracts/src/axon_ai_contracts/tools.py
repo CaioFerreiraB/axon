@@ -7,7 +7,15 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
-from axon_ai_contracts._freeze import JSONValue, freeze, freeze_mapping, require_aware, require_non_empty
+from axon_ai_contracts._freeze import (
+    JSONValue,
+    freeze,
+    freeze_mapping,
+    freeze_sequence,
+    require_aware,
+    require_non_empty,
+)
+from axon_ai_contracts.attachments import Attachment
 
 type ToolKind = Literal["retrieval", "mcp", "native"]
 
@@ -54,12 +62,21 @@ class ToolSpec:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ToolResult:
-    """Resultado de tool: sempre dado não-confiável, nunca instrução (princípio VI)."""
+    """Resultado de tool: sempre dado não-confiável, nunca instrução (princípio VI).
+
+    `content` é texto ou JSON; imagens vão em `attachments` (0.2.2, ADR-044), nunca dentro de `content`.
+    """
 
     content: object
     untrusted: bool = True
     truncated: bool = False
     error: str | None = None
+    attachments: tuple[Attachment, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "content", freeze(self.content))
+        attachments = freeze_sequence(self.attachments)
+        for item in attachments:
+            if not isinstance(item, Attachment):
+                raise TypeError(f"attachments só aceita Attachment, recebido {type(item).__name__}")
+        object.__setattr__(self, "attachments", attachments)

@@ -113,6 +113,10 @@ mensagens de erro de segredo nunca contêm o valor.
 | `AXON_MCP_DISCOVERY_TTL` | `300` | segundos de validade do catálogo descoberto de um servidor |
 | `AXON_TOOL_TIMEOUT_MS` | `30000` | prazo do gateway por chamada de tool (1 000–300 000) |
 | `AXON_TOOL_MAX_RESPONSE_BYTES` | `16384` | tamanho máximo do resultado de tool entregue ao modelo (1 024–1 048 576) |
+| `AXON_TOOL_MAX_ATTACHMENT_BYTES` | `2097152` | teto por imagem devolvida por tool; acima, vira marca de omissão (1 024–20 971 520; ADR-044) |
+| `AXON_MAX_REQUEST_BYTES` | `33554432` | teto do corpo de toda rota com JSON; acima, 413 (65 536–268 435 456; ADR-044) |
+| `AXON_MAX_INPUT_IMAGE_BYTES` | `5242880` | teto por imagem na última mensagem do usuário; acima, 400 (1 024–20 971 520; ADR-044) |
+| `AXON_MAX_INPUT_IMAGES` | `4` | imagens na última mensagem do usuário; 0 = nenhuma (0–16; ADR-044) |
 | `AXON_MCP_SECRET_<REF>` | — | valor de uma credencial de MCP referenciada no arquivo por `<ref>`; lido só ao montar a operação, nunca impresso |
 
 O arquivo é lido na etapa `configuration`: ilegível ou malformado para o boot nomeando o arquivo; entrada com problema
@@ -161,6 +165,7 @@ variável. O harness de avaliação (009) não passa pela API e não entra na fi
 | `AXON_LANGFUSE_HOST`, `_PUBLIC_KEY`, `_SECRET_KEY` | — | tudo ou nada; definidas, prevalecem sobre a console (ADR-033) |
 | `AXON_LANGFUSE_CAPTURE_CONTENT` | — | `true`/`false`; definida, prevalece |
 | `AXON_USAGE_TIMEZONE` | `UTC` | fuso IANA padrão do relatório de uso |
+| `AXON_TIMEZONE` | `UTC` | fuso IANA da data de referência que o motor dá ao modelo no loop (005 R50) |
 | `AXON_USAGE_RETENTION_DAYS` | `400` | inteiro ≥ 30 |
 | `AXON_GOOGLE_*`, `AXON_GOOGLE_LOGIN`, `AXON_BOOTSTRAP_ADMIN_*`, `AXON_IDENTITY_SECRET_<REF>` | — | lidas pelas portas de segredo da 012 (ADR-020) |
 

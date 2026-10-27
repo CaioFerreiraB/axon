@@ -31,7 +31,17 @@ from axon_ai.llm.ports import ProbeResult
 from axon_ai.llm.service import ModelRoutingService
 from axon_ai.observability.api import TraceEvent
 from axon_ai.packs.api import Composition, Slices, StreamedValidation, ValidationOutcome, ValidatorRun
-from axon_ai_contracts import ChatMessage, ChatResponse, Chunk, Citation, JSONValue, Message, TurnView, ValidationResult
+from axon_ai_contracts import (
+    Attachment,
+    ChatMessage,
+    ChatResponse,
+    Chunk,
+    Citation,
+    JSONValue,
+    Message,
+    TurnView,
+    ValidationResult,
+)
 
 REQUEST_ID: Final = "req-005-1"
 ASSISTANT: Final = "geral"
@@ -57,12 +67,12 @@ class RecordingTraceSink:
         return [event for event in self.events if isinstance(event, kind)]
 
 
-def models(*, controller: bool = True) -> ModelPolicy:
-    """Geração local e, por default, o controller no provider de teste `ctrl`."""
+def models(*, controller: bool = True, vision: frozenset[str] = frozenset()) -> ModelPolicy:
+    """Geração local e, por default, o controller no provider de teste `ctrl`; `vision` nos papéis pedidos."""
     roles: dict[Any, ModelRef] = {"generation": ModelRef(provider="ollama", model=MODEL)}
     if controller:
         roles["controller"] = ModelRef(provider=CONTROLLER_PROVIDER, model=CONTROLLER_MODEL)
-    return ModelPolicy(roles=roles, allow=("ollama/*", f"{CONTROLLER_PROVIDER}/*"))
+    return ModelPolicy(roles=roles, allow=("ollama/*", f"{CONTROLLER_PROVIDER}/*"), vision=vision)  # type: ignore[arg-type]
 
 
 def Grant(**overrides: Any) -> ExecutionGrant:
@@ -334,8 +344,10 @@ class FakeSession:
         chunks: Mapping[str, Sequence[Chunk]] | None = None,
         unavailable: Mapping[str, str] | None = None,
         failures: Mapping[str, tuple[Literal["error", "timeout"], str]] | None = None,
+        attachments: Mapping[str, Sequence[Attachment]] | None = None,
     ) -> None:
         self._tools = {tool.name: tool for tool in tools}
+        self._attachments = dict(attachments or {})
         self._results = dict(results or {})
         self._chunks = dict(chunks or {})
         self._unavailable = dict(unavailable or {})
@@ -372,7 +384,12 @@ class FakeSession:
         default = rendered(chunks) if tool.kind == "retrieval" else f"resultado {len(self.calls)}"
         content = self._results.get(call.name, default)
         return FencedToolResult(
-            name=call.name, kind=tool.kind, status="ok", text=fenced(call.name, content), chunks=chunks
+            name=call.name,
+            kind=tool.kind,
+            status="ok",
+            text=fenced(call.name, content),
+            chunks=chunks,
+            attachments=tuple(self._attachments.get(call.name, ())),
         )
 
     def fence_chunks(self, name: str, chunks: Sequence[Chunk]) -> FencedToolResult:

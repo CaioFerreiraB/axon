@@ -441,3 +441,22 @@ vezes; nenhum pack existente muda.
 - Dois testes fixavam `0.2.0` (`test_no_old_name.py`, `test_compat_rules.py`); passaram a ler a versão, como na T064.
 - Suítes: contratos 320 passed em 3.14 e em 3.12; diff contra `contracts-v0.2.0` só aditivo, patch; `check_clean_env.py`
   verde; `axon-generic` em ambiente limpo 3.12, 65 passed (a conformidade já exercita o `prepare` herdado).
+
+---
+
+## Passada de 2026-10-22: imagens na conversa ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md); research R34)
+
+**Goal**: contratos `0.2.2` com `Attachment`, `ATTACHMENT_MIME_TYPES`, `ToolResult.attachments` e
+`Message.attachments`; nenhum pack existente muda.
+
+**Independent Test**: a suíte dos contratos em 3.14 e 3.12, `check_clean_env.py` e o diff de superfície contra
+`contracts-v0.2.1` aditivo.
+
+- [X] T086 `attachments.py`: `Attachment` (id do SHA-256, tipo da lista, `alt` limpo) e `ATTACHMENT_MIME_TYPES`;
+  exportados na raiz (R34)
+- [X] T087 `ToolResult.attachments` (`tools.py`) e `Message.attachments` (`view.py`)
+- [X] T088 Versão `0.2.2` (`_version.py`, `pyproject.toml`) e seção `0.2.2` no CHANGELOG
+- [X] T089 [P] Testes: `tests/unit/test_attachments.py` (id determinístico e igual para os mesmos bytes, tipo fora da
+  lista e SVG recusados, `data` vazio ou não `bytes`, limpeza do `alt`, `repr` sem os bytes, `ToolResult` com e sem
+  anexos, item estranho recusado, `Message` com anexos); `test_public_api.py` com os símbolos novos
+- [X] T090 Diff de superfície contra `contracts-v0.2.1`: aditivo, patch

@@ -823,3 +823,26 @@ T107 → T108 ∥ T109 ∥ T110 (veem falhar) → T111 → T112 → T113 → T11
 - À mão (`persistent`, `axon serve`, chave de admin da CLI): rotação pela administração com o mesmo `key_id`; a antiga
   401 e a nova 200 em `/private/v1/health`; revogada → 409 `key_revoked` `param` `key_id`; `PUT …/auth` com o efetivo e
   o YAML na visão; `Cache-Control: no-store`.
+
+
+---
+
+## Passada de 2026-10-22: imagens na API ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md); research R60)
+
+**Goal**: imagem na entrada, na resposta, no histórico recebido e na conversa guardada; teto do corpo.
+
+**Independent Test**: `tests/http/contract/test_http_images.py`, `tests/http/unit/test_http_images_domain.py` e a
+conformidade do `ConversationStore` com imagens, em memória e no Postgres.
+
+- [X] T117 Verificação do Open WebUI v0.12 (stub, Playwright): renderização, histórico intacto, formato do anexo e as
+  telas de 400 e 413 — na clarificação de 2026-10-22
+- [X] T118 `domain/images.py`; `parse_messages` com partes; `RequestTooLarge` e o teto no `json_body`; `image_limits` no
+  `create_app` (R60)
+- [X] T119 `ChatService`: `vision_unsupported`, imagens retidas e emitidas depois do último token, candidatas lidas do
+  banco; `x_axon.attachments`; conteúdo da resposta sem streaming
+- [X] T120 `StoredAttachment`, `exchange` com bytes, porta `append(files=)`/`attachment`, memória, Postgres e
+  `002_attachments.sql`; metadados na leitura e `GET /v1/conversations/{id}/attachments/{attachment_id}`
+- [X] T121 `vision` na sobreposição de `models` (administração) e no Assistant de usuário
+- [X] T122 [P] Testes: entrega em streaming e sem, conversa guardada (marcas, metadados, bytes, 404 alheio), turno
+  seguinte, imagem do usuário, `vision_unsupported`, 413, histórico do Open WebUI; validação da pergunta; conformidade
+  do armazenamento com cascata e expiração; corpos de administração e de Assistant de usuário

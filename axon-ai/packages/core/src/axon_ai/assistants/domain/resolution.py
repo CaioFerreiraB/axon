@@ -56,8 +56,9 @@ def select_models(definition: AssistantDefinition, requested: str | None) -> Mod
     A parte pedida com `/` é `provider/modelo`; sem `/`, é um modelo do provider do `generation` declarado (a forma da
     Fase 1). Vazia, malformada ou fora da allowlist levanta `RequestRejected(field="model")` — antes de qualquer custo.
     """
+    vision = definition.vision & frozenset(definition.roles)
     if requested is None:
-        return ModelPolicy(roles=definition.roles, allow=definition.allow)
+        return ModelPolicy(roles=definition.roles, allow=definition.allow, vision=vision)
     try:
         if "/" in requested:
             ref = ModelRef.parse(requested)
@@ -69,8 +70,11 @@ def select_models(definition: AssistantDefinition, requested: str | None) -> Mod
         allowlist = ", ".join(definition.allow)
         raise RequestRejected(f"modelo não permitido: {ref}; allowlist: {allowlist}", field="model")
     roles = dict(definition.roles)
+    if ref != roles.get("generation"):
+        # `vision` é do modelo declarado: outro modelo pedido na requisição não herda a declaração (R45).
+        vision -= {"generation"}
     roles["generation"] = ref
-    return ModelPolicy(roles=roles, allow=definition.allow)
+    return ModelPolicy(roles=roles, allow=definition.allow, vision=vision)
 
 
 def build_grant(

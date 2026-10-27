@@ -14,14 +14,30 @@ from langgraph.config import get_stream_writer
 from langgraph.runtime import get_runtime
 
 from axon_ai.capabilities.api import ToolCall, ToolContext, ToolSession
-from axon_ai.graph.adapters.langgraph.nodes.common import PROGRESS, finished
+from axon_ai.graph.adapters.langgraph.nodes.common import ATTACHMENT, PROGRESS, finished
 from axon_ai.graph.adapters.langgraph.state import AgentContext, AgentState
 from axon_ai.graph.api import CatalogOutcome, ControllerOutcome, ExecutionIssue, ToolCallsOutcome
-from axon_ai.graph.domain.actions import AnswerAction, InvalidAction, ToolAction, parse_action, response_format
+from axon_ai.graph.domain.actions import (
+    AnswerAction,
+    InvalidAction,
+    ToolAction,
+    ViewImageAction,
+    parse_action,
+    response_format,
+)
 from axon_ai.graph.domain.budget import estimate_tokens, exceeds
 from axon_ai.graph.domain.limits import DecisionKind, after_decision
 from axon_ai.graph.domain.steps import tool_summary
-from axon_ai.graph.domain.transcript import InvalidStep, Step, ToolStep, controller_messages
+from axon_ai.graph.domain.transcript import (
+    InvalidStep,
+    Step,
+    ToolStep,
+    ViewStep,
+    controller_messages,
+    date_instruction,
+    repeats,
+    repeats_view,
+)
 from axon_ai.llm.api import ModelCallFailed
 from axon_ai.observability.api import ControllerDecision, DecisionAction, ExecutionError
 from axon_ai_contracts import RETRIEVAL_FILTERS_KEY, JSONValue
@@ -40,10 +56,23 @@ def _progress(stage: str, detail: str | None = None) -> None:
 
 
 def _decision(
-    state: AgentState, iteration: int, action: DecisionAction, *, tool: str | None = None, reason: str | None = None
+    state: AgentState,
+    iteration: int,
+    action: DecisionAction,
+    *,
+    tool: str | None = None,
+    reason: str | None = None,
+    images: tuple[str, ...] | None = None,
 ) -> str:
     _context().trace.emit(
-        ControllerDecision(request_id=state["request_id"], iteration=iteration, action=action, tool=tool, reason=reason)
+        ControllerDecision(
+            request_id=state["request_id"],
+            iteration=iteration,
+            action=action,
+            tool=tool,
+            reason=reason,
+            images=images,
+        )
     )
     return action
 
@@ -85,11 +114,13 @@ async def open_session(state: AgentState, *, stage: str) -> tuple[ToolSession, l
 
 
 async def load_capabilities(state: AgentState) -> dict[str, Any]:
-    """Abre a sessão (`open_session`); catálogo vazio vai direto à geração, sem chamar o controller (R27)."""
+    """Abre a sessão (`open_session`); catálogo vazio vai direto à geração, sem chamar o controller (R27) — salvo se
+    há imagem candidata: aí o controller decide se ela vai à geração (ADR-044, R51)."""
     _progress(STAGE_LOAD)
     session, issues = await open_session(state, stage=STAGE_LOAD)
     finished(STAGE_LOAD, CatalogOutcome(tools=len(session.tools), unavailable=tuple(session.unavailable)))
-    return {"route": STAGE_CONTROLLER if session.tools else "generate", "errors": issues}
+    decide = bool(session.tools) or bool(_context().images.candidates)
+    return {"route": STAGE_CONTROLLER if decide else "generate", "errors": issues}
 
 
 async def controller(state: AgentState) -> dict[str, Any]:
@@ -102,7 +133,16 @@ async def controller(state: AgentState) -> dict[str, Any]:
     tools = list(session.tools.values())
     done = state.get("iteration", 0)
     iteration = done + 1
-    messages = controller_messages(tools, state.get("messages", ()), state.get("steps", ()))
+    today = date_instruction(state["reference_time"], ctx.timezone)
+    images = tuple(item.id for item in ctx.images.candidates)
+    messages = controller_messages(
+        tools,
+        state.get("messages", ()),
+        state.get("steps", ()),
+        today=today,
+        images=images,
+        send_own=ctx.images.to_controller,
+    )
 
     ceiling = state.get("ceiling")
     if exceeds(messages, ceiling):
@@ -126,7 +166,7 @@ async def controller(state: AgentState) -> dict[str, Any]:
     model = ctx.router.for_role("controller")
     ref = str(model.ref)
     try:
-        response = await model.complete(messages, response_format=response_format(tools))
+        response = await model.complete(messages, response_format=response_format(tools, images))
     except ModelCallFailed as error:
         finished(
             STAGE_CONTROLLER,
@@ -140,7 +180,9 @@ async def controller(state: AgentState) -> dict[str, Any]:
         issue = ExecutionIssue(stage=STAGE_CONTROLLER, kind=type(error).__name__, message=str(error))
         return {"iteration": iteration, "route": "generate", "errors": [issue]}
 
-    action = parse_action(response["message"].get("content"))
+    action = parse_action(response["message"].get("content"), images)
+    if isinstance(action, ViewImageAction):
+        return {"iteration": iteration} | _view(state, iteration, ref, action.id)
     if isinstance(action, AnswerAction):
         finished(STAGE_CONTROLLER, ControllerOutcome(iteration=iteration, model=ref, action="answer"))
         return {"iteration": iteration, "route": "generate", "decisions": [_decision(state, iteration, "answer")]}
@@ -151,10 +193,29 @@ async def controller(state: AgentState) -> dict[str, Any]:
                 iteration=iteration, model=ref, action="tool", tool=action.name, arguments=action.arguments
             ),
         )
+        call = ToolCall(name=action.name, arguments=action.arguments)
+        if repeats(call, state.get("steps", ())):
+            # O resultado já está na transcrição: repetir só gastaria iteração. Vai à geração com o que há (R50).
+            return {
+                "iteration": iteration,
+                "route": "generate",
+                "decisions": [_decision(state, iteration, "tool", tool=action.name)],
+                "errors": [
+                    ExecutionIssue(
+                        stage=STAGE_CONTROLLER,
+                        kind="RepeatedAction",
+                        message=(
+                            f"iteração {iteration}: '{action.name}' pedida de novo com os mesmos argumentos; a "
+                            "resposta foi gerada com o que havia"
+                        ),
+                        severity="notice",
+                    )
+                ],
+            }
         return {
             "iteration": iteration,
             "route": STAGE_EXECUTE,
-            "pending": ToolCall(name=action.name, arguments=action.arguments),
+            "pending": call,
             "decisions": [_decision(state, iteration, "tool", tool=action.name)],
         }
     # A iteração conta mesmo inválida (US2 cen. 3): sem isso, um controller que só erra rodaria sem fim (SC-002).
@@ -180,10 +241,42 @@ async def execute_tool(state: AgentState) -> dict[str, Any]:
     _progress(STAGE_EXECUTE, call.name)
     result = await ctx.tools.get().execute(call)
     finished(STAGE_EXECUTE, ToolCallsOutcome(calls=(tool_summary(call, result),)))
+    # As imagens da tool vão ao usuário, uma vez por `id` na execução, depois do desfecho da etapa (ADR-044, item 4).
+    seen = {item.id for item in state.get("attachments", ())}
+    fresh = [item for item in result.attachments if item.id not in seen]
+    writer = get_stream_writer()
+    for item in fresh:
+        writer({"kind": ATTACHMENT, "attachment": item, "tool": call.name})
     iteration = state.get("iteration", 0)
     return _after(state, "tool", iteration, step=ToolStep(iteration=iteration, call=call, result=result)) | {
-        "pending": None
+        "pending": None,
+        "attachments": fresh,
     }
+
+
+def _view(state: AgentState, iteration: int, model: str, image: str) -> dict[str, Any]:
+    """`view_image`: marca a imagem para a geração e conta como iteração; a mesma imagem de novo segue a regra da ação
+    repetida (R50) e vai à geração (ADR-044, item 8)."""
+    finished(STAGE_CONTROLLER, ControllerOutcome(iteration=iteration, model=model, action="view_image", image=image))
+    decision = _decision(state, iteration, "view_image", images=(image,))
+    if repeats_view(image, state.get("steps", ())):
+        return {
+            "route": "generate",
+            "decisions": [decision],
+            "errors": [
+                ExecutionIssue(
+                    stage=STAGE_CONTROLLER,
+                    kind="RepeatedAction",
+                    message=(
+                        f"iteração {iteration}: a imagem {image} pedida de novo; a resposta foi gerada com o que havia"
+                    ),
+                    severity="notice",
+                )
+            ],
+        }
+    return _after(
+        state, "view_image", iteration, step=ViewStep(iteration=iteration, image=image), decision=decision
+    ) | {"viewed": [image]}
 
 
 def _invalid(iteration: int, action: InvalidAction) -> ExecutionIssue:

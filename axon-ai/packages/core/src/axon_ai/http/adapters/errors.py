@@ -17,7 +17,7 @@ from axon_ai.assistants.api import (
     RequestRejected,
 )
 from axon_ai.graph.api import ExecutionRequestInvalid
-from axon_ai.http.domain.errors import ErrorResponse, InvalidRequest, Overloaded, error_for
+from axon_ai.http.domain.errors import ErrorResponse, InvalidRequest, Overloaded, RequestTooLarge, error_for
 from axon_ai.mcp.api import UnknownServer
 
 
@@ -59,5 +59,6 @@ def install(app: FastAPI) -> None:
         RateLimited,
         UnknownServer,
         Overloaded,
+        RequestTooLarge,
     ):
         app.add_exception_handler(kind, _known)
