@@ -621,3 +621,12 @@ inclusive os vetores do e5.
 | regras do POR sem corpo | 108/197 | 0/197 |
 | > 512 tokens do e5 | 12,9% | 2,1% |
 | tokens p50/p95/p99 | 145/578/684 | 218/468/563 |
+
+## R30 — O Ramo Filhotes ([ADR-045](../../docs/adr/ADR-045-filhotes-e-consulta-multifaceta-no-scouting.md))
+
+- **Decision**: `filhotes` em `BRANCHES`, primeiro (a ordem das idades); o catálogo aceita `branch: filhotes`, e os três
+  documentos do Ramo Filhotes (Manual do Escotista, Começando uma Ninhada e Competências e Rotas de Aprendizagem) o
+  declaram. A reingestão só muda metadados: os vetores são reaproveitados.
+- **Rationale**: sem o id, os documentos de Filhotes eram gerais — entravam em toda busca filtrada por outro ramo — e
+  uma pergunta sobre Filhotes não filtrava.
+- **Alternatives**: nenhum.

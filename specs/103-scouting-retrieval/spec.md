@@ -31,6 +31,12 @@
 
 - Q: Com qual modelo a pergunta é codificada depois do [ADR-043](../../docs/adr/ADR-043-indice-do-scouting-gerado-no-desenvolvimento.md)? → A: Com o embedder da configuração do pack (`e5`, `pplx` ou `hashing`), o mesmo dos vetores carregados do artefato; a combinação errada é `IndexMismatch`, como antes. Falha do embedder remoto (sem a chave, provedor fora) é falha da recuperação: o `rag_first` encerra sem gerar (005). O retriever não muda.
 
+### Session 2026-10-27
+
+Revisão do RAG ([relatório](../../docs/revisao-rag-scouting-2026-10.md)) e [ADR-045](../../docs/adr/ADR-045-filhotes-e-consulta-multifaceta-no-scouting.md).
+
+- Q: Como o retriever atende uma pergunta sobre vários ramos, se o core entrega os primeiros trechos na ordem do reranker? → A: Com `branches` nos filtros, uma busca por ramo — a pergunta seguida de "Ramo X", com o filtro do ramo e o limite inteiro (o índice corta as listas antes da fusão) —, guardando de cada uma a sua parte do `top_k`; o resultado intercala as facetas, sem repetir trecho, com a faceta e a posição nos metadados, e o `MetadataReranker` reconstrói essa ordem: os primeiros trechos são um de cada ramo.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Busca híbrida com fusão na própria base (Priority: P1)
@@ -105,6 +111,28 @@ Os filtros de ramo e tipos de documento publicados por 101 restringem a busca.
 
 ---
 
+### User Story 6 - Um trecho de cada ramo pedido (Priority: P1)
+
+Uma pergunta sobre vários ramos recebe, nos primeiros trechos, um de cada ramo pedido, e não os mais parecidos com a
+pergunta inteira.
+
+**Why this priority**: Medido na revisão do RAG: na busca única, uma ou duas facetas de cinco chegavam à geração; com
+uma subbusca por ramo, a evidência fica em primeiro dentro do ramo em 9 de 10 combinações de marco simbólico e lema.
+
+**Independent Test**: Com `branches`, o resultado intercala os ramos (o primeiro de cada um antes do segundo de
+qualquer um), sem trecho repetido, e a ordem sobrevive ao reranker.
+
+**Acceptance Scenarios**:
+
+1. **Given** `branches = [escoteiro, pioneiro]` e `top_k = 6`, **When** busca, **Then** os dois primeiros são o
+   primeiro de cada ramo, e nenhum trecho aparece duas vezes.
+2. **Given** um trecho geral achado pelas duas facetas, **When** busca, **Then** ele fica só na primeira, e a segunda
+   também tem uma posição 0.
+3. **Given** `branches` com um ramo só, repetido ou desconhecido, ou junto de `branch`, **When** busca, **Then**
+   `InvalidFilters` nomeando `branches`.
+
+---
+
 ### Edge Cases
 
 - Nenhum resultado após filtros: retorna vazio — o portão do core escala (spec 005).
@@ -126,6 +154,7 @@ Os filtros de ramo e tipos de documento publicados por 101 restringem a busca.
 - **FR-008**: Quantidades DEVEM ser configuráveis e calibradas pela spec 105: a 103 configura quantos trechos devolve quando o chamador não diz (`default_limit`) e o teto do que aceita (`max_limit`); o número de candidatos e o N após o rerank chegam do chamador (`top_k` — a 005 no `rag_first`).
 - **FR-009**: Os temas (`topics`) recebidos nos filtros NÃO DEVEM restringir nem reforçar a busca na v1; o retriever usa só vigência, ramo e tipos de documento.
 - **FR-010**: A busca DEVE codificar a pergunta com o embedder escolhido na configuração do pack, e uma falha dele DEVE chegar ao core como falha da recuperação, sem resultado parcial.
+- **FR-011**: Com `branches` nos filtros, o retriever DEVE fazer uma busca por ramo (a pergunta seguida do nome do ramo, com o filtro dele), repartir o `top_k` entre as facetas e intercalá-las sem repetir trecho; a ordem (posição na faceta, ordem da faceta, depois a da FR-005) DEVE ir nos metadados, para o reranker reconstruí-la ([ADR-045](../../docs/adr/ADR-045-filhotes-e-consulta-multifaceta-no-scouting.md)).
 
 ### Key Entities
 

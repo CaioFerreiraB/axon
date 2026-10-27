@@ -42,7 +42,7 @@ seleção.
 | F6 | 102 | `Chunk.page = page_start`: em trecho de duas páginas a frase pode estar na segunda (Filhotes `cap3@p46~2` cita p. 46, frase na 47). | `rag/index/api.py` (`to_chunk`) |
 | F7 | 101/102/103 | Filhotes não é ramo (`BRANCHES` e léxico têm 4); os documentos de Filhotes são "gerais" e entram em toda busca filtrada por outro ramo. | `rag/index/api.py`; `context/lexicon.py` |
 | F8 | 101 | Pergunta com vários ramos ou "cada ramo" → nenhum filtro; não há noção de pergunta com várias facetas. | `context/derivation.py` (`_branch`) |
-| F9 | 102/103 | Precedência editorial ausente: os quatro "Competências e Rotas de Aprendizagem" (2019, "PRELIMINAR") estão vigentes e trazem formulações diferentes do manual de 2026 e do POR (Escoteiro "Explorar novos territórios…", Pioneiro "Tenho um projeto para a minha vida"). | `corpus.yaml` |
+| F9 | curadoria | Os quatro "Competências e Rotas de Aprendizagem" de 2019 estão vigentes e trazem formulações diferentes do manual de 2026 e do POR (Escoteiro "Explorar novos territórios…", Pioneiro "Tenho um projeto para a minha vida"). *Corrigido em 2026-10-27:* "PRELIMINAR" neles é o nome de um nível de competência, não a marca de uma edição provisória; se o documento de 2019 foi substituído pelo manual é decisão de curadoria, que o catálogo já expressa (`supersedes`, datas) — não há precedência a criar em código (ADR-045). | `corpus.yaml` |
 | F10 | 103 | **O reranker não lê a pergunta**: devolve a ordem da fusão com desempate por metadados. `rerank_gain` é 0 por construção. | `rag/retrieval/reranker.py`; `domain/ordering.py` |
 | F11 | 103 | Densa e esparsa cortadas em `limit` antes do RRF; consulta sem termo esparso devolve vazio mesmo com a densa. | `rag/index/adapters/memory.py` |
 | F12 | 004/005 | O `rag_first` pede 20 candidatos e o gateway os renderiza em 16.384 bytes: **20 viram 10–14** antes do rerank. Hoje não muda nada (o reranker mantém a ordem da fusão); passa a anular "mais candidatos" assim que houver um reranker que leia a pergunta. Os candidatos não vão ao modelo — só os entregues passam pela cerca. | `graph/adapters/langgraph/nodes/rag.py` (`retrieve`); `capabilities/service.py` (`_chunks_outcome`) |
@@ -129,9 +129,9 @@ o pplx.
 | **103** | Decomposição por faceta no retriever (uma subbusca por ramo, cota por faceta no top-N); reranker v2/v3 que lê a pergunta, escolhido por medição (RAM, latência, ganho); colapso de quase-duplicatas; precedência editorial como desempate; densa mesmo sem termo esparso. | ADR do pack; ADR da escolha do reranker |
 | **Core** *(condicional)* | Candidatos do `rag_first` fora do limite de resposta do gateway (o corte e a cerca só nos entregues); `AXON_RAG_PASSAGES` 8–10 se a medição pedir. Portão inalterado: suficiência por faceta é domínio. | ADR novo (seam 004 → 005), só se o reranker provar ganho com mais candidatos |
 
-**ADR do pack** — "Ramo Filhotes, consulta multifaceta e precedência editorial no scouting": `BRANCHES` e metadados do
-índice (102), `retrieval_filters` com `branches` (101 → 103, com `contracts/retrieval-filters.md`) e o campo de
-precedência do catálogo (contrato do catálogo da 102). O contrato 001 não muda; opcionais, cada um com ADR próprio:
+**ADR do pack** — [ADR-045](adr/ADR-045-filhotes-e-consulta-multifaceta-no-scouting.md), "Ramo Filhotes e pergunta sobre
+vários ramos no scouting": `BRANCHES` e o catálogo (102), `retrieval_filters` com `branches` (101 → 103, com
+`contracts/retrieval-filters.md`). A precedência editorial saiu: o F9 era uma leitura errada. O contrato 001 não muda; opcionais, cada um com ADR próprio:
 `EvalChunk.text` para os entregues e página final no `Chunk` (F6). Nenhum ADR aceito é editado.
 
 ## 7. Ordem, dependências e aceite
@@ -143,8 +143,12 @@ precedência do catálogo (contrato do catálogo da 102). O contrato 001 não mu
    regras não ficam numa coluna lateral, mas acima de cada corpo, desenhados depois da página. A semente achou o
    próprio erro — o Sinal de Promessa é a Regra 160, não a 159 — e perdeu s09, cujo trecho perdeu o capítulo que vinha
    do cabeçalho corrido (pendência da 102, R29).
-3. **ADR do pack + 101/103 — Filhotes e facetas** (depois de 2). Aceite: agregados ≥ 4/5 com até 10 trechos; o mesmo
-   para lemas e faixas etárias; perguntas de um ramo sem piora.
+3. **ADR do pack + 101/103 — Filhotes e facetas** *(feita, [ADR-045](adr/ADR-045-filhotes-e-consulta-multifaceta-no-scouting.md))*.
+   Um trecho de cada ramo nos primeiros entregues, com os 5 trechos do default; `fact_recall` 0,75 → 0,81, "dos 5
+   ramos" e "dos cinco ramos" 0,8 (≥ 4/5), lema de cada ramo 0,8, perguntas de um ramo sem piora, semente sem
+   regressão. Abaixo do aceite: "de cada ramo" e os cinco nomeados (0,4) e as faixas etárias (0) — dentro da faceta, a
+   fusão põe em primeiro a definição genérica, e as faixas etárias estão no POR, que é geral. Precedência editorial saiu
+   do escopo (F9 corrigido).
 4. **103 — reranker** (depois de 1–3). Aceite: agregados 5/5, `rerank_gain` > 0, latência e RAM no orçamento da VM.
 5. **Core** (só se 4 mostrar ganho com mais candidatos).
 6. **101 — prompt** (em paralelo a 2). Aceite, nas rodadas manuais com modelo real e juiz: nenhuma afirmação de

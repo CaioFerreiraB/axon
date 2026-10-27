@@ -24,7 +24,8 @@ a US5.
 
 | Parte | Forma | Regra |
 |---|---|---|
-| `branches` | id → termos | ids: `lobinho`, `escoteiro`, `senior`, `pioneiro`; termos não ambíguos, com plural, feminino e sinônimos antigos e regionais |
+| `branches` | id → termos | ids: `filhotes`, `lobinho`, `escoteiro`, `senior`, `pioneiro` (`filhotes` desde o ADR-045); termos não ambíguos, com plural, feminino e sinônimos antigos e regionais |
+| `all_branches` | termos | marcadores de totalidade ("cada ramo", "os ramos", "5 ramos"…): as facetas são os cinco ramos (ADR-045) |
 | `ambiguous` | termos | casam e não aplicam filtro de ramo (ex.: "escoteiro" sozinho, "patrulha") |
 | `topics` | id → (termos, tipos sugeridos) | cerca de 15 temas (ex.: `lideranca`, `progressao`, `especialidades`, `promessa_e_lei`) |
 | `document_types` | id → termos | ids na ordem: `manual`, `programa_educativo`, `por`, `resolucao`, `estatuto`, `guia` |

@@ -49,6 +49,7 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 | [042](ADR-042-instalacao-por-camadas.md) | Instalação por camadas: imagens base da plataforma e um repositório por instalação (substitui o 022) | Aceita | 002, 011 |
 | [043](ADR-043-indice-do-scouting-gerado-no-desenvolvimento.md) | O índice do scouting é gerado no desenvolvimento e distribuído com o pack, com vetores de mais de um modelo | Aceita | 102, 103, 101, 105 |
 | [044](ADR-044-imagens-na-conversa.md) | Imagens na conversa: as que as tools devolvem e as que o usuário envia | Aceita | 001, 002, 003, 004, 005, 006, 007, 008, 009, 011, 013 |
+| [045](ADR-045-filhotes-e-consulta-multifaceta-no-scouting.md) | Ramo Filhotes e pergunta sobre vários ramos no scouting | Aceita | 101, 102, 103, 105 |
 
 ## Modelo para ADR novo
 

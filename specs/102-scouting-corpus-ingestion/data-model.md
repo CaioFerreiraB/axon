@@ -11,7 +11,7 @@ codificação, em `rag/index/ports.py`; os do pipeline, em `rag/ingestion/`. Tod
 | `STATUS_LABELS` | `vigente` → "vigente", `revogado` → "revogado", `substituido` → "substituído", `rascunho` → "rascunho" | para quem exibe (104) |
 | `DocumentType` | `por`, `resolucao`, `estatuto`, `manual`, `programa_educativo`, `guia` | FR-002, clarificação 3 |
 | `NORMATIVE_TYPES` | `por`, `resolucao`, `estatuto` | FR-002 |
-| `BRANCHES` | `lobinho`, `escoteiro`, `senior`, `pioneiro` | ids da 101 (R3) |
+| `BRANCHES` | `filhotes`, `lobinho`, `escoteiro`, `senior`, `pioneiro` | ids da 101 (R3; `filhotes` desde o ADR-045) |
 
 ## Corpus Catalog → `CatalogEntry` (`ingestion/domain/catalog.py`)
 

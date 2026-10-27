@@ -54,6 +54,12 @@
 - Q: O que a configuração do pack escolhe depois do [ADR-043](../../docs/adr/ADR-043-indice-do-scouting-gerado-no-desenvolvimento.md)? → A: O índice e o modelo. `store: memory` (default) carrega o artefato do pacote (ou o de `index_dir`) em memória; `store: qdrant` usa o Qdrant (`qdrant_url` ou `qdrant_path`, `index`), e esses campos só valem com ele. `embedder: e5 | pplx | hashing` (default `e5`); a pergunta é codificada com o mesmo modelo dos vetores, e a combinação errada é recusada na busca. A chave do `pplx` vem só de `AXON_SCOUTING_EMBEDDING_API_KEY`, e a falta dela aparece na busca, não na carga — o `packs check` do build não tem segredos.
 - Q: Que versões saem? → A: O pack `0.5.0` (a configuração muda de default: sem Qdrant), com `contract_version` "0.2.1" e `axon-ai-contracts>=0.2.1,<0.3`, resolvidos pela tag `v0.7.0-rc4`.
 
+### Session 2026-10-27
+
+Revisão do RAG ([relatório](../../docs/revisao-rag-scouting-2026-10.md)) e [ADR-045](../../docs/adr/ADR-045-filhotes-e-consulta-multifaceta-no-scouting.md).
+
+- Q: Como a derivação trata o Ramo Filhotes e uma pergunta sobre vários ramos? → A: `filhotes` é um ramo do léxico (filhote, filhotes, ramo filhotes, ninhada, ninhadas). Dois ramos ou mais casados, ou um marcador de totalidade ("cada ramo", "os ramos", "5 ramos"…, com os cinco ramos), viram **facetas**: `branches` no contexto e nos `retrieval_filters`, na ordem do léxico, e nenhum `branch`. Um ramo só continua `branch`; termo ambíguo continua não filtrando.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Pack carregado e respondendo com instruções de domínio (Priority: P1)
@@ -152,6 +158,26 @@ A plataforma passa a se chamar Axon (ADR-037). O operador instala `axon-scouting
 
 ---
 
+### User Story 7 - Pergunta sobre vários ramos e o Ramo Filhotes (Priority: P1)
+
+Quem pergunta sobre os cinco ramos ("de cada ramo", "dos 5 ramos") ou compara dois recebe a resposta de cada ramo
+pedido, e uma pergunta sobre Filhotes busca nos documentos de Filhotes.
+
+**Why this priority**: A revisão do RAG de 2026-10-27 começou numa pergunta sobre os cinco ramos que chegava à geração
+com um ramo só, e o Ramo Filhotes, regulado pelo POR 2025, não tinha id.
+
+**Independent Test**: A derivação devolve `branches` com os ramos pedidos e nenhum `branch`; no conjunto de regressão
+da 105, a `context_accuracy` dos itens com facetas é 1 e o `fact_recall` dos agregados sobe.
+
+**Acceptance Scenarios**:
+
+1. **Given** "Qual o marco simbólico dos 5 ramos?", **When** derivado, **Then** `branches` traz os cinco ramos e não
+   há `branch`.
+2. **Given** uma comparação entre o Lobinho e o Sênior, **When** derivada, **Then** `branches` é `[lobinho, senior]`.
+3. **Given** "Quantas crianças cabem numa ninhada?", **When** derivada, **Then** `branch` é `filhotes`.
+
+---
+
 ### Edge Cases
 
 - Termos ambíguos de ramo (formas antigas ou regionais): o léxico mapeia sinônimos; na dúvida, não aplica filtro.
@@ -187,10 +213,11 @@ A plataforma passa a se chamar Axon (ADR-037). O operador instala `axon-scouting
 - **FR-018**: O pack DEVE implementar o hook `prepare` ([ADR-041](../../docs/adr/ADR-041-o-pack-prepara-os-proprios-dados-no-build.md)): com o embedder `e5`, baixar o modelo fixado em `embedding_dir` ou `data_dir/e5-small`, de forma idempotente; com outro embedder, não fazer nada. Sem `data_dir` nem `embedding_dir`, o `e5` DEVE ser recusado nomeando `AXON_PACKS_DATA_DIR`.
 - **FR-019**: A configuração DEVE oferecer `store` (`memory`, default, ou `qdrant`), `index_dir` (só com `memory`; default, o artefato do pacote) e `embedder` (`e5`, `pplx` ou `hashing`); campos do Qdrant fora de `store: qdrant` e `index_dir` fora de `store: memory` DEVEM ser recusados nomeando o campo. Com `memory`, a carga DEVE recusar um diretório sem artefato ([ADR-043](../../docs/adr/ADR-043-indice-do-scouting-gerado-no-desenvolvimento.md)).
 - **FR-020**: A chave do embedder remoto DEVE vir só de `AXON_SCOUTING_EMBEDDING_API_KEY`; a carga NÃO DEVE exigi-la, e nenhuma mensagem DEVE trazer o valor.
+- **FR-021**: O léxico DEVE ter o Ramo Filhotes (`filhotes`) e os marcadores de totalidade; a derivação DEVE publicar `branches` — dois ramos ou mais, na ordem do léxico; com o marcador, os cinco — no contexto e nos `retrieval_filters`, e então nenhum `branch` ([ADR-045](../../docs/adr/ADR-045-filhotes-e-consulta-multifaceta-no-scouting.md)).
 
 ### Key Entities
 
-- **Scouting Context**: ramo, tema, tipos de documento, vigência (intervalo: início e fim), inclusão de revogados — gravado na fatia do pack.
+- **Scouting Context**: ramo ou facetas (`branches`, ADR-045), tema, tipos de documento, vigência (intervalo: início e fim), inclusão de revogados — gravado na fatia do pack.
 - **Domain Lexicon**: ramos, sinônimos, temas, tipos de documento.
 
 ## Success Criteria *(mandatory)*

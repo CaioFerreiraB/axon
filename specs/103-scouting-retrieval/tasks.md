@@ -292,3 +292,9 @@ Task: "tests/rag/retrieval/test_reranker.py — US4 (T016)"
 ## Passada de 2026-10-21 ([ADR-043](../../docs/adr/ADR-043-indice-do-scouting-gerado-no-desenvolvimento.md); research R12)
 
 - [X] T025 Nada a mudar no retriever; a composição do embedder é da 101 (T073) e a prova, da integração do `rag_first`
+
+## Passada de 2026-10-27 (revisão do RAG; research R13; [ADR-045](../../docs/adr/ADR-045-filhotes-e-consulta-multifaceta-no-scouting.md))
+
+- [X] T026 [US6] `facets` em `domain/filters.py`; `_by_facet` e `BRANCH_NAMES` em `retriever.py`; `facet_rank` e
+  `facet_order` na chave de `domain/ordering.py`; casos em `tests/rag/retrieval/test_retriever.py` (intercalação,
+  sem repetir, posição 0 em toda faceta, a ordem depois do reranker, facetas inválidas).

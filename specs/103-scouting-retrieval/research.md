@@ -179,3 +179,26 @@ da 005, o N do rerank e o limiar do portão.
 - **Rationale** (ADR-043, itens 3 e 5): o seam do índice esconde o modelo; a 103 só precisava não engolir a exceção, e
   não engole.
 - **Alternatives**: degradar para o esparso sem o denso (mudaria a fusão e esconderia a falha).
+
+---
+
+## Passada de 2026-10-27 (revisão do RAG; [ADR-045](../../docs/adr/ADR-045-filhotes-e-consulta-multifaceta-no-scouting.md))
+
+## R13 — Busca por faceta
+
+- **Decision**: `domain/filters.py` aceita `branches` (dois ids ou mais, sem repetir, nunca com `branch`) e o expõe
+  por `facets(raw)`; `index_filters` continua dando os filtros do índice. `ScoutingRetriever._by_facet`: para cada ramo,
+  `index.search(f"{pergunta} Ramo {nome}", filters=… branch=ramo, limit=top_k)`, guardando os primeiros
+  `ceil(top_k / facetas)` que nenhuma faceta anterior levou; marcas `facet`, `facet_rank` (posição entre os guardados)
+  e `facet_order` nos metadados. `ordering.sort_key` começa por `(facet_rank, facet_order)` — zero sem facetas —, então
+  o `MetadataReranker` devolve um de cada ramo antes do segundo de qualquer um. `BRANCH_NAMES` dá o nome do ramo.
+- **Rationale**: medido no índice de 2026-10-27 (E10 da revisão refeito): com "pergunta + Ramo X" e o filtro, a
+  evidência do marco simbólico e do lema fica em 1º lugar em 9 de 10 combinações; reescrever a pergunta ("do Ramo X")
+  não ganha nada. Com o limite repartido na busca, o 1º lugar mudava (o índice corta as listas densa e esparsa no limite
+  antes do RRF), e o ganho caía de 0,82 para 0,79 no `fact_recall`. A posição conta só os guardados: um trecho geral
+  levado pela faceta anterior não pode tirar a posição 0 de outra.
+- **Efeito** (105, regressão): `fact_recall` 0,75 → 0,81; "dos 5 ramos" e "dos cinco ramos" 0,8. "De cada ramo" e os
+  cinco nomeados ficam em 0,4: dentro da faceta, a fusão põe em primeiro a definição genérica ("O Marco Simbólico é um
+  conjunto…") — a seleção que lê a pergunta é do reranker v2/v3.
+- **Alternatives**: um único índice com filtro "algum destes ramos" (devolve os mais parecidos, como antes);
+  decompor no core (o ramo é domínio, princípio I).

@@ -564,3 +564,9 @@ T063 → T064 → T065 → T066 ∥ T067 (veem falhar) → T068 → T069 → T07
   `rag_first` sobre um artefato (R34)
 - [X] T075 [P] `README.md` do pack (instalação sem serviço, os dois embedders), `eval/packs.yaml` sem Qdrant e
   `eval/packs-pplx.yaml`
+
+## Passada de 2026-10-27 (revisão do RAG; research R35; [ADR-045](../../docs/adr/ADR-045-filhotes-e-consulta-multifaceta-no-scouting.md))
+
+- [X] T076 [US7] `filhotes` e `all_branches` em `context/lexicon.py`; `ScoutingContext.branches` e `to_slice` em
+  `context/derivation.py`; casos em `tests/test_derivation.py` e `tests/test_lexicon.py`; o contrato
+  `retrieval_filters` com `branches`.

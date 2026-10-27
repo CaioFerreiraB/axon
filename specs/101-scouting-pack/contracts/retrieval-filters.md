@@ -2,7 +2,7 @@
 
 Interno ao repositório `axon-scouting`: produzido pela derivação de contexto (101) em `prepare_context`, consumido pelo
 retriever da 103 (Fase 5), que o recebe do core pelo campo `filters` do contrato `Retriever` (001 — só da fatia do
-próprio pack, nunca do modelo). Decisões em [research.md](../research.md) R8 e R12.
+próprio pack, nunca do modelo). Decisões em [research.md](../research.md) R8, R12 e R35; facetas e Filhotes no [ADR-045](../../../docs/adr/ADR-045-filhotes-e-consulta-multifaceta-no-scouting.md).
 
 ```json
 {
@@ -18,7 +18,8 @@ próprio pack, nunca do modelo). Decisões em [research.md](../research.md) R8 e
 
 | Chave | Tipo | Presença | Significado para a recuperação |
 |---|---|---|---|
-| `branch` | string (id de ramo) | só com ramo derivado | restringe ao ramo |
+| `branch` | string (id de ramo) | só com um ramo derivado | restringe ao ramo |
+| `branches` | lista de ids de ramo (dois ou mais) | só com facetas derivadas; nunca junto de `branch` | uma busca por ramo, intercaladas (ADR-045) |
 | `topics` | lista de ids de tema | só se não vazia | sinal de relevância (a 103 decide filtro ou reforço) |
 | `document_types` | lista de ids de tipo | só se não vazia | restringe aos tipos |
 | `effective_from`, `effective_until` | data ISO | sempre | documentos vigentes em **algum** momento do intervalo, inclusivo |
@@ -27,3 +28,5 @@ próprio pack, nunca do modelo). Decisões em [research.md](../research.md) R8 e
 
 Regras: valores são ids do léxico do pack (ASCII, `_`); ordem estável (a do léxico); nenhuma chave nova sem atualizar
 este contrato e a 103. Mudança aqui é mudança interna do pack — não é seam do core.
+
+Ids de ramo: `filhotes`, `lobinho`, `escoteiro`, `senior`, `pioneiro` (a ordem das idades e do léxico).

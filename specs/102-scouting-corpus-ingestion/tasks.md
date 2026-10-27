@@ -534,3 +534,5 @@ Task: "ingestion/adapters/pdfium.py (T033)"
   `tests/rag/index/test_artifact.py` (R29).
 - [X] T066 [US6] Preparo do corpus inteiro antes/depois, `reindex` com o e5 e `tests/rag/ingestion/test_artifact_quality.py`
   (SC-006, R29).
+- [X] T068 `filhotes` em `BRANCHES` e `branch: filhotes` nos três documentos do Ramo Filhotes no catálogo; `ingest`
+  (só metadados) (R30).

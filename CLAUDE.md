@@ -317,8 +317,11 @@ texto bruto (o original), a ordem de leitura pela geometria das linhas (`domain/
 para baixo numa página de uma coluna) — o POR desenha o título de cada regra depois do corpo da página —, a limpeza
 tira blocos corridos de várias linhas e o U+FFFE do PDFium, nenhum trecho fica só com título, e as janelas são
 `estrutural-v2;janela=250-450`; o artefato (15.504 trechos, só e5) tem invariantes em
-`tests/rag/ingestion/test_artifact_quality.py`, e o `fact_recall` foi a 0,75. Próximos: ADR do pack (Filhotes,
-facetas, precedência) e 101/103.
+`tests/rag/ingestion/test_artifact_quality.py`, e o `fact_recall` foi a 0,75. E o ADR-045: `filhotes` é ramo (léxico,
+`BRANCHES`, catálogo); a derivação publica `branches` (dois ramos ou mais, ou "cada ramo"/"os 5 ramos" → os cinco) em
+vez de `branch`, e o `ScoutingRetriever` faz uma busca por ramo, intercaladas com `facet_rank`/`facet_order` nos
+metadados, que o `MetadataReranker` respeita — `fact_recall` 0,81. Próximo: o reranker que lê a pergunta (103 v2/v3),
+escolhido por medição; depois o prompt (101).
 
 **A Fase 7 do roadmap está completa.** Da 008 (US6, US8), a API pronta para o Open WebUI: admissão
 (`domain/admission.py`, puro; `ExecutionSlots` no `service.py`, vagas e fila FIFO em memória, por processo) entre a

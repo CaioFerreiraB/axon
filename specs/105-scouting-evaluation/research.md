@@ -228,3 +228,12 @@ Qwen3 1.7B, Gemma 4 E2B) ficam como estão.
   que uma correção acerte só a pergunta do exemplo. Os fatos de lema e faixa etária estão só no POR, então os itens
   medem também o defeito da ingestão das regras.
 - **Alternatives**: acrescentar os itens à semente (a semente tem 8–12 itens e será trocada pela curadoria, FR-001).
+
+## R16 — `branches` no contexto esperado ([ADR-045](../../docs/adr/ADR-045-filhotes-e-consulta-multifaceta-no-scouting.md))
+
+- **Decision**: `CONTEXT_FIELDS` e a derivação refeita ganham `branches` (comparado como conjunto); a validação da
+  semente aceita só ids do léxico; os agregados e o comparativo do conjunto de regressão declaram as facetas, e a
+  `context_accuracy` desses 7 itens é 1,0 na linha de base de 2026-10-27 (`fact_recall` 0,81).
+- **Rationale**: a busca por faceta depende da derivação; um léxico que deixe de casar "cada ramo" aparece aqui antes de
+  aparecer no `fact_recall`.
+- **Alternatives**: nenhum.

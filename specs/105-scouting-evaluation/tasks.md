@@ -245,3 +245,5 @@ T011 eval/packs.yaml + eval/assistants.yaml
   regressão (FR-016, R14).
 - [X] T026 Linhas de base: `eval/baseline.json` refeita (`--force`, R14) e `eval/regression-baseline.json` nova (R15);
   README do pack (corpus sem PDFs, conjunto de regressão).
+- [X] T027 `branches` em `CONTEXT_FIELDS`, na derivação refeita e na validação da semente; facetas declaradas no conjunto
+  de regressão; linha de base regravada (R16).

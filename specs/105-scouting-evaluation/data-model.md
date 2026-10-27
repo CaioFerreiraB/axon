@@ -22,7 +22,8 @@ Os campos da 009 (`id`, `question`, `reference_time`, `expected_documents`, `ref
 
 | Campo | Tipo | Comparação com a derivação da 101 |
 |---|---|---|
-| `branch` | `str \| null` | igualdade (id do léxico: `lobinho`, `escoteiro`, `senior`, `pioneiro`; `null` = sem ramo) |
+| `branch` | `str \| null` | igualdade (id do léxico: `filhotes`, `lobinho`, `escoteiro`, `senior`, `pioneiro`; `null` = sem ramo) |
+| `branches` | lista de ids | conjunto (as facetas, ADR-045; `[]` = sem facetas) |
 | `topics` | lista de ids de tema do léxico | conjunto |
 | `document_types` | lista de ids de tipo do léxico | conjunto |
 | `effective_from`, `effective_until` | texto ISO entre aspas (`"2022-01-01"`) | igualdade com o início / fim da vigência derivada, em ISO |

@@ -533,3 +533,20 @@ seguem no Qdrant embutido com `store: qdrant`.
 **Rationale**: cada FR novo com um teste; o caminho de produção (artefato) na prova ponta a ponta.
 
 **Alternatives**: —
+
+---
+
+## Passada de 2026-10-27 (revisão do RAG; [ADR-045](../../docs/adr/ADR-045-filhotes-e-consulta-multifaceta-no-scouting.md))
+
+## R35 — Filhotes e as facetas na derivação
+
+- **Decision**: `filhotes` entra primeiro em `LEXICON.branches` (filhote, filhotes, ramo filhotes, ninhada, ninhadas) e
+  o `Lexicon` ganha `all_branches` (cada ramo, todos os ramos, os ramos, dos ramos, nos ramos, aos ramos, pelos ramos,
+  entre os ramos, 5 ramos, cinco ramos, por ramo). `ScoutingContext.branches`: com um marcador de totalidade, os cinco
+  ramos; senão, os ramos casados, se forem dois ou mais; `branch` só com exatamente um e nenhum marcador. `to_slice`
+  publica `branches` no contexto (lista, vazia quando não há) e nos filtros (só quando não vazia).
+- **Rationale**: a pergunta do exemplo ("dos 5 ramos") e as variantes da revisão (E5, E6) não filtravam nada; a
+  decomposição precisa saber quais ramos (103 R13). "Escoteiro" sozinho continua ambíguo; "os ramos Filhotes, Lobinho,
+  …" casa o marcador ("os ramos") e dá os cinco.
+- **Alternatives**: decompor por modelo (contra o princípio V: derivação sem modelo); só o número "5 ramos" como
+  marcador (perde "cada ramo" e "os ramos").
