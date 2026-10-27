@@ -113,6 +113,10 @@ mensagens de erro de segredo nunca contêm o valor.
 | `AXON_MCP_DISCOVERY_TTL` | `300` | segundos de validade do catálogo descoberto de um servidor |
 | `AXON_TOOL_TIMEOUT_MS` | `30000` | prazo do gateway por chamada de tool (1 000–300 000) |
 | `AXON_TOOL_MAX_RESPONSE_BYTES` | `16384` | tamanho máximo do resultado de tool entregue ao modelo (1 024–1 048 576) |
+| `AXON_TOOL_MAX_ATTACHMENT_BYTES` | `2097152` | teto por imagem devolvida por tool; acima, vira marca de omissão (1 024–20 971 520; ADR-044) |
+| `AXON_MAX_REQUEST_BYTES` | `33554432` | teto do corpo de toda rota com JSON; acima, 413 (65 536–268 435 456; ADR-044) |
+| `AXON_MAX_INPUT_IMAGE_BYTES` | `5242880` | teto por imagem na última mensagem do usuário; acima, 400 (1 024–20 971 520; ADR-044) |
+| `AXON_MAX_INPUT_IMAGES` | `4` | imagens na última mensagem do usuário; 0 = nenhuma (0–16; ADR-044) |
 | `AXON_MCP_SECRET_<REF>` | — | valor de uma credencial de MCP referenciada no arquivo por `<ref>`; lido só ao montar a operação, nunca impresso |
 
 O arquivo é lido na etapa `configuration`: ilegível ou malformado para o boot nomeando o arquivo; entrada com problema

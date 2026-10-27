@@ -150,3 +150,21 @@ def test_langfuse_interno_do_compose_aceita_http() -> None:
 def test_fuso_do_motor_pelo_ambiente() -> None:
     """`AXON_TIMEZONE`: o fuso da data de referência do `agentic` (005 R50), independente do fuso do uso."""
     assert _env(TIMEZONE="America/Sao_Paulo").timezone == "America/Sao_Paulo"
+
+
+def test_tetos_das_imagens_com_padroes_leitura_e_faixas() -> None:
+    """ADR-044, item 12: as quatro variáveis, com os padrões propostos no ADR e o erro nomeando a variável."""
+    padrao = _env()
+    assert (padrao.tool_max_attachment_bytes, padrao.max_request_bytes) == (2_097_152, 33_554_432)
+    assert (padrao.max_input_image_bytes, padrao.max_input_images) == (5_242_880, 4)
+    lidas = _env(
+        TOOL_MAX_ATTACHMENT_BYTES="1048576",
+        MAX_REQUEST_BYTES="1048576",
+        MAX_INPUT_IMAGE_BYTES="2048",
+        MAX_INPUT_IMAGES="0",
+    )
+    assert (lidas.tool_max_attachment_bytes, lidas.max_request_bytes) == (1_048_576, 1_048_576)
+    assert (lidas.max_input_image_bytes, lidas.max_input_images) == (2048, 0)
+    for nome, valor in (("MAX_REQUEST_BYTES", "10"), ("MAX_INPUT_IMAGES", "17"), ("TOOL_MAX_ATTACHMENT_BYTES", "0")):
+        with pytest.raises(ConfigurationError, match=f"AXON_{nome}"):
+            _env(**{nome: valor})
