@@ -312,7 +312,13 @@ originais só na máquina de quem ingere, com URL e sha256 em `corpus/fontes.yam
 `scouting:fact_recall` (fatos de `extra.facts` no texto dos trechos entregues; o `pack.py` injeta a leitura do artefato,
 só com `store: memory`), `eval/regression.yaml` com `eval/regression-baseline.json` (0,52) e o CI que confere o artefato
 contra o catálogo (`tests/rag/ingestion/test_artifact_catalog.py`) em vez de reingerir. Toda correção do RAG mostra o
-`fact_recall` antes e depois.
+`fact_recall` antes e depois. Feita também a 102 US6 (texto indexado fiel à página): o `PdfiumParser` entrega, além do
+texto bruto (o original), a ordem de leitura pela geometria das linhas (`domain/layout.py`: sem duplicatas, de cima
+para baixo numa página de uma coluna) — o POR desenha o título de cada regra depois do corpo da página —, a limpeza
+tira blocos corridos de várias linhas e o U+FFFE do PDFium, nenhum trecho fica só com título, e as janelas são
+`estrutural-v2;janela=250-450`; o artefato (15.504 trechos, só e5) tem invariantes em
+`tests/rag/ingestion/test_artifact_quality.py`, e o `fact_recall` foi a 0,75. Próximos: ADR do pack (Filhotes,
+facetas, precedência) e 101/103.
 
 **A Fase 7 do roadmap está completa.** Da 008 (US6, US8), a API pronta para o Open WebUI: admissão
 (`domain/admission.py`, puro; `ExecutionSlots` no `service.py`, vagas e fila FIFO em memória, por processo) entre a

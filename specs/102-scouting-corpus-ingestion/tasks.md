@@ -518,3 +518,19 @@ Task: "ingestion/adapters/pdfium.py (T033)"
   confere o determinismo (R25)
 - [X] T061 Os vetores do `pplx` no artefato (`reindex --embedder pplx`, com o aval do mantenedor): os mesmos 413
   trechos, o conjunto de 1024 dimensões ao lado do e5; 9 s; artefato com 4,1 MB
+
+## Passada de 2026-10-27 (revisão do RAG; research R26–R29)
+
+- [X] T062 [US6] `domain/layout.py` (`TextLine`, `reading_order`) e `tests/rag/ingestion/test_layout.py` (R26).
+- [X] T063 [US6] `ParsedDocument.reading`/`for_chunking`; o `PdfiumParser` com as caixas das linhas e `leitura-v1` na
+  identidade; o serviço lê `for_chunking`; o PDF sintético com o título desenhado depois do corpo (`positioned_pdf`).
+- [X] T064 [US6] `text.py`: bordas de até 4 linhas, critério do trecho (80%), marcador protegido, U+FFFE/U+00AD e
+  número colado; casos em `test_text.py` (R27).
+- [X] T065 [US6] `chunking.py`: corpo sem frase segue adiante (e a janela final curta junta-se à anterior), títulos
+  completos, `estrutural-v2;janela=250-450`, frase maior que a janela dividida entre palavras; `structure.py` com o
+  nome no prefixo, o texto solto curto na unidade seguinte e o nome que termina em preposição continuado; casos em
+  `test_chunking.py` e `test_structure.py` e expectativas de prefixo atualizadas (R28).
+- [X] T067 `ArtifactIndex._jsonl` separa as linhas só em `\n` (U+0085 e U+2028 no texto); caso em
+  `tests/rag/index/test_artifact.py` (R29).
+- [X] T066 [US6] Preparo do corpus inteiro antes/depois, `reindex` com o e5 e `tests/rag/ingestion/test_artifact_quality.py`
+  (SC-006, R29).

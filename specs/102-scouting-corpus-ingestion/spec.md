@@ -40,6 +40,17 @@
 - Q: Qual o segundo modelo, e como ele se compara ao e5? → A: `perplexity/pplx-embed-v1-0.6b`, pelo OpenRouter (1024 dimensões, normalizado na ingestão e na pergunta, sem prefixo), com a chave `AXON_SCOUTING_EMBEDDING_API_KEY`. Ele substitui o `bge-m3` pelo Ollama como próximo candidato; a escolha é do eval da 105. Default: `e5`.
 - Q: E o Qdrant? → A: Opção para corpus grande: `axon-scouting-corpus load-qdrant` carrega o artefato num Qdrant (sem PDF nem modelo), e o pack o usa com `store: qdrant` (101). O índice de produção é o artefato em memória, com as fórmulas do `MemoryIndex` (RRF sobre denso e esparso).
 
+### Session 2026-10-27
+
+Revisão do RAG ([docs/revisao-rag-scouting-2026-10.md](../../docs/revisao-rag-scouting-2026-10.md)): no índice de 593
+documentos, 175 trechos só com "O Marco Simbólico", 108 das 197 regras do POR só com o título, 1.113 trechos com a marca
+de hifenização do PDFium e 12,9% dos trechos além do que o e5 lê. Os PDFs saíram do git em 2026-10-26 (decisão do
+mantenedor; substitui a clarificação de 2026-10-08 nesse ponto): o catálogo, a proveniência e o artefato ficam.
+
+- Q: Por que o corpo das regras do POR se perde, se o texto está na página? → A: O PDF desenha o título de cada regra depois do corpo da página inteira, e o PDFium entrega o texto nessa ordem; os manuais fazem o mesmo com títulos de seção e imprimem o cabeçalho de margem duas vezes. A ingestão passa a ler a página **na ordem de leitura**, pela geometria das linhas: sem duplicatas e, numa página de uma coluna, de cima para baixo. Página de várias colunas fica na ordem do PDFium. O original preservado (FR-009) continua o texto bruto.
+- Q: Cabeçalho corrido de várias linhas e título de capítulo repetido nas páginas dele — como reconhecer sem apagar texto de verdade? → A: Pelas primeiras e últimas linhas de cada página (até 4, no máximo um terço da página), com dígitos neutralizados: corrida é a linha em mais da metade das páginas, em 80% das páginas entre a primeira e a última ocorrência, ou que traz o número da própria página. O marcador de unidade sozinho na linha ("REGRA", "Art.") nunca é corrido.
+- Q: E o que sobra sem corpo, e os trechos grandes demais para o e5? → A: Corpo sem nenhuma frase terminada e com menos de 40 letras não vira trecho: segue para a seção seguinte. Títulos em mais de uma linha e o nome do capítulo depois de "CAPÍTULO N" entram no título; o prefixo normativo leva o nome do agrupamento. A janela passa a 250–450 tokens estimados (`estrutural-v2`), e a "frase" maior que a janela (lista sem pontuação) se divide entre palavras. Unidade normativa continua inteira (FR-002).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Curador ingere um documento (Priority: P1)
@@ -116,9 +127,33 @@ O texto original de cada documento permanece armazenado e recuperável; chunks s
 
 ---
 
+### User Story 6 - Texto indexado fiel à página (Priority: P1)
+
+O texto que vira trecho segue a ordem em que a página se lê, sem cabeçalhos e rodapés repetidos, sem marcas da
+extração e sem trechos vazios — e cada regra do POR traz o próprio texto debaixo do próprio título.
+
+**Why this priority**: A revisão do RAG de 2026-10-27 mostrou que a recuperação não alcançava regras, lemas e faixas
+etárias que só o POR enuncia: o corpo delas estava em trechos sem regra, e stubs ocupavam as vagas de candidato.
+
+**Independent Test**: Os invariantes do artefato (nenhum trecho sem corpo, toda regra do POR com corpo, nenhuma marca
+de hifenização, poucos trechos além do que o e5 lê) passam, e o `fact_recall` do conjunto de regressão da 105 sobe.
+
+**Acceptance Scenarios**:
+
+1. **Given** uma página que desenha o título da regra depois do corpo, **When** ingerida, **Then** o trecho da regra
+   começa pelo título dela e traz o texto que vem debaixo dele, e nenhum texto de outra regra.
+2. **Given** um cabeçalho de margem de duas linhas, impresso duas vezes, nas páginas de um capítulo, **When**
+   ingerido, **Then** ele não aparece em nenhum trecho, e nenhum trecho é só esse cabeçalho.
+3. **Given** uma página em duas colunas, **When** ingerida, **Then** a ordem do texto é a do parser.
+4. **Given** o marcador "REGRA" sozinho no topo de muitas páginas, **When** ingerido, **Then** ele continua no texto.
+
+---
+
 ### Edge Cases
 
 - PDF escaneado sem camada de texto: sinalizado e rejeitado na v1 (OCR fora de escopo).
+- PDF com fonte sem mapeamento de caracteres ("Aƴa dŸ XIX FŹƞƼū"): o texto sai corrompido sem erro; a curadoria troca
+  o arquivo pelo derivado OCR (4 documentos no corpus de 593, research R29).
 - Documento de tipo normativo sem nenhuma unidade (artigo ou regra) reconhecível: tratado como narrativo, com aviso no relatório da ingestão.
 - Dois documentos vigentes na mesma linhagem: a ingestão rejeita e pede resolução ao curador.
 - Metadado obrigatório ausente: documento rejeitado com lista de campos faltantes; como toda rejeição, impede a execução inteira (FR-011).
@@ -144,10 +179,14 @@ O texto original de cada documento permanece armazenado e recuperável; chunks s
 - **FR-014**: O artefato DEVE guardar um conjunto de vetores por modelo, sobre os mesmos trechos; publicar com um modelo DEVE preservar os vetores dos outros quando cobrem todo trecho com o mesmo texto, e retirá-los quando não cobrem. Cada leitor DEVE carregar só os vetores do próprio modelo, e a busca com um modelo ausente DEVE ser `IndexMismatch`.
 - **FR-015**: O sistema DEVE oferecer o embedder remoto `pplx` pelo OpenRouter, com a chave do pack, vetores normalizados e falha explícita (sem a chave, provedor fora, resposta inesperada), sem nunca pôr a chave numa mensagem.
 - **FR-016**: A CLI DEVE oferecer `--embedder` e `--dir` em `ingest`, `reindex`, `status` e `original`, e `load-qdrant`, que publica no Qdrant um build igual ao do artefato, tudo ou nada.
+- **FR-017**: O parser DEVE entregar, além do texto bruto (o original, FR-009), o texto de cada página na ordem de leitura, decidida pela geometria das linhas: sem as linhas impressas em duplicata e, em página de uma coluna, de cima para baixo (linhas da mesma faixa na ordem do parser); página de várias colunas ou com linha sem posição, na ordem do parser. O chunking lê a ordem de leitura.
+- **FR-018**: A limpeza DEVE remover cabeçalho e rodapé corridos de várias linhas — procurados nas primeiras e últimas linhas da página, em mais da metade das páginas, em 80% das páginas do trecho em que aparecem ou com o número da própria página —, sem nunca remover o marcador de unidade normativa; e DEVE tratar a marca de hifenização do PDFium (U+FFFE, U+00AD) como o hífen de quebra e tirar o número de página colado a um título em maiúsculas.
+- **FR-019**: Nenhum trecho DEVE ser só um título: corpo sem frase terminada e com menos de 40 letras segue para a seção seguinte (ou, no fim, para o último trecho; a janela final assim, para a anterior; entre unidades normativas, para a unidade seguinte); títulos em mais de uma linha e o nome do capítulo depois de "CAPÍTULO N" fazem parte do título; o prefixo normativo DEVE trazer o nome de cada agrupamento.
+- **FR-020**: As janelas narrativas DEVEM ficar entre 250 e 450 tokens estimados (`estrutural-v2`), e a frase maior que a janela DEVE ser dividida entre palavras; a unidade normativa continua inteira (FR-002).
 
 ### Key Entities
 
-- **Corpus Catalog**: arquivo do curador (`corpus.yaml`) com uma entrada por documento; é a única fonte dos metadados e da relação de substituição. Mora no repositório do pack, em `corpus/`, com os PDFs ao lado, em caminhos relativos ao catálogo (clarificação de 2026-10-08).
+- **Corpus Catalog**: arquivo do curador (`corpus.yaml`) com uma entrada por documento; é a única fonte dos metadados e da relação de substituição. Mora no repositório do pack, em `corpus/`, com a proveniência de cada original (`fontes.yaml`); os PDFs, em caminhos relativos ao catálogo, ficam na máquina de quem ingere, fora do git (clarificação de 2026-10-27).
 - **Document**: identificador, tipo, título, ramo, jurisdição, versão, datas de vigência, sucessor, status, original.
 - **Chunk**: identificador estável, texto com prefixo ancestral, metadados, representações densa e esparsa.
 - **Index Version**: estratégia de chunking + modelo de embedding (nome e impressão digital dos pesos) + data.
@@ -162,10 +201,11 @@ O texto original de cada documento permanece armazenado e recuperável; chunks s
 - **SC-003**: 0 linhagens com mais de um documento vigente.
 - **SC-004**: Uma reindexação completa do corpus inicial conclui dentro da janela de manutenção definida pelo operador (meta a medir).
 - **SC-005**: O corpus inicial real (POR consolidado, estatuto, uma resolução e um manual de ramo), com o catálogo revisado pelo curador, é ingerido sem rejeição, e SC-001 a SC-003 valem nele.
+- **SC-006**: No corpus de 593 documentos: 0 trechos só com título (salvo ruído de OCR e campos de formulário, no máximo 5), 0 regras do POR sem corpo, 0 marcas de hifenização e no máximo 2,5% dos trechos além de 512 tokens do e5 (unidades normativas inteiras e tabelas de relatório).
 
 ## Assumptions
 
 - Ingestão é offline, disparada pelo curador/operador; não há ingestão de longa duração que exija motor de workflow (ADR-010).
 - Modelo de embedding decidido por medição na Fase 6 (candidatos no design); até lá, `multilingual-e5-small` dentro do processo, e o `bge-m3` pelo Ollama é o próximo a testar. A escolha não altera o modelo de chunk indexado nem a porta `ChunkIndex` — cada candidato é um adapter de embedding.
 - Onde o texto original fica armazenado é decidido no plano; o acesso é por porta, e o armazenamento é adapter.
-- O corpus inicial é de documentos institucionais em português, públicos no site oficial da UEB; os PDFs e o catálogo ficam em `corpus/` no repositório do pack (clarificação de 2026-10-08), e o rascunho do catálogo é revisado pelo curador antes da ingestão real. Os testes automatizados usam documentos sintéticos.
+- O corpus inicial é de documentos institucionais em português, públicos no site oficial da UEB; o catálogo fica em `corpus/` no repositório do pack e os PDFs, fora do git (clarificações de 2026-10-08 e 2026-10-27), e o rascunho do catálogo é revisado pelo curador antes da ingestão real. Os testes automatizados usam documentos sintéticos.

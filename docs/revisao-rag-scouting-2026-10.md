@@ -124,7 +124,7 @@ o pplx.
 | Módulo | Correção | Contrato / ADR |
 |---|---|---|
 | **105** *(feito)* | Métrica `scouting:fact_recall`, conjunto de regressão (`eval/regression.yaml`) com linha de base, semente corrigida, CI sem os PDFs. | nenhum |
-| **102** | Blocos corridos de várias linhas (k linhas nas bordas, limiar por faixa de páginas); "CAPÍTULO N" + título como um cabeçalho; nenhum trecho sem corpo (o curto se funde ao seguinte); leitura por posição no PDFium (caixas de texto do `pypdfium2`) para ancorar os títulos das regras, com *spike* nas pp. 58, 62, 116 e 118 do POR; U+FFFE e hífen suave; número de página colado; janela calibrada para p99 ≤ 512 tokens do e5 (`estrutural-v2`); relatório da ingestão com stubs, regras sem corpo, U+FFFE e truncados por modelo. | interno; nova versão do índice |
+| **102** *(feito)* | Blocos corridos de várias linhas (k linhas nas bordas, limiar por faixa de páginas); "CAPÍTULO N" + título como um cabeçalho; nenhum trecho sem corpo (o curto se funde ao seguinte); ordem de leitura pela posição das linhas no PDFium (o *spike* nas pp. 58, 62, 116 e 118 do POR mostrou os títulos acima de cada corpo, desenhados depois da página); U+FFFE e hífen suave; número de página colado; janela calibrada para p99 ≤ 512 tokens do e5 (`estrutural-v2`); relatório da ingestão com stubs, regras sem corpo, U+FFFE e truncados por modelo. | interno; nova versão do índice |
 | **101** | Filhotes como ramo no léxico e no catálogo; `branches` na derivação quando a pergunta cita vários ramos ou "cada/todos os/N ramos"; prompt com cobertura parcial ("não veio nos trechos", nunca "não existe"), o conceito pedido sem trocar por vizinho, e preliminar subordinado ao definitivo. | ADR do pack (abaixo) |
 | **103** | Decomposição por faceta no retriever (uma subbusca por ramo, cota por faceta no top-N); reranker v2/v3 que lê a pergunta, escolhido por medição (RAM, latência, ganho); colapso de quase-duplicatas; precedência editorial como desempate; densa mesmo sem termo esparso. | ADR do pack; ADR da escolha do reranker |
 | **Core** *(condicional)* | Candidatos do `rag_first` fora do limite de resposta do gateway (o corte e a cerca só nos entregues); `AXON_RAG_PASSAGES` 8–10 se a medição pedir. Portão inalterado: suficiência por faceta é domínio. | ADR novo (seam 004 → 005), só se o reranker provar ganho com mais candidatos |
@@ -137,8 +137,12 @@ precedência do catálogo (contrato do catálogo da 102). O contrato 001 não mu
 ## 7. Ordem, dependências e aceite
 
 1. **105 — rede de segurança** *(feita)*. Linha de base: `fact_recall` 0,52.
-2. **102 — ingestão** (depois de 1). Aceite: 0 stubs; 0 regras do POR sem corpo e as Regras 053–056, 158 e 159 com o
-   corpo certo; 0 U+FFFE; ≤ 1% acima de 512 tokens; marcos e lemas por ramo 5/5; sem regressão determinística.
+2. **102 — ingestão** *(feita, 102 US6)*. 0 stubs; 0 regras do POR sem corpo, com o corpo certo; 0 U+FFFE; 2,1%
+   acima de 512 tokens (unidades normativas inteiras e tabelas de relatório — a meta de 1% pediria calibração);
+   marcos por ramo 5/5 e lemas por ramo 3/3; `fact_recall` 0,52 → 0,75. O *spike* corrigiu a hipótese: os títulos das
+   regras não ficam numa coluna lateral, mas acima de cada corpo, desenhados depois da página. A semente achou o
+   próprio erro — o Sinal de Promessa é a Regra 160, não a 159 — e perdeu s09, cujo trecho perdeu o capítulo que vinha
+   do cabeçalho corrido (pendência da 102, R29).
 3. **ADR do pack + 101/103 — Filhotes e facetas** (depois de 2). Aceite: agregados ≥ 4/5 com até 10 trechos; o mesmo
    para lemas e faixas etárias; perguntas de um ramo sem piora.
 4. **103 — reranker** (depois de 1–3). Aceite: agregados 5/5, `rerank_gain` > 0, latência e RAM no orçamento da VM.

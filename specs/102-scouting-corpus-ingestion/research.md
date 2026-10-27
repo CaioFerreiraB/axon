@@ -530,3 +530,94 @@ inclusive os vetores do e5.
 **Rationale**: o artefato commitado precisa ser o que o corpus produz; o CI pega um commit do corpus sem reingestão.
 
 **Alternatives**: gerar o artefato no CI e publicar como asset (o ADR deixa para quando passar de dezenas de MB).
+
+---
+
+## Passada de 2026-10-27 (revisão do RAG; [relatório](../../docs/revisao-rag-scouting-2026-10.md))
+
+## R26 — Ordem de leitura pela geometria
+
+- **Decision**: `ParsedDocument` ganha `reading` (o texto de cada página na ordem de leitura) e `for_chunking`
+  (`reading`, ou `pages` quando o parser não sabe a posição — o `MemoryParser`). O `PdfiumParser` separa o texto bruto
+  nas quebras que o PDFium gera, dá a cada linha a caixa dos seus caracteres (`get_charbox`) e entrega as linhas a
+  `domain/layout.py`, puro: tira a linha impressa duas vezes no mesmo lugar (±0,5 pt); decide "uma coluna" quando, entre
+  as linhas com menos de 60% da largura da página, no máximo um grupo de sobreposição horizontal tem 5 linhas ou mais;
+  então ordena por faixas de cima para baixo (sobreposição vertical de metade da altura da menor), com a ordem do
+  parser dentro da faixa ("I -" antes do texto do inciso). A identidade do parser ganha `leitura-v1`, e com ela a chave
+  de conteúdo de todo documento.
+- **Rationale**: no *spike* nas pp. 58, 62, 116 e 118 do POR, os títulos das regras estão **acima** de cada corpo, na
+  mesma coluna (não numa coluna lateral, como a revisão supôs), e são desenhados depois da página inteira; o Manual de
+  Filhotes desenha o título da seção depois do texto e imprime o cabeçalho de margem duas vezes. A ordem vertical
+  resolve os dois sem regra de documento; restringi-la a página de uma coluna evita misturar colunas.
+- **Alternatives**: reancorar no domínio, pelo texto, o bloco "REGRA/NNN" do fim da página (frágil: o corpo de cada
+  regra não se reconhece pelo texto); trocar de parser (sem evidência de necessidade — o PDFium dá as posições).
+
+## R27 — Blocos corridos, hifenização do PDFium e número colado
+
+- **Decision**: `_edges` olha até 4 linhas de cada borda (no máximo um terço das linhas da página); corrida é a linha
+  (dígitos neutralizados) em ≥ 3 páginas e em mais da metade delas, em 80% das páginas entre a primeira e a última
+  ocorrência, ou sempre com o número da própria página. O marcador sozinho ("REGRA", "Art.", com ou sem número) nunca
+  é borda. U+FFFE antes de maiúscula vira quebra de linha; no fim da linha, U+FFFE e U+00AD viram `-` (e a regra do
+  hífen de quebra se aplica); no meio, somem — a mesma política do `-` de quebra (compostos como "vice-presidente"
+  perdem o hífen, como já acontecia). Número de 1 a 4 dígitos colado a um título todo em maiúsculas sai.
+- **Rationale**: o cabeçalho do Manual de Filhotes é um bloco ("CAPÍTULO 3 / O Marco Simbólico", até em páginas do
+  capítulo 6); o título de capítulo repete só nas páginas dele, longe da metade do documento. Medido no texto bruto:
+  4.758 U+FFFE no meio da linha ("com" + U+FFFE + "põem") e 5 U+00AD no fim; 467 prefixos com o número colado.
+- **Alternatives**: posição fixa na página como critério de linha corrida (precisaria da geometria na limpeza; a
+  ordem de leitura já põe o bloco nas bordas).
+
+## R28 — Nenhum trecho só com título; títulos completos; janelas v2
+
+- **Decision**: corpo com menos de 40 letras e nenhuma linha terminada em `.!?:;` (`is_stub`) não vira trecho: no
+  `narrative_chunks`, segue para o corpo da seção seguinte (no fim do texto, entra no último trecho; sem trecho nenhum,
+  vira o único), e a janela final assim de uma seção longa junta-se à anterior; no `normative_chunks`, o texto solto
+  assim entre um agrupamento e a unidade seguinte entra nela, como parágrafo depois do título. Nome de agrupamento que
+  termina em preposição ou artigo ("Capítulo 15 – Segurança nas") continua na linha seguinte, também quando vem na
+  linha do "CAPÍTULO". Linha logo depois
+  de um título, antes de corpo, continua o título: o nome depois de "CAPÍTULO N" (`CAPÍTULO 3 – O Marco Simbólico`, no
+  prefixo e no `chapter`) e as linhas seguintes de um título em maiúsculas. O prefixo normativo usa `Heading.metadata`
+  (`Capítulo 8 – Ramo Filhotes`). `ChunkingPolicy` passa a `estrutural-v2;janela=250-450`; a frase maior que
+  `window_max` é dividida em fatias de palavras inteiras.
+- **Rationale**: a janela de 600 tokens estimados, mais o cabeçalho, passava de 512 tokens reais em 12,9% dos trechos
+  (a razão real é ~3,9 caracteres por token); 450 dá p99 de 563. Listas de nomes sem pontuação nos relatórios anuais
+  viravam "frases" de até 18 mil caracteres.
+- **Alternatives**: medir as janelas com o tokenizador do embedder (acopla o chunking ao modelo, contra R8); reduzir
+  mais a janela (calibração — a 105 decide com o conjunto curado).
+
+## R29 — Medição e a reingestão
+
+- **Decision**: preparo do corpus inteiro sem embeddings (38 s) antes e depois; reindexação com o e5 no artefato do
+  pacote. Os vetores do `pplx` saem do artefato até um `reindex --embedder pplx` com a chave (a instalação usa o e5).
+  Invariantes do artefato em `tests/rag/ingestion/test_artifact_quality.py`; sobram 2 trechos sem frase, que não são
+  títulos — ruído de OCR numa ata e campos de formulário num guia (tolerância de 5). A primeira reindexação achou um
+  defeito do `ArtifactIndex`: `_jsonl` separava as linhas com `str.splitlines()`, que quebra também em U+0085 e U+2028,
+  e o JSON sem `ensure_ascii` os grava como estão (um relatório anual com fonte corrompida os traz); o artefato era
+  gravado e não se lia de volta, e o `discard` do caminho de erro escondia a exceção original. O leitor separa só em
+  `\n`. Quatro documentos com fonte sem mapeamento
+  de caracteres (as três "recomendações" e a ata do FRJL SP 2021) ficam para a curadoria (derivado OCR).
+  O passo de determinismo de R25 no CI deu lugar à conferência do artefato contra o catálogo (105 research R14): sem os
+  PDFs no git, a reingestão byte a byte é de quem os tem.
+  **Efeito na recuperação** (105, perfil `test`, e5): `scouting:fact_recall` 0,52 → 0,75 — o marco simbólico do
+  Pioneiro, os lemas de Lobinho e Filhotes e a Regra 054 passam a chegar à geração (o lema de cada ramo, 0 → 0,6);
+  agregados com os cinco ramos seguem em 0,2–0,4 e as faixas etárias em 0 (seleção, 103). Na semente, s01 apontava a
+  Regra 159 — herança do defeito: o Sinal de Promessa é a **Regra 160**, e a semente foi corrigida. **Pendência**:
+  s09 (os nós do Lobinho) perde a evidência porque o prefixo do trecho perdeu o capítulo — "O Sistema de Progressão
+  Pessoal" vinha do cabeçalho corrido, e a abertura real "CAPÍTULO 9" sai junto, por ter o mesmo texto no topo da
+  página; recuperá-lo como contexto da página pede a geometria (cabeçalho de margem × título de abertura). Também
+  ficam nomes de capítulo de duas linhas cortados nos manuais ("Capítulo 8 – O Sistema de"). Linha de base da semente
+  regravada (recall@5 0,7778 → 0,6667, MRR 0,5778 → 0,4352).
+- **Rationale**: SC-006; o `fact_recall` da 105 mostra o efeito na recuperação.
+- **Alternatives**: nenhum.
+
+| Medida (593 documentos) | antes | depois |
+|---|---:|---:|
+| trechos | 16.742 | 15.504 |
+| `fact_recall` (105, regressão) | 0,52 | 0,75 |
+| só "O Marco Simbólico" | 175 | 0 |
+| sem frase e com menos de 40 letras | — | 2 |
+| corpo < 60 caracteres | 2.656 | 447 |
+| corpo repetido | 2.222 | 971 |
+| com U+FFFE | 1.113 | 0 |
+| regras do POR sem corpo | 108/197 | 0/197 |
+| > 512 tokens do e5 | 12,9% | 2,1% |
+| tokens p50/p95/p99 | 145/578/684 | 218/468/563 |
