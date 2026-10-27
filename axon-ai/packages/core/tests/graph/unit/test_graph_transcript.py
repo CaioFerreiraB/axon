@@ -11,6 +11,7 @@ from graph_testkit import MESSAGES, catalog_tool, fenced
 
 from axon_ai.capabilities.api import FENCE_INSTRUCTION, FencedToolResult, ToolCall
 from axon_ai.graph.domain.actions import CONTROLLER_INSTRUCTION, catalog_text
+from axon_ai.graph.domain.images import IMAGES_CAPABILITY, IMAGES_INSTRUCTION
 from axon_ai.graph.domain.transcript import (
     InvalidStep,
     ToolStep,
@@ -19,6 +20,7 @@ from axon_ai.graph.domain.transcript import (
     generation_messages,
     repeats,
 )
+from axon_ai_contracts import Attachment
 
 pytestmark = pytest.mark.us2
 
@@ -134,3 +136,24 @@ def test_repeticao_compara_nome_e_argumentos() -> None:
     assert repeats(ToolCall(name="generic.calculate", arguments={"expression": "2+2"}), steps)
     assert not repeats(ToolCall(name="generic.calculate", arguments={"expression": "3+3"}), steps)
     assert not repeats(ToolCall(name="generic.outra", arguments={"expression": "2+2"}), steps)
+
+
+def test_geracao_com_tools_sem_imagem_recebe_a_nota_de_que_a_plataforma_mostra_imagens() -> None:
+    sem = generation_messages(PROMPTS, MESSAGES, ())
+    com = generation_messages(PROMPTS, MESSAGES, (), tools=True)
+    assert {"role": "system", "content": IMAGES_CAPABILITY} not in sem
+    assert {"role": "system", "content": IMAGES_CAPABILITY} in com
+
+
+def test_com_imagem_de_tool_vale_o_aviso_e_nao_a_nota() -> None:
+    result = FencedToolResult(
+        name="x.y",
+        kind="mcp",
+        status="ok",
+        text=fenced("x.y", "ok"),
+        attachments=(Attachment(mime="image/png", data=b"png"),),
+    )
+    com_imagem = ToolStep(iteration=1, call=ToolCall(name="x.y", arguments={}), result=result)
+    messages = generation_messages(PROMPTS, MESSAGES, (com_imagem,), tools=True)
+    assert {"role": "system", "content": IMAGES_INSTRUCTION} in messages
+    assert {"role": "system", "content": IMAGES_CAPABILITY} not in messages

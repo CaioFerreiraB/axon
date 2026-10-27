@@ -787,3 +787,26 @@ a pergunta.
 servidor); etapa `image_gate` também no loop (o controller já está decidindo ali, e uma chamada a mais por turno não
 acrescenta); resolver o `controller` do `chat` sempre que declarado (mudaria o `chat` de quem nunca manda imagem e
 falharia Assistants que declaram um controller não usado).
+
+### R52 — O motor diz que a plataforma mostra as imagens das tools (FR-019, FR-019a; 2026-10-27)
+
+**Decision**: duas frases fixas do core, sem domínio. (1) O `CONTROLLER_INSTRUCTION` diz que as imagens que as tools
+devolvem são mostradas ao usuário junto da resposta e que, se ele pede gráfico, imagem ou figura — ou pergunta por uma
+que uma tool devolveu — e há tool que a produza, o controller a chama em vez de descrevê-la ou desenhá-la em texto. (2)
+Numa execução com tools (`agentic`, ou `rag_first` que escalou) em que nenhuma tool devolveu imagem neste turno, a
+geração recebe `IMAGES_CAPABILITY` (`graph/domain/images.py`): a plataforma mostra as imagens que as tools devolvem, o
+modelo não diz que só produz texto e, se o usuário quer uma imagem que não chegou, oferece buscá-la. Com imagem de tool
+no turno, segue valendo só o `IMAGES_INSTRUCTION` (R51). `generation_messages` ganha `tools: bool`; o `generate` passa
+`looped`.
+
+**Rationale**: na trace de uma conversa real do Assistant `geral` (Mango por MCP), nenhum turno chamou a tool que gera
+PNG, e a geração afirmou "minha saída é só texto": o aviso do R51 só existia depois de a imagem nascer, então nem o
+controller nem o modelo sabiam da capacidade. Reproduzido com o `glm-5.3-flash` e um MCP no formato do Mango (histórico
+da trace, 3 rodadas por cenário): "por que você não exibe imagens?" negou a capacidade em 3/3 antes e em 0/3 depois; "pode
+gerar" chamou a tool em 1/3 antes e 3/3 depois. No Open WebUI v0.12 a imagem renderiza e a pergunta passou a ser
+respondida corretamente. Texto de prompt, sem seam novo: sem ADR.
+
+**Alternatives considered**: pôr a nota na geração de todo flow (o `chat` não tem tool; a frase seria falsa); listar o
+catálogo na geração para ela decidir (mais tokens por turno, e quem decide chamar tool é o controller); frase no prompt
+do pack `generic` (o prompt do pack é neutro quanto ao flow, 010 FR-008, e o `scouting` e outros packs ficariam sem ela).
+

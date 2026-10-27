@@ -17,6 +17,7 @@ from typing import Final
 from axon_ai.capabilities.api import FENCE_INSTRUCTION, CatalogTool, FencedToolResult, ToolCall
 from axon_ai.graph.domain.actions import CONTROLLER_INSTRUCTION, catalog_text
 from axon_ai.graph.domain.images import (
+    IMAGES_CAPABILITY,
     IMAGES_INSTRUCTION,
     VIEWED_NOTICE,
     candidates_text,
@@ -178,9 +179,11 @@ def generation_messages(
     today: str | None = None,
     send_own: bool = False,
     shown: Sequence[Attachment] = (),
+    tools: bool = False,
 ) -> list[ModelMessage]:
     """Prompts de pack, a data de referência (no `agentic`), a cerca (se houver resultado) e o aviso das imagens que o
-    usuário vê (se uma tool devolveu imagem), a conversa e a transcrição — sem os avisos de ação inválida.
+    usuário vê (se uma tool devolveu imagem; sem imagem, mas com tools na execução — `tools` —, a nota de que a
+    plataforma as mostra), a conversa e a transcrição — sem os avisos de ação inválida.
 
     Sem passos, sem data e sem imagem, é exatamente o que o `chat` da Fase 1 envia. A última mensagem do usuário leva
     as imagens dele (`send_own`) e as candidatas escolhidas (`shown`), cada uma com a marca de onde veio (ADR-044).
@@ -193,4 +196,6 @@ def generation_messages(
         system.append({"role": "system", "content": FENCE_INSTRUCTION})
     if any(step.result.attachments for step in executed):
         system.append({"role": "system", "content": IMAGES_INSTRUCTION})
+    elif tools:
+        system.append({"role": "system", "content": IMAGES_CAPABILITY})
     return [*system, *_request(messages, send_own=send_own, shown=shown), *_transcript(steps, notices=False)]
