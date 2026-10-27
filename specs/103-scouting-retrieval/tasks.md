@@ -298,3 +298,5 @@ Task: "tests/rag/retrieval/test_reranker.py — US4 (T016)"
 - [X] T026 [US6] `facets` em `domain/filters.py`; `_by_facet` e `BRANCH_NAMES` em `retriever.py`; `facet_rank` e
   `facet_order` na chave de `domain/ordering.py`; casos em `tests/rag/retrieval/test_retriever.py` (intercalação,
   sem repetir, posição 0 em toda faceta, a ordem depois do reranker, facetas inválidas).
+- [X] T027 Medição do reranker que lê a pergunta (R14): dois cross-encoders locais contra o v1, com e sem o corte do
+  gateway, com 5 e 10 trechos; não adotado; nenhuma mudança de código.

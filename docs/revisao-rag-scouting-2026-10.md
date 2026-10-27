@@ -69,6 +69,7 @@ geração.
 | E9 | Seleção alternativa | sem trechos curtos / 1 por documento / decomposição por ramo | só a decomposição ajuda: L → F L S |
 | E10 | Subconsulta por ramo, com filtro | 3 moldes | a formulação entre os postos 0–8 de cada ramo |
 | E11 | Tokens reais | 16.742 trechos | 12,9% acima de 512 |
+| E12 | Reranker que lê a pergunta (103 R14), depois das etapas 1–3 | mMiniLM-L12 e bge-reranker-v2-m3 em ONNX, 2 threads; com e sem o corte do gateway; N = 5 e 10 | `fact_recall` 0,81 (v1) → 0,81 / 0,82; sem o corte, 0,77–0,78; com N = 10, 0,86 **também com o v1**; +1,7 s e +300 MB / +5,8 s e +1,1 GB por pergunta |
 
 **Pelo harness (105 US6, linha de base `eval/regression-baseline.json`):** `scouting:fact_recall` 0,52 nos 20 itens.
 Marco simbólico por ramo: 4 de 5 (Pioneiro 0); agregados 0,2–0,4; **lemas e faixas etárias** — que só o POR enuncia —
@@ -114,7 +115,7 @@ O embedder pplx não foi medido (precisa de chave; produção usa e5).
 **Contribuintes**: Filhotes fora dos ramos (F7); precedência editorial ausente (F9); truncamento de 12,9% (F5); número
 de página colado (F4); quase-duplicatas entre documentos.
 
-**Latente**: o corte do gateway nos candidatos (F12).
+**Latente**: o corte do gateway nos candidatos (F12). *Medido depois (E12): tirá-lo piora (0,81 → 0,77–0,78); fica.*
 
 **Hipóteses pendentes**: o conjunto entregue em produção (§4); página citada errada (F6); pergunta de seguimento (F14);
 o pplx.
@@ -149,8 +150,11 @@ vários ramos no scouting": `BRANCHES` e o catálogo (102), `retrieval_filters` 
    regressão. Abaixo do aceite: "de cada ramo" e os cinco nomeados (0,4) e as faixas etárias (0) — dentro da faceta, a
    fusão põe em primeiro a definição genérica, e as faixas etárias estão no POR, que é geral. Precedência editorial saiu
    do escopo (F9 corrigido).
-4. **103 — reranker** (depois de 1–3). Aceite: agregados 5/5, `rerank_gain` > 0, latência e RAM no orçamento da VM.
-5. **Core** (só se 4 mostrar ganho com mais candidatos).
+4. **103 — reranker** *(medido, não adotado — 103 R14, E12)*. Nenhum cross-encoder paga o custo: o pequeno empata, o
+   grande ganha 0,01 por 5,8 s e 1,1 GB. O que falta é recuperação (a evidência fora dos candidatos da faceta; o POR
+   geral nas faixas etárias), não ordem. Ganho barato que sobrou: `AXON_RAG_PASSAGES=10` na instalação (0,81 → 0,86,
+   uns 2 mil tokens a mais por pergunta) — decisão do operador.
+5. **Core** *(descartado)*: sem o corte do gateway, a recuperação piora; nenhum ADR.
 6. **101 — prompt** (em paralelo a 2). Aceite, nas rodadas manuais com modelo real e juiz: nenhuma afirmação de
    ausência no corpus com recuperação parcial; nenhuma troca de lema por marco simbólico.
 7. **Curadoria**: precedência e `branch: filhotes` no catálogo; marcar os "Competências… PRELIMINAR".

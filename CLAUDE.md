@@ -320,8 +320,10 @@ tira blocos corridos de várias linhas e o U+FFFE do PDFium, nenhum trecho fica 
 `tests/rag/ingestion/test_artifact_quality.py`, e o `fact_recall` foi a 0,75. E o ADR-045: `filhotes` é ramo (léxico,
 `BRANCHES`, catálogo); a derivação publica `branches` (dois ramos ou mais, ou "cada ramo"/"os 5 ramos" → os cinco) em
 vez de `branch`, e o `ScoutingRetriever` faz uma busca por ramo, intercaladas com `facet_rank`/`facet_order` nos
-metadados, que o `MetadataReranker` respeita — `fact_recall` 0,81. Próximo: o reranker que lê a pergunta (103 v2/v3),
-escolhido por medição; depois o prompt (101).
+metadados, que o `MetadataReranker` respeita — `fact_recall` 0,81. O reranker que lê a pergunta foi medido e **não**
+adotado (103 R14): dois cross-encoders em ONNX empatam ou ganham 0,01 por segundos e GB a cada pergunta, e tirar o
+corte do gateway piora; com `AXON_RAG_PASSAGES=10` o v1 vai a 0,86. O que falta é recuperação dentro da faceta e o POR
+geral (faixas etárias). Próximo: o prompt (101, cobertura parcial).
 
 **A Fase 7 do roadmap está completa.** Da 008 (US6, US8), a API pronta para o Open WebUI: admissão
 (`domain/admission.py`, puro; `ExecutionSlots` no `service.py`, vagas e fila FIFO em memória, por processo) entre a

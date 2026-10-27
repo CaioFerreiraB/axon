@@ -202,3 +202,35 @@ da 005, o N do rerank e o limiar do portão.
   conjunto…") — a seleção que lê a pergunta é do reranker v2/v3.
 - **Alternatives**: um único índice com filtro "algum destes ramos" (devolve os mais parecidos, como antes);
   decompor no core (o ramo é domínio, princípio I).
+
+## R14 — O reranker que lê a pergunta: medido e não adotado
+
+- **Decision**: o v1 (`MetadataReranker`) continua. Nenhum cross-encoder entra, e o corte do gateway nos candidatos do
+  `rag_first` fica como está (o ajuste no core, condicional à medição, não se justificou). O ganho que sobrou na mesa é
+  de configuração da instalação — `AXON_RAG_PASSAGES` 10 em vez de 5 —, não de modelo.
+- **Rationale** — o caminho do `rag_first` simulado com o código real (retriever com as facetas, `render_within` do
+  core, reranker, N primeiros) nos 20 itens do conjunto de regressão e nos itens da semente com `chunk_id`, conferido
+  contra o harness (0,81 e 0,667 com o v1); cross-encoders multilíngues em ONNX no CPU, Apache-2.0, fixados por
+  revisão (`cross-encoder/mmarco-mMiniLMv2-L12-H384-v1@1427fd65`, `onnx-community/bge-reranker-v2-m3-ONNX@6f5ff652`),
+  2 threads, como numa VM pequena; com facetas, o cross-encoder reordena dentro de cada ramo e mantém a intercalação:
+
+| reranker | candidatos | corte | N | `fact_recall` | semente | p50 (2 threads) | RAM a mais |
+|---|---:|---|---:|---:|---:|---:|---:|
+| `MetadataReranker` (v1) | 20 | 16 KB | 5 | 0,81 | 0,667 | — | — |
+| `mmarco-mMiniLMv2-L12-H384-v1` (quint8) | 20 | 16 KB | 5 | 0,81 | 0,667 | 1,7 s | +300 MB |
+| `bge-reranker-v2-m3` (int8) | 20 | 16 KB | 5 | 0,82 | 0,667 | 5,8 s | +1,1 GB |
+| `mmarco-mMiniLMv2-L12-H384-v1` (quint8) | 20 | sem | 5 | 0,77 | 0,667 | 3,0 s | +300 MB |
+| `bge-reranker-v2-m3` (int8) | 20 | sem | 5 | 0,78 | 0,667 | 10,3 s | +1,1 GB |
+| `bge-reranker-v2-m3` (int8) | 40 | sem | 5 | 0,78 | 0,778 | 15,9 s | +1,1 GB |
+| `bge-reranker-v2-m3` (int8) | 20 | 16 KB | 10 | 0,86 | 0,667 | 5,7 s | +1,1 GB |
+| `MetadataReranker` (v1) | 20 | 16 KB | 10 | 0,86 | 0,667 | — | — |
+
+  O pequeno empata com o v1; o grande ganha +0,01 por 5,8 s e 1,1 GB a cada pergunta. Sem o corte do gateway, piora:
+  mais candidatos trazem mais trecho genérico, e nenhum dos dois o separa da evidência. Com 10 trechos, o v1 e o grande
+  chegam aos mesmos 0,86 — o ganho é do número de trechos. O que falta ("de cada ramo", os cinco nomeados, as faixas
+  etárias) é de **recuperação**: dentro da faceta, a evidência não está entre os candidatos que sobram, e a das faixas
+  etárias está no POR, que é geral.
+- **Alternatives**: um reranker hospedado (Cohere, Jina, Voyage) — não medido: não havia chave nesta máquina, e nada
+  na medição local sugere que a ordem seja o gargalo; fica para quando um candidato de recuperação deixar a evidência
+  entre os candidatos e a ordem voltar a importar. O mMiniLM com 10 trechos e o bge-m3 com 40 candidatos e 10 trechos
+  não terminaram (memória, rodando em paralelo); não mudam a conclusão.
