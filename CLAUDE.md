@@ -509,7 +509,7 @@ do último token) com `x_axon.attachments`, guarda-as em `http.attachments` (mig
 serve em `GET /v1/conversations/{id}/attachments/{attachment_id}`; o corpo tem teto (`AXON_MAX_REQUEST_BYTES`, 413).
 A 011 lê `AXON_TOOL_MAX_ATTACHMENT_BYTES`, `AXON_MAX_REQUEST_BYTES`, `AXON_MAX_INPUT_IMAGE_BYTES` e
 `AXON_MAX_INPUT_IMAGES`; a prova sem rede é `tests/bootstrap/integration/test_platform_images.py`. Os packs veem os
-anexos pela Turn View. O core está em `0.7.0rc6` (tag `v0.7.0-rc6`, contratos `0.2.2` na tag `contracts-v0.2.2`;
+anexos pela Turn View. O core está em `0.7.0rc7` (tag `v0.7.0-rc7`, com a nota de que a plataforma mostra as imagens das tools, 005 R52; contratos `0.2.2` na tag `contracts-v0.2.2`;
 a `v0.7.0-rc5` foi a republicação multi-arch da rc4).
 
 O `axon-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
