@@ -536,3 +536,67 @@ Task: "ingestion/adapters/pdfium.py (T033)"
   (SC-006, R29).
 - [X] T068 `filhotes` em `BRANCHES` e `branch: filhotes` nos três documentos do Ramo Filhotes no catálogo; `ingest`
   (só metadados) (R30).
+
+## Passada de 2026-10-27: a árvore de unidades ([ADR-048](../../docs/adr/ADR-048-arvore-de-unidades-e-enumeracao-no-scouting.md); research R33–R34)
+
+- [X] T069 [US7] `corpus/taxonomia.yaml` (o mapeamento do mantenedor, com as linhas inferidas) e a reorganização de
+  `corpus/` por ela: 656 arquivos, `corpus.yaml`, `fontes.yaml`, `.gitignore` e o `source_file` do artefato (R33).
+- [X] T070 [US7] `corpus/estrutura.yaml` e `domain/corpus_structure.py`: tipos de unidade, vocabulário dos eixos e
+  blocos, perfis, `profile_by_type`, exceções; validação que acumula os problemas; `classify` (região/UEL como
+  subpasta, `ocr/`), `resolve` e a impressão digital da declaração na chave de conteúdo; `load_structure` no adapter
+  do catálogo e na CLI; sem os dois arquivos, o perfil pelo `type` (`default_profile`). `test_corpus_structure.py`,
+  com os arquivos reais do corpus (FR-023, FR-024).
+- [X] T071 [US7] Fontes: o sumário (`domain/sources.py`, pontilhado e tracejado, o deslocamento entre página impressa e
+  do PDF pelo alinhamento dos títulos), o rodapé corrido (`text.running_labels`) e os bookmarks do `PdfiumParser`
+  (`marcadores-v1` na identidade do parser). `test_sources.py` (FR-026).
+- [X] T072 [US7] `domain/tree.py`: a árvore por perfil — normas pelos marcadores, especialidades pelas faixas do sumário
+  com o eixo do rodapé e os grupos de insígnias com ramos, progressão com eixo e bloco pelo vocabulário (só no capítulo
+  da Progressão), capítulos pelos bookmarks ou pelo sumário, padrão declarado (reuniões), comunicado e slides —, o
+  rótulo tipado fora das normas, `shape` e os ramos; o perfil escolhe o corte (`regras`/`artigos` normativos mesmo com
+  `type: manual`). `test_tree.py` e US7 em `test_service.py` (FR-025, FR-027, FR-028).
+- [X] T073 [US7] Seam: `UnitRef`, `UnitNode`, `UnitEntry`, `UnitKind`, `Shape` e `DocumentOutline` no `api.py`; `path`,
+  `unit_kind`, `shape`, `branches` e a taxonomia em `IndexedChunk`; `IndexFilters.shape`; ramos efetivos no predicado e
+  no filtro do Qdrant (`filter_branches`); `units`/`outline`/`unit_kinds` em memória, artefato e Qdrant
+  (`domain/outline.py`); os tipos de unidade na versão do build e no manifesto. Conformidade nos três alvos (FR-029).
+- [X] T074 [US7] Reindexação `estrutural-v4` com o e5 (22 min; 14.140 trechos, 353 `list`; 2.381 capítulos, 2.329
+  artigos, 197 regras, 206 especialidades, 35 insígnias, 114 blocos, 46 reuniões), invariantes do artefato (o teto de
+  trechos acima de 512 tokens passa a 2,6%: 2,52% medidos) e `fact_recall` antes/depois (R34).
+- [X] T075 [US7] O item de pauta das atas e a pergunta do FAQ: `UNIT_LINES` no chunker narrativo ("N) Título:",
+  "N. Título:", a pergunta numerada em uma ou duas linhas), só com numeração crescente (começa em até 3, saltos de até
+  3), os títulos comuns abaixo do item; `item_de_pauta`/`pergunta` na árvore (`PROFILE_UNITS`). As unidades `under`
+  (competência, cargo) continuam com a árvore genérica dos títulos.
+- [X] T076 [US7] O sumário de cada documento como trecho `outline` (os dois primeiros níveis da árvore, sem artigo nem
+  regra, em janelas de até 300 tokens estimados, a final curta junta à anterior), fora da busca comum
+  (`IndexFilters.shape=None` exclui `outline`, na memória e no Qdrant).
+
+## Fase 10 — Tipologia pela taxonomia e leitura fiel ([ADR-049](../../docs/adr/ADR-049-taxonomia-e-a-tipologia-do-acervo-no-scouting.md), [ADR-050](../../docs/adr/ADR-050-leitura-fiel-e-trecho-que-cabe-no-embedder-no-scouting.md); research R35–R39)
+
+- [X] T077 [ADR-049] Catálogo sem `type` (o campo é recusado com o motivo; `REMOVED`); `taxonomy_id`, `SCOPES`,
+  `document_type: str`, `bodies`, `scope` no seam e nos três adapters (payload e `MatchAny` no Qdrant);
+  `IndexFilters.bodies`/`scopes`; `type_of`, `bodies_of`, `scope_of` na resolução; a taxonomia obrigatória
+  (`MISSING_STRUCTURE`); `DocumentType`, `NORMATIVE_TYPES`, `UNIT_BY_TYPE` e `default_profile` saem; o `type` some das
+  593 entradas do `corpus.yaml` (FR-030).
+- [X] T078 [ADR-050] Ordem de leitura por colunas (`ordered_lines`, `leitura-v2`): faixas entre linhas largas, coluna a
+  coluna com `COLUMN_BREAK`, tabela alinhada na ordem do parser. `test_layout.py` (FR-031).
+- [X] T079 [ADR-050] Títulos pela tipografia: estilo por linha no `PdfiumParser` (tamanho × matriz, família, negrito;
+  `tipografia-v1`), `domain/typography.py` (estilos de título, níveis pelos estruturais, destaque e frase fora) e o
+  chunker narrativo que só aceita o título tipográfico (e "CAPÍTULO N") quando o documento tem tipografia (FR-031).
+- [X] T080 [ADR-050] Junção das seções pequenas (`_merge_small`): filha, neta ou irmã cabendo numa janela, os títulos no
+  corpo sem repetir; `unit_boundary` da árvore protege as unidades com nome (FR-032).
+- [X] T081 [ADR-050] Teto do trecho (`domain/ceiling.py`): `TokenCounter` (porta), `E5TokenCounter` (adapter),
+  `EstimatedTokens` nas suítes; partes "Art. N (parte i de n)" com o caput; `teto=512:<tokenizador>` na versão do
+  índice; o aviso de unidade longa sai (FR-032).
+- [X] T082 [ADR-050] Transcrição (`adapters/transcription.py`: `TranscriptionParser`, `ParserBySuffix`) e
+  `scripts/ocr.py` (`tesseract`, `pages`, `assemble`, `check`) com o prompt de revisão em `scripts/ocr-codex-prompt.md`
+  e a lista `scripts/ocr-documentos.txt` (FR-033).
+- [X] T083 [ADR-050] Filtro de ruído (`domain/ocr_noise.py`): vocabulário dos nascidos digitais na mesma execução
+  (duas passadas no serviço), carimbo com cara de carimbo, linha e rabo ilegíveis; a impressão digital do vocabulário
+  na chave de conteúdo dos documentos de `ocr/` (FR-034).
+- [X] T084 [ADR-050] Unidades declaradas: fonte `under`, `sources` e `trim` por exceção, unidade do mesmo tipo dentro de
+  outra vira seção, linha da borda colada ao número da página conta como corrida; `estrutura.yaml` com os cargos
+  (Linha Escotista/Dirigente, só títulos), as competências (com `trim`), as reuniões sem ordinal e sem `children: nivel`.
+- [X] T086 [ADR-050] Reindexação `estrutural-v5` na GPU (`scripts/gpu-venv.sh`, 2m47s): 639 documentos (46 novos), 15.607
+  trechos, nenhum acima de 512 tokens do e5 (245 partes de unidades divididas); o caminho inteiro de títulos no trecho
+  (`ChunkDraft.headings`, a árvore lê os 4 níveis); `fact_recall` e linhas de base (105 R24).
+- [ ] T085 [ADR-050] Revisão das 91 transcrições pelo Codex (prompt em `scripts/ocr-codex-prompt.md`) e troca dos
+  `file:` das 57 cópias OCR em PDF para os `.txt` no catálogo e no `fontes.yaml`.

@@ -293,3 +293,104 @@ Qwen3 1.7B, Gemma 4 E2B) ficam como estão.
 - **Rationale**: medir cada correção pelas perguntas que o mantenedor fez. Antes do ADR-046, 0,7634 nos 28 itens
   (especialidades 0, etapas de cada ramo 0, políticas 0,375); depois, 0,8705, com o mesmo instrumento nas duas pontas.
 - **Alternatives**: nenhum.
+
+## R20 — Quantos trechos entregar: 10, 20 ou 30
+
+- **Decision**: a instalação passa a entregar **20 trechos de 20 candidatos**, com `AXON_TOOL_MAX_RESPONSE_BYTES=65536`
+  (com 16 KB, o gateway corta os 20 candidatos em 10–14 antes do rerank; 103 R13). 30 fica como opção medida, a
+  reavaliar depois do modo catálogo, que ataca as perguntas de lista por outro caminho.
+- **Rationale**: o conjunto de regressão (28 itens), primeiro com o gerador simulado (só recuperação), variando
+  candidatos/entregues/limite do gateway:
+
+  | candidatos / entregues / limite | `fact_recall` |
+  |---|---:|
+  | 20 / 5 / 16 KB | 0,870 |
+  | 20 / 10 / 16 KB (produção até aqui) | 0,900 |
+  | 20 / 20 / 64 KB | 0,980 |
+  | 30 / 20 / 64 KB | 0,970 |
+  | 30 / 30 / 96 KB | 0,990 |
+
+  E com o modelo de produção (`glm-5.3-flash` pelo OpenRouter, perfil `memory`, sem juiz, uma rodada cada):
+
+  | entregues | `fact_recall` | latência p50 / p95 | 1º token p50 / p95 | tokens por resposta |
+  |---:|---:|---:|---:|---:|
+  | 10 | 0,899 | 15,6 s / 35,6 s | 9,9 s / 28,3 s | 6,1 mil |
+  | 20 | 0,978 | 17,4 s / 39,0 s | 12,4 s / 31,5 s | 10,5 mil |
+  | 30 | 0,991 | 14,5 s / 47,2 s | 11,3 s / 42,1 s | 14,4 mil |
+
+  Nas três: nenhuma citação inventada, nenhum erro, `absence_claim_rate` 0. De 10 para 20, a cobertura sobe 8 pontos
+  por +73% de tokens; de 20 para 30, mais 1 ponto por +37% e +8 s no p95. A mediana oscila com a rede (o p50 de 30 saiu
+  menor que o de 10), o p95 cresce com o contexto. O que 20 ainda perde está nas listas (políticas, 0,62 no simulado),
+  que mais trechos não resolvem bem: a lista inteira não cabe em nenhuma quantidade razoável de trechos.
+- **Alternatives**: 30 trechos (1 ponto a mais, p95 maior; reconsiderar se o catálogo não fechar as listas); manter 10
+  (8 pontos a menos); subir o limite do gateway sem subir os entregues (não muda o que chega à geração).
+
+## R21 — A lista de documentos medida ([ADR-047](../../docs/adr/ADR-047-lista-de-documentos-do-acervo-no-scouting.md))
+
+- **Decision**: `CONTEXT_FIELDS` ganha `catalog`, comparado por espécie e termos em ordem (o `extra` chega congelado
+  pelos contratos, com os termos em tupla); o item `politicas-nacionais` declara `catalog: {kind: politica, terms:
+  [nacionais]}`. O `fact_recall` lê o texto das fichas por `with_cards`. A regressão na CI roda com as quantidades da
+  instalação (20/20/64 KB, R20), e a linha de base foi regravada nelas: **0,9911** (de 0,8705 com 5 trechos).
+- **Rationale**: com 20/20/64 KB, antes e depois do catálogo, o mesmo instrumento: `fact_recall` 0,978 → 0,991;
+  políticas 0,625 → 1,0; nenhum outro item muda; a semente fica igual (recall@5 0,67, MRR 0,44). Com o catálogo, 20
+  trechos dão o que 30 davam sem ele (0,990), por 4 mil tokens a menos por resposta.
+- **Alternatives**: manter a regressão com os padrões do core (mediria uma configuração que nenhuma instalação usa).
+
+## R22 — O conjunto do acervo, com controle
+
+- **Decision**: `eval/acervo.yaml`, 43 perguntas escritas lendo 21 PDFs (POR, Estatuto, Código de Conduta, cinco
+  políticas, os guias de especialidades e de progressão, o Manual de Filhotes, Padrões de Atividades, abrir uma UEL, o
+  regulamento do CAN, bullying e perfis de cargos), em cinco grupos — `simples`, `lista`, `comparativo`,
+  `multidocumento` (a resposta precisa de dois documentos ou mais) e `normativo` —, com 86 fatos copiados do texto do
+  PDF (ordem de leitura, sem passar pelo índice) e conferidos contra ele. Cada item tem `extra.split`:
+  `desenvolvimento` (o que se lê para diagnosticar) ou `controle` (só se mede); cada grupo tem os dois. A CI roda o
+  conjunto contra `eval/acervo-baseline.json` com as quantidades da instalação (R20).
+- **Rationale**: o conjunto de regressão nasceu das perguntas que falharam e é medido por quem as corrige; um conjunto
+  escrito do corpus, com uma metade que ninguém olha ao corrigir, diz se a correção generaliza. Primeiro uso: a fusão
+  com k=60 e profundidade 100–200 levou o desenvolvimento de 0,852 a 0,894, mas o controle ficou em 0,825–0,841 e a
+  regressão caiu de 0,991 para 0,975 — **não adotada**; a hierarquia dos títulos (102 R32) subiu as duas metades
+  (0,898 e 0,865) e foi adotada. Linha de base: 0,882.
+- **Pendente**: a lista das especialidades do Sênior e do Pioneiro (o trecho é uma tabela de nomes) fica em 45º no
+  denso e 24º no esparso mesmo dentro do próprio guia; nenhum ajuste de fusão, faceta ou busca por documento a traz. A
+  saída geral é enriquecer o trecho na ingestão (contexto do documento e da seção escrito por modelo, offline) ou o
+  reranker que lê a pergunta (103 R14, medido e caro) — decisão à parte, com ADR.
+- **Alternatives**: gerar as perguntas por modelo (sem a leitura, os fatos tendem a vir do que a busca já acha).
+
+## R23 — A enumeração medida por grupo ([ADR-048](../../docs/adr/ADR-048-arvore-de-unidades-e-enumeracao-no-scouting.md))
+
+- **Decision**: o relatório da rodada agrega o `fact_recall` por `extra.group` além do total, e a comparação com a linha
+  de base nomeia o grupo; a regra de regressão continua a do agregado (tolerância 0,02), com o grupo no texto da
+  falha. Os três itens de especialidades da regressão ganham fatos da lista (um nome por eixo: "Comunicações",
+  "Agricultura Sustentável", "Direitos Humanos", "Saúde Mental e Bem-estar Emocional" no Sênior/Pioneiro). O acervo
+  ganha itens de enumeração de documentos sem exceção no `estrutura.yaml`, escritos lendo os PDFs (como na R22), metade
+  de controle: o ganho da rota de enumeração tem de aparecer também onde nenhuma curadoria de estrutura chegou. Cada
+  passo do ADR-048 (102 → 101 + 103 → entrega → prompt) é medido antes e depois.
+- **Rationale**: a linha de base do acervo (0,882) escondia `especialidades-pioneiro` em 0,25 e `orgaos-nacionais` em
+  0,33; a regressão passava com 1,0 porque os itens de especialidades só conferiam "como conquistar". O controle fora
+  das exceções é o que separa uma melhora geral de um ajuste ao guia de especialidades.
+- **Alternatives**: barrar o CI por grupo (grupos pequenos, de 4 a 8 itens, oscilariam acima da tolerância); só o
+  agregado (o que deixou a falha passar).
+- **Medido (2026-10-28)**, ADR-048 implementado, nas condições do CI: semente MRR 0,435 → 0,528; regressão
+  1,0 → 0,991; acervo 0,882 → 0,910 (102 R34, 103 R17). A comparação item a item mostrou as duas regressões que a média
+  escondia (s03 e `etapas-cada-ramo` quando a rota sem tipo custava 5 vagas) — o relatório por grupo (FR-018) ainda não
+  está no harness; as linhas de base não foram regravadas.
+
+## R24 — A `estrutural-v5` medida ([ADR-049](../../docs/adr/ADR-049-taxonomia-e-a-tipologia-do-acervo-no-scouting.md), [ADR-050](../../docs/adr/ADR-050-leitura-fiel-e-trecho-que-cabe-no-embedder-no-scouting.md))
+
+Artefato `scouting__20261028T…` (639 documentos, 15.607 trechos, nenhum acima de 512 tokens do e5; antes 593, 14.706 e
+378), com 20 candidatos e 20 trechos, gerador simulado do perfil `test`:
+
+| Conjunto | `fact_recall` v4 | v5 | O que mudou |
+|---|---|---|---|
+| regressão (28) | 0,991 | 0,977 | `marco-5-ramos` e `marco-ramos-nomeados` 1,0 → 0,8: o trecho com a frase do marco do Ramo Escoteiro caiu de 1º para 13º na faceta, atrás dos trechos gerais do capítulo e de uma tabela de competências |
+| acervo (43) | 0,910 | 0,892 | `tipos-de-risco` 0,8 → 1,0; `reconhecimento-de-cada-ramo` e `passagem-senior-pioneiro` 1,0 → 0,5: a Regra 178 do POR (todos os reconhecimentos) era um trecho só, que o e5 lia só no começo e o BM25 inteiro; agora são 5 partes, e a da Lis de Ouro fica mais abaixo |
+| semente (9) | recall@5 0,667, MRR 0,435 | 0,667 e 0,551 | os ids de seção de `s08`/`s09` mudaram (evidência atualizada) |
+
+- **Decision**: aceitar a v5 e gravar as três linhas de base. A queda é o preço de um trecho que o embedder lê inteiro:
+  o "acerto" da v4 vinha de um trecho de 3 mil tokens com a resposta de todos os ramos, que o vetor denso não
+  representava. O caso que motivou o ADR-050 (o prêmio do Caio Ferreira Bernardo) passa: o trecho em 2º traz o rótulo
+  "Prêmio Walter Dohme" e o nome sob "Gestão Institucional".
+- **Rejeitado, medido**: contar cada unidade uma vez por faceta — o `unit_group` de um trecho narrativo é o capítulo, e
+  o marco do Ramo Escoteiro foi a 0,2.
+- **Próximo**: entregar com a parte de uma unidade normativa as partes irmãs (ou o caput) quando a pergunta cobre
+  vários ramos; a tabela de competências com o rótulo errado ("SEGURANÇA…").

@@ -331,7 +331,37 @@ teste do mantenedor no dev (17 perguntas; relatório "RAG do scouting por dentro
 **citado** filtra; o sugerido por tema vai em `suggested_types` e só desempata a ordem (o tema "especialidades" filtrava
 por `programa_educativo`, que nenhum documento tem, e nenhum tema incluía `guia`); o prompt fala de "documentos
 consultados", nunca de "trechos"; e "último ano"/"este ano" viram período. O conjunto de regressão tem 28 itens (8 das
-perguntas do dev, grupos `lista` e `pessoa`), linha de base 0,8705. O ambiente de dev local (`axon-scouting/.cache/dev/
+perguntas do dev, grupos `lista` e `pessoa`). Com o modelo real, 10/20/30 trechos entregues dão `fact_recall` 0,90/0,98/0,99
+(105 R20): a instalação passa a 20 candidatos, 20 trechos e `AXON_TOOL_MAX_RESPONSE_BYTES=65536`, e a regressão da CI
+roda nessas quantidades. E o ADR-047, a **lista de documentos**: a derivação publica `catalog: {kind, terms}` quando a
+pergunta pede uma enumeração ("quais são as políticas…"); o índice expõe o seam *Catálogo de documentos*
+(`DocumentCatalog.catalog(filters)`, a vigência da busca, nos três adapters); a tool `scouting.list_documents` devolve
+uma ficha por documento cujo título casa (`<doc_key>#acervo`, "ficha do acervo, N de M", até 15), que o
+`MetadataReranker` põe antes dos trechos; o core não muda. Depois, o conjunto do **acervo** (`eval/acervo.yaml`, 105
+R22): 43 perguntas escritas lendo 21 PDFs, com fatos conferidos no texto e metade de **controle** (só se mede), na CI
+com 20 trechos; e a hierarquia dos títulos na ingestão (`estrutural-v3`, 102 R32: subtítulo recorrente sob o título
+anterior, item numerado que recomeça não é título, a sobra da capa não corta a frase do artigo), reindexada (13.973
+trechos). Linhas de base: acervo 0,882, regressão 1,0. A fusão k=60 subiu só o desenvolvimento e não entrou. E o ADR-048, a **árvore de unidades** (implementado: `estrutural-v4`, 14.706 trechos com 349 `list` e 311 sumários `outline`; itens de pauta e perguntas do FAQ; a rota de enumeração da 101/103; a entrega dos irmãos juntos e o parágrafo do prompt): o corpus segue a taxonomia do mantenedor (`corpus/taxonomia.yaml`, pastas `<categoria>/<subcategoria>/<nível>/`, a região como subpasta, OCR espelhado sob `ocr/`; reorganizado em 2026-10-27, com `corpus.yaml`, `fontes.yaml` e o `source_file` do artefato atualizados), e `corpus/estrutura.yaml` dá a forma de cada documento — o tipo semântico da pasta escolhe o perfil (`artigos`, `ata`, `regras`, `especialidades`, `progressao`…), com exceções para os guias, e as fontes da árvore são marcadores, sumário, bookmarks e rodapé corrido (hoje descartados), com `shape` e ramos por unidade; a enumeração ("quais são as especialidades") sai pela tool `list_units`, e não pela busca, onde a lista perde da prosa — só tipos com nome próprio, em até 3 documentos; senão, 2 trechos `list` e 1 sumário, e nada numa pergunta por ramo (102 R33–R34, 101 R39, 103 R17, 105 R23). Acervo 0,882 → 0,910. Depois, o ADR-049 (**a taxonomia é a única
+tipologia**): o `type` saiu do `corpus.yaml` (entrada com ele é recusada) e o tipo é o `tipo` da pasta na taxonomia, como
+id (`taxonomy_id`: "P.O.R." → `por`, "Ata" → `ata`); o seam do índice tem `document_type: str`, `bodies` (categoria e
+subcategoria) e `scope` (nível, senão jurisdição), com os filtros `bodies`/`scopes` nos três adapters; a taxonomia é
+obrigatória na ingestão; a derivação cita 13 tipos, 11 órgãos e 5 abrangências, e órgão e abrangência só filtram com tipo
+citado ou pedido de lista (senão `suggested_bodies`, desempate); a lista de documentos escolhe pelo tipo e pela
+classificação. E o ADR-050 (**leitura fiel**, `estrutural-v5`): colunas de texto lidas uma a uma (`leitura-v2`; o erro do
+Prêmio Walter Dohme × Aldo Chioratto no relatório 2023), títulos pela tipografia (tamanho efetivo pela matriz, família,
+negrito; `tipografia-v1`; o destaque no meio do parágrafo não é título), seções pequenas juntas à mãe ou à irmã sem
+engolir unidade com nome, teto de 512 tokens do e5 em todo trecho (`domain/ceiling.py`, `E5TokenCounter`; partes "Art. N
+(parte i de n)" com o caput e as páginas de cada parte), transcrição de digitalizado em `corpus/ocr/<caminho>.txt`
+(`TranscriptionParser`; `scripts/ocr.py` com o Tesseract local e o prompt de revisão pelo Codex em
+`scripts/ocr-codex-prompt.md`; nada de API paga), filtro de ruído de OCR pelo vocabulário dos nascidos digitais, e as
+unidades `under` (13 cargos, competências com `trim`), `sources` por exceção e reuniões sem ordinal. Entraram 46
+documentos (39 atas da Assembleia Regional de SP de 1994 a 2026, 6 do Fórum Regional Pioneiro, pasta nova
+`programa-educativo/comissao-regional-pioneira/regional`, e o Manual de Reconhecimentos e Condecorações): 639
+documentos, 15.607 trechos, nenhum truncado. `fact_recall`: regressão 0,991 → 0,977, acervo 0,910 → 0,892 (a Regra 178
+e o marco simbólico acertavam por trechos que o e5 truncava; 105 R24), linhas de base regravadas. A ingestão pode
+codificar na GPU: `scripts/gpu-venv.sh` monta `.cache/gpu-venv` com o `onnxruntime-gpu`, e
+`AXON_SCOUTING_EMBEDDING_DEVICE=cuda` faz a reindexação em ~3 min (RTX 5060: 251 trechos/s contra ~10 na CPU; 102 R40).
+Pendente: a revisão das 91 transcrições pelo Codex e a troca das 57 cópias OCR em PDF pelos `.txt`. O ambiente de dev local (`axon-scouting/.cache/dev/
 dev.sh`, fora do git: Postgres e Open WebUI em contêiner, `axon serve` do venv do pack, trace em `.cache/dev/trace/`)
 serve para testar antes de publicar. A chave do
 OpenRouter da instalação está em `~/Documents/cfblabs-management/stacks/axon/env` (materializada do cofre); use-a só no

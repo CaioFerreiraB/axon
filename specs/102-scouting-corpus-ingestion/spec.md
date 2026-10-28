@@ -149,6 +149,40 @@ de hifenização, poucos trechos além do que o e5 lê) passam, e o `fact_recall
 
 ---
 
+### User Story 7 - Documento como árvore de unidades tipadas (Priority: P1)
+
+Cada documento entra no índice com a própria estrutura: o POR por regra, a norma por artigo, a ata por item de pauta,
+o guia de especialidades por eixo, especialidade e insígnia, o guia de progressão por eixo e bloco. Cada trecho sabe a
+que unidade pertence e qual é o caminho dela no documento, e a lista das unidades de um tipo pode ser lida sem busca
+([ADR-048](../../docs/adr/ADR-048-arvore-de-unidades-e-enumeracao-no-scouting.md)).
+
+**Why this priority**: No teste do mantenedor em 2026-10-27, "quais são as especialidades do ramo pioneiro?" não trouxe a
+lista: o trecho dela ficou em 86º no denso e 142º no BM25, e o sumário do guia, que tem as 32 com página, é descartado
+na limpeza. O eixo de cada especialidade e o ramo de cada insígnia só estão no rodapé, também descartado. 17 normas
+catalogadas como `manual` são cortadas em janelas, sem os artigos.
+
+**Independent Test**: Com o artefato `estrutural-v4`, `units("especialidade", filtros do Pioneiro)` devolve as 32
+especialidades do guia Sênior/Pioneiro com página e eixo, e nenhuma do Lobinho/Escoteiro; o Regulamento da RNJL tem um
+trecho por artigo; os invariantes do artefato e o `fact_recall` da 105 não pioram.
+
+**Acceptance Scenarios**:
+
+1. **Given** um documento numa pasta da taxonomia, **When** ingerido, **Then** o registro dele traz categoria,
+   subcategoria, nível e tipo semântico da entrada; **Given** um arquivo fora de qualquer pasta da taxonomia, **Then**
+   a validação do catálogo o recusa, nomeando a pasta.
+2. **Given** um regulamento catalogado como `manual`, **When** ingerido, **Then** o tipo semântico dá o perfil
+   `artigos`, e cada artigo é uma unidade.
+3. **Given** o guia Sênior/Pioneiro e a declaração dele no `estrutura.yaml`, **When** ingerido, **Then** cada entrada do
+   sumário na faixa de especialidades é uma unidade `especialidade` com o eixo do rodapé como pai, e o trecho de
+   Gastronomia tem o rótulo "Eixo: Habilidades para a Vida · Especialidade: Gastronomia · Fazer".
+4. **Given** uma faixa declarada que não casa com o sumário (entrada fora da faixa ou faixa sem entrada), **When** a
+   ingestão roda, **Then** ela recusa o documento, nomeando a faixa.
+5. **Given** as insígnias do grupo "Ramo Pioneiro", **When** a busca filtra `branch="lobinho"`, **Then** nenhuma delas
+   aparece; **Given** um documento sem ramos, **Then** ele continua valendo para todo ramo.
+6. **Given** o Art. 12 do Estatuto (seis incisos curtos), **When** ingerido, **Then** o trecho tem `shape="list"`.
+
+---
+
 ### Edge Cases
 
 - PDF escaneado sem camada de texto: sinalizado e rejeitado na v1 (OCR fora de escopo).
@@ -183,6 +217,20 @@ de hifenização, poucos trechos além do que o e5 lê) passam, e o `fact_recall
 - **FR-018**: A limpeza DEVE remover cabeçalho e rodapé corridos de várias linhas — procurados nas primeiras e últimas linhas da página, em mais da metade das páginas, em 80% das páginas do trecho em que aparecem ou com o número da própria página —, sem nunca remover o marcador de unidade normativa; e DEVE tratar a marca de hifenização do PDFium (U+FFFE, U+00AD) como o hífen de quebra e tirar o número de página colado a um título em maiúsculas.
 - **FR-019**: Nenhum trecho DEVE ser só um título: corpo sem frase terminada e com menos de 40 letras segue para a seção seguinte (ou, no fim, para o último trecho; a janela final assim, para a anterior; entre unidades normativas, para a unidade seguinte); títulos em mais de uma linha e o nome do capítulo depois de "CAPÍTULO N" fazem parte do título; o prefixo normativo DEVE trazer o nome de cada agrupamento.
 - **FR-020**: As janelas narrativas DEVEM ficar entre 250 e 450 tokens estimados (`estrutural-v2`), e a frase maior que a janela DEVE ser dividida entre palavras; a unidade normativa continua inteira (FR-002).
+- **FR-021**: O índice DEVE expor o seam *Catálogo de documentos* (`DocumentCatalog.catalog(filters)`): uma `CatalogEntry` por documento que os `IndexFilters` admitem, com a semântica de vigência, ramo e tipo da busca e o link do original, em todo adapter ([ADR-047](../../docs/adr/ADR-047-lista-de-documentos-do-acervo-no-scouting.md)).
+- **FR-022**: O chunking narrativo DEVE dar hierarquia aos títulos: título em maiúsculas recorrente no documento é subtítulo do último título não recorrente; item numerado cuja numeração recomeça, cujo número é um ano ou cuja frase continua na linha seguinte não é título; e a sobra antes de uma unidade normativa NÃO DEVE cortar a frase da primeira linha dela (`estrutural-v3`, research R32).
+- **FR-023**: Todo arquivo do corpus DEVE morar numa pasta de entrada da taxonomia (`corpus/taxonomia.yaml`; a região ou a UEL como subpasta; a cópia OCR no mesmo caminho sob `ocr/`); a validação do catálogo DEVE recusar arquivo fora delas, e o registro de documento DEVE levar categoria, subcategoria, nível e tipo semântico da entrada ([ADR-048](../../docs/adr/ADR-048-arvore-de-unidades-e-enumeracao-no-scouting.md), research R33).
+- **FR-024**: A ingestão DEVE ler `corpus/estrutura.yaml` e dar a cada documento o perfil da primeira exceção que casa (por pasta ou `document_id`) ou, sem exceção, o do tipo semântico (`profile_by_type`); DEVE recusar tipo sem perfil, tipo de unidade fora de `unit_kinds` e faixa de páginas declarada que não casa com o sumário do documento.
+- **FR-025**: A ingestão DEVE montar uma árvore por documento — nó com id, tipo de unidade, título, páginas e filhos — e gravar em cada trecho o caminho até a raiz; o rótulo do trecho DEVE trazer o tipo e o título de cada nível; unidade maior que a janela vira filhos aninhados, e a menor fica num trecho só; as unidades normativas mantêm a FR-002 (`estrutural-v4`).
+- **FR-026**: O esqueleto da árvore DEVE vir, em ordem de autoridade, dos marcadores normativos, do sumário do PDF, dos bookmarks, do cabeçalho ou rodapé corrido e da hierarquia de títulos, conforme o perfil; sumário e rodapé saem do texto do trecho (FR-018) mas ficam como estrutura, e o detector de sumário DEVE aceitar pontilhado e tracejado.
+- **FR-027**: Cada trecho DEVE ter `shape`: `list` quando a maior parte do corpo são itens marcados (•, incisos, alíneas, numeração) e curtos; senão, `prose`.
+- **FR-028**: Documento e grupo de unidades DEVEM aceitar `branches` declarados no `estrutura.yaml`; o filtro de ramo DEVE admitir o trecho cujos ramos contêm o pedido e, sem ramos, continuar tratando-o como geral.
+- **FR-029**: O seam *Índice do scouting* DEVE expor, em todo adapter, `path`, `unit_kind`, `shape` e `branches` em `IndexedChunk`, `shape` em `IndexFilters`, os tipos de unidade do build com os plurais (`unit_kinds()`), `units(kind, filters)` — as unidades de um tipo que os filtros admitem, com título, páginas e caminho — e `outline(doc_key)`, a árvore do documento sem texto.
+- **FR-030** ([ADR-049](../../docs/adr/ADR-049-taxonomia-e-a-tipologia-do-acervo-no-scouting.md)): O catálogo NÃO DEVE ter `type`; o tipo do documento DEVE ser o `tipo` da entrada da taxonomia da pasta, como id (`taxonomy_id`), e o índice DEVE gravar também os órgãos (ids da categoria e da subcategoria) e a abrangência (o nível da taxonomia, senão o da jurisdição) e filtrar por eles (`IndexFilters.bodies`, `scopes`) em todo adapter. Sem taxonomia e estrutura, a ingestão NÃO DEVE rodar.
+- **FR-031** ([ADR-050](../../docs/adr/ADR-050-leitura-fiel-e-trecho-que-cabe-no-embedder-no-scouting.md)): Numa página de colunas de texto, a ordem de leitura DEVE ser coluna a coluna, da esquerda para a direita, com fronteira de parágrafo entre as colunas; colunas alinhadas linha a linha (tabela) DEVEM ficar na ordem do parser. Quando o documento tem estilos de título (fonte, tamanho, negrito), o título DEVE ser a linha num desses estilos, com o nível pelo tamanho; linha em maiúsculas ou numerada na fonte do corpo NÃO DEVE ser título.
+- **FR-032** (ADR-050): Nenhum trecho DEVE passar do que o embedder denso lê (512 tokens do tokenizador do e5, rótulo incluído): a unidade normativa maior DEVE ser dividida nas linhas do corpo, com "Art. N (parte i de n)" no rótulo e o caput curto repetido; a janela, nas linhas e frases. Seção menor que o mínimo da janela DEVE juntar-se à mãe ou à irmã anterior, com o título dela no corpo, salvo quando o título abre unidade com nome.
+- **FR-033** (ADR-050): A ingestão DEVE aceitar a transcrição de um documento digitalizado em `ocr/<caminho do original>.txt`, uma página por bloco separado por quebra de página (U+000C), e lê-la como o texto do documento.
+- **FR-034** (ADR-050): Nos documentos de `ocr/`, a ingestão DEVE tirar do trecho (sem tirar do original) o carimbo repetido, a linha com menos da metade das palavras plausíveis e o rabo ilegível, com o vocabulário dos documentos nascidos digitais da mesma execução.
 
 ### Key Entities
 
@@ -191,6 +239,9 @@ de hifenização, poucos trechos além do que o e5 lê) passam, e o `fact_recall
 - **Chunk**: identificador estável, texto com prefixo ancestral, metadados, representações densa e esparsa.
 - **Index Version**: estratégia de chunking + modelo de embedding (nome e impressão digital dos pesos) + data.
 - **Chunk Index**: porta de consulta do índice (busca densa e esparsa com fusão, filtros de vigência e de contexto, e a similaridade densa de cada resultado — ADR-025), consumida por 103 e 106.
+- **Corpus Taxonomy**: `corpus/taxonomia.yaml`, o mapeamento semântico do acervo (do mantenedor, com as linhas inferidas marcadas): categoria, subcategoria, nível e tipo semântico; cada entrada é uma pasta de `corpus/` (ADR-048).
+- **Document Structure**: `corpus/estrutura.yaml` — tipos de unidade, vocabulário (eixos e blocos), perfis, o perfil de cada tipo semântico e as exceções por pasta ou documento.
+- **Unit**: nó da árvore de um documento — id, tipo, título, páginas, ramos e filhos; o trecho guarda o caminho das unidades acima dele.
 
 ## Success Criteria *(mandatory)*
 

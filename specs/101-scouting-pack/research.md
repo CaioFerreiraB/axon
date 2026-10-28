@@ -581,3 +581,55 @@ seguem no Qdrant embutido com `store: qdrant`.
   `programa_educativo` não existe no catálogo), as de progressão perdiam os guias dos jovens, e as respostas falavam de
   "trechos recebidos", que o usuário não entende. Medido com o conjunto de regressão (105 R19): 0,7634 → 0,8705.
 - **Alternatives**: no ADR-046.
+
+## R38 — O pedido de lista de documentos ([ADR-047](../../docs/adr/ADR-047-lista-de-documentos-do-acervo-no-scouting.md))
+
+- **Decision**: o léxico ganha `list_markers` ("quais", "liste", "existem"…), `catalog_kinds` (a palavra do título no
+  singular → os plurais que a pedem: políticas, manuais, guias, resoluções, atas, regulamentos, relatórios, documentos)
+  e `catalog_stopwords`. Com um marcador e um plural, a derivação publica `catalog: {kind, terms}`; `terms` são as
+  palavras restantes da pergunta, normalizadas, sem as de ligação, os verbos da pergunta e o que todo título repete
+  ("escoteiros", "brasil"). Só plurais pedem lista: "o que diz a política nacional de adultos" não pede. `documento` sem
+  qualificador não pede (seria o acervo inteiro). O prompt ganha o parágrafo da lista: listar pelas fichas, citar cada
+  documento, dizer quantos existem quando M passa do que chegou. "Ficha" entra nas palavras do mecanismo, com a proibição de copiar a linha de
+  referência: na primeira rodada com o modelo real, a resposta dos manuais do Lobinho trouxe "[ficha do acervo, 1 de 1]"
+  e "não encontrei fichas deles".
+- **Rationale**: a enumeração é uma intenção que a pergunta declara com poucas palavras e que os trechos não atendem
+  (105 R20). O léxico continua sem stemmer: os plurais são termos explícitos, como os ramos; a comparação com os
+  títulos, que precisa do singular, é da 103.
+- **Alternatives**: detectar a lista pelo modelo (não há chamada de modelo na preparação, e ela é pura — SC-002);
+  publicar só a espécie e deixar a 103 extrair os qualificadores (a 103 não conhece as palavras de ligação do léxico).
+
+## R39 — O pedido de enumeração ([ADR-048](../../docs/adr/ADR-048-arvore-de-unidades-e-enumeracao-no-scouting.md))
+
+- **Decision**: com um marcador de enumeração (`list_markers`, os mesmos da R38) e um plural que não é espécie de
+  documento, a derivação publica `enumeration: {unit_kind, terms}`. `unit_kind` é o tipo de unidade cujo plural a
+  pergunta usa ("quais são as especialidades" → `especialidade`; "quais são as insígnias" → `insignia`), ou `null`
+  ("quais são os órgãos nacionais"); `terms` segue a regra do `catalog`, sem o nome do ramo, que já é filtro. Os
+  plurais vêm do índice: `unit_kinds()` do build publicado (102 FR-029), lidos uma vez pela composição do pack e postos
+  no `Lexicon` (`unit_kinds`), de modo que `derive_context(pergunta, dia, léxico)` continua pura. Espécie de documento
+  vence: "quais são as políticas" continua `catalog`. O prompt ganha o parágrafo da enumeração: listar por inteiro pela
+  lista de unidades ou pelo sumário, citando, e não descrever uma unidade só pelo nome dela.
+- **Rationale**: no teste do mantenedor (2026-10-27), "quais são as especialidades do ramo pioneiro?" não trouxe a lista
+  porque nenhum caminho a pedia: "especialidades" não é espécie de documento (ADR-047), e a lista perde da prosa na
+  busca. O vocabulário dos tipos é o que a curadoria declarou no `estrutura.yaml`, e não uma lista escrita para uma
+  pergunta: o mesmo mecanismo cobre insígnias, blocos, competências, reuniões e cargos.
+- **Alternatives**: um plural no léxico para cada tipo (duplicaria o `estrutura.yaml` e ficaria para trás quando ele
+  mudasse); detectar a enumeração pelo modelo (a preparação não chama modelo, SC-002); publicar só o marcador e deixar
+  a 103 achar o tipo (a 103 não conhece as palavras de ligação do léxico).
+- **Implementado (2026-10-28)**: o `pack.py` compõe o índice uma vez (as tools e a preparação o dividem; o artefato é
+  carregado uma vez) e lê os tipos do build na primeira pergunta. Só entram no léxico os tipos com nome próprio
+  (especialidade, insígnia, bloco, reunião…): "quais são os artigos da Lei do Lobinho" não pede a lista dos "Art. N"
+  de todas as normas (103 R17). Sem tipo, a enumeração sai com `unit_kind: null`, e a 103 busca os trechos com forma de
+  lista; uma pergunta como "Quais competências do Pioneiro estão relacionadas à liderança?" também a publica.
+
+
+## R40 — Tipos, órgãos e abrangência da taxonomia ([ADR-049](../../docs/adr/ADR-049-taxonomia-e-a-tipologia-do-acervo-no-scouting.md))
+
+- **Decision**: o léxico cita os tipos da taxonomia (13; `guia` vira `manual`, e "regulamento" deixa de ser sinal para
+  ser tipo), os órgãos (11) e as abrangências (5); órgão e abrangência filtram só junto com um tipo citado ou um pedido
+  de lista, e sozinhos o órgão vai em `suggested_bodies`. As espécies da lista de documentos são ids de tipo.
+- **Rationale**: o filtro de tipo era o do `type` do catálogo, que não distingue ata de manual; e o órgão citado ("as
+  atas do CAN", "a assembleia regional") não tinha como restringir. Sem a condição do tipo citado, "como funciona o
+  CAN?" perderia o Estatuto e o POR, a mesma razão do ADR-046 para o tipo sugerido.
+- **Alternatives**: órgão sempre filtra (perde as normas que descrevem o órgão); "assembleia" como órgão (a assembleia
+  de grupo é assunto do POR).

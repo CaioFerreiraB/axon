@@ -168,6 +168,9 @@ não teriam como provar ganho nem como evitar piora.
 - **FR-016**: Sem os PDFs no git, o CI DEVE conferir o artefato contra o catálogo — os mesmos documentos e, para cada um, metadados, vigência derivada da linhagem e proveniência —, no lugar da reingestão a partir dos originais (que continua sendo `axon-scouting-corpus ingest`, na máquina de quem os tem).
 - **FR-017**: O pack DEVE fornecer a métrica não determinística `absence_claim_rate`: em item com `extra.facts` (a informação existe no corpus), 1 se a resposta afirma que os documentos não trazem a informação, senão 0; dizer que algo não apareceu nos trechos não conta. A rodada com modelo real que a mede usa `eval/assistants-openrouter.yaml`.
 
+- **FR-018**: O relatório de cada conjunto DEVE trazer o `fact_recall` por grupo (`extra.group`), ao lado do agregado, e a comparação com a linha de base DEVE nomear o grupo que piorou ([ADR-048](../../docs/adr/ADR-048-arvore-de-unidades-e-enumeracao-no-scouting.md)).
+- **FR-019**: Os itens de especialidades da regressão DEVEM ter, além dos fatos de "como conquistar", fatos da lista (nomes de especialidades de eixos diferentes); o conjunto do acervo DEVE ganhar itens de enumeração tirados de documentos que nenhuma exceção do `estrutura.yaml` declara (atas, políticas, normas, manuais), metade de controle, com os fatos conferidos no texto.
+
 ### Key Entities
 
 - **Scouting Golden Item**: pergunta, documentos esperados, resposta de referência, citações esperadas, data de referência (obrigatória em todo item) e, em `extra.context`, o contexto esperado da derivação (opcional).

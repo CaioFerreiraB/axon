@@ -243,3 +243,63 @@ da 005, o N do rerank e o limiar do portão.
 - **Rationale**: o tipo sugerido é palpite do léxico; como filtro, escondia os guias e zerava as perguntas de
   especialidades.
 - **Alternatives**: peso numérico na fusão (FR-005 proíbe peso na v1; outro ADR se a medição pedir).
+
+## R16 — A lista de documentos ([ADR-047](../../docs/adr/ADR-047-lista-de-documentos-do-acervo-no-scouting.md))
+
+- **Decision**: `CatalogRetriever` (`rag/retrieval/catalog.py`) e as funções puras de `domain/catalog.py`. Título e
+  pergunta se comparam normalizados e no singular por regra de plural do português (`-ões`/`-ães` → `-ão`, `-ais` →
+  `-al`, `-ns` → `-m`, `-res`/`-zes` → sem `-es`, `-s`). Entra o documento cujo título tem a espécie e a **maior**
+  fração dos qualificadores que algum título alcança: "atas da assembleia nacional" dá as 39 atas com as duas palavras,
+  não as 140 com uma. Ordem: do mais recente ao mais antigo, depois o título. Teto `max_cards` = 15 (`RetrievalConfig`).
+  A ficha tem id `<doc_key>#acervo` (o trecho do índice sempre tem `@p`), `page=None`, seção "ficha do acervo, N de M",
+  `score` = a fração, e a marca `catalog_rank`, que o `sort_key` põe antes de tudo. `BRANCH_NAMES` foi para o domínio
+  (a ficha e a faceta usam). `with_cards` dá à 105 o texto da ficha pelo id.
+- **Rationale**: medido no artefato real: políticas nacionais → as 8, só elas; "guias disponíveis" → os 6; "documentos
+  sobre especialidades" → os 2 guias; "manuais do Ramo Lobinho" → o manual do escotista. O conjunto de regressão foi de
+  0,978 a 0,991 com 20 trechos (105 R21).
+- **Alternatives**: incluir os títulos com qualquer qualificador (a lista das atas vira 140); score por BM25 dos títulos
+  (a enumeração pede casamento, não semelhança); siglas e sinônimos agora ("CAN" não casa os títulos das atas do
+  Conselho) — esperam um campo de série no catálogo, com o curador.
+
+## R17 — A enumeração pela estrutura, os repetidos e o contexto do pai ([ADR-048](../../docs/adr/ADR-048-arvore-de-unidades-e-enumeracao-no-scouting.md))
+
+- **Decision**: a tool `list_units`, ao lado de `search_docs` e `list_documents`, sobre `DocumentOutline` (102 FR-029).
+  Com `unit_kind`, uma ficha por documento com a lista exata das unidades daquele tipo sob os filtros (os ramos da
+  unidade valem: as insígnias do grupo do Pioneiro não entram numa pergunta do Lobinho); a ficha tem id
+  `<doc_key>#unidades/<tipo>` e seção "lista de <plural>, N de M", sem página no rótulo e com a página de cada item no
+  corpo. Sem `unit_kind`, duas buscas restritas — `shape="list"` (3) e os sumários do `outline` renderizados como
+  trecho (2) —, com os mesmos filtros. O `MetadataReranker` põe as fichas do acervo, depois o que `list_units` trouxe,
+  depois os trechos; o `top_k` não muda, e o que entra toma a cauda. Os repetidos se juntam na busca, antes da fusão
+  das facetas, pelo hash do corpo normalizado. A entrega agrupa irmãos pela unidade do `path`, na ordem do documento,
+  até 1.500 tokens por unidade (provisório até a medição da 105).
+- **Rationale**: medido sem reindexar (102 R34): restrita aos trechos `list`, a busca põe a lista das especialidades em
+  1º ou 2º e o Art. 12 em 1º; restrita aos sumários, o documento certo em 1º a 4º de 277. No índice, 910 trechos (6,5%)
+  estão em grupos de corpo repetido; na pergunta do teste, 3 das 20 vagas. Uma tool própria mantém a rota visível na
+  timeline e no loop do `agentic`, como a `list_documents` (ADR-047).
+- **Alternatives**: a rota dentro do `search_docs` (mistura orçamentos no mesmo `top_k`, como rejeitado na R16); mais
+  trechos (o alvo estava em 86º e 142º); o cross-encoder (R14); juntar os repetidos na ingestão (perderia o rótulo de
+  cada insígnia, que diz onde o texto se repete).
+- **Medido (2026-10-28)**, com o artefato `estrutural-v4` e o e5, nas condições do CI (20/20), contra o antes da 102:
+  semente com MRR 0,435 → 0,528 e `delivered_recall` igual; regressão 1,0 → 0,991 (`etapas-cada-ramo`, a troca de
+  posição que veio da 102); acervo 0,882 → 0,895, com `especialidades-pioneiro` 0,25 → 1,0 (a ficha com as 32). A
+  primeira rodada achou um defeito geral: "Quais são os artigos da Lei do Lobinho?" virou a lista dos "Art. N" de 15
+  normas e tirou a Regra 009 da entrega (semente com `delivered_recall` 0,667 → 0,556). Duas regras saíram dele: só
+  os tipos de unidade com nome próprio são enumeráveis (os que a árvore rotula como "Tipo: título" — artigo, regra,
+  capítulo e seção têm por título um número), e um tipo espalhado por mais de 3 documentos devolve os trechos `list`,
+  porque a pergunta não disse de onde listar. Ficam para depois: os sumários na rota sem tipo (pedem um vetor por
+  sumário no índice) e a entrega com o contexto do pai (FR-017).
+- **Medido (2026-10-28, com a entrega pelo pai e os sumários)**: semente com MRR 0,435 → 0,528 e `delivered_recall`
+  igual ao de antes; regressão 1,0 → 0,991 (`etapas-cada-ramo` 0,75, a troca de posição da 102); acervo
+  0,882 → **0,910** — `especialidades-pioneiro` 0,25 → 1,0 e `orgaos-nacionais` 0,33 → 1,0 (as seções do sumário do
+  Estatuto têm o nome de cada órgão). A rota sem tipo com 3 listas e 2 sumários custava 5 vagas e tirou da entrega a
+  Regra 009 da s03 ("Quais são os artigos da Lei do Lobinho?") e as etapas de `etapas-cada-ramo` (0,75 → 0): ela
+  passou a custar no máximo 3 (2 listas e 1 sumário) e a não rodar quando a pergunta se divide em facetas por ramo.
+
+## R18 — Órgão e abrangência na busca e na lista ([ADR-049](../../docs/adr/ADR-049-taxonomia-e-a-tipologia-do-acervo-no-scouting.md))
+
+- **Decision**: `bodies` e `scopes` viram filtros do índice; `suggested_bodies` é a marca `body_match`, depois do tipo
+  sugerido no desempate; ids validados pela forma (`taxonomy_id`), sem lista fixa; a lista de documentos escolhe pelo
+  tipo e casa os qualificadores no título ou na classificação (`taxonomy_words`).
+- **Rationale**: "atas da assembleia regional" achava pelo título só as atas que diziam "Assembleia Regional" no nome;
+  a classificação da pasta diz isso de todas. Um tipo novo na taxonomia não precisa mudar o retriever.
+- **Alternatives**: manter a espécie pela palavra do título (perde as atas de título curto, como "Ata ARE 2024").

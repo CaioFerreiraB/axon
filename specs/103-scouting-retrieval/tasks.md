@@ -301,3 +301,23 @@ Task: "tests/rag/retrieval/test_reranker.py — US4 (T016)"
 - [X] T027 Medição do reranker que lê a pergunta (R14): dois cross-encoders locais contra o v1, com e sem o corte do
   gateway, com 5 e 10 trechos; não adotado; nenhuma mudança de código.
 - [X] T028 `suggested_types` em `domain/filters.py`, `ordering.marks` e o retriever; testes (R15, FR-012).
+
+## Passada de 2026-10-28: a enumeração pela estrutura (research R17; [ADR-048](../../docs/adr/ADR-048-arvore-de-unidades-e-enumeracao-no-scouting.md))
+
+- [X] T029 [US8] `enumeration` em `domain/filters.py`; `domain/units.py` (ficha `<doc_key>#unidades/<tipo>`,
+  `with_unit_cards`); `UnitsRetriever` e a tool `list_units` em `units.py` (com tipo, até `MAX_DOCUMENTS` = 3
+  documentos; sem tipo ou além disso, até 3 trechos `shape=list`); `structure_rank` e a ordem sem repetir em
+  `domain/ordering.py`; `marks` pelos ramos efetivos; a ficha refeita para a métrica de fatos; `tests/rag/retrieval/
+  test_units.py` (FR-015).
+- [X] T030 [US8] A junção dos trechos de texto idêntico no `ScoutingRetriever` (`also_in`), com a busca um pouco mais
+  funda quando ela libera vagas (FR-016).
+- [X] T031 [US8] A entrega com o contexto do pai: `unit_group` nos metadados do `Chunk` (a unidade mais funda do caminho
+  que não é seção), `by_unit` no `MetadataReranker` depois do corte — irmãos juntos, na ordem do documento, até
+  `unit_tokens` (1.500) —; testes (FR-017).
+- [X] T032 [US8] Os sumários na rota sem tipo: até 2 trechos `outline` (102 T076) depois das 3 listas (FR-015).
+
+## Órgão e abrangência ([ADR-049](../../docs/adr/ADR-049-taxonomia-e-a-tipologia-do-acervo-no-scouting.md))
+
+- [X] T033 `bodies`/`scopes` em `index_filters`, `suggested_bodies` e a marca `body_match` no desempate (depois do tipo
+  sugerido); ids da taxonomia validados pela forma, não por enum; a lista de documentos pelo tipo e pelos qualificadores
+  no título ou na classificação (`taxonomy_words`) (FR-018).

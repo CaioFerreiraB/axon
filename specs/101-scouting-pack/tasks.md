@@ -577,3 +577,18 @@ T063 → T064 → T065 → T066 ∥ T067 (veem falhar) → T068 → T069 → T07
 - [X] T078 `document_types` citados e `suggested_types` na derivação e na fatia; léxico só com tipos citáveis
   (`programa_educativo` fora, `guia` nos temas, "guia de"); ano relativo em `periods.py`; testes.
 - [X] T079 Prompt sem as palavras do mecanismo (FR-024); teste.
+
+## Passada de 2026-10-28: o pedido de enumeração (research R39; [ADR-048](../../docs/adr/ADR-048-arvore-de-unidades-e-enumeracao-no-scouting.md))
+
+- [X] T080 `Lexicon.unit_kinds` e `EnumerationRequest` em `context/derivation.py`: marcador de enumeração sem espécie de
+  documento → `enumeration: {unit_kind, terms}` na fatia e nos filtros; o `pack.py` compõe o índice uma vez para as
+  tools e a preparação e põe no léxico os tipos de unidade com nome próprio do build; testes da derivação e do pack.
+- [X] T081 O parágrafo da enumeração no prompt (FR-029): enumerar pela lista "lista de …, N de M", por inteiro e na
+  ordem dela, citando, sem descrever a unidade só pelo nome; teste.
+
+## Tipologia pela taxonomia ([ADR-049](../../docs/adr/ADR-049-taxonomia-e-a-tipologia-do-acervo-no-scouting.md))
+
+- [X] T082 Léxico com os tipos da taxonomia (13 citáveis; `guia` vira `manual`), os órgãos (11) e as abrangências (5);
+  a derivação publica `bodies`/`scopes` só com tipo citado ou pedido de lista e `suggested_bodies` sem eles; espécies da
+  lista de documentos pelos ids de tipo. `test_derivation.py`, `test_lexicon.py`, `tests/rag/test_vocabulary.py`
+  (contra a `taxonomia.yaml`) (FR-030).

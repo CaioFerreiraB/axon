@@ -51,6 +51,10 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 | [044](ADR-044-imagens-na-conversa.md) | Imagens na conversa: as que as tools devolvem e as que o usuário envia | Aceita | 001, 002, 003, 004, 005, 006, 007, 008, 009, 011, 013 |
 | [045](ADR-045-filhotes-e-consulta-multifaceta-no-scouting.md) | Ramo Filhotes e pergunta sobre vários ramos no scouting | Aceita | 101, 102, 103, 105 |
 | [046](ADR-046-tipo-sugerido-ordena-no-scouting.md) | No scouting, o tipo de documento sugerido pelo tema ordena; só o citado filtra | Aceita | 101, 103, 105 |
+| [047](ADR-047-lista-de-documentos-do-acervo-no-scouting.md) | No scouting, a pergunta que pede uma lista de documentos recebe uma ficha por documento do acervo | Aceita | 101, 102, 103, 105 |
+| [048](ADR-048-arvore-de-unidades-e-enumeracao-no-scouting.md) | No scouting, cada documento vira uma árvore de unidades tipadas, e a pergunta de enumeração é respondida pela estrutura | Aceita | 101, 102, 103, 105 |
+| [049](ADR-049-taxonomia-e-a-tipologia-do-acervo-no-scouting.md) | No scouting, a taxonomia do acervo é a única tipologia: o `type` sai do catálogo, e tipo, órgão e abrangência vêm da pasta | Aceita | 101, 102, 103, 105 |
+| [050](ADR-050-leitura-fiel-e-trecho-que-cabe-no-embedder-no-scouting.md) | No scouting, a ingestão lê colunas e títulos pela tipografia, todo trecho cabe no embedder e o OCR vira transcrição revisável | Aceita | 102, 105 |
 
 ## Modelo para ADR novo
 
