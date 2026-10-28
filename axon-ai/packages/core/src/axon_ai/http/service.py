@@ -45,9 +45,11 @@ from axon_ai.http.domain.openai_chunks import (
     progress_of,
     queue_chunk,
     queue_progress,
+    source_chunk,
     status_chunk,
     token_chunk,
 )
+from axon_ai.http.domain.sources import source_events
 from axon_ai.http.domain.timeline import Timeline
 from axon_ai.http.ports import Clock, Conversation, ConversationPage, ConversationStore, RequestIds, StoredMessage
 from axon_ai_contracts import Attachment, Message
@@ -248,6 +250,9 @@ class ChatService:
                         tail = images_tail(event)
                         if tail:
                             yield token_chunk(TokenEvent(text=tail), **envelope)
+                        if request.citations == "sources":
+                            for source in source_events(event.citations):
+                                yield source_chunk(source, **envelope)
                         # Grava antes do último chunk: quando o cliente vê o fim, a troca já está no histórico.
                         await self._record(turn, event, request_id)
                         if timeline is not None:

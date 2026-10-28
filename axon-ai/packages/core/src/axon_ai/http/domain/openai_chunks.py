@@ -88,6 +88,14 @@ def status_chunk(
     return body
 
 
+def source_chunk(event_data: dict[str, Any], *, request_id: str, model: str, created: datetime) -> dict[str, Any]:
+    """Uma fonte do Open WebUI (FR-005b, ADR-051): `delta` vazio e o evento `source` na chave `event`, como o status
+    — o v0.12 a grava em `sources` da mensagem, e o `[n]` da resposta passa a abri-la."""
+    body = _chunk(request_id=request_id, model=model, created=created, delta={})
+    body[OPEN_WEBUI_EVENT] = event_data
+    return body
+
+
 def queue_chunk(*, position: int, request_id: str, model: str, created: datetime) -> dict[str, Any]:
     """O aviso de fila (FR-017): sai logo depois da abertura, antes de qualquer evento do motor."""
     return _chunk(

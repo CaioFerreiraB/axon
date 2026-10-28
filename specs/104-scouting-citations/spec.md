@@ -85,6 +85,7 @@ Cada citação sobrevivente carrega documento, versão, status, seção e págin
 **Acceptance Scenarios**:
 
 1. **Given** uma resposta validada, **When** entregue, **Then** cada citação traz documento, versão, status, seção e página.
+2. **Given** um trecho citado cujo documento tem endereço público (`source_url`), **When** a resposta é validada, **Then** a citação traz `url` com o endereço e a página do trecho (`#page=N`), que a interface usa para abrir o original; sem endereço `http(s)`, a citação sai sem `url` (ADR-051).
 
 ---
 
@@ -109,10 +110,11 @@ Cada citação sobrevivente carrega documento, versão, status, seção e págin
 - **FR-006**: Os validators DEVEM ser determinísticos e não chamar modelos.
 - **FR-008**: Na Fase 4 os validators DEVEM existir no pacote do pack, completos e testados com Turn Views sintéticas, e NÃO DEVEM ser publicados pelo pack; a publicação (pelo `pack.py` da 101) acontece na Fase 5, com a recuperação e a sintaxe de citação nas instruções (clarificação de 2026-10-07).
 - **FR-007**: As instruções do pack (101) DEVEM ensinar ao modelo a sintaxe de citação.
+- **FR-010**: A citação sobrevivente DEVE levar `url` (contratos `0.2.3`): o `source_url` dos metadados do trecho (102), só `http` ou `https` com host, com o fragmento `#page=N` quando o trecho tem página ([ADR-051](../../docs/adr/ADR-051-link-da-citacao-e-fontes-no-open-webui.md)). Sem endereço válido, a citação sai sem `url`.
 
 ### Key Entities
 
-- **Citation**: identificador de chunk + proveniência.
+- **Citation**: identificador de chunk + proveniência + o link do original (`url`, FR-010).
 - **Validity Notice**: texto padrão de aviso de fonte não vigente.
 
 ## Success Criteria *(mandatory)*

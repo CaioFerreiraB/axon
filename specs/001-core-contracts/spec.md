@@ -208,6 +208,7 @@ A plataforma passa a se chamar Axon (ADR-037). Um autor de pack declara a depend
 - **FR-027**: A suíte de conformidade DEVE, quando o pack tem `prepare`, chamá-lo duas vezes seguidas no mesmo diretório (temporário ou o informado pelo autor) e reportar exceção, retorno diferente de `None` e hook assíncrono; os hooks seguintes da suíte DEVEM receber o mesmo `data_dir`.
 - **FR-028**: Os contratos DEVEM oferecer o value object `Attachment` — `id`, `mime`, `data: bytes`, `alt: str | None` — e a constante `ATTACHMENT_MIME_TYPES` (`image/png`, `image/jpeg`, `image/webp`, `image/gif`). O `id` DEVE ser calculado na construção, `img-` mais os 12 primeiros hexadecimais do SHA-256 de `data`; tipo fora da lista ou `data` vazio DEVE levantar `ValueError`; o `alt` DEVE sair limpo (sem quebras de linha nem `[`, `]`, `(`, `)`, no máximo 120 caracteres, vazio vira `None`) ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 1).
 - **FR-029**: `ToolResult` DEVE ganhar `attachments: tuple[Attachment, ...]`, com default vazio, e `Message` a chave opcional (`NotRequired`) `attachments`; `content` continua texto. `ChatMessage` e `LLMProvider` NÃO mudam. Versão `0.2.2`.
+- **FR-030**: `Citation` DEVE ganhar a chave opcional `url` (`str | None`): o endereço do original para o usuário abrir, montado pelo pack — a página ou o trecho fazem parte dele; o core só o repassa ([ADR-051](../../docs/adr/ADR-051-link-da-citacao-e-fontes-no-open-webui.md)). Versão `0.2.3`.
 
 ### Key Entities
 

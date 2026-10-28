@@ -193,3 +193,31 @@ def test_cabecalho_antigo_e_recusado_citando_o_novo(nomes: list[str], antigo: st
 
 def test_sem_cabecalho_antigo_nada_acontece() -> None:
     reject_legacy_headers(["x-axon-store", "content-type", "authorization"])
+
+
+# --- Fontes do Open WebUI: cabeçalho `x-axon-citations` (FR-005b, ADR-051) --------------------------------------------
+
+
+@pytest.mark.parametrize(("value", "mode"), [(None, "none"), ("none", "none"), (" Sources ", "sources")])
+def test_modo_de_citacoes(value: str | None, mode: str) -> None:
+    from axon_ai.http.domain.chat_request import parse_citations
+
+    assert parse_citations(value) == mode
+
+
+@pytest.mark.parametrize("value", ["links", "", "status"])
+def test_modo_de_citacoes_desconhecido_e_recusado(value: str) -> None:
+    from axon_ai.http.domain.chat_request import CITATIONS_HEADER, parse_citations
+
+    with pytest.raises(ChatRequestInvalid) as caught:
+        parse_citations(value)
+    assert (caught.value.code, caught.value.field) == ("invalid_header", CITATIONS_HEADER)
+
+
+def test_as_duas_entradas_leem_o_cabecalho_de_citacoes() -> None:
+    from axon_ai.http.domain.native_request import parse_native
+
+    assert parse(body()).citations == "none"
+    assert parse(body(), citations_header="sources").citations == "sources"
+    native = {"assistant": "geral", "messages": [{"role": "user", "content": "oi"}]}
+    assert parse_native(native, citations_header="sources").citations == "sources"

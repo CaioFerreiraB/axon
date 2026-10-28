@@ -86,6 +86,8 @@ Shape = Literal["prose", "list"]
 #   unit_kind: str | None                           — o tipo da unidade mais próxima ("especialidade", "artigo"…)
 #   shape: Shape
 #   branches: tuple[str, ...]                       — vazio = geral; substitui o `branch` único na filtragem
+#   source_url: str | None                          — o link do original, do registro do documento (ADR-051); vai para
+#                                                     os metadados do `Chunk` com a mesma chave
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class UnitRef:

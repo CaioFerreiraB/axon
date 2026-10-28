@@ -87,12 +87,14 @@ Toda transição acontece no catálogo; a ingestão só a recalcula (o índice e
 | `publication_date`, `effective_date`, `expiry_date` | data \| `None` | catálogo + linhagem |
 | `superseded_by`, `successor_expiry_date` | texto/data \| `None` | linhagem |
 | `status` | `ValidityStatus` | linhagem |
+| `source_url` | link \| `None` | registro do documento (catálogo); reescrito por `with_document` quando a ingestão reaproveita o documento (ADR-051) |
 | `score` | float \| `None` | fusão RRF, preenchido por `search`; `None` em `get` |
 | `similarity` | float \| `None` | cosseno denso pergunta × trecho, preenchido por `search`; `None` em `get` (ADR-025) |
 
 `to_chunk()` → `Chunk` da 001: `chunk_id`, `text`, `score` (0.0 se `None`), `document` = `document_title`, `version`,
 `status`, `section` = `article` ou o cabeçalho mais específico, `page` = `page_start`; `metadata` = `document_id`,
-`document_type`, `branch`, `jurisdiction`, `chapter`, `subsection`, `page_end`, as datas em ISO e `superseded_by`.
+`document_type`, `branch`, `jurisdiction`, `chapter`, `subsection`, `page_end`, as datas em ISO, `superseded_by` e
+`source_url` (o link da citação da 104, ADR-051).
 
 ## `IndexFilters` (seam)
 

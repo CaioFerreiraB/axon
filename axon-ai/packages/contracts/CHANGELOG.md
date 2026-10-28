@@ -4,7 +4,17 @@ Política de versões: [ADR-014](../../../docs/adr/ADR-014-politica-versoes-0x-c
 aditiva sobe o patch e breaking sobe o minor. Mudança só de semântica, sem mudança de forma, é registrada aqui e
 classificada na revisão (FR-020).
 
-## 0.2.2 — não lançada
+## 0.2.3
+
+Link da citação ([ADR-051](../../../docs/adr/ADR-051-link-da-citacao-e-fontes-no-open-webui.md); spec 001, FR-030).
+Aditiva: nenhum pack muda; quem preenche o link pede `axon-ai-contracts>=0.2.3,<0.3`.
+
+### Adicionado
+
+- A chave opcional `Citation.url`: o endereço do original para o usuário abrir, montado pelo pack (a página, o
+  trecho). O core só a repassa, e só quando é `http` ou `https`.
+
+## 0.2.2
 
 Imagens na conversa ([ADR-044](../../../docs/adr/ADR-044-imagens-na-conversa.md); spec 001, FR-028 e FR-029).
 Aditiva: nenhum pack muda; quem devolve imagem pelas próprias tools ou lê os anexos das mensagens pede

@@ -17,6 +17,7 @@ from axon_ai.http.adapters.auth import authenticated
 from axon_ai.http.adapters.errors import ApiError
 from axon_ai.http.adapters.sse import MEDIA_TYPE, event_stream
 from axon_ai.http.domain.chat_request import (
+    CITATIONS_HEADER,
     PROGRESS_HEADER,
     STORE_HEADER,
     ChatRequest,
@@ -45,6 +46,7 @@ def chat_router(*, surface: str) -> APIRouter:
             await json_body(request),
             store_header=request.headers.get(STORE_HEADER),
             progress_header=request.headers.get(PROGRESS_HEADER),
+            citations_header=request.headers.get(CITATIONS_HEADER),
             limits=image_limits(request),
         )
         return await _run(request, response, chat, principal)
@@ -58,6 +60,7 @@ def chat_router(*, surface: str) -> APIRouter:
             await json_body(request),
             store_header=request.headers.get(STORE_HEADER),
             progress_header=request.headers.get(PROGRESS_HEADER),
+            citations_header=request.headers.get(CITATIONS_HEADER),
             limits=image_limits(request),
         )
         return await _run(request, response, chat, principal)

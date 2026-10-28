@@ -12,6 +12,7 @@ from typing import Any, Final
 from axon_ai.http.domain.chat_request import (
     ChatRequest,
     ChatRequestInvalid,
+    parse_citations,
     parse_conversation_id,
     parse_messages,
     parse_progress,
@@ -29,6 +30,7 @@ def parse_native(
     *,
     store_header: str | None = None,
     progress_header: str | None = None,
+    citations_header: str | None = None,
     limits: ImageLimits | None = None,
 ) -> ChatRequest:
     reject_forbidden(body)
@@ -50,4 +52,5 @@ def parse_native(
         conversation_id=conversation_id,
         store=parse_store(store_header, conversation_id),
         progress=parse_progress(progress_header),
+        citations=parse_citations(citations_header),
     )

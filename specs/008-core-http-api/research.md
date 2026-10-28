@@ -954,3 +954,44 @@ renderize markdown. Os metadados na leitura e os bytes numa rota própria evitam
 guardar o data URI no texto da mensagem (o ADR proíbe; a leitura da conversa viraria megabytes); responder a imagem por
 URL própria (alternativa rejeitada no ADR); recusar parte desconhecida também no histórico (um cliente que mandou
 áudio uma vez travaria a conversa).
+
+# Passada de 2026-10-28: fontes do Open WebUI ([ADR-051](../../docs/adr/ADR-051-link-da-citacao-e-fontes-no-open-webui.md); FR-005b)
+
+## R61 — As citações como eventos `source`, atrás de `x-axon-citations`
+
+**Decision**: `domain/sources.py` (puro) monta um evento `source` por citação, na ordem recebida, que é a do `[n]`:
+`source` com `id` = `chunk_id`, `name` = legenda e, só para URL `http(s)` com host, `url`; `document`
+= uma linha por campo da proveniência (`Documento`, `Versão`, `Situação`, `Seção`, `Página`), nunca vazio; `metadata`
+com `source` = `chunk_id`, `name` = legenda e `page` = página − 1. A legenda reaproveita o `reference` da timeline
+(`Documento — seção, p. N`, ADR-026). `source_chunk` (em `openai_chunks.py`) põe o evento na chave `event`, com
+`delta: {}`. O `ChatService.stream` os emite, no modo `sources`, depois do `images_tail` e antes do `final_chunk`.
+`parse_citations` lê o cabeçalho como o `parse_progress` (`none` | `sources`, 400 `invalid_header` para o resto) nas
+duas entradas.
+
+**Rationale**: o Open WebUI v0.12.0, no código da versão:
+
+- `utils/middleware.py`: no streaming, repassa a chave `event` ao emissor (como no R42);
+- `socket/main.py`: um evento `source` ou `citation` com `data.type` ausente é acrescentado a `sources` da mensagem;
+- `ContentRenderer.svelte` (`getSourceIds`): numera as fontes por `metadata.source ?? source.id`, sem repetir, e o
+  `[n]` vira um chip com o `metadata.name` da fonte n;
+- `Citations.svelte`: o botão "N Fontes" abre a lista (`n` e o nome); o clique numa fonte, ou no chip, abre
+  `source.embed_url` no painel lateral (em conversa somente leitura, numa aba nova) ou, sem ele, o
+  `CitationModal.svelte`, que liga o nome a `source.url`, mostra `document` e escreve "página `metadata.page + 1`";
+- um id que começa com `http` vira o nome da fonte;
+- `Embeds.svelte`: o painel lateral é um `FullHeightIframe`, com `sandbox` (sem `allow-same-origin`), e o Chrome não
+  mostra PDF em iframe com sandbox ("This page has been blocked by Chrome", visto no dev com o POR). Por isso nenhuma
+  fonte leva `embed_url`, e o clique cai no modal, onde o nome abre o PDF numa aba nova, na página.
+
+Por isso o id é o `chunk_id` (duas citações do mesmo PDF são duas fontes, e o nome continua sendo a legenda), e a URL
+passa pelo filtro de esquema (vai a um `href`). O leitor de PDF do navegador abre o original na página do `#page=N`
+que o pack põe na `url`.
+
+**Alternatives considered**:
+
+- Markdown no texto (`[[1]](url)` e `<details>`): só no pack, mas o texto guardado e o histórico mudam (ADR-051).
+- As fontes junto do `x-axon-progress: status`: é outro assunto, e o R42 já recusou impor o dialeto a todo cliente.
+- `embed_url`, para abrir o PDF no painel lateral num clique: a escolha inicial do mantenedor, desfeita pelo sandbox
+  do painel (acima).
+- Emitir cada fonte quando o `[n]` aparece no texto: a lista vem do validator, no fim; e o Open WebUI recalcula os
+  chips quando `sources` muda, então a fonte que chega depois do texto basta.
+

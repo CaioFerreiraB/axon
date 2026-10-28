@@ -37,7 +37,11 @@ class Message(TypedDict):
 
 
 class Citation(TypedDict, total=False):
-    """Citação corrente da resposta; `chunk_id` aponta para um chunk entregue à geração."""
+    """Citação corrente da resposta; `chunk_id` aponta para um chunk entregue à geração.
+
+    `url` (0.2.3, ADR-051) é o endereço do original para o usuário abrir, montado pelo pack (a página, o trecho); o
+    core só o repassa, e só quando é `http` ou `https`.
+    """
 
     chunk_id: Required[ReadOnly[str]]
     document: ReadOnly[str]
@@ -45,6 +49,7 @@ class Citation(TypedDict, total=False):
     status: ReadOnly[str | None]
     section: ReadOnly[str | None]
     page: ReadOnly[int | None]
+    url: ReadOnly[str | None]
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

@@ -302,6 +302,7 @@ def test_typeddict_qualifiers_come_from_annotation_text(api_surface: ModuleType)
         "page": False,
         "section": False,
         "status": False,
+        "url": False,
         "version": False,
     }
     assert all(info["readonly"] for info in citation.values())

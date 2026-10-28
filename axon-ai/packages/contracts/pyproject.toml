@@ -1,6 +1,6 @@
 [project]
 name = "axon-ai-contracts"
-version = "0.2.2"
+version = "0.2.3"
 description = "Contratos públicos do núcleo da plataforma Axon: a única superfície que um pack enxerga."
 readme = "README.md"
 license = "MIT"
