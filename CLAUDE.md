@@ -574,6 +574,20 @@ A 011 lê `AXON_TOOL_MAX_ATTACHMENT_BYTES`, `AXON_MAX_REQUEST_BYTES`, `AXON_MAX_
 anexos pela Turn View. O core está em `0.7.0rc7` (tag `v0.7.0-rc7`, com a nota de que a plataforma mostra as imagens das tools, 005 R52; contratos `0.2.2` na tag `contracts-v0.2.2`;
 a `v0.7.0-rc5` foi a republicação multi-arch da rc4).
 
+Referências com link no Open WebUI (ADR-051): os contratos `0.2.3` têm `Citation.url` (o endereço do original para o
+usuário abrir, montado pelo pack; o core só o repassa, e só `http(s)`). A 008 lê o cabeçalho `x-axon-citations`
+(`none` padrão | `sources`, outro valor → 400): em streaming, depois do último texto e antes do chunk final, cada
+citação sai como evento `source` do Open WebUI na chave `event` (`http/domain/sources.py`, puro: id = `chunk_id`, nome =
+`Documento — seção, p. N`, `url`, `document` com a proveniência, `metadata.page` = página − 1), e o `[n]` vira um chip
+que abre o modal da fonte, com o nome ligado ao PDF, mais a lista colapsável "N Fontes". Nunca `embed_url`: o painel
+lateral do Open WebUI é um iframe com `sandbox`, e o Chrome não mostra PDF nele (verificado no dev). No pack,
+`IndexedChunk.source_url` vem do registro do documento (reescrito por `with_document` no reaproveitamento), vai aos
+metadados do `Chunk` (`source_url`, também nas fichas de unidades), e o `citation_integrity` monta `url` =
+`source_url#page=N`; o artefato foi regravado só com o link (mesmos 15.607 trechos e vetores; `fact_recall` igual). A
+instalação (`axon-deploy/template`, `axon-cfblabs`) e o dev mandam `x-axon-citations: sources`, e o `check-webui.py` do
+`axon-cfblabs` confere as fontes gravadas. O core está em `0.7.0rc8` (tag `v0.7.0-rc8`, contratos `0.2.3` na tag
+`contracts-v0.2.3`), e o pack `scouting` em `0.8.0`, pela mesma tag.
+
 O `axon-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
 true }`, suíte de conformidade nos próprios testes e zero import do core (import-linter, nas duas direções). Ele é
