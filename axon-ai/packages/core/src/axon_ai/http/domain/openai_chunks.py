@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Any, Final
 
 from axon_ai.graph.api import ExecutionIssue, FinalEvent, ProgressEvent, TokenEvent
+from axon_ai.http.domain.charts import chart_json, charts_table
 from axon_ai.http.domain.images import images_markdown, summary
 from axon_ai.http.domain.progress_text import QUEUE_STAGE, progress_line, queue_line
 from axon_ai.http.domain.timeline import Status
@@ -96,6 +97,14 @@ def source_chunk(event_data: dict[str, Any], *, request_id: str, model: str, cre
     return body
 
 
+def embeds_chunk(event_data: dict[str, Any], *, request_id: str, model: str, created: datetime) -> dict[str, Any]:
+    """Os gráficos como `embeds` do Open WebUI (FR-005c, ADR-052): `delta` vazio e o evento na chave `event`, como a
+    fonte — o v0.12 grava a lista em `embeds` da mensagem e desenha cada página num iframe."""
+    body = _chunk(request_id=request_id, model=model, created=created, delta={})
+    body[OPEN_WEBUI_EVENT] = event_data
+    return body
+
+
 def queue_chunk(*, position: int, request_id: str, model: str, created: datetime) -> dict[str, Any]:
     """O aviso de fila (FR-017): sai logo depois da abertura, antes de qualquer evento do motor."""
     return _chunk(
@@ -130,7 +139,7 @@ def completion(
     body["choices"] = [
         {
             "index": 0,
-            "message": {"role": ASSISTANT_ROLE, "content": event.answer + images_tail(event)},
+            "message": {"role": ASSISTANT_ROLE, "content": event.answer + answer_tail(event)},
             "finish_reason": finish_reason(event),
         }
     ]
@@ -140,10 +149,11 @@ def completion(
     return body
 
 
-def images_tail(event: FinalEvent) -> str:
-    """As imagens das tools em markdown, depois do texto (ADR-044, item 9). Em streaming, sai como o último token —
-    retida até o fim da resposta; sem resposta, sem o parágrafo em branco antes."""
-    tail = images_markdown(event.attachments)
+def answer_tail(event: FinalEvent) -> str:
+    """O que vem depois do texto: a tabela de cada gráfico (ADR-052, item 5) e as imagens das tools em markdown
+    (ADR-044, item 9). Em streaming, sai como o último token — retida até o fim da resposta; sem resposta, sem o
+    parágrafo em branco antes."""
+    tail = charts_table(event.charts) + images_markdown(event.attachments)
     return tail if event.answer else tail.lstrip("\n")
 
 
@@ -164,6 +174,7 @@ def extra_field(event: FinalEvent, *, request_id: str) -> dict[str, Any]:
         "flags": sorted(event.flags),
         "errors": _issues(event.errors),
         "attachments": summary(event.attachments),
+        "charts": [chart_json(chart) for chart in event.charts],
     }
 
 

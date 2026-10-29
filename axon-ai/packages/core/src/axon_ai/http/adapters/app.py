@@ -30,6 +30,7 @@ from axon_ai.http.adapters.conversations import conversations_router
 from axon_ai.http.adapters.mcp_routes import global_mcp_router, user_mcp_router
 from axon_ai.http.adapters.models import models_router
 from axon_ai.http.adapters.private import private_router
+from axon_ai.http.adapters.static import ChartAssets, static_router
 from axon_ai.http.adapters.user_assistants import user_assistants_router
 from axon_ai.http.domain.admission import AdmissionLimits as AdmissionLimits  # a 011 monta os limites (R36)
 from axon_ai.http.domain.images import ImageLimits
@@ -74,9 +75,14 @@ def create_app(
     admin_seams: AdminSeams | None = None,
     instance: InstanceBranding | None = None,
     image_limits: ImageLimits | None = None,
+    charts_base_url: str | None = None,
 ) -> FastAPI:
-    """Monta a app com os seams já injetados. A API não instancia nada de outro módulo (princípio XIII)."""
+    """Monta a app com os seams já injetados. A API não instancia nada de outro módulo (princípio XIII).
+
+    `charts_base_url` é o endereço da plataforma que o navegador alcança: sem ele, o `x-axon-charts: embeds` não tem
+    de onde carregar o ECharts e os gráficos ficam só na tabela (ADR-052, item 6)."""
     app = FastAPI(title="Axon", version="0.1.0", lifespan=lifespan)
+    chart_assets = ChartAssets()
     app.state.chat_service = ChatService(
         engine=engine,
         grants=grants,
@@ -85,6 +91,7 @@ def create_app(
         conversations=conversations,
         conversation_ids=conversation_ids,
         admission=admission,
+        charts=chart_assets.scripts(charts_base_url) if charts_base_url else None,
     )
     app.state.conversation_service = ConversationService(
         store=conversations, clock=clock, retention=conversation_retention
@@ -111,6 +118,7 @@ def create_app(
         app.include_router(user_mcp_router(), prefix=PUBLIC_PREFIX)
         app.include_router(global_mcp_router(), prefix=PRIVATE_PREFIX)
     app.include_router(private_router(), prefix=PRIVATE_PREFIX)
+    app.include_router(static_router(chart_assets))
     if admin_seams is not None:
         # Sem os seams de administração (perfis e suítes antigos), a superfície não existe (R43). A rota final do
         # prefixo vem por último: autentica e responde o 404 de não admin a todo caminho que não é rota (FR-024).

@@ -995,3 +995,54 @@ que o pack põe na `url`.
 - Emitir cada fonte quando o `[n]` aparece no texto: a lista vem do validator, no fim; e o Open WebUI recalcula os
   chips quando `sources` muda, então a fonte que chega depois do texto basta.
 
+## R62 — Os gráficos na resposta e o `embeds` do Open WebUI, atrás de `x-axon-charts` (ADR-052; FR-005c)
+
+**Decision**: domínio puro `http/domain/charts.py`:
+- `charts_table` — um `<details>` por gráfico, `<summary>Dados do gráfico: <título></summary>` e a tabela em
+  markdown, com número em pt-BR (até duas casas, sem zeros à direita), unidade na posição pedida, células com HTML e
+  `|` escapados. As categorias juntam as séries pela ordem de aparição; a dispersão tem uma linha por ponto; a pizza
+  lista todas as fatias.
+- `echarts_option` — a opção sem cores nem formatadores:
+  - pizza e rosca sem legenda e com rótulo; acima de oito fatias, as sete maiores e "Outros";
+  - linhas categóricas alinhadas pela união;
+  - eixo `time` ou `value` com `dataZoom` (roda e slider) acima de 30 pontos numa série;
+  - barra de 24px com canto de 4px; empilhada com borda da cor do fundo;
+  - de cinco séries em diante, `endLabel` com `moveOverlap` nas linhas e um marcador por série na dispersão.
+- `embed_html` — página sem script inline: estilo, os scripts da plataforma com `integrity` e a especificação num
+  `<script type="application/json" id="axon-chart">` (`script_json` escapa `<`, `>`, `&`, U+2028 e U+2029).
+- `embeds_event` — `{"type": "embeds", "data": {"embeds": [...], "replace": true}}`.
+- `chart_json` — o JSON de `x_axon.charts`.
+
+O desenho é do `http/adapters/static/axon-chart.js`. Ele aplica:
+- as oito cores (claro e escuro) e as cores neutras do Open WebUI;
+- a dica montada por código fixo, que escapa nomes e valores;
+- números e datas em pt-BR;
+- a fonte por pilha explícita;
+- a altura por `postMessage({type: "iframe:height"})`.
+
+O adapter `http/adapters/static.py` (`ChartAssets`, `static_router`) lê na montagem o ECharts 6.1.0 e o locale
+vendorizados, com `LICENSE` e `NOTICE`, mais o desenhista. Serve tudo com `immutable`, CORS aberto,
+`Cross-Origin-Resource-Policy: cross-origin` e `nosniff`. O desenhista vai num caminho com os 12 primeiros
+hexadecimais do SHA-256 dele. A fábrica da app recebe `charts_base_url` e passa os `ChartScripts` ao `ChatService`.
+
+O cabeçalho `x-axon-charts` (`parse_charts`) segue o `x-axon-citations`. A tabela entra na cauda (`answer_tail`, antes
+das imagens), no `content` sem streaming e na conversa gravada.
+
+**Rationale** (ADR-052, itens 3 a 6):
+- **Sem HTML de fora.** Só a API escreve HTML, e a página não executa nada que não seja da plataforma. Sem script
+  inline, um `IFRAME_CSP` do operador só precisa liberar o host em `script-src`.
+- **Caminho do desenhista.** O caminho com impressão digital deixa o cache imutável seguro: um desenhista novo é outra
+  URL, e o `integrity` nunca falha contra uma cópia velha.
+- **Um evento só.** O Open WebUI v0.12 troca a lista a cada `embeds` na tela ao vivo.
+- **A tabela.** Ela volta no histórico: o front-end só tira os `<details>` de tipo `reasoning` e `code_interpreter`.
+- **Verificado com Playwright.** A página real, num iframe com o mesmo `sandbox` do Open WebUI, desenha os cinco tipos
+  nos dois temas, sem erro no console. A verificação achou dois defeitos, já corrigidos:
+  - `fontFamily: "inherit"` gerava, no texto rico do eixo `time` do ECharts 6, uma regra `font` inválida, que o
+    navegador descartava;
+  - os nomes na ponta de linhas próximas se sobrepunham.
+
+**Alternatives considered**:
+- **Desenhista inline na página.** Exigiria `'unsafe-inline'` no CSP e gravaria o mesmo código em cada mensagem.
+- **Desenhista sob `/static/echarts/6.1.0`.** O cache imutável serviria a versão velha, e o `integrity` falharia.
+- **Tooltip padrão do ECharts.** Mostra a data crua (`2026-04-08 00:00:00`) e a unidade depois do valor ("2.100 R$").
+- **A tabela só sem `embeds`.** A acessibilidade e o histórico do modelo dependem dela também no Open WebUI.

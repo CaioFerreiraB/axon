@@ -131,3 +131,21 @@ FinalEvent.citations[i]     → delta {}, event source {"source": {"id": <chunk_
 Suíte: `test_sources.py` (o formato), `test_chat_request.py` (o cabeçalho), `test_open_webui.py` (o pedido do v0.12 com
 o cabeçalho, sem ele, sem streaming e o 400 nas duas entradas).
 
+## Gráficos (2026-10-28, FR-005c; research R62; ADR-052)
+
+No `FinalEvent` com gráficos, a cauda de texto (o último token) leva, antes das imagens, um bloco por gráfico:
+
+```text
+\n\n<details>\n<summary>Dados do gráfico: <título></summary>\n\n| <x> | <série 1> | … |\n| --- | --- | … |\n…\n\n</details>
+```
+
+Com `x-axon-charts: embeds` e o endereço do script configurado, em streaming, sai em seguida — antes das fontes, dos
+status finais e do chunk final — **um** chunk:
+
+```text
+delta {}, event {"type": "embeds", "data": {"embeds": [<página de cada gráfico>], "replace": true}}
+```
+
+O chunk final traz `x_axon.charts`: a lista dos `Chart` em JSON (`id`, `kind`, `title`, `subtitle`, `x_type`,
+`x_label`, `y_label`, `unit`, `unit_position`, `series[{name, points[{x, y}]}]`); vazia sem gráfico. Sem streaming, a
+tabela vai no `content` e o JSON em `x_axon.charts`.

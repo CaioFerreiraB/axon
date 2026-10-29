@@ -25,6 +25,7 @@ from axon_ai.graph.api import (
     TokenEvent,
 )
 from axon_ai.http.domain.admission import AdmissionLimits, decide, retry_after
+from axon_ai.http.domain.charts import ChartScripts, embeds_event
 from axon_ai.http.domain.chat_request import ChatRequest
 from axon_ai.http.domain.conversations import exchange, execution_messages, last_assistant, last_user_message
 from axon_ai.http.domain.errors import (
@@ -36,10 +37,11 @@ from axon_ai.http.domain.errors import (
 )
 from axon_ai.http.domain.images import VisionUnsupported
 from axon_ai.http.domain.openai_chunks import (
+    answer_tail,
     completion,
+    embeds_chunk,
     final_chunk,
     finish_reason,
-    images_tail,
     opening_chunk,
     progress_chunk,
     progress_of,
@@ -186,8 +188,10 @@ class ChatService:
         conversations: ConversationStore,
         conversation_ids: RequestIds,
         admission: AdmissionLimits | None = None,
+        charts: ChartScripts | None = None,
     ) -> None:
         self._engine = engine
+        self._charts = charts
         self._grants = grants
         self._request_ids = request_ids
         self._clock = clock
@@ -246,10 +250,14 @@ class ChatService:
                         for status in timeline.finished(event, self._clock.now()):
                             yield status_chunk(status, **envelope)
                     case FinalEvent():
-                        # As imagens das tools ficaram retidas: saem depois do último token (ADR-044, item 9).
-                        tail = images_tail(event)
+                        # A tabela dos gráficos e as imagens das tools ficaram retidas: saem depois do último token
+                        # (ADR-044, item 9; ADR-052, item 5).
+                        tail = answer_tail(event)
                         if tail:
                             yield token_chunk(TokenEvent(text=tail), **envelope)
+                        if event.charts and request.charts == "embeds" and self._charts is not None:
+                            # Um evento só, com todos: no Open WebUI, cada `embeds` substitui a lista (ADR-052).
+                            yield embeds_chunk(embeds_event(event.charts, self._charts), **envelope)
                         if request.citations == "sources":
                             for source in source_events(event.citations):
                                 yield source_chunk(source, **envelope)

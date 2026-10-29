@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import Any, Final, cast
 
 from axon_ai.graph.api import FinalEvent
+from axon_ai.http.domain.charts import charts_table
 from axon_ai.http.domain.errors import InvalidRequest
 from axon_ai.http.domain.images import SENT, SHOWN, summary, with_markers
 from axon_ai.http.domain.openai_chunks import FINISH_ERROR, finish_reason
@@ -115,7 +116,7 @@ def exchange(
         ),
         StoredMessage(
             role="assistant",
-            content=with_markers(final.answer, final.attachments, SHOWN),
+            content=with_markers(_with_tables(final), final.attachments, SHOWN),
             at=at,
             request_id=request_id,
             citations=tuple(cast("JSONValue", dict(citation)) for citation in final.citations),
@@ -124,6 +125,13 @@ def exchange(
         ),
     )
     return records, (*sent, *final.attachments)
+
+
+def _with_tables(final: FinalEvent) -> str:
+    """A resposta com a tabela de cada gráfico, como o cliente a recebeu: é o que o modelo lê no turno seguinte
+    (ADR-052, item 5)."""
+    tables = charts_table(final.charts)
+    return final.answer + tables if final.answer else tables.lstrip("\n")
 
 
 def _stored(images: Sequence[Attachment]) -> tuple[StoredAttachment, ...]:
