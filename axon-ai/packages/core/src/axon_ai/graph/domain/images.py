@@ -45,8 +45,8 @@ CHARTS_INSTRUCTION: Final = (
 
 IMAGES_CAPABILITY: Final = (
     "A plataforma mostra ao usuário, junto da resposta, as imagens que as ferramentas devolvem. Não diga que só "
-    "produz texto nem que a plataforma não exibe imagens. Se o usuário quer uma imagem e nenhuma chegou nesta "
-    "conversa, diga que ela aparece quando uma ferramenta a devolve e ofereça buscá-la."
+    "produz texto nem que a plataforma não exibe imagens. Se o usuário quer uma imagem que não é um gráfico e "
+    "nenhuma chegou nesta conversa, diga que ela aparece quando uma ferramenta a devolve e ofereça buscá-la."
 )
 """Texto fixo do core na geração de uma execução com tools, quando nenhuma devolveu imagem neste turno: sem ele, o
 modelo nega a capacidade que a plataforma tem (research R52). Sem domínio (princípio I)."""

@@ -891,3 +891,13 @@ que ele foi mostrado.
 - [X] T107 Passos do loop em texto na geração (`_generation_transcript`, R55); `is_tool_result` e o corte com
   cabeçalho em `domain/budget.py`; testes do transcript, do fluxo `agentic`, das propriedades e das integrações
   atualizados para o formato em texto
+
+---
+
+## Passada de 2026-10-29: a geração declara gráficos em JSON ([ADR-054](../../docs/adr/ADR-054-a-geracao-declara-graficos-em-json.md); research R56)
+
+- [X] T108 `graph/domain/chart_blocks.py` (filtro, leitura, aviso, teto) e o encaixe no `generate`; aviso junto do
+  `NO_TOOLS_INSTRUCTION`; `IMAGES_CAPABILITY` sem prometer gráfico por tool
+- [X] T109 [P] Testes: filtro em qualquer corte do streaming, outros blocos de código intactos, bloco sem fechar,
+  leitura e erros; fluxo (`ChartEvent`, texto sem o bloco, inválido como registro, teto, `chat` sem aviso); ponta a
+  ponta pela API com `embeds`

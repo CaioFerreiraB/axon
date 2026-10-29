@@ -201,6 +201,7 @@ Quando o catálogo inclui a rotina de um pack, o controller pode invocá-la como
 - **FR-022**: O `controller` DEVE ser papel opcional também no `chat`, resolvido só quando a etapa `image_gate` vai rodar; a etapa DEVE publicar progresso e desfecho (`ImageGateOutcome`), e a decisão DEVE ir ao trace como `controller_decision` com a ação `view_image` (ADR-017, ADR-019, ADR-028).
 - **FR-023**: O teto de contexto (FR-011) DEVE estimar cada imagem enviada ao modelo por um custo fixo.
 - **FR-024**: Os gráficos que as tools devolvem (`FencedToolResult.charts`, 004) DEVEM ir ao consumidor como `ChartEvent`, depois do desfecho da tool e das imagens dela, uma vez por `id` na execução, e em `FinalEvent.charts`; NÃO DEVEM ir ao modelo. A geração do turno em que houve gráfico DEVE receber o aviso fixo de que ele aparece para o usuário ([ADR-052](../../docs/adr/ADR-052-graficos-na-conversa.md), item 2).
+- **FR-024a**: Numa execução com tools, a geração DEVE receber o aviso fixo do bloco ` ```axon-chart ` e PODE declarar gráficos em JSON nesse bloco; o motor DEVE tirar o bloco do texto em streaming, validá-lo pelo `Chart` do contrato e entregá-lo como os gráficos de tool (`ChartEvent`, `FinalEvent.charts`), até 4 por resposta e sem repetir; bloco inválido DEVE sair do texto e virar registro `ChartBlockInvalid` (`notice`) ([ADR-054](../../docs/adr/ADR-054-a-geracao-declara-graficos-em-json.md)).
 
 ### Key Entities
 

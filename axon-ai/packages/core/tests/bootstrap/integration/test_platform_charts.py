@@ -96,3 +96,45 @@ def test_dados_do_mcp_viram_grafico_no_open_webui(tmp_path: Path) -> None:
     assert {"role": "system", "content": CHARTS_INSTRUCTION} in geracao.calls[-1]["messages"]
     resultado_do_grafico = controller.calls[-1]["messages"][-1]["content"]
     assert "[gráfico chart-" in resultado_do_grafico and "2875" not in resultado_do_grafico, "só a marca volta"
+
+
+def test_a_geracao_declara_o_grafico_e_ele_chega_ao_open_webui(tmp_path: Path) -> None:
+    """ADR-054: o controller só busca os dados; a geração escreve o bloco ```axon-chart e o gráfico sai do mesmo
+    jeito que o da tool — `embeds`, tabela e `x_axon.charts` —, sem o JSON no texto."""
+    resultado = RemoteResult(parts=(RemotePart(kind="text", text=json.dumps(DADOS)),))
+    transporte = ScriptedMcpTransport({DEMO_ENDPOINT: ScriptedServer(tools=(SERIE,), results={"serie": resultado})})
+    grafico = {
+        "kind": "bar",
+        "title": "Gastos por mês",
+        "unit": "R$",
+        "unit_position": "prefix",
+        "series": [{"name": "Total", "points": [[m["mes"], m["total"]] for m in DADOS["meses"]]}],
+    }
+    resposta_do_modelo = f"Setembro gastou menos.\n\n```axon-chart\n{json.dumps(grafico)}\n```"
+    controller = ScriptedController([tool_action("demo.serie", ano="2026"), ANSWER])
+    geracao = ScriptedProvider(name="ollama", deltas=tuple(resposta_do_modelo[i : i + 9] for i in range(0, 400, 9)))
+    settings = write_config(tmp_path, assistants=COM_CONTROLLER, mcp=MCP_COM_SERIE, charts_script_base_url=BASE)
+    plataforma = platform(
+        config=MemoryConfig(settings),
+        overrides={"providers": {"ollama": geracao, "ctrl": controller}, "mcp_transports": {"http": transporte}},
+    )
+    assert plataforma.ok, plataforma.report.render()
+
+    with TestClient(plataforma.app) as client:
+        resposta = client.post(
+            "/v1/chat/completions",
+            headers=CABECALHOS,
+            json={
+                "model": "pesquisador",
+                "messages": [{"role": "user", "content": "gráfico dos gastos"}],
+                "stream": True,
+            },
+        )
+    assert resposta.status_code == 200, resposta.text
+    todos = chunks(resposta.text)
+    texto = "".join(c["choices"][0]["delta"].get("content", "") for c in todos)
+    assert texto.startswith("Setembro gastou menos.") and "axon-chart" not in texto and "<details>" in texto
+    [evento] = [c["event"] for c in todos if "event" in c and c["event"]["type"] == "embeds"]
+    assert len(evento["data"]["embeds"]) == 1
+    [chart] = todos[-1]["x_axon"]["charts"]
+    assert chart["kind"] == "bar" and chart["x_type"] == "temporal"

@@ -17,6 +17,7 @@ from typing import Final
 from axon_ai.capabilities.api import FENCE_INSTRUCTION, CatalogTool, FencedToolResult, ToolCall
 from axon_ai.graph.domain.actions import CONTROLLER_INSTRUCTION, catalog_text
 from axon_ai.graph.domain.budget import RESULT_HEADER
+from axon_ai.graph.domain.chart_blocks import CHART_BLOCK_INSTRUCTION
 from axon_ai.graph.domain.images import (
     CHARTS_INSTRUCTION,
     IMAGES_CAPABILITY,
@@ -239,6 +240,7 @@ def generation_messages(
         system.append({"role": "system", "content": CHARTS_INSTRUCTION})
     if tools:
         system.append({"role": "system", "content": NO_TOOLS_INSTRUCTION})
+        system.append({"role": "system", "content": CHART_BLOCK_INSTRUCTION})
     if truncated:
         system.append({"role": "system", "content": LIMIT_INSTRUCTION})
     return [*system, *_request(messages, send_own=send_own, shown=shown), *_generation_transcript(steps)]

@@ -873,3 +873,27 @@ scouting foi medido com o formato nativo.
   escolheu só o texto.
 - **Mandar as tools com `tool_choice: none`.** Nem todo provider da 006 aceita.
 - **Texto também no passo sintético.** Mexeria nos números do eval do scouting sem medição.
+
+### R56 — A geração declara gráficos em JSON (ADR-054; FR-024a)
+
+**Decision**: o módulo `graph/domain/chart_blocks.py`, puro, tem três peças:
+- `ChartBlockFilter`, que tira os blocos ` ```axon-chart … ``` ` em streaming; segura só o que pode abrir um bloco, e
+  um bloco sem fechar conta no fim;
+- `parse_chart`, que lê o JSON (pontos `{x, y}` ou `[x, y]`; eixo temporal inferido de data ISO) e deixa a validação
+  com o `Chart`;
+- `CHART_BLOCK_INSTRUCTION`, o aviso com o formato e as regras (uma série em pizza, rosca e waterfall; total do
+  waterfall pela plataforma; só números dos resultados ou da conversa; nunca gráfico em texto).
+
+No `generate`, o filtro fica depois do `ToolMarkupFilter` e antes do filtro dos validators. Cada bloco fechado vira
+`ChartEvent` (`tool` = `generate`) na hora e entra no acumulador `charts`, e daí no `FinalEvent.charts`. O teto é
+`MAX_BLOCK_CHARTS` = 4, e um gráfico com id já desenhado não sai de novo. O aviso entra junto do `NO_TOOLS_INSTRUCTION`
+(execução com tools). O `IMAGES_CAPABILITY` passou a falar de "imagem que não é um gráfico".
+
+**Rationale**: nos traces da rc11 em produção, o controller paginou o Mango até a regra de ação repetida encerrar o
+loop, e a geração, com os números, desenhou o gráfico em ASCII. Com o glm-5.3-flash real e as mensagens montadas pelo
+motor (o `resumo_financeiro` de setembro do trace), três pedidos (rosca, waterfall e barras) deram um bloco válido
+cada. O waterfall veio sem o total, e nenhuma `<tool_call>` apareceu no texto. A prova sem rede está em
+`tests/bootstrap/integration/test_platform_charts.py`, e os testes em `tests/graph/unit/test_graph_chart_blocks.py` e
+`tests/graph/contract/test_graph_chart_blocks_flow.py`.
+
+**Alternatives considered**: ver o ADR-054.

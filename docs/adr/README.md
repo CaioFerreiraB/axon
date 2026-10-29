@@ -58,6 +58,7 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 | [051](ADR-051-link-da-citacao-e-fontes-no-open-webui.md) | A citação leva o link do original, e a API manda as fontes no dialeto do Open WebUI atrás de `x-axon-citations` | Aceita | 001, 008, 102, 104 |
 | [052](ADR-052-graficos-na-conversa.md) | Gráficos na conversa: a tool entrega dados, a API desenha o ECharts no `embeds` do Open WebUI atrás de `x-axon-charts` | Aceita | 001, 004, 005, 008, 010, 011, 013 |
 | [053](ADR-053-listas-do-grafico-crescem-sem-quebrar.md) | As listas fechadas do gráfico crescem sem quebrar, e o waterfall entra | Aceita | 001, 008, 010 |
+| [054](ADR-054-a-geracao-declara-graficos-em-json.md) | A geração declara gráficos em JSON na resposta | Aceita | 005 |
 
 ## Modelo para ADR novo
 

@@ -17,13 +17,14 @@ from axon_ai.graph.adapters.langgraph.state import AgentContext, AgentState
 from axon_ai.graph.adapters.langgraph.view import turn_view
 from axon_ai.graph.api import FLOW_AGENTIC, ExecutionIssue, GenerationOutcome, StepOutcome
 from axon_ai.graph.domain.budget import Trimmed, estimate_tokens, trim_results
+from axon_ai.graph.domain.chart_blocks import MAX_BLOCK_CHARTS, ChartBlockFilter, parse_chart
 from axon_ai.graph.domain.images import chosen
 from axon_ai.graph.domain.limits import ITERATION_LIMIT
 from axon_ai.graph.domain.markup import ToolMarkupFilter
 from axon_ai.graph.domain.outcome import EMPTY_ANSWER
 from axon_ai.graph.domain.transcript import date_instruction, generation_messages
 from axon_ai.observability.api import Retrieval, RetrievedChunk, ValidationRun
-from axon_ai_contracts import ChatUsage, Chunk
+from axon_ai_contracts import Chart, ChatUsage, Chunk
 
 STAGE_PREPARE = "prepare_context"
 STAGE_GENERATE = "generate"
@@ -91,11 +92,32 @@ async def generate(state: AgentState) -> dict[str, Any]:
     answer_filter = ctx.hooks.open_answer_stream(ctx.composition, turn_view(state), state.get("packs", {}))
     # Antes deles, sai a marcação de chamada de tool que o modelo escreva como texto (`domain/markup.py`).
     markup = ToolMarkupFilter()
+    # Depois dela, os gráficos que a geração declara em JSON saem do texto e viram gráfico (ADR-054).
+    blocks = ChartBlockFilter()
+    drawn = {chart.id for chart in state.get("charts", ())}
+    charts: list[Chart] = []
+    invalid: list[str] = []
     model = ctx.router.for_role("generation")
     usage: ChatUsage | None = None
 
+    def draw() -> None:
+        while blocks.blocks:
+            source = blocks.blocks.pop(0)
+            try:
+                chart = parse_chart(source)
+            except ValueError as error:
+                invalid.append(str(error))
+                continue
+            if chart.id in drawn or len(charts) >= MAX_BLOCK_CHARTS:
+                continue
+            drawn.add(chart.id)
+            charts.append(chart)
+            writer({"kind": CHART, "chart": chart, "tool": STAGE_GENERATE})
+
     def release(text: str) -> None:
-        released = answer_filter.feed(text) if text else ""
+        clean = blocks.feed(text) if text else ""
+        draw()
+        released = answer_filter.feed(clean) if clean else ""
         if released:
             writer({"kind": TOKEN, "text": released})
 
@@ -103,6 +125,12 @@ async def generate(state: AgentState) -> dict[str, Any]:
         usage = chunk.get("usage", usage)
         release(markup.feed(chunk["delta"]))
     release(markup.finish())
+    rest = blocks.finish()
+    draw()
+    if rest:
+        released = answer_filter.feed(rest)
+        if released:
+            writer({"kind": TOKEN, "text": released})
     streamed = answer_filter.finish()
     if streamed.tail:
         writer({"kind": TOKEN, "text": streamed.tail})
@@ -116,6 +144,10 @@ async def generate(state: AgentState) -> dict[str, Any]:
                 severity="notice",
             )
         )
+    issues.extend(
+        ExecutionIssue(stage=STAGE_GENERATE, kind="ChartBlockInvalid", message=reason, severity="notice")
+        for reason in invalid
+    )
     finished(
         STAGE_GENERATE,
         GenerationOutcome(
@@ -129,6 +161,7 @@ async def generate(state: AgentState) -> dict[str, Any]:
         "streamed": streamed,
         "omitted": trimmed.omitted,
         "errors": issues,
+        "charts": charts,
     }
 
 
