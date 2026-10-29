@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from typing import Final
 
 from axon_ai.capabilities.domain.fencing import cut
-from axon_ai_contracts import Attachment, Chunk
+from axon_ai_contracts import Attachment, Chart, Chunk
 
 NO_RESULTS: Final = "nenhum resultado"
 OMITTED_CHUNKS: Final = "\n\n[… {count} trecho(s) omitido(s): limite de resposta]"
@@ -39,6 +39,14 @@ def attachment_markers(attachments: Sequence[Attachment]) -> str:
         else f"\n[imagem {item.id} mostrada ao usuário]"
         for item in attachments
     )
+
+
+def chart_markers(charts: Sequence[Chart]) -> str:
+    """Uma marca por gráfico, no lugar dos dados: o modelo sabe que o usuário o viu e não o redesenha (ADR-052, R15).
+
+    O título já sai limpo do `Chart` (contrato 001): sem quebras de linha nem colchetes.
+    """
+    return "".join(f"\n[gráfico {item.id} mostrado ao usuário: {item.title}]" for item in charts)
 
 
 def render_chunks(chunks: Sequence[Chunk]) -> str:

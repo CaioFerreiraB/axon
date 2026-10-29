@@ -363,3 +363,19 @@ trace sem bytes.
   migração `002_audit_attachments.sql`, memória e Postgres; contagem no `axon audit`
 - [X] T040 [P] Testes: marca com e sem `alt`, marca neutralizada e fora do corte, repetição, nativa com `ToolResult`,
   evento e auditoria (memória e Postgres) sem bytes
+
+---
+
+## Passada de 2026-10-28: gráficos fora da cerca ([ADR-052](../../docs/adr/ADR-052-graficos-na-conversa.md); research R15)
+
+**Goal**: o resultado de tool com gráfico chega ao motor com o gráfico fora da cerca e a marca dentro; trace só com
+o resumo.
+
+**Independent Test**: `tests/capabilities/contract/test_session_charts.py` — tool nativa e MCP programado devolvendo
+`ToolResult` com `charts`.
+
+- [X] T041 `FencedToolResult.charts`, `_Outcome.charts`, `_from_result`; marcas depois do corte
+  (`rendering.chart_markers`) (R15)
+- [X] T042 `ChartInfo`, `chart_info` e `ToolCall.charts` na 009 (`observability/api.py`)
+- [X] T043 [P] Testes: marca fora do corte e dentro da cerca, dados fora do texto, repetição, título hostil, resumo no
+  evento e marca na auditoria; testes de nomes públicos e do registro `tool_call` da 009 atualizados

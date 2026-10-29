@@ -36,6 +36,11 @@
 - Q: O que a auditoria e o trace registram da imagem? → A: Só `id`, tipo e tamanho, nunca bytes: a auditoria ganha a coluna `attachments` (migração `002`), e o evento `tool_call` da 009, o campo `attachments` (aditivo, ADR-017). O `size_bytes` do evento continua sendo o do texto.
 - Q: O corte do gateway (`max_response_bytes`) conta a marca? → A: Não: o conteúdo é cortado primeiro e as marcas entram depois, sempre visíveis; os anexos não contam (ADR-044, item 2).
 
+### Session 2026-10-28
+
+- Q: Onde fica o gráfico que uma tool devolve ([ADR-052](../../docs/adr/ADR-052-graficos-na-conversa.md))? → A: Fora da cerca, como a imagem: em `FencedToolResult.charts` (sem `id` repetido), e o texto cercado leva, depois do conteúdo cortado, uma marca por gráfico — `[gráfico <id> mostrado ao usuário: <título>]`. O modelo não recebe os dados de volta.
+- Q: O que o trace e a auditoria guardam do gráfico? → A: O `tool_call` leva só o resumo — id, tipo, número de séries e de pontos —, nunca os dados nem os textos. A auditoria de escrita guarda a marca, que já está no texto do resultado: nenhuma coluna nova.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - O catálogo é exatamente o que o Assistant permite (Priority: P1)
@@ -160,6 +165,7 @@ O catálogo entregue ao modelo de controle tem tamanho limitado por configuraç�
 - **FR-015**: A auditoria DEVE ser consultável pelo comando `axon audit`, com filtros por Principal, Assistant, tool e período; nenhuma superfície de rede expõe a auditoria nesta fase.
 - **FR-016**: O gateway DEVE entregar as imagens de um resultado fora da cerca, em `FencedToolResult.attachments` (ordem de chegada, sem `id` repetido), e pôr no texto cercado, depois do conteúdo cortado, a marca `[imagem <id> mostrada ao usuário: <alt>]` de cada uma ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 3). Tool nativa devolve imagem por um `ToolResult` com `attachments`.
 - **FR-017**: A auditoria de escrita e o evento `tool_call` DEVEM registrar de cada anexo só `id`, tipo e tamanho, nunca os bytes.
+- **FR-018**: O gateway DEVE entregar os gráficos de um resultado fora da cerca, em `FencedToolResult.charts` (ordem de chegada, sem `id` repetido), e pôr no texto cercado, depois do conteúdo cortado, uma marca por gráfico (`[gráfico <id> mostrado ao usuário: <título>]`); o evento `tool_call` DEVE registrar de cada gráfico só id, tipo, séries e pontos ([ADR-052](../../docs/adr/ADR-052-graficos-na-conversa.md), item 2).
 
 ### Key Entities
 

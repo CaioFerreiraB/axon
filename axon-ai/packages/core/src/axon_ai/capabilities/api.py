@@ -17,7 +17,7 @@ from typing import Final, Literal, Protocol
 
 from axon_ai.assistants.api import ExecutionGrant
 from axon_ai.observability.api import AttachmentInfo
-from axon_ai_contracts import Attachment, Chunk, JSONValue, ToolKind
+from axon_ai_contracts import Attachment, Chart, Chunk, JSONValue, ToolKind
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Vocabulário
@@ -106,6 +106,8 @@ class FencedToolResult:
     chunks: tuple[Chunk, ...] = ()
     attachments: tuple[Attachment, ...] = ()
     """As imagens do resultado, fora da cerca; o texto leva uma marca por imagem (ADR-044, R13)."""
+    charts: tuple[Chart, ...] = ()
+    """Os gráficos do resultado, fora da cerca; o texto leva uma marca por gráfico (ADR-052, R15)."""
 
 
 def _bounded(name: str, value: int, low: int, high: int) -> None:

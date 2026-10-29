@@ -246,3 +246,21 @@ o evento dela que o leva, e a 004 já importa o `api.py` dela.
 **Alternatives considered**: a marca no lugar exato da parte (exigiria um marcador de posição combinado entre 007 e
 004, sem ganho para o modelo); `size_bytes` somando os anexos (mudaria o significado do campo, que mede o que o modelo
 lê); bytes na auditoria (o ADR proíbe).
+
+## R15 — Gráficos fora da cerca (ADR-052, item 2; FR-018)
+
+**Decision**: `_Outcome` e `FencedToolResult` ganham `charts: tuple[Chart, ...] = ()`, preenchido de
+`ToolResult.charts` (nativo ou MCP) pelo mesmo `_from_result`. Em `_finish`, depois do corte, entram as marcas das
+imagens e em seguida as dos gráficos (`domain/rendering.chart_markers`: `[gráfico <id> mostrado ao usuário: <título>]`),
+e a cerca neutraliza tudo como qualquer conteúdo. Repetição de `id` cai. O resumo é tipo publicado da 009:
+`ChartInfo(id, kind, series, points)` e `ToolCall.charts: tuple[ChartInfo, ...] = ()`. A auditoria não muda: o texto do
+resultado gravado já leva a marca.
+
+**Rationale** (ADR-052: "a 004 deduplica por id e põe no resultado cercado a marca…, depois do corte"): o mesmo
+caminho das imagens (R13), sem regra nova. O título já sai limpo do `Chart` (sem quebra de linha nem colchetes), então
+não abre outra marca nem fecha a cerca. Na auditoria, uma tool de escrita que desenhe gráfico é improvável; a marca
+(id e título) basta como resumo e evita uma migração.
+
+**Alternatives considered**: os dados do gráfico no texto cercado (o modelo os repetiria ou redesenharia, e o corte os
+quebraria); uma coluna `charts` na auditoria (migração sem caso de uso); o gráfico como `Attachment` de outro tipo
+(quebraria o invariante "anexo é imagem" da 005 e da 008).

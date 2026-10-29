@@ -20,6 +20,8 @@ EXPECTED_NAMES = {
     # ADR-044: o resumo das imagens no `tool_call`, na auditoria e nos eventos do motor
     "AttachmentInfo",
     "attachment_info",
+    "ChartInfo",
+    "chart_info",
     "ControllerDecision",
     "DecisionAction",
     "CoverageGate",
@@ -154,6 +156,7 @@ def test_public_names_match_the_contract() -> None:
         "Protocol",
         "JSONValue",
         "Attachment",
+        "Chart",
         "annotations",
     }
     assert public - imported == EXPECTED_NAMES
