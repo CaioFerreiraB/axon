@@ -349,3 +349,20 @@ teste da R22. A comparação com o Penpot fica para quando o arquivo estiver con
 **Rationale**: o plano do renome pede capturas comparadas ao desenho; a parte que não depende do Penpot roda aqui.
 
 **Alternatives considered**: teste de regressão visual automatizado (sem linha de base aprovada para as páginas novas).
+
+## R27 — A CSP das páginas acompanha os clientes carregados depois do router (correção, 2026-10-28)
+
+**Decision**: a CSP das páginas (`_Http.csp`) é calculada a cada página, dos clientes atuais do serviço, em vez de uma
+vez, na construção do router. Teste de regressão: `test_csp_acompanha_clientes_carregados_depois_do_router` (router
+montado antes de `start()`; falha sem a correção com `form-action 'self'` sozinho).
+
+**Rationale**: no perfil `persistent`, o serviço de runtime só lê o `identity.yaml` (`load_configuration`) quando o
+pool abre, no ciclo de vida da app. Isso é depois de a 011 montar o router. A CSP fixa ficava só com
+`form-action 'self'`, e o Chrome aplica `form-action` também ao redirecionamento que segue o POST do login (303 →
+`/oauth2/authorize` → callback do cliente, outra origem). O login por senha de quem não tinha sessão voltava em
+silêncio à página de login, com o erro só no console do navegador. Quem já tinha sessão ou entrava pelo Google não
+passava pelo formulário, e o `check-webui.py` usa um cliente HTTP, que não aplica CSP. Achado no teste dos gráficos
+(ADR-052) no dev com o Open WebUI. O custo é juntar algumas origens por página.
+
+**Alternatives considered**: recalcular a CSP no `start()` do serviço (acoplaria o serviço ao adapter HTTP); carregar
+os clientes antes de montar o router no `persistent` (o serviço de runtime só existe com o pool aberto, 011 R14).

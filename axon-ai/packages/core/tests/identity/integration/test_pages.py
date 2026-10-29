@@ -7,7 +7,7 @@ from pathlib import Path
 
 import httpx
 import pytest
-from identity_testkit import OPEN_WEBUI, Harness, app_for, authorize_params, browser
+from identity_testkit import OPEN_WEBUI, Harness, app_for, authorize_params, browser, harness
 
 from axon_ai.identity.adapters.http import IdentityHttpSettings
 
@@ -130,3 +130,17 @@ async def test_a_pagina_aponta_o_favicon_e_o_lockup(http: httpx.AsyncClient) -> 
     page = (await _login_page(http)).text
     assert '<link rel="icon" type="image/svg+xml" href="/oauth2/assets/favicon.svg">' in page
     assert 'src="/oauth2/assets/axon-lockup-light.svg"' in page
+
+
+async def test_csp_acompanha_clientes_carregados_depois_do_router() -> None:
+    """No perfil `persistent`, o router existe antes de o serviço de runtime carregar o `identity.yaml` (quando o pool
+    abre). A CSP precisa das origens dos clientes no `form-action`: sem elas, o Chrome bloqueia o retorno do login por
+    senha ao cliente (research R27)."""
+    parts = harness()
+    app = app_for(parts)
+    await parts.service.start()
+    async with browser(app) as http:
+        csp = (await _login_page(http)).headers["content-security-policy"]
+    form_action = re.search(r"form-action ([^;]+)", csp)
+    assert form_action is not None
+    assert form_action.group(1).split() == ["'self'", "http://localhost:3000", "http://localhost:8080"]
