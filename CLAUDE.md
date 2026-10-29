@@ -588,6 +588,29 @@ instalação (`axon-deploy/template`, `axon-cfblabs`) e o dev mandam `x-axon-cit
 `axon-cfblabs` confere as fontes gravadas. O core está em `0.7.0rc8` (tag `v0.7.0-rc8`, contratos `0.2.3` na tag
 `contracts-v0.2.3`), e o pack `scouting` em `0.8.0`, pela mesma tag.
 
+Gráficos na conversa (ADR-052): os contratos `0.2.4` têm `Chart` (com `ChartSeries` e `ChartPoint`) e
+`ToolResult.charts`. O esquema é fechado: tipos `line|area|bar|stacked_bar|scatter|pie|donut`, eixo
+`temporal|quantitative|nominal`, até 8 séries e 500 pontos, `id` do conteúdo (`chart-` + 12 hex).
+- **Caminho do gráfico.** O gráfico segue pelo canal lateral das imagens. A 004 o tira da cerca e deixa a marca
+  `[gráfico <id> mostrado ao usuário: <título>]`, com o resumo no `tool_call`. A 005 emite `ChartEvent` e
+  `FinalEvent.charts`, e o modelo nunca recebe os dados de volta (`CHARTS_INSTRUCTION` na geração).
+- **API.** Só a 008 escreve HTML (`http/domain/charts.py`):
+  - a tabela em `<details>` sempre no texto (é o histórico do modelo) e o `Chart` em `x_axon.charts`;
+  - com `x-axon-charts: embeds`, em streaming, um evento `embeds` do Open WebUI com uma página por gráfico;
+  - a página não tem script inline: a especificação vai em JSON escapado, e o ECharts 6.1.0 vendorizado, o locale
+    pt-BR e o desenhista `axon-chart.js` vêm de `/static/echarts/6.1.0/…` e `/static/charts/<impressão>/…`, rotas
+    públicas, imutáveis e com `integrity`;
+  - o tema segue o `prefers-color-scheme` (sem `color-scheme`, que daria fundo opaco no Open WebUI), com as 8 cores de
+    série do DESIGN.md.
+- **Montagem e console.** A 011 lê `AXON_CHARTS_SCRIPT_BASE_URL` (senão `AXON_PUBLIC_URL`; sem os dois, só a tabela e
+  o aviso no item informativo `charts` da saúde). O nginx da console repassa `/static/`.
+- **A tool.** `generic.chart` (`axon-generic` 0.3.0, `contract_version` 0.2.4) recebe os dados, infere o eixo
+  temporal de datas ISO e devolve erro legível ao controller.
+- **Provas.** Ponta a ponta sem rede em `tests/bootstrap/integration/test_platform_charts.py`. Verificado no dev com o
+  Open WebUI e o glm-5.3-flash. O teste achou um defeito da 012, corrigido: no `persistent`, a CSP das páginas ficava
+  sem as origens dos clientes, e o Chrome bloqueava o login por senha (012 R27).
+- **Versão.** O core está em `0.7.0rc9` (contratos `0.2.4`).
+
 O `axon-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
 true }`, suíte de conformidade nos próprios testes e zero import do core (import-linter, nas duas direções). Ele é

@@ -202,7 +202,7 @@ wheels = [
 
 [[package]]
 name = "axon-ai"
-version = "0.7.0rc8"
+version = "0.7.0rc9"
 source = { editable = "packages/core" }
 dependencies = [
     { name = "argon2-cffi" },
@@ -243,7 +243,7 @@ requires-dist = [
 
 [[package]]
 name = "axon-ai-contracts"
-version = "0.2.3"
+version = "0.2.4"
 source = { editable = "packages/contracts" }
 dependencies = [
     { name = "typing-extensions" },
@@ -254,7 +254,7 @@ requires-dist = [{ name = "typing-extensions", specifier = ">=4.12" }]
 
 [[package]]
 name = "axon-generic"
-version = "0.2.0"
+version = "0.3.0"
 source = { editable = "packages/generic" }
 dependencies = [
     { name = "axon-ai-contracts" },

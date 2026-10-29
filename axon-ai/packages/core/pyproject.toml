@@ -1,13 +1,13 @@
 [project]
 name = "axon-ai"
-version = "0.7.0rc8"
+version = "0.7.0rc9"
 description = "Runtime genérico da plataforma Axon (monolito modular; specs 002–009, 011, 012)."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.14"
 dependencies = [
-    "axon-ai-contracts>=0.2.3,<0.3",
+    "axon-ai-contracts>=0.2.4,<0.3",
     "pyyaml>=6.0.2",
     "jsonschema>=4.23",
     # Spec 006 (research R4): camada compatível com OpenAI, confinada a axon_ai/llm/adapters/ por import-linter.
