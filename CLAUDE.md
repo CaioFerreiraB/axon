@@ -612,7 +612,12 @@ Gráficos na conversa (ADR-052): os contratos `0.2.4` têm `Chart` (com `ChartSe
 - **Limite do loop.** Em produção, o loop do `geral` acabava (3 iterações padrão) antes do gráfico, buscando dados
   num MCP paginado. A geração depois do loop passou a receber `NO_TOOLS_INSTRUCTION` e, no corte pelo limite,
   `LIMIT_INSTRUCTION` (005 R54); o `geral` do `axon-cfblabs` declara `max_iterations: 8`.
-- **Versão.** O core está em `0.7.0rc10` (contratos `0.2.4`).
+- **Passos em texto.** Mesmo com o aviso, numa conversa longa a geração escrevia a chamada de ferramenta como texto:
+  ela passou a receber os passos do loop em texto (`Resultado da ferramenta …`), e só o passo sintético do
+  `rag_first` segue no formato nativo (005 R55).
+- **Waterfall.** Entrou nos contratos `0.2.5` (ADR-053), e aumentar `CHART_KINDS`/`ChartKind` passou a ser aditivo no
+  diff de superfície. A API calcula o total e desenha com `candlestick`. A tool é a do `axon-generic` 0.3.1.
+- **Versão.** O core está em `0.7.0rc11` (contratos `0.2.5`).
 
 O `axon-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
