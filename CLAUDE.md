@@ -609,7 +609,10 @@ Gráficos na conversa (ADR-052): os contratos `0.2.4` têm `Chart` (com `ChartSe
 - **Provas.** Ponta a ponta sem rede em `tests/bootstrap/integration/test_platform_charts.py`. Verificado no dev com o
   Open WebUI e o glm-5.3-flash. O teste achou um defeito da 012, corrigido: no `persistent`, a CSP das páginas ficava
   sem as origens dos clientes, e o Chrome bloqueava o login por senha (012 R27).
-- **Versão.** O core está em `0.7.0rc9` (contratos `0.2.4`).
+- **Limite do loop.** Em produção, o loop do `geral` acabava (3 iterações padrão) antes do gráfico, buscando dados
+  num MCP paginado. A geração depois do loop passou a receber `NO_TOOLS_INSTRUCTION` e, no corte pelo limite,
+  `LIMIT_INSTRUCTION` (005 R54); o `geral` do `axon-cfblabs` declara `max_iterations: 8`.
+- **Versão.** O core está em `0.7.0rc10` (contratos `0.2.4`).
 
 O `axon-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
