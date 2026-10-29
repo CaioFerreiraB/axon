@@ -564,6 +564,7 @@ def _api(ctx: BootContext) -> None:
             max_input_image_bytes=settings.max_input_image_bytes,
             max_input_images=settings.max_input_images,
         ),
+        charts_base_url=settings.charts_base_url,
     )
     if identity is not None:
         # O protocolo e as páginas da 012 são o adapter primário dela, montado no mesmo app (ADR-030).
@@ -597,6 +598,7 @@ def platform_health(
         models=assistants.declared_models,
         identity=_identity_probe(identity if identity is not None else parts.get("identity")),
         destinations=destinations.health if destinations is not None else None,
+        charts=parts["settings"].charts_base_url is not None,
     )
 
 

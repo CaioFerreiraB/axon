@@ -50,6 +50,11 @@ DestinationProbe = Callable[[], Sequence[DestinationHealth]]
 """A saúde dos destinos do trace (`TraceDestinations.health` da 009): sem I/O."""
 
 
+CHARTS_WITHOUT_URL: Final = (
+    "sem AXON_CHARTS_SCRIPT_BASE_URL nem AXON_PUBLIC_URL: os gráficos saem só como tabela, sem o embeds do Open WebUI"
+)
+
+
 class Validator(Protocol):
     async def validate(self) -> ValidationReport: ...
 
@@ -83,8 +88,10 @@ class PlatformHealth:
         mcp: McpServers | None = None,
         identity: Callable[[], str | None] | None = None,
         destinations: DestinationProbe | None = None,
+        charts: bool | None = None,
     ) -> None:
         self.report: BootReport | None = None
+        self._charts = charts
         self._mcp = mcp
         self._identity = identity
         self._database = database
@@ -117,6 +124,7 @@ class PlatformHealth:
                 *models,
                 *mcp,
                 *self._destination_items(),
+                *self._chart_items(),
             )
         )
         self._cached = (now, report)
@@ -136,6 +144,13 @@ class PlatformHealth:
             return ()
         failure = self._identity()
         return (HealthItem(name="identity", ok=failure is None, critical=True, detail=failure),)
+
+    def _chart_items(self) -> tuple[HealthItem, ...]:
+        """Informativo (ADR-052, item 6; R57): sem o endereço dos scripts, os gráficos saem só como tabela — um aviso
+        no `detail`, não uma falha, para uma instalação só de API não ficar `degraded` por isso."""
+        if self._charts is None:
+            return ()
+        return (HealthItem(name="charts", ok=True, detail=None if self._charts else CHARTS_WITHOUT_URL),)
 
     def _pack_items(self) -> tuple[HealthItem, ...]:
         return tuple(
