@@ -56,6 +56,7 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 | [049](ADR-049-taxonomia-e-a-tipologia-do-acervo-no-scouting.md) | No scouting, a taxonomia do acervo é a única tipologia: o `type` sai do catálogo, e tipo, órgão e abrangência vêm da pasta | Aceita | 101, 102, 103, 105 |
 | [050](ADR-050-leitura-fiel-e-trecho-que-cabe-no-embedder-no-scouting.md) | No scouting, a ingestão lê colunas e títulos pela tipografia, todo trecho cabe no embedder e o OCR vira transcrição revisável | Aceita | 102, 105 |
 | [051](ADR-051-link-da-citacao-e-fontes-no-open-webui.md) | A citação leva o link do original, e a API manda as fontes no dialeto do Open WebUI atrás de `x-axon-citations` | Aceita | 001, 008, 102, 104 |
+| [052](ADR-052-graficos-na-conversa.md) | Gráficos na conversa: a tool entrega dados, a API desenha o ECharts no `embeds` do Open WebUI atrás de `x-axon-charts` | Aceita | 001, 004, 005, 008, 010, 011, 013 |
 
 ## Modelo para ADR novo
 
