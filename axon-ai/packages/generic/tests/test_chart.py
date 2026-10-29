@@ -31,7 +31,7 @@ def test_dados_viram_o_chart_do_contrato() -> None:
     assert (drawn.kind, drawn.title) == ("donut", "Gastos por categoria")
     assert (drawn.unit, drawn.unit_position) == ("R$", "prefix")
     assert [point.x for point in drawn.series[0].points] == ["Moradia", "Mercado"]
-    assert result.content == f"gráfico {drawn.id} criado (donut, 1 série(s), 2 ponto(s))"
+    assert result.content == f"gráfico {drawn.id} criado e já mostrado ao usuário (donut, 1 série(s), 2 ponto(s))"
 
 
 def test_opcionais_ausentes_ou_nulos_viram_o_padrao() -> None:
@@ -49,6 +49,19 @@ def test_serie_temporal() -> None:
         "series": [{"name": "Conta", "points": [{"x": "2026-10-01", "y": 10}, {"x": "2026-10-02", "y": 12.5}]}],
     }
     assert build_chart(args).x_type == "temporal"
+
+
+def test_sem_x_type_o_eixo_e_inferido() -> None:
+    """Modelo pequeno omite o `x_type`: datas ISO viram eixo temporal, números viram eixo numérico."""
+    datas = [{"x": "2026-07-01", "y": 1200}, {"x": "2026-08-01T10:00", "y": 1850}]
+    linha = {"kind": "line", "title": "Saldo", "series": [{"name": "Saldo", "points": datas}]}
+    assert build_chart(linha).x_type == "temporal"
+    numeros = linha | {"series": [{"name": "s", "points": [{"x": 1, "y": 2}, {"x": 2.5, "y": 3}]}]}
+    assert build_chart(numeros).x_type == "quantitative"
+    misturado = linha | {"series": [{"name": "s", "points": [{"x": "2026-07-01", "y": 2}, {"x": "jul", "y": 3}]}]}
+    assert build_chart(misturado).x_type == "nominal"
+    assert build_chart(linha | {"x_type": "nominal"}).x_type == "nominal", "o explícito vence"
+    assert build_chart(ROSCA).x_type == "nominal"
 
 
 @pytest.mark.parametrize(

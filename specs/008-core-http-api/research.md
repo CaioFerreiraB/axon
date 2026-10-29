@@ -1046,3 +1046,8 @@ das imagens), no `content` sem streaming e na conversa gravada.
 - **Desenhista sob `/static/echarts/6.1.0`.** O cache imutável serviria a versão velha, e o `integrity` falharia.
 - **Tooltip padrão do ECharts.** Mostra a data crua (`2026-04-08 00:00:00`) e a unidade depois do valor ("2.100 R$").
 - **A tabela só sem `embeds`.** A acessibilidade e o histórico do modelo dependem dela também no Open WebUI.
+
+**Verificação no Open WebUI real (dev, 2026-10-28)**: o `geral` (`agentic`, glm-5.3-flash pelo OpenRouter) desenhou
+rosca, linha temporal, barras empilhadas e pizza nos dois temas, e o gráfico voltou ao recarregar a conversa. A página
+perdeu o `color-scheme`: o Open WebUI não o declara, e um iframe com esquema diferente do da página ganha fundo opaco no
+Chrome (uma caixa escura no tema escuro). O `prefers-color-scheme` não depende dele.

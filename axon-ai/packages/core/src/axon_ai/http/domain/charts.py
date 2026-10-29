@@ -368,8 +368,9 @@ def script_json(value: object) -> str:
 
 
 _STYLE: Final = (
-    ":root{color-scheme:light dark;"
-    'font-family:"Mona Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}'
+    # Sem `color-scheme`: o Open WebUI não o declara, e um iframe com esquema diferente do da página ganha fundo opaco
+    # no Chrome. O tema vem do `prefers-color-scheme`, que não depende dele.
+    ':root{font-family:"Mona Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}'
     "html,body{margin:0;background:transparent}.c{padding:4px 2px 0}"
     f"h3{{margin:0 0 2px;font-size:.9375rem;font-weight:600;color:{_LIGHT.text}}}"
     f"p{{margin:0 0 8px;font-size:.75rem;color:{_LIGHT.text2}}}#plot{{width:100%}}"

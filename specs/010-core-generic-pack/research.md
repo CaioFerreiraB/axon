@@ -454,3 +454,15 @@ validação de argumentos da 004. O prompt não muda: a frase do controller sobr
 **Alternatives considered**: a tool no core (o core não tem tools próprias; elas vêm de packs, MCP e retrievers);
 pontos como pares `[x, y]` (o subconjunto estrito recusa `items` em tupla); devolver o erro como exceção (o gateway o
 transformaria em `error` genérico, sem o motivo).
+
+**Verificação com modelo real (dev, 2026-10-28; glm-5.3-flash)**: três ajustes vieram do teste no Open WebUI.
+- **`x_type` inferido.** Sem `x_type` (o modelo o omitiu numa série de datas), `build_chart` usa `temporal` quando
+  todo x é data ISO, `quantitative` quando todo x é número e `nominal` no resto; o explícito vence, e pizza e rosca
+  são sempre `nominal`.
+- **Descrições curtas** nos campos `x_type` e `unit`.
+- **Uma série por grandeza.** Numa rodada, o controller criou uma série repetida ("Valor em Reais", no lugar da
+  unidade) e chamou a tool de novo para corrigir, e os dois gráficos ficaram na tela (gráfico não se desfaz). A
+  descrição passou a dizer: uma série por grandeza, sem repetir valores, unidade em `unit`, uma chamada por gráfico.
+  O resultado da tool passou a dizer que o gráfico "já foi mostrado ao usuário".
+
+Depois dos ajustes, linha, barras empilhadas e pizza saíram com um gráfico cada.

@@ -8,6 +8,7 @@ puro — sem I/O, sem relógio, sem aleatoriedade.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from typing import Any, Final
 
@@ -30,7 +31,9 @@ DESCRIPTION: Final = (
     "dispersão, pizza ou rosca. Use quando o usuário pedir um gráfico ou uma visualização de valores que você já "
     f"tem. Passe os números já calculados e agregados (até {CHART_MAX_SERIES} séries e {CHART_MAX_POINTS} pontos no "
     "total); em série temporal, x é a data ISO (2026-10-28) com x_type 'temporal'; em pizza e rosca, uma série só, "
-    "com uma fatia por ponto. O gráfico aparece para o usuário junto da resposta, com a tabela dos dados."
+    "com uma fatia por ponto. Uma série por grandeza — não repita os mesmos valores em duas séries; a unidade "
+    "(R$, %, kg) vai em unit. Chame uma vez por gráfico: ele aparece para o usuário assim que é criado, com a tabela "
+    "dos dados, e não pode ser desfeito."
 )
 
 _TEXT: Final[Mapping[str, JSONValue]] = {"type": "string"}
@@ -41,10 +44,14 @@ PARAMETERS: Final[Mapping[str, JSONValue]] = {
         "kind": {"type": "string", "enum": ["line", "area", "bar", "stacked_bar", "scatter", "pie", "donut"]},
         "title": _TEXT,
         "subtitle": _TEXT,
-        "x_type": {"type": "string", "enum": ["temporal", "quantitative", "nominal"]},
+        "x_type": {
+            "type": "string",
+            "enum": ["temporal", "quantitative", "nominal"],
+            "description": "temporal quando x é data ISO; quantitative quando x é número; nominal para categorias",
+        },
         "x_label": _TEXT,
         "y_label": _TEXT,
-        "unit": _TEXT,
+        "unit": {"type": "string", "description": "unidade dos valores de y, como 'R$', '%' ou 'kg'"},
         "unit_position": {"type": "string", "enum": ["prefix", "suffix"]},
         "series": {
             "type": "array",
@@ -80,6 +87,7 @@ PARAMETERS: Final[Mapping[str, JSONValue]] = {
 opcionais podem chegar ausentes ou nulos."""
 
 _OPTIONAL: Final = ("subtitle", "x_label", "y_label", "unit")
+_ISO_DATE: Final = re.compile(r"\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2})?)?")
 
 
 async def chart(invocation: ToolInvocation) -> ToolResult:
@@ -95,7 +103,10 @@ async def chart(invocation: ToolInvocation) -> ToolResult:
         return ToolResult(content="", error=f"{INVALID}: {error}")
     points = sum(len(item.points) for item in built.series)
     return ToolResult(
-        content=f"gráfico {built.id} criado ({built.kind}, {len(built.series)} série(s), {points} ponto(s))",
+        content=(
+            f"gráfico {built.id} criado e já mostrado ao usuário "
+            f"({built.kind}, {len(built.series)} série(s), {points} ponto(s))"
+        ),
         charts=(built,),
     )
 
@@ -103,14 +114,23 @@ async def chart(invocation: ToolInvocation) -> ToolResult:
 def build_chart(arguments: Mapping[str, Any]) -> Chart:
     """Os argumentos (já validados pelo esquema no gateway) viram o `Chart`; o contrato confere o resto."""
     options: dict[str, Any] = {name: arguments[name] for name in _OPTIONAL if arguments.get(name) is not None}
-    for name, default in (("x_type", "nominal"), ("unit_position", "suffix")):
-        options[name] = arguments.get(name) or default
-    return Chart(
-        kind=arguments["kind"],
-        title=arguments["title"],
-        series=tuple(_series(item) for item in _items(arguments["series"], "series")),
-        **options,
-    )
+    series = tuple(_series(item) for item in _items(arguments["series"], "series"))
+    options["unit_position"] = arguments.get("unit_position") or "suffix"
+    options["x_type"] = arguments.get("x_type") or _inferred_x_type(arguments["kind"], series)
+    return Chart(kind=arguments["kind"], title=arguments["title"], series=series, **options)
+
+
+def _inferred_x_type(kind: object, series: Sequence[ChartSeries]) -> str:
+    """Sem `x_type`, o eixo é temporal quando todo x é data ISO (modelo pequeno costuma omitir o campo), numérico
+    quando todo x é número, e de categorias no resto — inclusive em pizza e rosca."""
+    xs = [point.x for item in series for point in item.points]
+    if kind in ("pie", "donut") or not xs:
+        return "nominal"
+    if all(isinstance(x, float) for x in xs):
+        return "quantitative"
+    if all(isinstance(x, str) and _ISO_DATE.fullmatch(x) for x in xs):
+        return "temporal"
+    return "nominal"
 
 
 def _series(item: Mapping[str, Any]) -> ChartSeries:
