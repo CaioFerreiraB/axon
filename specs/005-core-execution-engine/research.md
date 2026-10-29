@@ -828,3 +828,27 @@ que só produz texto ou redesenha os dados em tabela, o que repetiria a tabela q
 etapa `image_gate` e o teto de contexto); mandar os dados à geração para ela comentar (o resultado da tool de origem,
 um MCP por exemplo, já está na transcrição; repetir custaria tokens); frase no prompt do pack `generic` (o prompt é
 neutro quanto ao flow, 010 FR-008).
+
+### R54 — A geração sabe que as ferramentas acabaram e que o limite foi atingido (FR-006b; produção, 2026-10-29)
+
+**Decision**: duas frases fixas do core em `graph/domain/transcript.py`, ambas no sistema da geração:
+- `NO_TOOLS_INSTRUCTION`, sempre que a geração vem do loop (`tools=True` em `generation_messages`);
+- `LIMIT_INSTRUCTION`, quando o loop foi cortado pelo limite (`truncated=True`).
+
+O `generate` passa `truncated` quando algum registro tem `kind == ITERATION_LIMIT`. Essa constante agora fica em
+`graph/domain/limits.py`, usada também pelo nó que registra o corte.
+
+**Rationale**: no Langfuse de produção, duas conversas do `geral` pediram um gráfico de rosca dos gastos do mês. O
+controller gastou as 3 iterações padrão buscando dados num MCP paginado, e o loop foi para a geração sem chamar
+`generic.chart`. A geração, sem ferramentas e sem saber disso, escreveu `<tool_call>renderizar_grafico…` (uma tool
+inventada) e, na outra conversa, `<tool_call>mango.listar_transacoes…`. O `ToolMarkupFilter` (R50) cortou a marcação,
+a resposta ficou vazia e saiu o `EMPTY_ANSWER`. As frases tratam a causa na geração. O limite do Assistant é
+configuração da instalação: o `geral` do `axon-cfblabs` passou a declarar `max_iterations: 8`.
+
+**Alternatives considered**:
+- **Reservar uma iteração final do controller para "terminar".** Mudaria a tabela de rotas do FR-006 sem saber se
+  falta algo.
+- **Orientar o controller a preferir resumos a paginar.** Recusado pelo mantenedor: a escolha da fonte é do
+  controller.
+- **Subir o `DEFAULT_MAX_ITERATIONS`.** O padrão é decisão da clarificação 3 de 2026-10-01, e o Assistant declara o
+  que precisa.

@@ -18,6 +18,7 @@ from axon_ai.graph.adapters.langgraph.view import turn_view
 from axon_ai.graph.api import FLOW_AGENTIC, ExecutionIssue, GenerationOutcome, StepOutcome
 from axon_ai.graph.domain.budget import Trimmed, estimate_tokens, trim_results
 from axon_ai.graph.domain.images import chosen
+from axon_ai.graph.domain.limits import ITERATION_LIMIT
 from axon_ai.graph.domain.markup import ToolMarkupFilter
 from axon_ai.graph.domain.outcome import EMPTY_ANSWER
 from axon_ai.graph.domain.transcript import date_instruction, generation_messages
@@ -79,6 +80,7 @@ async def generate(state: AgentState) -> dict[str, Any]:
         state.get("steps", ()),
         today=today,
         tools=looped,
+        truncated=any(issue.kind == ITERATION_LIMIT for issue in state.get("errors", ())),
         **generation_images(state),
     )
     ceiling = state.get("ceiling")

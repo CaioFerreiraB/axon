@@ -37,6 +37,20 @@ DATE_INSTRUCTION: Final = (
 )
 """Sem ela, o modelo chuta o ano pela data de corte do treino e pede a período errado (R50)."""
 
+NO_TOOLS_INSTRUCTION: Final = (
+    "Nesta etapa você só escreve a resposta ao usuário, em texto: as ferramentas já foram usadas e não estão mais "
+    "disponíveis. Nunca escreva chamadas de ferramenta, JSON de ação nem marcações como <tool_call>."
+)
+"""Na geração depois do loop: sem ela, um modelo que ainda queria agir escreve a chamada como texto — o filtro de
+marcação a corta, e a resposta fica vazia (R54)."""
+
+LIMIT_INSTRUCTION: Final = (
+    "O limite de passos desta resposta foi atingido antes de terminar o que o usuário pediu. Responda com o que os "
+    "resultados das ferramentas já trazem e diga com clareza o que ficou faltando — por exemplo, um gráfico ou uma "
+    "consulta que não chegou a ser feita —, sugerindo pedir de novo de forma mais direta."
+)
+"""Na geração quando o loop foi cortado pelo limite de iterações (R54). Sem domínio (princípio I)."""
+
 _WEEKDAYS: Final = ("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo")
 
 
@@ -181,6 +195,7 @@ def generation_messages(
     send_own: bool = False,
     shown: Sequence[Attachment] = (),
     tools: bool = False,
+    truncated: bool = False,
 ) -> list[ModelMessage]:
     """Prompts de pack, a data de referência (no `agentic`), a cerca (se houver resultado) e o aviso das imagens que o
     usuário vê (se uma tool devolveu imagem; sem imagem, mas com tools na execução — `tools` —, a nota de que a
@@ -201,4 +216,8 @@ def generation_messages(
         system.append({"role": "system", "content": IMAGES_CAPABILITY})
     if any(step.result.charts for step in executed):
         system.append({"role": "system", "content": CHARTS_INSTRUCTION})
+    if tools:
+        system.append({"role": "system", "content": NO_TOOLS_INSTRUCTION})
+    if truncated:
+        system.append({"role": "system", "content": LIMIT_INSTRUCTION})
     return [*system, *_request(messages, send_own=send_own, shown=shown), *_transcript(steps, notices=False)]

@@ -26,7 +26,7 @@ from axon_ai.graph.domain.actions import (
     response_format,
 )
 from axon_ai.graph.domain.budget import estimate_tokens, exceeds
-from axon_ai.graph.domain.limits import DecisionKind, after_decision
+from axon_ai.graph.domain.limits import ITERATION_LIMIT, DecisionKind, after_decision
 from axon_ai.graph.domain.steps import tool_summary
 from axon_ai.graph.domain.transcript import (
     InvalidStep,
@@ -315,7 +315,7 @@ def _after(
         errors.append(
             ExecutionIssue(
                 stage=STAGE_CONTROLLER,
-                kind="IterationLimit",
+                kind=ITERATION_LIMIT,
                 message=f"limite de {limit} iterações atingido; a resposta foi gerada com o que havia",
                 severity="notice",
             )

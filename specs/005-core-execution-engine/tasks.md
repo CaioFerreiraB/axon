@@ -879,3 +879,12 @@ que ele foi mostrado.
 - [X] T103 `CHARTS_INSTRUCTION` na geração com gráfico; "imagens e gráficos" no `CONTROLLER_INSTRUCTION`
 - [X] T104 [P] Testes: ordem (imagens, depois gráficos, logo depois do desfecho), repetição entre chamadas, dados fora
   do modelo, aviso só com gráfico; `FakeSession(charts=)` no `graph_testkit`
+
+---
+
+## Correção de 2026-10-29: avisos da geração depois do loop (research R54)
+
+- [X] T105 `NO_TOOLS_INSTRUCTION` e `LIMIT_INSTRUCTION` em `generation_messages` (`tools`, `truncated`);
+  `ITERATION_LIMIT` em `domain/limits.py`; o `generate` passa o corte
+- [X] T106 [P] Testes: `tests/graph/contract/test_graph_generation_notices.py` (loop por decisão, corte pelo limite,
+  `chat` sem avisos)
