@@ -38,7 +38,7 @@ def test_report_has_no_issue() -> None:
 
 
 def test_declared_contracts_range_is_checked_when_the_distribution_is_visible() -> None:
-    """No ambiente limpo, a etapa de distribuição confere a faixa `>=0.2,<0.3` do `pyproject.toml` do pack."""
+    """No ambiente limpo, a etapa de distribuição confere a faixa `>=0.2.4,<0.3` do `pyproject.toml` do pack."""
     if not DISTRIBUTION_IS_VISIBLE:
         return
     report = check_pack(GenericPack(), views=list(VIEWS))

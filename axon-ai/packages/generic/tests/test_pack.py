@@ -24,12 +24,12 @@ EXPECTED_PARAMETERS = {
 def test_identity_is_readable_on_the_class() -> None:
     """A 002 lê `name` e `contract_version` da classe, antes de instanciar (FR-017 da 002)."""
     assert GenericPack.name == "generic"
-    assert GenericPack.contract_version == "0.2"
+    assert GenericPack.contract_version == "0.2.4"
 
 
 def test_manifest_is_minimal() -> None:
     manifest = GenericPack().manifest()
-    assert manifest == PackManifest(name="generic", version="0.2.0")
+    assert manifest == PackManifest(name="generic", version="0.3.0")
     assert manifest.preferred_flow is None  # FR-007: também na Fase 3 — o Assistant declara o flow (R15)
     assert manifest.depends_on == ()
     assert manifest.requires_collections == ()
@@ -63,8 +63,9 @@ def test_system_prompt_is_flow_neutral() -> None:
 def test_catalog() -> None:
     pack = GenericPack()
     ctx = pack_context("generic")
-    [tool] = pack.tools(ctx)
+    tool, chart = pack.tools(ctx)
     assert (tool.name, tool.kind, tool.mutates) == ("calculate", "native", False)
+    assert (chart.name, chart.kind, chart.mutates) == ("chart", "native", False)
     assert tool.handler is not None
     assert tool.description
     assert dict(tool.parameters) == EXPECTED_PARAMETERS
@@ -74,13 +75,13 @@ def test_catalog() -> None:
 
 
 def test_native_tool_handler() -> None:
-    [tool] = GenericPack().tools(pack_context("generic"))
+    tool, _ = GenericPack().tools(pack_context("generic"))
     assert tool.handler is not None
     assert asyncio.run(tool.handler(tool_invocation({"expression": " 2+2 "}))) == {"expression": "2+2", "result": 4}
 
 
 def test_native_tool_reports_errors_without_raising() -> None:
-    [tool] = GenericPack().tools(pack_context("generic"))
+    tool, _ = GenericPack().tools(pack_context("generic"))
     assert tool.handler is not None
     assert asyncio.run(tool.handler(tool_invocation({}))) == {"error": "expression precisa ser uma string"}
     assert asyncio.run(tool.handler(tool_invocation({"expression": 42}))) == {  # type: ignore[dict-item]
@@ -94,7 +95,7 @@ def test_native_tool_reports_errors_without_raising() -> None:
 
 def test_native_tool_ignores_execution_data() -> None:
     """A tool não depende de tempo nem do identificador da requisição (ADR-013)."""
-    [tool] = GenericPack().tools(pack_context("generic"))
+    tool, _ = GenericPack().tools(pack_context("generic"))
     assert tool.handler is not None
     first = asyncio.run(tool.handler(tool_invocation({"expression": "2+2"}, request_id="req-a")))
     second = asyncio.run(tool.handler(tool_invocation({"expression": "2+2"}, request_id="req-b")))

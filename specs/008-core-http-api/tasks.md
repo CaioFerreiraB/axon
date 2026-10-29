@@ -854,7 +854,7 @@ conformidade do `ConversationStore` com imagens, em memória e no Postgres.
 **Goal**: o gráfico do `FinalEvent` chega ao usuário como tabela em todo cliente e, no Open WebUI, como ECharts
 interativo pelo evento `embeds`.
 
-**Independent Test**: `tests/http/unit/test_charts_domain.py` e `tests/http/contract/test_charts.py`.
+**Independent Test**: `tests/http/unit/test_charts_domain.py` e `tests/http/contract/test_http_charts.py`.
 
 - [X] T123 `http/domain/charts.py`: tabela, opção do ECharts por tipo, página sem script inline, evento `embeds`, JSON
   de `x_axon.charts` (R62)

@@ -428,3 +428,18 @@ depois da T034; T036 em paralelo com a T034.
 - Suítes: workspace 3114 passed, 167 skipped; mypy sem erro (269 arquivos); ruff limpo; import-linter 69 kept, 0 broken;
   ambiente limpo 3.12 com as três distribuições, relatório "conforme" e 65 testes do pack; `check_clean_env.py` verde;
   contratos em 3.12, 310 passed.
+
+---
+
+## Passada de 2026-10-28: a tool `chart` ([ADR-052](../../docs/adr/ADR-052-graficos-na-conversa.md); research R28)
+
+**Goal**: `generic.chart` no catálogo de todo Assistant com `packs: [generic]`, entregando o `Chart` à plataforma.
+
+**Independent Test**: `packages/generic/tests/test_chart.py` e o ambiente limpo em 3.12.
+
+- [X] T034 `tools/chart.py` (`PARAMETERS`, `build_chart`, handler `chart`, `chart_spec`) e o registro em `pack.py`
+- [X] T035 Versão `0.3.0`, `contract_version` `0.2.4`, dependência `axon-ai-contracts>=0.2.4,<0.3`
+- [X] T036 [P] Testes: dados viram `Chart`, opcionais nulos, série temporal, erros legíveis, esquema fechado e no
+  subconjunto estrito, spec nativa; `test_pack.py` com as duas tools
+- Verificado também: o esquema passa pela conversão estrita da 006 e pela validação de argumentos da 004; ambiente
+  limpo 3.12 com 77 testes.

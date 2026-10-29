@@ -92,7 +92,7 @@ async def test_controller_pede_calculate_e_a_geracao_recebe_o_resultado_cercado(
         branch["properties"].get("name", {}).get("const")
         for branch in first["response_format"]["json_schema"]["schema"]["anyOf"]
     ]
-    assert names == [None, "generic.calculate"]
+    assert names == [None, "generic.calculate", "generic.chart"]
 
     sent = llm.calls[0]["messages"]
     assert {"role": "system", "content": FENCE_INSTRUCTION} in sent

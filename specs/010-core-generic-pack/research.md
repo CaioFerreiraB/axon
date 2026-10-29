@@ -429,3 +429,28 @@ HEAD antes da passada): o flow fica intacto.
 **Rationale**: SC-003 e a lição da 011 (contar o `agentic`).
 
 **Alternatives considered**: nenhuma.
+
+## R28 — A tool `chart` (ADR-052, item 7; FR-013)
+
+**Decision**: `tools/chart.py`, módulo puro:
+- `PARAMETERS`, com `kind`, `title` e `series` obrigatórios e os demais opcionais; `x` é `anyOf` texto ou número;
+  todo objeto é fechado; `series` tem `minItems` 1 e `maxItems` 8.
+- `build_chart`: os opcionais ausentes ou nulos viram o padrão do contrato, porque o adapter da OpenAI os torna
+  obrigatórios e anuláveis (ADR-023).
+- O handler `chart` devolve `ToolResult(content="gráfico <id> criado (<tipo>, N série(s), M ponto(s))",
+  charts=(chart,))` ou `ToolResult(error="gráfico inválido: <motivo>")` para `TypeError`, `ValueError` e `KeyError`
+  do `Chart`.
+
+A descrição da tool diz quando usar e como passar os dados: pedido do usuário; números já agregados; o teto; data ISO
+com `x_type` temporal; uma série na pizza. Ela diz também que o gráfico aparece com a tabela. `GenericPack.tools`
+devolve `(calculate_spec(), chart_spec())`. Versão `0.3.0`, `contract_version = "0.2.4"`, dependência
+`>=0.2.4,<0.3`.
+
+**Rationale** (ADR-052: "A tool é do `axon-generic`"): o pack de uso geral é o lugar das capacidades sem domínio
+(FR-005). O `Chart` já valida tudo na construção, então a tool não repete regra; ela só traduz argumentos e transforma
+a exceção em erro que o controller lê e corrige. O esquema foi conferido contra a conversão estrita da 006 e a
+validação de argumentos da 004. O prompt não muda: a frase do controller sobre gráficos é do core (005 R53).
+
+**Alternatives considered**: a tool no core (o core não tem tools próprias; elas vêm de packs, MCP e retrievers);
+pontos como pares `[x, y]` (o subconjunto estrito recusa `items` em tupla); devolver o erro como exceção (o gateway o
+transformaria em `error` genérico, sem o motivo).

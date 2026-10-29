@@ -43,6 +43,11 @@
 - Q: O que **não** muda com o renome? → A: O nome do pack, `generic` — o nome do entry point, `GenericPack.name`, o namespace das tools (`generic.calculate`) e o `packs: [generic]` dos Assistants —, o manifest além da versão, o prompt, a tool `calculate`, o validator `non_empty_answer` e o flow `agentic` (ADR-037, item 5). O grupo de entry point (`ai_core.packs`) passa a `axon.packs` na passada da 002, não nesta.
 - Q: Quem acompanha o renome nesta passada? → A: Os consumidores no workspace, de forma mecânica (ADR-037, item 7): a fonte e o grupo de desenvolvimento do workspace, a verificação de fronteiras (raiz e as três regras do pack), a ordenação de imports, a suíte do core que carrega o pack real por entry point (distribuição `axon-generic`, versão `0.2.0`), a CI (o ambiente limpo passa a esperar `axon-ai-contracts`, `axon-generic` e `typing-extensions`) e os documentos vivos das specs do core que citam o pack. Ficam para as passadas donas: as specs `1xx` (101), o contrato e os arquivos da instalação (002, instalação), o `CLAUDE.md` (fechamento) e o histórico (ADR-037, item 6).
 
+### Session 2026-10-28
+
+- Q: Onde fica a tool que desenha gráficos ([ADR-052](../../docs/adr/ADR-052-graficos-na-conversa.md))? → A: No `axon-generic`, como `generic.chart`: tool nativa, sem escrita, que recebe dados num esquema fechado (tipo, título, subtítulo, eixos, unidade e séries de pontos `{x, y}`), monta o `Chart` do contrato 001 e o devolve em `ToolResult.charts`. Nenhum HTML sai do pack; quem desenha é a plataforma. Erro de validação volta em `error`, legível, sem levantar.
+- Q: Que versão sai? → A: `0.3.0`, com `contract_version = "0.2.4"` e a dependência `axon-ai-contracts>=0.2.4,<0.3`. O prompt não muda (FR-008): quem decide chamar a tool é o controller, pela descrição dela.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Pack de referência e fixture de carga (Priority: P1)
@@ -116,6 +121,7 @@ A plataforma passa a se chamar Axon (ADR-037). Quem copia o pack de referência 
 - **FR-010**: O renome NÃO DEVE mudar o nome do pack (`generic`, também o do entry point e o namespace das tools), o manifest além da versão, o prompt, a tool, o validator nem a dependência de contratos (`axon-ai-contracts>=0.2,<0.3`, `contract_version` "0.2"). O grupo de entry point é o do Pack Runtime (002) e muda na passada dele.
 - **FR-011**: A verificação de fronteiras do SC-001 DEVE nomear o pacote `axon_generic`: o pack não importa `axon_ai`, `axon_ai` não importa o pack e o pack não importa frameworks de infraestrutura.
 - **FR-012**: Os consumidores do pack no workspace — a dependência de desenvolvimento, a suíte do core que o carrega por entry point, a CI e os documentos vivos das specs do core que o citam — DEVEM usar o nome novo na mesma passada (ADR-037, item 7), para a CI ficar verde.
+- **FR-013**: O pack DEVE oferecer a tool nativa `chart` (`generic.chart`, sem escrita): parâmetros num esquema fechado do subconjunto estrito (objetos com `additionalProperties: false`, sem `$ref` nem regex, até 8 séries), resultado `ToolResult` com o `Chart` em `charts` e um resumo curto em `content`; argumento que o `Chart` recusa DEVE voltar como `error` legível, sem exceção ([ADR-052](../../docs/adr/ADR-052-graficos-na-conversa.md), item 7). Versão `0.3.0`, `contract_version` `0.2.4`.
 
 
 ### Key Entities

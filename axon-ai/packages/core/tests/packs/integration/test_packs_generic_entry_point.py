@@ -24,18 +24,18 @@ def test_generic_is_discovered_among_the_installed_entry_points() -> None:
     discovered = {pack.name: pack for pack in EntryPointPackSource().discover()}
     assert "generic" in discovered
     assert discovered["generic"].distribution == "axon-generic"
-    assert discovered["generic"].version == "0.2.0"
+    assert discovered["generic"].version == "0.3.0"
 
 
 def test_enabled_generic_pack_is_loaded_with_its_capabilities() -> None:
     entry = _runtime({"generic": PackSettings(enabled=True)}).entry("generic")
     assert entry is not None, "o pack instalado precisa aparecer no registry"
     assert entry.status is PackStatus.ENABLED, entry.error
-    assert (entry.origin, entry.version, entry.contract_version) == ("code", "0.2.0", "0.2")
+    assert (entry.origin, entry.version, entry.contract_version) == ("code", "0.3.0", "0.2.4")
     capabilities = entry.capabilities
     assert capabilities is not None
     assert capabilities.system_prompt is True
-    assert capabilities.tools == ("calculate",)
+    assert capabilities.tools == ("calculate", "chart")
     assert capabilities.validators == ("non_empty_answer",)
     assert capabilities.retrievers == ()
     assert capabilities.reranker is False
