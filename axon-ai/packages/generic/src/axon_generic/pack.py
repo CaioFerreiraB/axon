@@ -14,7 +14,7 @@ from axon_generic.tools.arithmetic import calculate_spec
 from axon_generic.tools.chart import chart_spec
 from axon_generic.validators.answer import NonEmptyAnswer
 
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 """Versão do manifest; igual à da distribuição `axon-generic` (verificado em tests/test_pack.py)."""
 
 
@@ -22,7 +22,7 @@ class GenericPack(PackBase):
     """Prompt de uso geral, duas tools nativas determinísticas (cálculo e gráfico) e um validator determinístico."""
 
     name = "generic"
-    contract_version = "0.2.4"
+    contract_version = "0.2.5"
 
     def manifest(self) -> PackManifest:
         # Manifest mínimo (FR-007): sem flow preferido, schema de configuração, dependências ou coleções.

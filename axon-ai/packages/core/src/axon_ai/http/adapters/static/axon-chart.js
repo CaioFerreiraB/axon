@@ -56,7 +56,9 @@
 
   function withUnit(text) {
     if (!spec.unit) return text;
-    return spec.prefix ? spec.unit + " " + text : text + " " + spec.unit;
+    if (!spec.prefix) return text + " " + spec.unit;
+    // O sinal antes da unidade: -R$ 1.200, não R$ -1.200.
+    return text.charAt(0) === "-" ? "-" + spec.unit + " " + text.slice(1) : spec.unit + " " + text;
   }
 
   function value(v) {
@@ -116,8 +118,42 @@
     };
   }
 
+  // Waterfall: os quatro últimos valores são [início, fim, mínimo, máximo] — no eixo de categorias o ECharts põe o
+  // índice na frente. A etapa mostra a variação e o acumulado; o total, só o valor.
+  function waterfallTip(params, theme) {
+    if (!Array.isArray(params.value)) return "";
+    var data = params.value.slice(-4);
+    var change = data[1] - data[0];
+    var signed = (change > 0 ? "+" : "") + withUnit(number.format(change));
+    var accumulated = withUnit(number.format(data[1]));
+    if (params.seriesIndex === 1) return caption(params.name, theme) + line(theme, params.color, "Total", accumulated);
+    return (
+      caption(params.name, theme) +
+      line(theme, params.color, "Variação", signed) +
+      line(theme, theme.text3, "Acumulado", accumulated)
+    );
+  }
+
+  function line(theme, color, label, text) {
+    return (
+      '<div style="display:flex;align-items:center;gap:8px;margin-top:4px">' +
+      '<span style="display:inline-block;width:10px;height:2px;border-radius:1px;background:' +
+      esc(color) +
+      '"></span><span style="color:' +
+      theme.text2 +
+      '">' +
+      esc(label) +
+      '</span><b style="margin-left:auto;padding-left:16px;color:' +
+      theme.text +
+      '">' +
+      esc(text) +
+      "</b></div>"
+    );
+  }
+
   function tooltipBody(theme) {
     return function (params) {
+      if (!Array.isArray(params) && params.seriesType === "candlestick") return waterfallTip(params, theme);
       if (!Array.isArray(params)) {
         if (params.seriesType === "pie") {
           return (
@@ -146,6 +182,15 @@
       labels.formatter = function (v) {
         return compact.format(v);
       };
+    }
+    if (axis.type === "category" && Array.isArray(axis.data)) {
+      // Toda categoria tem rótulo: quebra a linha em vez de esconder o vizinho.
+      var room = Math.floor((plot.clientWidth || 600) / Math.max(axis.data.length, 1)) - 8;
+      labels.interval = 0;
+      labels.hideOverlap = false;
+      labels.overflow = "break";
+      labels.width = Math.max(40, room);
+      labels.lineHeight = 13;
     }
     if (axis.type === "time") {
       labels.formatter = tick;
@@ -188,7 +233,7 @@
     }
     if (option.xAxis) option.xAxis = axisLabels(option.xAxis, theme);
     if (option.yAxis) option.yAxis = axisLabels(option.yAxis, theme);
-    (option.series || []).forEach(function (s) {
+    (option.series || []).forEach(function (s, index) {
       if (s.type === "pie") {
         s.itemStyle = Object.assign({}, s.itemStyle, { borderColor: theme.surface });
         s.label = Object.assign({}, s.label, {
@@ -202,6 +247,13 @@
       if (s.type === "bar" && s.stack) s.itemStyle = Object.assign({}, s.itemStyle, { borderColor: theme.surface });
       if (s.type === "scatter") s.itemStyle = { borderColor: theme.surface, borderWidth: 2 };
       if (s.endLabel) s.endLabel = Object.assign({}, s.endLabel, { color: theme.text2, fontSize: 11 });
+      if (s.type === "candlestick") {
+        // Aumento na cor 1, redução na cor 2 e o total neutro: a variação também está na dica e na tabela.
+        var total = spec.waterfall && index === 1;
+        var up = total ? theme.text3 : theme.series[0];
+        var down = total ? theme.text3 : theme.series[1];
+        s.itemStyle = { color: up, color0: down, borderColor: up, borderColor0: down, borderWidth: 1 };
+      }
     });
     (option.dataZoom || []).forEach(function (z) {
       if (z.type !== "slider") return;

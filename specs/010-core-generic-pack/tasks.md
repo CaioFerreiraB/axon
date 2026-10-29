@@ -443,3 +443,5 @@ depois da T034; T036 em paralelo com a T034.
   subconjunto estrito, spec nativa; `test_pack.py` com as duas tools
 - Verificado também: o esquema passa pela conversão estrita da 006 e pela validação de argumentos da 004; ambiente
   limpo 3.12 com 77 testes.
+
+- [X] T037 `waterfall` na tool (`PARAMETERS`, descrição, eixo nominal); versão `0.3.1`; teste `test_waterfall_de_variacoes`

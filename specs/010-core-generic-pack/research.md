@@ -466,3 +466,12 @@ transformaria em `error` genérico, sem o motivo).
   O resultado da tool passou a dizer que o gráfico "já foi mostrado ao usuário".
 
 Depois dos ajustes, linha, barras empilhadas e pizza saíram com um gráfico cada.
+
+## R29 — O waterfall na tool `chart` (ADR-053)
+
+**Decision**: `waterfall` no `enum` de `kind`. A descrição diz para usar uma série só, com as etapas em ordem e as
+variações com sinal, e para **não** incluir o total, que a plataforma calcula. O eixo é sempre nominal
+(`_inferred_x_type`). Versão `0.3.1`, `contract_version` `0.2.5`, dependência `>=0.2.5,<0.3`.
+
+**Rationale**: em produção, o modelo mandou o "Resultado do mês" como mais um ponto de barras. No waterfall, esse ponto
+seria somado ao acumulado e dobraria o total; dizer que o total é da plataforma evita isso.

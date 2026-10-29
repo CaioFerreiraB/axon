@@ -480,3 +480,12 @@ vezes; nenhum pack existente muda.
   `ToolResult` com gráficos); `test_public_api.py` com os símbolos novos
 - [X] T095 Diff de superfície contra `contracts-v0.2.3`: aditivo, patch (11 símbolos e um campo com default)
 - Suítes: contratos 356 passed em 3.14 e em 3.12; `check_clean_env.py` verde.
+
+---
+
+## Passada de 2026-10-29: waterfall e as listas do gráfico como conjuntos ([ADR-053](../../docs/adr/ADR-053-listas-do-grafico-crescem-sem-quebrar.md); research R36)
+
+- [X] T096 `api_surface.py`: `CHART_KINDS`/`CHART_X_TYPES` em `SET_CONSTANTS`, `WIDENING_ALIASES`; teste
+  `test_chart_lists_widen_as_sets`
+- [X] T097 `waterfall` em `ChartKind`/`CHART_KINDS` e `_check_waterfall`; teste `test_waterfall_shape`; versão `0.2.5`
+- [X] T098 Diff contra `contracts-v0.2.4`: aditivo, patch; contratos 358 passed em 3.14 e 3.12

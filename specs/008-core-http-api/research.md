@@ -1051,3 +1051,21 @@ das imagens), no `content` sem streaming e na conversa gravada.
 rosca, linha temporal, barras empilhadas e pizza nos dois temas, e o gráfico voltou ao recarregar a conversa. A página
 perdeu o `color-scheme`: o Open WebUI não o declara, e um iframe com esquema diferente do da página ganha fundo opaco no
 Chrome (uma caixa escura no tema escuro). O `prefers-color-scheme` não depende dele.
+
+## R63 — O waterfall e os rótulos do eixo de categorias (ADR-053; FR-005d)
+
+**Decision**: `_waterfall_option` monta duas séries `candlestick`: as etapas, com `[início, fim, mínimo, máximo]` a
+partir do acumulado, e o total, com `[0, total, …]` na categoria `Total`, acrescentada ao fim. O `axon-chart.js` pinta
+aumento (`color`, série 1), redução (`color0`, série 2) e o total neutro (pela posição da série, nunca pelo nome). A dica
+do `candlestick` lê os quatro últimos valores: no eixo de categorias, o ECharts põe o índice na frente, e a primeira
+versão mostrou valores errados por isso (achado no Playwright). A tabela traz etapa, variação com sinal, acumulado e o
+total. O valor negativo com unidade prefixada sai `-R$ 1.200`, na tabela e na dica. O eixo de categorias de todo
+gráfico passou a mostrar todos os rótulos, quebrando a linha (`interval: 0`, `overflow: break`, largura pela
+quantidade): o padrão do ECharts escondia rótulos alternados.
+
+**Rationale**: o `candlestick` desenha a barra flutuante para qualquer sinal, o que a barra empilhada com base
+transparente não faz quando o acumulado cruza o zero. Verificado no navegador com uma cascata que cruza o zero, nos
+dois temas.
+
+**Alternatives considered**: série `custom` com `renderItem` (mais código fixo para o mesmo desenho); base
+transparente empilhada (quebra no zero).

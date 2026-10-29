@@ -230,6 +230,21 @@ def test_issue_codes_are_compared_as_a_set(api_surface: ModuleType) -> None:
     assert kinds(api_surface, old, {"ISSUE_CODES": constant(["a.x"])}) == ["breaking"]
 
 
+def test_chart_lists_widen_as_sets(api_surface: ModuleType) -> None:
+    """ADR-053: tipo de gráfico ou de eixo novo é aditivo; removido é breaking — nas constantes e nos aliases."""
+    old = {"CHART_KINDS": constant(["bar", "line"])}
+    assert kinds(api_surface, old, {"CHART_KINDS": constant(["bar", "line", "waterfall"])}) == ["additive"]
+    assert kinds(api_surface, old, {"CHART_KINDS": constant(["bar"])}) == ["breaking"]
+    alias = {"ChartKind": {"kind": "type_alias", "value": ["bar", "line"], "deprecated_since": None}}
+    wider = {"ChartKind": {"kind": "type_alias", "value": ["bar", "line", "waterfall"], "deprecated_since": None}}
+    narrower = {"ChartKind": {"kind": "type_alias", "value": ["bar"], "deprecated_since": None}}
+    assert kinds(api_surface, alias, wider) == ["additive"]
+    assert kinds(api_surface, alias, narrower) == ["breaking"]
+    other = {"ToolKind": {"kind": "type_alias", "value": "x", "deprecated_since": None}}
+    changed = {"ToolKind": {"kind": "type_alias", "value": "y", "deprecated_since": None}}
+    assert kinds(api_surface, other, changed) == ["breaking"], "os outros aliases seguem a regra geral"
+
+
 def test_deprecating_a_symbol_is_additive(api_surface: ModuleType) -> None:
     deprecated = copy.deepcopy(BASE_DATACLASS)
     deprecated["deprecated_since"] = "0.1.1"

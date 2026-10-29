@@ -30,7 +30,7 @@ def donut(**overrides: object) -> Chart:
 
 
 def test_closed_lists() -> None:
-    assert frozenset({"line", "area", "bar", "stacked_bar", "scatter", "pie", "donut"}) == CHART_KINDS
+    assert frozenset({"line", "area", "bar", "stacked_bar", "scatter", "pie", "donut", "waterfall"}) == CHART_KINDS
     assert frozenset({"temporal", "quantitative", "nominal"}) == CHART_X_TYPES
     assert (CHART_MAX_SERIES, CHART_MAX_POINTS) == (8, 500)
 
@@ -165,3 +165,14 @@ def test_tool_result_carries_charts() -> None:
     assert ToolResult(content="x").charts == ()
     with pytest.raises(TypeError):
         ToolResult(content="x", charts=({"kind": "donut"},))  # type: ignore[arg-type]
+
+
+def test_waterfall_shape() -> None:
+    """Uma série de variações em ordem, positivas ou negativas, com x nominal (ADR-053)."""
+    etapas = series(name="Setembro", values={"Entradas": 18025.23, "Serviços": -659, "Viagens": -604.44})
+    chart = Chart(kind="waterfall", title="Resultado de setembro", series=(etapas,), unit="R$")
+    assert chart.kind == "waterfall" and chart.series[0].points[1].y == -659.0
+    with pytest.raises(ValueError, match="uma série"):
+        Chart(kind="waterfall", title="t", series=(etapas, series(name="outra")))
+    with pytest.raises(ValueError, match="nominal"):
+        Chart(kind="waterfall", title="t", x_type="temporal", series=(series(values={"2026-10-01": 1}),))

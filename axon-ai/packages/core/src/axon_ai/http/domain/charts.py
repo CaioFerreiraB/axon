@@ -32,6 +32,8 @@ SERIES_DARK: Final = ("#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#0
 validadas entre vizinhas nos dois temas. A cor segue a posição da série, nunca a grandeza."""
 
 OTHERS: Final = "Outros"
+TOTAL: Final = "Total"
+"""A barra final do waterfall, calculada aqui: o `Chart` traz só as variações (ADR-053)."""
 _ROUND = frozenset({"pie", "donut"})
 _CARTESIAN_AXIS = frozenset({"line", "area", "bar", "stacked_bar"})
 _ZOOM_FROM = 30
@@ -117,6 +119,13 @@ def _table(chart: Chart) -> str:
 
 def _rows(chart: Chart) -> tuple[list[str], list[list[str]]]:
     x_header = chart.x_label or _X_HEADERS[chart.x_type]
+    if chart.kind == "waterfall":
+        [series] = chart.series
+        rows, total = [], 0.0
+        for point in series.points:
+            total += point.y
+            rows.append([_x_text(point.x), _signed(chart, point.y), _value(chart, total)])
+        return [x_header, "Variação", "Acumulado"], [*rows, [TOTAL, "", _value(chart, total)]]
     if chart.kind == "scatter":
         header = ["Série", x_header, chart.y_label or "y"]
         rows = [[item.name, _x_text(point.x), _value(chart, point.y)] for item in chart.series for point in item.points]
@@ -143,7 +152,14 @@ def _value(chart: Chart, value: float) -> str:
     text = _number(value)
     if chart.unit is None:
         return text
-    return f"{chart.unit} {text}" if chart.unit_position == "prefix" else f"{text} {chart.unit}"
+    if chart.unit_position == "prefix":
+        # O sinal antes da unidade: -R$ 1.200, não R$ -1.200.
+        return f"-{chart.unit} {text[1:]}" if text.startswith("-") else f"{chart.unit} {text}"
+    return f"{text} {chart.unit}"
+
+
+def _signed(chart: Chart, value: float) -> str:
+    return ("+" if value > 0 else "") + _value(chart, value)
 
 
 def _number(value: float) -> str:
@@ -171,7 +187,41 @@ def echarts_option(chart: Chart) -> dict[str, Any]:
     """A opção do ECharts, sem cores nem formatadores — a página os aplica conforme o tema (ADR-052, item 3)."""
     if chart.kind in _ROUND:
         return _round_option(chart)
+    if chart.kind == "waterfall":
+        return _waterfall_option(chart)
     return _cartesian_option(chart)
+
+
+def _waterfall_option(chart: Chart) -> dict[str, Any]:
+    """Cada etapa vai do acumulado anterior ao novo — `candlestick` com `[início, fim, mínimo, máximo]`, que desenha a
+    barra flutuante para qualquer sinal, inclusive quando o acumulado cruza o zero —, e a barra do total sai do zero.
+    A página pinta aumento, redução e total (ADR-053)."""
+    [series] = chart.series
+    steps: list[Any] = []
+    total = 0.0
+    for point in series.points:
+        start, total = total, total + point.y
+        steps.append([start, total, min(start, total), max(start, total)])
+    final = [0.0, total, min(0.0, total), max(0.0, total)]
+    empty = "-"
+    return {
+        "tooltip": {"trigger": "item"},
+        "grid": {
+            "left": 8,
+            "right": 16,
+            "top": 12 + (20 if chart.y_label else 0),
+            "bottom": 8 + (20 if chart.x_label else 0),
+            "containLabel": True,
+        },
+        "xAxis": {"type": "category", "boundaryGap": True, "data": [*(p.x for p in series.points), TOTAL]}
+        | ({"name": chart.x_label, "nameLocation": "middle", "nameGap": 28} if chart.x_label else {}),
+        "yAxis": {"type": "value", "scale": False}
+        | ({"name": chart.y_label, "nameLocation": "end", "nameGap": 12} if chart.y_label else {}),
+        "series": [
+            {"type": "candlestick", "name": series.name, "barMaxWidth": 32, "data": [*steps, empty]},
+            {"type": "candlestick", "name": TOTAL, "barMaxWidth": 32, "data": [*(empty for _ in steps), final]},
+        ],
+    }
 
 
 def _round_option(chart: Chart) -> dict[str, Any]:
@@ -327,6 +377,7 @@ def embed_html(chart: Chart, scripts: ChartScripts) -> str:
         "unit": chart.unit,
         "prefix": chart.unit_position == "prefix",
         "height": 320 if chart.kind in _ROUND else 300,
+        "waterfall": chart.kind == "waterfall",
         "option": echarts_option(chart),
         "themes": {"light": _LIGHT.as_json(), "dark": _DARK.as_json()},
     }

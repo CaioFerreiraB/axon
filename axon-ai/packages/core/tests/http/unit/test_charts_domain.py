@@ -194,3 +194,37 @@ def test_json_neutro_do_x_axon() -> None:
         "unit_position": "prefix",
         "series": [{"name": "Gastos", "points": [{"x": "a", "y": 1.0}]}],
     }
+
+
+# --- waterfall (ADR-053) ---------------------------------------------------------------------------------------------
+
+
+def cascata() -> Chart:
+    etapas = {"Entradas": 1000, "Moradia": -1200, "Mercado": -300, "Bônus": 700}
+    return Chart(
+        kind="waterfall", title="Resultado", series=(serie("Outubro", etapas),), unit="R$", unit_position="prefix"
+    )
+
+
+def test_waterfall_vai_do_acumulado_anterior_ao_novo_mesmo_cruzando_o_zero() -> None:
+    option = echarts_option(cascata())
+    assert option["xAxis"]["data"] == ["Entradas", "Moradia", "Mercado", "Bônus", "Total"]
+    etapas, total = option["series"]
+    assert etapas["type"] == total["type"] == "candlestick"
+    assert etapas["data"] == [
+        [0.0, 1000.0, 0.0, 1000.0],
+        [1000.0, -200.0, -200.0, 1000.0],
+        [-200.0, -500.0, -500.0, -200.0],
+        [-500.0, 200.0, -500.0, 200.0],
+        "-",
+    ]
+    assert total["data"] == ["-", "-", "-", "-", [0.0, 200.0, 0.0, 200.0]]
+    assert option["tooltip"]["trigger"] == "item" and "legend" not in option
+
+
+def test_tabela_do_waterfall_tem_variacao_acumulado_e_total() -> None:
+    linhas = charts_table([cascata()]).split("\n")
+    assert "| Categoria | Variação | Acumulado |" in linhas
+    assert "| Entradas | +R$ 1.000 | R$ 1.000 |" in linhas
+    assert "| Moradia | -R$ 1.200 | -R$ 200 |" in linhas
+    assert "| Total |  | R$ 200 |" in linhas

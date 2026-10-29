@@ -243,7 +243,7 @@ requires-dist = [
 
 [[package]]
 name = "axon-ai-contracts"
-version = "0.2.4"
+version = "0.2.5"
 source = { editable = "packages/contracts" }
 dependencies = [
     { name = "typing-extensions" },
@@ -254,7 +254,7 @@ requires-dist = [{ name = "typing-extensions", specifier = ">=4.12" }]
 
 [[package]]
 name = "axon-generic"
-version = "0.3.0"
+version = "0.3.1"
 source = { editable = "packages/generic" }
 dependencies = [
     { name = "axon-ai-contracts" },

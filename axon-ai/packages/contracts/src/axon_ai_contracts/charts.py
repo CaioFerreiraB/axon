@@ -16,11 +16,12 @@ from typing import Literal
 
 from axon_ai_contracts._freeze import freeze_sequence
 
-type ChartKind = Literal["line", "area", "bar", "stacked_bar", "scatter", "pie", "donut"]
+type ChartKind = Literal["line", "area", "bar", "stacked_bar", "scatter", "pie", "donut", "waterfall"]
 type ChartXType = Literal["temporal", "quantitative", "nominal"]
 type UnitPosition = Literal["prefix", "suffix"]
 
-CHART_KINDS: frozenset[str] = frozenset({"line", "area", "bar", "stacked_bar", "scatter", "pie", "donut"})
+CHART_KINDS: frozenset[str] = frozenset({"line", "area", "bar", "stacked_bar", "scatter", "pie", "donut", "waterfall"})
+"""Aumentar a lista é aditivo (ADR-053): o pack só produz `Chart`."""
 CHART_X_TYPES: frozenset[str] = frozenset({"temporal", "quantitative", "nominal"})
 CHART_MAX_SERIES = 8
 """As oito cores de série validadas (ADR-052, item 1): uma nona seria gerada, não validada."""
@@ -152,6 +153,8 @@ class Chart:
             raise ValueError(f"no máximo {CHART_MAX_POINTS} pontos somando as séries, recebidos {total}")
         if self.kind in _ROUND_KINDS:
             self._check_round()
+        if self.kind == "waterfall":
+            self._check_waterfall()
         for item in self.series:
             self._check_x(item)
 
@@ -165,6 +168,14 @@ class Chart:
             raise ValueError(f"{self.kind} não aceita valor negativo")
         if sum(values) <= 0:
             raise ValueError(f"{self.kind} precisa de soma positiva")
+
+    def _check_waterfall(self) -> None:
+        """Uma série de etapas, em ordem: cada `y` é a variação da etapa (positiva ou negativa); o total final é de
+        quem desenha (ADR-053)."""
+        if len(self.series) != 1:
+            raise ValueError(f"waterfall tem uma série só, recebidas {len(self.series)}")
+        if self.x_type != "nominal":
+            raise ValueError(f"waterfall tem x nominal (as etapas), recebido {self.x_type!r}")
 
     def _check_x(self, series: ChartSeries) -> None:
         xs = [point.x for point in series.points]

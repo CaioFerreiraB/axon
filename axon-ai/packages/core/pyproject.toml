@@ -7,7 +7,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.14"
 dependencies = [
-    "axon-ai-contracts>=0.2.4,<0.3",
+    "axon-ai-contracts>=0.2.5,<0.3",
     "pyyaml>=6.0.2",
     "jsonschema>=4.23",
     # Spec 006 (research R4): camada compatível com OpenAI, confinada a axon_ai/llm/adapters/ por import-linter.

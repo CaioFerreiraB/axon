@@ -24,12 +24,12 @@ EXPECTED_PARAMETERS = {
 def test_identity_is_readable_on_the_class() -> None:
     """A 002 lê `name` e `contract_version` da classe, antes de instanciar (FR-017 da 002)."""
     assert GenericPack.name == "generic"
-    assert GenericPack.contract_version == "0.2.4"
+    assert GenericPack.contract_version == "0.2.5"
 
 
 def test_manifest_is_minimal() -> None:
     manifest = GenericPack().manifest()
-    assert manifest == PackManifest(name="generic", version="0.3.0")
+    assert manifest == PackManifest(name="generic", version="0.3.1")
     assert manifest.preferred_flow is None  # FR-007: também na Fase 3 — o Assistant declara o flow (R15)
     assert manifest.depends_on == ()
     assert manifest.requires_collections == ()

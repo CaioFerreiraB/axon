@@ -562,3 +562,15 @@ ao kit, sem re-pesquisa.
   exigiria saneamento de URL e de formatadores); `x` sempre texto (perderia o eixo numérico da dispersão); `id` sobre o
   `repr` (mudaria com detalhes de formatação do Python); um `Message.charts` (nenhum consumidor; o histórico já leva a
   tabela).
+
+### R36 — As listas do gráfico como conjuntos e o waterfall (contratos 0.2.5; ADR-053)
+
+- **Decision**: `tools/api_surface.py` ganha `CHART_KINDS` e `CHART_X_TYPES` em `SET_CONSTANTS` e o conjunto
+  `WIDENING_ALIASES` (`ChartKind`, `ChartXType`). Para esses aliases, a descrição grava os membros do `Literal`
+  ordenados (`typing.get_args`), e a comparação é a mesma das constantes-conjunto. O `Chart` ganha o tipo `waterfall`,
+  com a checagem `_check_waterfall` (uma série, x nominal). Diff contra `contracts-v0.2.4`: dois "código novo",
+  aditivo, patch.
+- **Rationale** (ADR-053): o pack produz `Chart`, e o core o consome. É o caso do `ISSUE_CODES`, que já tinha a regra.
+  A lista explícita mantém os outros aliases na regra geral.
+- **Alternatives**: uma regra para todo `Literal` (alias consumido por pack, como `ToolKind`, quebraria sem aviso);
+  `0.3.0` (série nova para um tipo que nenhum pack lê).

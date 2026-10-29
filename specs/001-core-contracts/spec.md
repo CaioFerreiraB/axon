@@ -62,6 +62,7 @@
 - Q: O que a construção confere? → A: Tipos das listas fechadas (`CHART_KINDS`, `CHART_X_TYPES`, `prefix`/`suffix`); textos limpos (sem quebra de linha, controles nem `[`/`]`, que fechariam a marca do gráfico; título até 120, nomes até 60, unidade até 12); `y` número finito; `x` número no eixo quantitativo, data ISO no temporal e texto no nominal, sem repetição numa série (salvo dispersão); séries com nomes distintos, até `CHART_MAX_SERIES` = 8 (as oito cores validadas) e até `CHART_MAX_POINTS` = 500 pontos somando todas; pizza e rosca com uma série, x nominal, valores não negativos e soma positiva.
 - Q: De onde vem o `id`? → A: Do conteúdo, como o do `Attachment`: `chart-` mais os 12 primeiros hexadecimais do SHA-256 da forma canônica (JSON com chaves ordenadas; `2` e `2.0` são o mesmo gráfico).
 - Q: Que versão sai? → A: `0.2.4` (aditivo; FR-016). Pack que devolve gráfico pelas próprias tools pede `axon-ai-contracts>=0.2.4,<0.3`; os demais não mudam.
+- Q: Aumentar a lista de tipos de gráfico quebra a compatibilidade ([ADR-053](../../docs/adr/ADR-053-listas-do-grafico-crescem-sem-quebrar.md), 2026-10-29)? → A: Não. `CHART_KINDS`, `CHART_X_TYPES`, `ChartKind` e `ChartXType` são comparados como conjuntos, como o `ISSUE_CODES`: o pack só produz `Chart`. O `waterfall` entra em `0.2.5`: uma série, x nominal, cada `y` é a variação de uma etapa, e o total é de quem desenha.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -218,6 +219,7 @@ A plataforma passa a se chamar Axon (ADR-037). Um autor de pack declara a depend
 - **FR-030**: `Citation` DEVE ganhar a chave opcional `url` (`str | None`): o endereço do original para o usuário abrir, montado pelo pack — a página ou o trecho fazem parte dele; o core só o repassa ([ADR-051](../../docs/adr/ADR-051-link-da-citacao-e-fontes-no-open-webui.md)). Versão `0.2.3`.
 - **FR-031**: Os contratos DEVEM oferecer o value object `Chart` — `kind` (`line`, `area`, `bar`, `stacked_bar`, `scatter`, `pie`, `donut`), `title`, `series: tuple[ChartSeries, ...]`, `x_type` (`temporal`, `quantitative`, `nominal`; default `nominal`), `subtitle`, `x_label`, `y_label`, `unit` e `unit_position` (`prefix`/`suffix`) — com `ChartSeries(name, points)` e `ChartPoint(x, y)`, validados na construção como na Session 2026-10-28, e as constantes `CHART_KINDS`, `CHART_X_TYPES`, `CHART_MAX_SERIES` (8) e `CHART_MAX_POINTS` (500). O `id` DEVE ser calculado do conteúdo (`chart-` + 12 hexadecimais do SHA-256 da forma canônica) ([ADR-052](../../docs/adr/ADR-052-graficos-na-conversa.md), item 1).
 - **FR-032**: `ToolResult` DEVE ganhar `charts: tuple[Chart, ...]`, com default vazio; item que não é `Chart` DEVE levantar `TypeError`. Versão `0.2.4`.
+- **FR-033**: O `Chart` DEVE aceitar o tipo `waterfall` (uma série, x nominal; cada `y` é a variação de uma etapa, em ordem; o total final não vem no `Chart`), e o diff de superfície DEVE comparar `CHART_KINDS`, `CHART_X_TYPES`, `ChartKind` e `ChartXType` membro a membro — membro novo aditivo, removido breaking ([ADR-053](../../docs/adr/ADR-053-listas-do-grafico-crescem-sem-quebrar.md)). Versão `0.2.5`.
 
 ### Key Entities
 

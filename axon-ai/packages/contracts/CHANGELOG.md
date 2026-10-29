@@ -4,6 +4,18 @@ Política de versões: [ADR-014](../../../docs/adr/ADR-014-politica-versoes-0x-c
 aditiva sobe o patch e breaking sobe o minor. Mudança só de semântica, sem mudança de forma, é registrada aqui e
 classificada na revisão (FR-020).
 
+## 0.2.5
+
+Waterfall e as listas do gráfico como conjuntos ([ADR-053](../../../docs/adr/ADR-053-listas-do-grafico-crescem-sem-quebrar.md);
+spec 001, FR-033). Aditiva: nenhum pack muda; quem desenha waterfall pede `axon-ai-contracts>=0.2.5,<0.3`.
+
+### Adicionado
+
+- O tipo `waterfall` em `ChartKind` e `CHART_KINDS`: uma série só, x nominal, cada `y` é a variação de uma etapa
+  (positiva ou negativa); o total final é de quem desenha.
+- No diff de superfície, `CHART_KINDS`, `CHART_X_TYPES`, `ChartKind` e `ChartXType` são comparados como conjuntos:
+  membro novo é aditivo, removido é breaking.
+
 ## 0.2.4
 
 Gráficos na conversa ([ADR-052](../../../docs/adr/ADR-052-graficos-na-conversa.md); spec 001, FR-031 e FR-032).

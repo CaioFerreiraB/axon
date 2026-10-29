@@ -109,3 +109,15 @@ def test_spec_nativa_sem_escrita() -> None:
     spec = chart_spec()
     assert (spec.name, spec.kind, spec.mutates) == ("chart", "native", False)
     assert "gráfico" in spec.description and spec.handler is chart
+
+
+def test_waterfall_de_variacoes() -> None:
+    """As etapas em ordem, com variações positivas e negativas; o eixo é sempre de categorias (ADR-053)."""
+    args = {
+        "kind": "waterfall",
+        "title": "Resultado de setembro",
+        "series": [{"name": "Setembro", "points": [{"x": "Entradas", "y": 18025.23}, {"x": "Serviços", "y": -659}]}],
+    }
+    drawn = build_chart(args)
+    assert (drawn.kind, drawn.x_type) == ("waterfall", "nominal")
+    assert "waterfall" in PARAMETERS["properties"]["kind"]["enum"]  # type: ignore[index]

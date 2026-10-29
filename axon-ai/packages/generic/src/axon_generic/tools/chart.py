@@ -28,12 +28,14 @@ INVALID: Final = "gráfico inválido"
 
 DESCRIPTION: Final = (
     "Desenha um gráfico interativo para o usuário a partir de dados: linha, área, barras (simples ou empilhadas), "
-    "dispersão, pizza ou rosca. Use quando o usuário pedir um gráfico ou uma visualização de valores que você já "
-    f"tem. Passe os números já calculados e agregados (até {CHART_MAX_SERIES} séries e {CHART_MAX_POINTS} pontos no "
-    "total); em série temporal, x é a data ISO (2026-10-28) com x_type 'temporal'; em pizza e rosca, uma série só, "
-    "com uma fatia por ponto. Uma série por grandeza — não repita os mesmos valores em duas séries; a unidade "
-    "(R$, %, kg) vai em unit. Chame uma vez por gráfico: ele aparece para o usuário assim que é criado, com a tabela "
-    "dos dados, e não pode ser desfeito."
+    "dispersão, pizza, rosca ou waterfall (cascata). Use quando o usuário pedir um gráfico ou uma visualização de "
+    f"valores que você já tem. Passe os números já calculados e agregados (até {CHART_MAX_SERIES} séries e "
+    f"{CHART_MAX_POINTS} pontos no total); em série temporal, x é a data ISO (2026-10-28) com x_type 'temporal'; em "
+    "pizza e rosca, uma série só, com uma fatia por ponto; em waterfall, uma série só com as etapas em ordem, cada y "
+    "sendo a variação (positiva ou negativa) — o total final é calculado e desenhado pela plataforma, não o inclua. "
+    "Uma série por grandeza — não repita os mesmos valores em duas séries; a unidade (R$, %, kg) vai em unit. Chame "
+    "uma vez por gráfico: ele aparece para o usuário assim que é criado, com a tabela dos dados, e não pode ser "
+    "desfeito."
 )
 
 _TEXT: Final[Mapping[str, JSONValue]] = {"type": "string"}
@@ -41,7 +43,10 @@ _TEXT: Final[Mapping[str, JSONValue]] = {"type": "string"}
 PARAMETERS: Final[Mapping[str, JSONValue]] = {
     "type": "object",
     "properties": {
-        "kind": {"type": "string", "enum": ["line", "area", "bar", "stacked_bar", "scatter", "pie", "donut"]},
+        "kind": {
+            "type": "string",
+            "enum": ["line", "area", "bar", "stacked_bar", "scatter", "pie", "donut", "waterfall"],
+        },
         "title": _TEXT,
         "subtitle": _TEXT,
         "x_type": {
@@ -122,9 +127,9 @@ def build_chart(arguments: Mapping[str, Any]) -> Chart:
 
 def _inferred_x_type(kind: object, series: Sequence[ChartSeries]) -> str:
     """Sem `x_type`, o eixo é temporal quando todo x é data ISO (modelo pequeno costuma omitir o campo), numérico
-    quando todo x é número, e de categorias no resto — inclusive em pizza e rosca."""
+    quando todo x é número, e de categorias no resto — inclusive em pizza, rosca e waterfall."""
     xs = [point.x for item in series for point in item.points]
-    if kind in ("pie", "donut") or not xs:
+    if kind in ("pie", "donut", "waterfall") or not xs:
         return "nominal"
     if all(isinstance(x, float) for x in xs):
         return "quantitative"

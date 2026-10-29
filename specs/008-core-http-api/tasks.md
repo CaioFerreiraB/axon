@@ -869,3 +869,6 @@ interativo pelo evento `embeds`.
   integridade da página, 404 do que não serve, conversa gravada com a tabela); fixture do Open WebUI com o cabeçalho
 - [X] T127 Verificação no navegador (Playwright, iframe com o `sandbox` do Open WebUI): os cinco tipos nos dois temas,
   dica, zoom e altura, sem erro no console
+
+- [X] T128 Waterfall (ADR-053, R63): `_waterfall_option`, a tabela com variação e acumulado, as cores e a dica do
+  `candlestick` no `axon-chart.js`; rótulos de categoria sem esconder; `-R$` no negativo prefixado; testes do domínio
