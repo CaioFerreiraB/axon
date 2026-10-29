@@ -888,3 +888,6 @@ que ele foi mostrado.
   `ITERATION_LIMIT` em `domain/limits.py`; o `generate` passa o corte
 - [X] T106 [P] Testes: `tests/graph/contract/test_graph_generation_notices.py` (loop por decisão, corte pelo limite,
   `chat` sem avisos)
+- [X] T107 Passos do loop em texto na geração (`_generation_transcript`, R55); `is_tool_result` e o corte com
+  cabeçalho em `domain/budget.py`; testes do transcript, do fluxo `agentic`, das propriedades e das integrações
+  atualizados para o formato em texto

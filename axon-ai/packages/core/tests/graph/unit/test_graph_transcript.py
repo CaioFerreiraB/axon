@@ -88,7 +88,11 @@ def test_geracao_com_resultado_recebe_a_cerca_depois_dos_prompts_e_a_transcricao
     messages = generation_messages(PROMPTS, MESSAGES, (step,))
     assert messages[2] == {"role": "system", "content": FENCE_INSTRUCTION}
     assert messages[3 : 3 + len(MESSAGES)] == [{"role": m["role"], "content": m["content"]} for m in MESSAGES]
-    assert messages[-1] == {"role": "tool", "content": step.result.text, "tool_call_id": "call-1"}
+    assert messages[-1] == {
+        "role": "user",
+        "content": 'Resultado da ferramenta generic.calculate, chamada com {"expression": "2+2"}:\n' + step.result.text,
+    }
+    assert not any(m.get("tool_calls") or m["role"] == "tool" for m in messages), "sem o formato nativo (R55)"
 
 
 def test_geracao_nao_recebe_os_avisos_de_acao_invalida() -> None:
@@ -107,11 +111,17 @@ def test_geracao_so_com_acoes_invalidas_nao_recebe_a_cerca() -> None:
 
 @pytest.mark.us3
 def test_passo_sintetico_entra_na_geracao_como_um_passo_executado() -> None:
+    """O passo do portão do `rag_first` recebe a cerca como o executado e segue no formato nativo; só os passos do
+    loop vão em texto (R55)."""
     executado = tool_step(1, name="docs.search")
     sintetico = ToolStep(iteration=1, call=executado.call, result=executado.result, synthetic=True)
     assert not executado.synthetic and sintetico.synthetic
-    assert generation_messages(PROMPTS, MESSAGES, (sintetico,)) == generation_messages(PROMPTS, MESSAGES, (executado,))
-    assert generation_messages(PROMPTS, MESSAGES, (sintetico,))[len(PROMPTS)]["content"] == FENCE_INSTRUCTION
+    nativo = generation_messages(PROMPTS, MESSAGES, (sintetico,))
+    assert nativo[len(PROMPTS)]["content"] == FENCE_INSTRUCTION
+    assert nativo[-2]["tool_calls"][0]["name"] == "docs.search"
+    assert nativo[-1] == {"role": "tool", "content": executado.result.text, "tool_call_id": "call-1"}
+    texto = generation_messages(PROMPTS, MESSAGES, (executado,))
+    assert texto[:-1] == nativo[:-2] and texto[-1]["role"] == "user"
 
 
 # --- R50: data de referência e ação repetida ---------------------------------------------------------------------

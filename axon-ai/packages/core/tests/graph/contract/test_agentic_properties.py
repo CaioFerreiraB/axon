@@ -31,6 +31,7 @@ from hypothesis import strategies as st
 
 from axon_ai.assistants.api import Limits
 from axon_ai.graph.api import FinalEvent
+from axon_ai.graph.domain.budget import is_tool_result
 from axon_ai.observability.api import ControllerDecision
 
 pytestmark = pytest.mark.us2
@@ -73,7 +74,7 @@ def test_limite_e_acumulo_sob_roteiros_adversariais(kinds: list[str], limit: int
     assert isinstance(events[-1], FinalEvent)
 
     executed = [call.name for call in session.calls]
-    sent = [m for m in llm.calls[0]["messages"] if m["role"] == "tool"]
+    sent = [m for m in llm.calls[0]["messages"] if is_tool_result(m)]
     assert len(sent) == len(executed)
     assert len(hooks.validate_views[-1].tool_results) == len(executed)
 

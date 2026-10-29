@@ -16,6 +16,7 @@ from typing import Final
 
 from axon_ai.capabilities.api import FENCE_INSTRUCTION, CatalogTool, FencedToolResult, ToolCall
 from axon_ai.graph.domain.actions import CONTROLLER_INSTRUCTION, catalog_text
+from axon_ai.graph.domain.budget import RESULT_HEADER
 from axon_ai.graph.domain.images import (
     CHARTS_INSTRUCTION,
     IMAGES_CAPABILITY,
@@ -153,6 +154,26 @@ def _transcript(steps: Sequence[Step], *, notices: bool) -> list[ModelMessage]:
     return messages
 
 
+def _generation_transcript(steps: Sequence[Step]) -> list[ModelMessage]:
+    """Os passos do loop como texto, um resultado por mensagem; o passo sintético do `rag_first` segue no formato
+    nativo (R55).
+
+    No formato nativo — `assistant` com `tool_calls` e a mensagem `tool` —, a geração vê uma conversa de chamadas de
+    ferramenta e, sem ferramentas, continua o padrão escrevendo a chamada como texto (o glm-5.3-flash em produção, com o
+    aviso de que elas acabaram e tudo). Em texto, ela lê os resultados e responde.
+    """
+    messages: list[ModelMessage] = []
+    for step in steps:
+        if not isinstance(step, ToolStep):
+            continue
+        if step.synthetic:
+            messages.extend(_transcript((step,), notices=False))
+            continue
+        header = f"{RESULT_HEADER} {step.call.name}, chamada com {_arguments(step.call)}:"
+        messages.append({"role": "user", "content": f"{header}\n{step.result.text}"})
+    return messages
+
+
 def controller_messages(
     tools: Sequence[CatalogTool],
     messages: Sequence[Message],
@@ -220,4 +241,4 @@ def generation_messages(
         system.append({"role": "system", "content": NO_TOOLS_INSTRUCTION})
     if truncated:
         system.append({"role": "system", "content": LIMIT_INSTRUCTION})
-    return [*system, *_request(messages, send_own=send_own, shown=shown), *_transcript(steps, notices=False)]
+    return [*system, *_request(messages, send_own=send_own, shown=shown), *_generation_transcript(steps)]

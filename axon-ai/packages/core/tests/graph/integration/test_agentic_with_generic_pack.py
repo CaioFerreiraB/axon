@@ -27,6 +27,7 @@ from axon_ai.capabilities.service import CapabilityService
 from axon_ai.graph.adapters.clock import FixedClock
 from axon_ai.graph.adapters.langgraph import langgraph_runtime
 from axon_ai.graph.api import FinalEvent
+from axon_ai.graph.domain.budget import RESULT_HEADER
 from axon_ai.graph.service import ExecutionService
 from axon_ai.llm.service import ModelRoutingService
 from axon_ai.mcp.adapters.memory import InMemoryDiscoveryCache, InMemorySecretResolver, InMemoryServerStore
@@ -97,8 +98,8 @@ async def test_controller_pede_calculate_e_a_geracao_recebe_o_resultado_cercado(
     sent = llm.calls[0]["messages"]
     assert {"role": "system", "content": FENCE_INSTRUCTION} in sent
     resultado = sent[-1]
-    assert resultado["role"] == "tool"
-    assert resultado["content"].startswith('<tool_result name="generic.calculate" status="ok"')
+    assert resultado["role"] == "user" and resultado["content"].startswith(RESULT_HEADER)
+    assert '<tool_result name="generic.calculate" status="ok"' in resultado["content"]
     assert '"result": 4' in resultado["content"]
 
     tipos = [

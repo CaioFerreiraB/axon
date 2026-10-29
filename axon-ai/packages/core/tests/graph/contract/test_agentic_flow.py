@@ -34,7 +34,7 @@ from axon_ai.assistants.api import Limits
 from axon_ai.capabilities.api import FENCE_INSTRUCTION, CatalogConflict
 from axon_ai.graph.api import ExecutionRequestInvalid, FinalEvent, ProgressEvent, TokenEvent
 from axon_ai.graph.domain.actions import response_format
-from axon_ai.graph.domain.budget import OMITTED, estimate_tokens
+from axon_ai.graph.domain.budget import OMITTED, RESULT_HEADER, estimate_tokens
 from axon_ai.graph.domain.transcript import controller_messages, date_instruction
 from axon_ai.observability.api import ControllerDecision, ExecutionError, ExecutionFinished, ToolCall
 from axon_ai_contracts import ToolResult
@@ -93,7 +93,10 @@ async def test_tool_executada_uma_vez_resultado_acumulado_e_resposta_gerada() ->
 
     (generation,) = llm.calls
     assert {"role": "system", "content": FENCE_INSTRUCTION} in generation["messages"]
-    assert generation["messages"][-1] == {"role": "tool", "content": fenced(CALC, "4"), "tool_call_id": "call-1"}
+    assert generation["messages"][-1] == {
+        "role": "user",
+        "content": f'{RESULT_HEADER} {CALC}, chamada com {{"expression": "2+2"}}:\n{fenced(CALC, "4")}',
+    }
     assert controller.calls[0]["response_format"] == response_format(list(caps.session.tools.values()))
 
 
@@ -208,8 +211,9 @@ async def test_teto_para_o_loop_antes_da_chamada_que_passaria_e_omite_o_resultad
     assert trimmed and trimmed[0].severity == "notice" and "1" in trimmed[0].message
 
     sent = llm.calls[0]["messages"]
-    assert sent[-1] == {"role": "tool", "content": OMITTED, "tool_call_id": "call-1"}
-    assert sent[-2]["role"] == "assistant" and sent[-2]["tool_calls"][0]["id"] == "call-1"
+    assert sent[-1]["role"] == "user" and sent[-1]["content"].startswith(RESULT_HEADER)
+    assert sent[-1]["content"].endswith(f"\n{OMITTED}"), "o cabeçalho fica; o conteúdo vira a marca"
+    assert f"{CALC}, chamada com" in sent[-1]["content"], "a geração ainda sabe qual tool rodou"
     assert trace.of_type(ExecutionFinished)[0].ok is True
 
 
@@ -219,7 +223,7 @@ async def test_sem_teto_nada_sai() -> None:
     events, _, _ = run(script=[tool_action(CALC, expression="9"), ANSWER], session=session, llm=llm)
     final = final_of(await collect(events))
     assert not [issue for issue in final.errors if issue.kind.startswith("Context")]
-    assert llm.calls[0]["messages"][-1]["content"] == fenced(CALC, "9" * 3000)
+    assert llm.calls[0]["messages"][-1]["content"].endswith(fenced(CALC, "9" * 3000))
 
 
 # --- 20: Turn View de validate (FR-010) ------------------------------------------------------------------------------

@@ -852,3 +852,24 @@ configuração da instalação: o `geral` do `axon-cfblabs` passou a declarar `m
   controller.
 - **Subir o `DEFAULT_MAX_ITERATIONS`.** O padrão é decisão da clarificação 3 de 2026-10-01, e o Assistant declara o
   que precisa.
+
+### R55 — A geração recebe os passos do loop em texto (FR-006b; produção, 2026-10-29)
+
+**Decision**: na geração, cada passo de tool do loop vira uma mensagem `user` em texto (`_generation_transcript`):
+`Resultado da ferramenta <nome>, chamada com <argumentos>:` e o resultado cercado. O passo sintético do `rag_first`
+(os trechos do portão) segue no formato nativo, como antes. O controller não muda: ele continua recebendo o formato
+nativo, porque é ele quem chama ferramentas. O corte por teto (`trim_results`) reconhece as duas formas
+(`is_tool_result`); no texto, mantém a linha do cabeçalho e troca o resto pela marca de omissão.
+
+**Rationale**: com a rc10, a geração já sabia que as ferramentas tinham acabado (R54), e ainda assim o glm-5.3-flash
+escreveu `<tool_call>generic.chart…</tool_call>` como texto numa conversa longa. O controller tinha feito um gráfico de
+barras quando o usuário pediu rosca, e a geração tentou consertar chamando a tool. A causa é o formato: no nativo
+(`assistant` com `tool_calls` e a mensagem `tool`), a geração vê uma conversa de chamadas de ferramenta e continua o
+padrão. Em texto, ela lê resultados. O `rag_first` coberto não muda: o passo dele é sintético, e o `fact_recall` do
+scouting foi medido com o formato nativo.
+
+**Alternatives considered**:
+- **Repetir a geração quando o filtro esvazia a resposta.** Custa uma chamada a mais e trata o sintoma; o mantenedor
+  escolheu só o texto.
+- **Mandar as tools com `tool_choice: none`.** Nem todo provider da 006 aceita.
+- **Texto também no passo sintético.** Mexeria nos números do eval do scouting sem medição.

@@ -24,6 +24,18 @@ OMITTED: Final = "[resultado omitido: teto de contexto]"
 
 TOOL_ROLE: Final = "tool"
 
+RESULT_HEADER: Final = "Resultado da ferramenta"
+"""Começo da mensagem com o resultado de uma tool do loop quando ele vai à geração como texto (R55): o corte por
+teto a reconhece como resultado, como a mensagem de papel `tool`."""
+
+
+def is_tool_result(message: ModelMessage) -> bool:
+    """Resultado de tool, no formato nativo (papel `tool`) ou em texto (a mensagem que começa com `RESULT_HEADER`)."""
+    if message["role"] == TOOL_ROLE:
+        return True
+    content = message.get("content")
+    return message["role"] == "user" and isinstance(content, str) and content.startswith(RESULT_HEADER)
+
 
 def _chars(message: ModelMessage) -> int:
     content = message.get("content")
@@ -73,10 +85,18 @@ def trim_results(messages: Sequence[ModelMessage], ceiling: int | None) -> Trimm
     for index, message in enumerate(current):
         if not exceeds(current, ceiling):
             break
-        if message["role"] == TOOL_ROLE:
-            current[index] = {**message, "content": OMITTED}
+        if is_tool_result(message):
+            current[index] = {**message, "content": _omitted(message)}
             omitted += 1
     return Trimmed(messages=tuple(current), omitted=omitted, overflow=exceeds(current, ceiling))
+
+
+def _omitted(message: ModelMessage) -> str:
+    """No resultado em texto, a linha do cabeçalho (qual tool, com que argumentos) fica; o resto vira a marca."""
+    if message["role"] == TOOL_ROLE:
+        return OMITTED
+    header = str(message.get("content")).split("\n", 1)[0]
+    return f"{header}\n{OMITTED}"
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
