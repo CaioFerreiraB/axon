@@ -48,6 +48,14 @@ test("os prefixos do core passam sem reescrever, com os cabeçalhos do core", as
   expect(keyed.status()).toBe(200);
 });
 
+test("os scripts dos gráficos passam pelo repasse, imutáveis e com CORS (ADR-052)", async ({ request }) => {
+  const echarts = await request.get(`${nginx}/static/echarts/6.1.0/langPT-br.js`);
+  expect(echarts.status()).toBe(200);
+  expect(echarts.headers()["cache-control"]).toBe("public, max-age=31536000, immutable");
+  expect(echarts.headers()["access-control-allow-origin"]).toBe("*");
+  expect(echarts.headers()["content-security-policy"]).toBeUndefined();
+});
+
 test("SSE do chat chega pelo repasse", async ({ request }) => {
   const response = await request.post(`${nginx}/private/v1/chat/completions`, {
     headers: { Authorization: `Bearer ${TEST_API_KEY}` },
