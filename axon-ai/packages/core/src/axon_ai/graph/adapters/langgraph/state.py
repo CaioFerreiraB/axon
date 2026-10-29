@@ -25,7 +25,7 @@ from axon_ai.graph.domain.transcript import Step
 from axon_ai.llm.api import ModelRouter
 from axon_ai.observability.api import TraceSink
 from axon_ai.packs.api import Composition, PackHooks, StreamedValidation, ValidationOutcome
-from axon_ai_contracts import Attachment, Citation, JSONValue, Message
+from axon_ai_contracts import Attachment, Chart, Citation, JSONValue, Message
 
 
 class AgentState(TypedDict, total=False):
@@ -79,6 +79,8 @@ class AgentState(TypedDict, total=False):
     """Ids das imagens da resposta anterior que vão à geração: as escolhidas pelo controller ou, sem ele, todas."""
     attachments: Annotated[list[Attachment], operator.add]
     """Imagens que as tools devolveram, na ordem em que saíram, uma vez por `id` — o que o usuário recebe."""
+    charts: Annotated[list[Chart], operator.add]
+    """Gráficos que as tools devolveram, do mesmo jeito (ADR-052)."""
 
 
 class ToolSlot:

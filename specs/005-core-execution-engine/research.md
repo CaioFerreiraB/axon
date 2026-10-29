@@ -810,3 +810,21 @@ respondida corretamente. Texto de prompt, sem seam novo: sem ADR.
 catálogo na geração para ela decidir (mais tokens por turno, e quem decide chamar tool é o controller); frase no prompt
 do pack `generic` (o prompt do pack é neutro quanto ao flow, 010 FR-008, e o `scouting` e outros packs ficariam sem ela).
 
+### R53 — Gráficos no motor (ADR-052, item 2; FR-024)
+
+**Decision**: `ChartEvent(chart, tool)` e `FinalEvent.charts: tuple[Chart, ...] = ()` no seam (`graph/api.py`; o
+`ExecutionEvent` ganha o tipo). No `execute_tool` do loop, depois das imagens, cada gráfico de `result.charts` que a
+execução ainda não emitiu vai ao stream (`{"kind": "chart"}`) e ao acumulador `charts` do estado; o runtime o traduz em
+`ChartEvent`, e o `final_event` (e o evento final de uma execução que falhou) leva os gráficos na ordem, sem repetir
+`id` (`domain/images.unique_charts`). O `rag_first` só executa tools pelo loop quando escala, então o mesmo nó cobre
+os dois flows. Texto: o `CONTROLLER_INSTRUCTION` fala de "imagens e gráficos"; `CHARTS_INSTRUCTION`
+(`graph/domain/images.py`) entra no sistema da geração quando algum passo de tool tem gráfico.
+
+**Rationale** (ADR-052: "a 005 publica `ChartEvent` e `FinalEvent.charts`; o modelo não recebe os dados"): o mesmo
+caminho das imagens (R51), sem nó novo. A frase da geração vem do aprendizado do R52 — sem ela, o modelo pequeno diz
+que só produz texto ou redesenha os dados em tabela, o que repetiria a tabela que a 008 já põe na resposta.
+
+**Alternatives considered**: o gráfico como `AttachmentEvent` de outro tipo (o anexo é imagem para o `view_image`, a
+etapa `image_gate` e o teto de contexto); mandar os dados à geração para ela comentar (o resultado da tool de origem,
+um MCP por exemplo, já está na transcrição; repetir custaria tokens); frase no prompt do pack `generic` (o prompt é
+neutro quanto ao flow, 010 FR-008).

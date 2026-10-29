@@ -32,6 +32,7 @@ TOKEN = "token"
 PROGRESS = "progress"
 STEP = "step"
 ATTACHMENT = "attachment"
+CHART = "chart"
 
 
 def _writer() -> Any:

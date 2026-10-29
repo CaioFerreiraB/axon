@@ -18,7 +18,7 @@ from dataclasses import dataclass, replace
 from typing import Any, Final
 
 from axon_ai.llm.api import ContentPart, image_part
-from axon_ai_contracts import Attachment, Message
+from axon_ai_contracts import Attachment, Chart, Message
 
 USER_ROLE: Final = "user"
 ASSISTANT_ROLE: Final = "assistant"
@@ -35,6 +35,13 @@ IMAGES_INSTRUCTION: Final = (
     "ferramentas dizem."
 )
 """Texto fixo do core, junto da `FENCE_INSTRUCTION`, na geração do turno em que uma tool devolveu imagem (item 4)."""
+
+CHARTS_INSTRUCTION: Final = (
+    "Os gráficos marcados no formato [gráfico <id> mostrado ao usuário…] aparecem para o usuário junto da sua "
+    "resposta, interativos e com a tabela dos dados. Não os refaça em texto, tabela, código ou imagem e não diga que "
+    "não consegue mostrá-los: comente em poucas frases o que eles mostram."
+)
+"""Texto fixo do core, na geração do turno em que uma tool devolveu gráfico (ADR-052; research R53)."""
 
 IMAGES_CAPABILITY: Final = (
     "A plataforma mostra ao usuário, junto da resposta, as imagens que as ferramentas devolvem. Não diga que só "
@@ -70,6 +77,14 @@ def unique(attachments: Sequence[Attachment]) -> tuple[Attachment, ...]:
     """Na ordem, sem repetir `id` — a mesma imagem duas vezes é uma só (item 1)."""
     first: dict[str, Attachment] = {}
     for item in attachments:
+        first.setdefault(item.id, item)
+    return tuple(first.values())
+
+
+def unique_charts(charts: Sequence[Chart]) -> tuple[Chart, ...]:
+    """Na ordem, sem repetir `id` — o mesmo gráfico duas vezes é um só (ADR-052)."""
+    first: dict[str, Chart] = {}
+    for item in charts:
         first.setdefault(item.id, item)
     return tuple(first.values())
 

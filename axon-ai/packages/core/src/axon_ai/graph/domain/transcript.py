@@ -17,6 +17,7 @@ from typing import Final
 from axon_ai.capabilities.api import FENCE_INSTRUCTION, CatalogTool, FencedToolResult, ToolCall
 from axon_ai.graph.domain.actions import CONTROLLER_INSTRUCTION, catalog_text
 from axon_ai.graph.domain.images import (
+    CHARTS_INSTRUCTION,
     IMAGES_CAPABILITY,
     IMAGES_INSTRUCTION,
     VIEWED_NOTICE,
@@ -198,4 +199,6 @@ def generation_messages(
         system.append({"role": "system", "content": IMAGES_INSTRUCTION})
     elif tools:
         system.append({"role": "system", "content": IMAGES_CAPABILITY})
+    if any(step.result.charts for step in executed):
+        system.append({"role": "system", "content": CHARTS_INSTRUCTION})
     return [*system, *_request(messages, send_own=send_own, shown=shown), *_transcript(steps, notices=False)]

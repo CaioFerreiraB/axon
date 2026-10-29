@@ -11,9 +11,9 @@ from collections.abc import Sequence
 from typing import Final
 
 from axon_ai.graph.api import ExecutionIssue, FinalEvent
-from axon_ai.graph.domain.images import unique
+from axon_ai.graph.domain.images import unique, unique_charts
 from axon_ai.packs.api import ValidationOutcome
-from axon_ai_contracts import Attachment
+from axon_ai_contracts import Attachment, Chart
 
 VALIDATION_STAGE = "validate_answer"
 VALIDATOR_ISSUE = "ValidatorIssue"
@@ -29,18 +29,21 @@ def final_event(
     outcome: ValidationOutcome | None,
     errors: Sequence[ExecutionIssue] = (),
     attachments: Sequence[Attachment] = (),
+    charts: Sequence[Chart] = (),
 ) -> FinalEvent:
-    """Junta a resposta gerada, o resultado dos validators, os erros acumulados e as imagens das tools (na ordem, sem
-    repetir `id`; ADR-044) num único evento final."""
+    """Junta a resposta gerada, o resultado dos validators, os erros acumulados e as imagens e os gráficos das tools
+    (na ordem, sem repetir `id`; ADR-044, ADR-052) num único evento final."""
     images = unique(attachments)
+    drawn = unique_charts(charts)
     if outcome is None:
-        return FinalEvent(answer=generated, errors=tuple(errors), attachments=images)
+        return FinalEvent(answer=generated, errors=tuple(errors), attachments=images, charts=drawn)
     return FinalEvent(
         answer=outcome.answer if outcome.answer is not None else generated,
         citations=tuple(outcome.citations),
         errors=(*errors, *_issues(outcome)),
         flags=outcome.flags,
         attachments=images,
+        charts=drawn,
     )
 
 

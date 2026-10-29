@@ -864,3 +864,18 @@ elas, nos três flows.
   decisão, só imagem, sem `vision`, controller com e sem `vision`), `view_image` no loop (ids, repetida, id estranho,
   sem `vision`, catálogo vazio), `image_gate` no `chat` (escolha, nenhuma, falhas, sem controller, sem imagem) e no
   `rag_first`; unidade da tabela, do conteúdo, da escolha e do custo
+
+---
+
+## Passada de 2026-10-28: gráficos na execução ([ADR-052](../../docs/adr/ADR-052-graficos-na-conversa.md); research R53)
+
+**Goal**: o gráfico de uma tool chega ao consumidor como `ChartEvent` e em `FinalEvent.charts`, e o modelo só sabe
+que ele foi mostrado.
+
+**Independent Test**: `tests/graph/contract/test_graph_charts_flow.py`.
+
+- [X] T102 `ChartEvent`, `FinalEvent.charts` e o `ExecutionEvent` (`graph/api.py`); `charts` no estado, no
+  `execute_tool`, no runtime (`_from_custom`, evento final de erro e `_final`) e no `final_event` (`unique_charts`)
+- [X] T103 `CHARTS_INSTRUCTION` na geração com gráfico; "imagens e gráficos" no `CONTROLLER_INSTRUCTION`
+- [X] T104 [P] Testes: ordem (imagens, depois gráficos, logo depois do desfecho), repetição entre chamadas, dados fora
+  do modelo, aviso só com gráfico; `FakeSession(charts=)` no `graph_testkit`

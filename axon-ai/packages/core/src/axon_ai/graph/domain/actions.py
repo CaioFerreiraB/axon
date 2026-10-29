@@ -21,9 +21,9 @@ CONTROLLER_INSTRUCTION: Final = (
     "Você decide o próximo passo para responder à última mensagem do usuário. Responda apenas com um objeto JSON, sem "
     'texto fora dele: {"action": "tool", "name": "<nome>", "arguments": {...}} para chamar uma das ferramentas '
     'listadas, ou {"action": "answer"} quando já tiver o necessário para responder. Uma ação por vez; use só '
-    "ferramentas da lista. As imagens que as ferramentas devolvem são mostradas ao usuário junto da resposta: se ele "
-    "pedir um gráfico, uma imagem ou uma figura, ou perguntar por uma que uma ferramenta devolveu, e houver "
-    "ferramenta que a produza, chame-a em vez de descrevê-la ou desenhá-la em texto."
+    "ferramentas da lista. As imagens e os gráficos que as ferramentas devolvem são mostrados ao usuário junto da "
+    "resposta: se ele pedir um gráfico, uma imagem ou uma figura, ou perguntar por uma que uma ferramenta devolveu, e "
+    "houver ferramenta que a produza, chame-a em vez de descrevê-la ou desenhá-la em texto."
 )
 """Texto do core, sem domínio (princípio I): o catálogo e o assunto chegam pelas tools e pela conversa."""
 

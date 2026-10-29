@@ -13,10 +13,11 @@ from typing import Any, Final, Literal, cast
 from axon_ai.capabilities.api import CatalogConflict
 from axon_ai.graph.adapters.langgraph.flows import FlowGraph, compiled_flows
 from axon_ai.graph.adapters.langgraph.nodes.agentic import STAGE_LOAD
-from axon_ai.graph.adapters.langgraph.nodes.common import ATTACHMENT, PROGRESS, STEP, TOKEN
+from axon_ai.graph.adapters.langgraph.nodes.common import ATTACHMENT, CHART, PROGRESS, STEP, TOKEN
 from axon_ai.graph.adapters.langgraph.state import AgentContext, AgentState
 from axon_ai.graph.api import (
     AttachmentEvent,
+    ChartEvent,
     ExecutionEvent,
     ExecutionIssue,
     FinalEvent,
@@ -24,7 +25,7 @@ from axon_ai.graph.api import (
     StepFinished,
     TokenEvent,
 )
-from axon_ai.graph.domain.images import unique
+from axon_ai.graph.domain.images import unique, unique_charts
 from axon_ai.graph.domain.outcome import final_event
 from axon_ai.graph.ports import ExecutionPlan
 from axon_ai.llm.api import ModelCallFailed
@@ -68,6 +69,7 @@ class LangGraphRuntime:
             "gate_images": plan.images.gate,
             "viewed": list(plan.images.viewed),
             "attachments": [],
+            "charts": [],
         }
         context = AgentContext(
             composition=plan.composition,
@@ -107,7 +109,8 @@ class LangGraphRuntime:
             )
             accumulated = tuple(last.get("errors", ())) if last is not None else ()
             images = unique(tuple(last.get("attachments", ()))) if last is not None else ()
-            yield FinalEvent(answer=generated, errors=(*accumulated, issue), attachments=images)
+            charts = unique_charts(tuple(last.get("charts", ()))) if last is not None else ()
+            yield FinalEvent(answer=generated, errors=(*accumulated, issue), attachments=images, charts=charts)
             return
 
         yield _final(last, generated)
@@ -122,6 +125,8 @@ def _from_custom(chunk: Any) -> ExecutionEvent:
         return StepFinished(stage=chunk["stage"], outcome=chunk.get("outcome"))
     if chunk.get("kind") == ATTACHMENT:
         return AttachmentEvent(attachment=chunk["attachment"], tool=chunk["tool"])
+    if chunk.get("kind") == CHART:
+        return ChartEvent(chart=chunk["chart"], tool=chunk["tool"])
     raise ValueError(f"pedaço de stream desconhecido: {chunk!r}")
 
 
@@ -133,6 +138,7 @@ def _final(last: AgentState | None, generated: str) -> FinalEvent:
         outcome=last.get("validation"),
         errors=tuple(last.get("errors", ())),
         attachments=tuple(last.get("attachments", ())),
+        charts=tuple(last.get("charts", ())),
     )
 
 

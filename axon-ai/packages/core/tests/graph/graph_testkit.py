@@ -33,6 +33,7 @@ from axon_ai.observability.api import TraceEvent
 from axon_ai.packs.api import Composition, Slices, StreamedValidation, ValidationOutcome, ValidatorRun
 from axon_ai_contracts import (
     Attachment,
+    Chart,
     ChatMessage,
     ChatResponse,
     Chunk,
@@ -345,9 +346,11 @@ class FakeSession:
         unavailable: Mapping[str, str] | None = None,
         failures: Mapping[str, tuple[Literal["error", "timeout"], str]] | None = None,
         attachments: Mapping[str, Sequence[Attachment]] | None = None,
+        charts: Mapping[str, Sequence[Chart]] | None = None,
     ) -> None:
         self._tools = {tool.name: tool for tool in tools}
         self._attachments = dict(attachments or {})
+        self._charts = dict(charts or {})
         self._results = dict(results or {})
         self._chunks = dict(chunks or {})
         self._unavailable = dict(unavailable or {})
@@ -390,6 +393,7 @@ class FakeSession:
             text=fenced(call.name, content),
             chunks=chunks,
             attachments=tuple(self._attachments.get(call.name, ())),
+            charts=tuple(self._charts.get(call.name, ())),
         )
 
     def fence_chunks(self, name: str, chunks: Sequence[Chunk]) -> FencedToolResult:

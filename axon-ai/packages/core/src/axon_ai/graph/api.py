@@ -17,7 +17,7 @@ from typing import Final, Literal, Protocol
 
 from axon_ai.assistants.api import ExecutionGrant
 from axon_ai.llm.api import ModelRole
-from axon_ai_contracts import Attachment, Citation, JSONValue, Message
+from axon_ai_contracts import Attachment, Chart, Citation, JSONValue, Message
 
 __all__ = [
     "FLOW_AGENTIC",
@@ -25,6 +25,7 @@ __all__ = [
     "FLOW_RAG_FIRST",
     "AttachmentEvent",
     "CatalogOutcome",
+    "ChartEvent",
     "ControllerAction",
     "ControllerOutcome",
     "ExecutionEngine",
@@ -376,26 +377,41 @@ class AttachmentEvent:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class ChartEvent:
+    """Um gráfico que uma tool devolveu, para o usuário (ADR-052, item 2). Sai depois do `StepFinished` da tool, uma
+    vez por `id` na execução. O modelo não recebe os dados: vê só a marca no resultado cercado (004)."""
+
+    chart: Chart
+    tool: str
+
+    def __post_init__(self) -> None:
+        _require_text("tool", self.tool)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class FinalEvent:
     """Fecha toda execução, inclusive a que falhou no meio: resposta (possivelmente parcial), citações e erros.
 
     `attachments`: as imagens que as tools devolveram, na ordem em que saíram e sem repetir `id` — as mesmas dos
-    `AttachmentEvent` (ADR-044, item 4)."""
+    `AttachmentEvent` (ADR-044, item 4). `charts`: os gráficos das tools, do mesmo jeito — os dos `ChartEvent`
+    (ADR-052)."""
 
     answer: str
     citations: tuple[Citation, ...] = ()
     errors: tuple[ExecutionIssue, ...] = ()
     flags: frozenset[str] = field(default_factory=frozenset)
     attachments: tuple[Attachment, ...] = ()
+    charts: tuple[Chart, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "citations", tuple(self.citations))
         object.__setattr__(self, "errors", tuple(self.errors))
         object.__setattr__(self, "flags", frozenset(self.flags))
         object.__setattr__(self, "attachments", tuple(self.attachments))
+        object.__setattr__(self, "charts", tuple(self.charts))
 
 
-type ExecutionEvent = TokenEvent | ProgressEvent | StepFinished | AttachmentEvent | FinalEvent
+type ExecutionEvent = TokenEvent | ProgressEvent | StepFinished | AttachmentEvent | ChartEvent | FinalEvent
 """O que o consumidor recebe. Toda execução termina com exatamente um `FinalEvent`, sempre o último. Quem não precisa do
 desfecho das etapas ignora o `StepFinished` (ADR-028)."""
 
