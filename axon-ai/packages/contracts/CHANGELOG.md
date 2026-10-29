@@ -4,6 +4,21 @@ Política de versões: [ADR-014](../../../docs/adr/ADR-014-politica-versoes-0x-c
 aditiva sobe o patch e breaking sobe o minor. Mudança só de semântica, sem mudança de forma, é registrada aqui e
 classificada na revisão (FR-020).
 
+## 0.2.4
+
+Gráficos na conversa ([ADR-052](../../../docs/adr/ADR-052-graficos-na-conversa.md); spec 001, FR-031 e FR-032).
+Aditiva: nenhum pack muda; quem devolve gráfico pelas próprias tools pede `axon-ai-contracts>=0.2.4,<0.3`.
+
+### Adicionado
+
+- `Chart(kind, title, series, x_type="nominal", subtitle=None, x_label=None, y_label=None, unit=None,
+  unit_position="suffix")`, com `ChartSeries(name, points)` e `ChartPoint(x, y)`: o gráfico em dados, validado na
+  construção, com `id` do conteúdo (`chart-` + 12 hexadecimais do SHA-256 da forma canônica). Tipos `line`, `area`,
+  `bar`, `stacked_bar`, `scatter`, `pie` e `donut`; até 8 séries e 500 pontos.
+- `CHART_KINDS`, `CHART_X_TYPES`, `CHART_MAX_SERIES`, `CHART_MAX_POINTS` e os tipos `ChartKind`, `ChartXType` e
+  `UnitPosition`.
+- `ToolResult.charts: tuple[Chart, ...] = ()`. A plataforma desenha o gráfico; o modelo vê só uma marca.
+
 ## 0.2.3
 
 Link da citação ([ADR-051](../../../docs/adr/ADR-051-link-da-citacao-e-fontes-no-open-webui.md); spec 001, FR-030).

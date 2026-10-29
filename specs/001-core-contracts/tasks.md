@@ -460,3 +460,23 @@ vezes; nenhum pack existente muda.
   lista e SVG recusados, `data` vazio ou não `bytes`, limpeza do `alt`, `repr` sem os bytes, `ToolResult` com e sem
   anexos, item estranho recusado, `Message` com anexos); `test_public_api.py` com os símbolos novos
 - [X] T090 Diff de superfície contra `contracts-v0.2.1`: aditivo, patch
+
+---
+
+## Passada de 2026-10-28: gráficos na conversa ([ADR-052](../../docs/adr/ADR-052-graficos-na-conversa.md); research R35)
+
+**Goal**: contratos `0.2.4` com `Chart`, `ChartSeries`, `ChartPoint`, as listas fechadas e os tetos, e
+`ToolResult.charts`; nenhum pack existente muda.
+
+**Independent Test**: a suíte dos contratos em 3.14 e 3.12, `check_clean_env.py` e o diff de superfície contra
+`contracts-v0.2.3` aditivo.
+
+- [X] T091 `charts.py`: `Chart` (validação, textos limpos, id do conteúdo), `ChartSeries`, `ChartPoint`, `CHART_KINDS`,
+  `CHART_X_TYPES`, `CHART_MAX_SERIES`, `CHART_MAX_POINTS` e os tipos; exportados na raiz (R35)
+- [X] T092 `ToolResult.charts` (`tools.py`)
+- [X] T093 Versão `0.2.4` (`_version.py`, `pyproject.toml`) e seção `0.2.4` no CHANGELOG
+- [X] T094 [P] Testes: `tests/unit/test_charts.py` (listas fechadas, id determinístico e `2 == 2.0`, congelado, limpeza
+  dos textos, valores finitos, tetos de séries e pontos, pizza e rosca, `x` por tipo, repetição só na dispersão,
+  `ToolResult` com gráficos); `test_public_api.py` com os símbolos novos
+- [X] T095 Diff de superfície contra `contracts-v0.2.3`: aditivo, patch (11 símbolos e um campo com default)
+- Suítes: contratos 356 passed em 3.14 e em 3.12; `check_clean_env.py` verde.

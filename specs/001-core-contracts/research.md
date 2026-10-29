@@ -541,3 +541,24 @@ ao kit, sem re-pesquisa.
   limpar o `alt` só no motor (cada produtor e cada consumidor teria de lembrar); alargar `ChatMessage.content`
   (breaking pelo FR-020, série `0.3.0` e packs fora da faixa — recusado pelo mantenedor em 2026-10-22); `data` como
   base64 em `str` (dobraria a conversão em cada ponta e esconderia o tamanho real).
+
+### R35 — `Chart` e os gráficos no `ToolResult` (contratos 0.2.4)
+
+- **Decision**: módulo novo `charts.py` com os dataclasses congelados `ChartPoint(x, y)`, `ChartSeries(name, points)`
+  e `Chart(kind, title, series, x_type="nominal", subtitle, x_label, y_label, unit, unit_position="suffix")`, `id`
+  `field(init=False)` calculado no `__post_init__` sobre o JSON canônico (`sort_keys`, separadores compactos, sem
+  escapar não-ASCII). `y` e `x` numérico viram `float` (o mesmo gráfico com `2` ou `2.0`); `bool` é recusado como
+  número. Os textos passam por uma limpeza única (controles, quebras e `[`/`]` viram espaço; espaços juntos; corte por
+  campo); o vazio é erro nos obrigatórios e `None` nos opcionais. A data do eixo temporal é conferida por
+  `date.fromisoformat` (ou `datetime.fromisoformat` quando tem hora) e guardada como veio. Os tipos `ChartKind`,
+  `ChartXType` e `UnitPosition` (`Literal`) e as constantes saem na raiz. `ToolResult.charts` é conferido item a item,
+  como `attachments`. A `Message` não ganha gráficos: o histórico do cliente traz a tabela no texto (ADR-052, item 5).
+- **Rationale** (ADR-052, itens 1 e 3; ADR-014): o esquema fechado é o que permite à API ser a única a escrever HTML;
+  validar na construção dá um erro legível ao controller (a tool o devolve) e uma regra só para todo produtor. Remover
+  `[`/`]` protege a marca `[gráfico <id> …]` que a 004 escreve; parênteses ficam (são comuns em títulos), e o escape de
+  HTML e de markdown é de quem desenha. O teto de oito séries é o das cores validadas; o de 500 pontos limita o que o
+  controller repete nos argumentos.
+- **Alternatives**: especificação do ECharts ou do Vega-Lite no contrato (prenderia os packs a uma biblioteca e
+  exigiria saneamento de URL e de formatadores); `x` sempre texto (perderia o eixo numérico da dispersão); `id` sobre o
+  `repr` (mudaria com detalhes de formatação do Python); um `Message.charts` (nenhum consumidor; o histórico já leva a
+  tabela).
