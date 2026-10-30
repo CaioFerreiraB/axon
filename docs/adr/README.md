@@ -74,3 +74,5 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 ## Alternativas rejeitadas
 ## Consequências
 ```
+
+- [ADR-055 — Autenticação MCP delegada](ADR-055-autenticacao-mcp-delegada.md): identidade confidencial por execução; seams 004/005/007/008.

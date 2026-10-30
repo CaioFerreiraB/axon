@@ -234,3 +234,8 @@ Reavaliado com [data-model.md](data-model.md), [contracts/](contracts/) e [quick
 | Duas origens de MCP global — arquivo e armazenamento — com precedência do arquivo (R3) | clarificação 1: `stdio` só por configuração do operador, `http`/`sse` ao vivo pela API | uma origem só obrigaria a escolher entre execução de comando pela API e restart para todo MCP global |
 | Cache negativo de 30 s (R8) | sem ele, cada execução espera o prazo inteiro de um servidor fora do ar | só o cache positivo deixaria a latência de toda execução refém do pior servidor |
 | Allowlist de tools obrigatória (R11) | princípio IV: capacidade não declarada não existe | allowlist opcional exporia tools novas do servidor sem decisão de ninguém |
+
+
+## Incremento: delegação MCP por execução (2026-10-29)
+
+Regido por [ADR-055](../../docs/adr/ADR-055-autenticacao-mcp-delegada.md). Protocolo 1: um MCP delegado por grant, identidade confidencial por execução, sem cache compartilhado e sem alteração da ACL. Contrato: [delegação](../007-core-mcp-integration/contracts/delegation.md). Casos D01 isolamento concorrente; D02 falha fechada; D03 metadados e superfície privada; D04 segredo ausente de persistência/trace; D05 regressão estática.

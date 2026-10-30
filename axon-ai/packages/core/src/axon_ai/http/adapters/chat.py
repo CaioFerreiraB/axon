@@ -7,12 +7,13 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from typing import Any, Final
 
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from axon_ai.assistants.api import Principal
+from axon_ai.assistants.api import PRIVATE_SURFACE, Principal
 from axon_ai.http.adapters.auth import authenticated
 from axon_ai.http.adapters.errors import ApiError
 from axon_ai.http.adapters.sse import MEDIA_TYPE, event_stream
@@ -29,6 +30,7 @@ from axon_ai.http.domain.errors import EXTRA, InvalidRequest, RequestTooLarge, e
 from axon_ai.http.domain.images import ImageLimits
 from axon_ai.http.domain.native_request import parse_native
 from axon_ai.http.service import ChatService
+from axon_ai.mcp.api import DelegatedAuthorization, McpRegistry
 
 REQUEST_ID_HEADER = "X-Request-Id"
 CONVERSATION_ID_HEADER = "X-Conversation-Id"
@@ -51,7 +53,7 @@ def chat_router(*, surface: str) -> APIRouter:
             charts_header=request.headers.get(CHARTS_HEADER),
             limits=image_limits(request),
         )
-        return await _run(request, response, chat, principal)
+        return await _run(request, response, chat, principal, delegated_surface=surface == PRIVATE_SURFACE)
 
     @router.post("/chat")
     async def chat_native(request: Request, response: Response) -> Any:
@@ -71,7 +73,38 @@ def chat_router(*, surface: str) -> APIRouter:
     return router
 
 
-async def _run(request: Request, response: Response, chat_request: ChatRequest, principal: Principal) -> Any:
+async def _run(
+    request: Request,
+    response: Response,
+    chat_request: ChatRequest,
+    principal: Principal,
+    *,
+    delegated_surface: bool = False,
+) -> Any:
+    header = request.headers.get("X-Axon-MCP-Authorization")
+    if header is not None and not delegated_surface:
+        raise InvalidRequest("autorização MCP delegada aceita somente em Chat Completions privado")
+    registry: McpRegistry | None = request.app.state.mcp
+    if registry is not None:
+        grant = await request.app.state.grants.resolve(model=chat_request.model, principal=principal)
+        descriptor = await registry.delegation_for(grant)
+        if descriptor is not None:
+            if header is None or not delegated_surface:
+                raise InvalidRequest("Assistant exige autorização MCP delegada nesta execução")
+            if chat_request.store or chat_request.conversation_id is not None:
+                raise InvalidRequest("delegação exige x-axon-store: false e nenhuma conversation_id")
+            chat_request = replace(
+                chat_request,
+                mcp_delegation=DelegatedAuthorization(
+                    alias=descriptor.alias,
+                    endpoint=descriptor.endpoint,
+                    authorization=header,
+                ),
+            )
+        elif header is not None:
+            raise InvalidRequest("Assistant não autoriza um MCP delegado")
+    elif header is not None:
+        raise InvalidRequest("delegação MCP indisponível")
     service: ChatService = request.app.state.chat_service
     if chat_request.stream:
         return await _stream(service, chat_request, principal)

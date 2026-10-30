@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, tzinfo
 from typing import Annotated, Literal, TypedDict
 
-from axon_ai.capabilities.api import Capabilities, ToolCall, ToolSession
+from axon_ai.capabilities.api import Capabilities, DelegatedAuthorization, ToolCall, ToolSession
 from axon_ai.graph.api import ExecutionGrant, ExecutionIssue, RagSettings
 from axon_ai.graph.domain.gate import Passage
 from axon_ai.graph.domain.images import ImagePlan
@@ -107,6 +107,7 @@ class AgentContext:
     trace: TraceSink
     grant: ExecutionGrant | None = None
     capabilities: Capabilities | None = None
+    mcp_delegation: DelegatedAuthorization | None = field(default=None, repr=False)
     tools: ToolSlot = field(default_factory=ToolSlot)
     rag: RagSettings | None = None
     escalate: bool = False

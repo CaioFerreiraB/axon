@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, tzinfo
 from typing import Protocol
 
-from axon_ai.capabilities.api import Capabilities
+from axon_ai.capabilities.api import Capabilities, DelegatedAuthorization
 from axon_ai.graph.api import ExecutionEvent, ExecutionGrant, RagSettings
 from axon_ai.graph.domain.images import ImagePlan
 from axon_ai.llm.api import ModelRouter
@@ -61,6 +61,7 @@ class ExecutionPlan:
     trace: TraceSink
     grant: ExecutionGrant | None = None
     capabilities: Capabilities | None = None
+    mcp_delegation: DelegatedAuthorization | None = field(default=None, repr=False)
     max_iterations: int | None = None
     max_context_tokens: int | None = None
     rag: RagSettings | None = None

@@ -379,3 +379,11 @@ o resumo.
 - [X] T042 `ChartInfo`, `chart_info` e `ToolCall.charts` na 009 (`observability/api.py`)
 - [X] T043 [P] Testes: marca fora do corte e dentro da cerca, dados fora do texto, repetição, título hostil, resumo no
   evento e marca na auditoria; testes de nomes públicos e do registro `tool_call` da 009 atualizados
+
+
+## Incremento ADR-055
+- [X] D01 Testes de propagação e regressão estática.
+- [X] D02 Canal confidencial de ToolContext a client_for.
+- [X] D03 Types/lint e regressões.
+
+Validação ADR-055: suítes MCP/gateway/motor/HTTP com Postgres temporário; testes novos de isolamento, API e canal confidencial; mypy, Ruff e 69 contratos import-linter aprovados. Testes de transporte e destinos estáticos preservados.

@@ -16,6 +16,7 @@ from types import MappingProxyType
 from typing import Final, Literal, Protocol
 
 from axon_ai.assistants.api import ExecutionGrant
+from axon_ai.capabilities.api import DelegatedAuthorization
 from axon_ai.llm.api import ModelRole
 from axon_ai_contracts import Attachment, Chart, Citation, JSONValue, Message
 
@@ -123,6 +124,7 @@ class ExecutionRequest:
     messages: Sequence[Message]
     stream: bool = True
     reference_time: datetime | None = None
+    mcp_delegation: DelegatedAuthorization | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         _require_text("request_id", self.request_id)

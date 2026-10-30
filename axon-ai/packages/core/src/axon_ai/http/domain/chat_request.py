@@ -9,11 +9,13 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from dataclasses import field as confidential_field
 from typing import Any, Final, Literal
 
 from axon_ai.assistants.api import WIDENING_FIELDS
 from axon_ai.http.domain.errors import InvalidRequest
 from axon_ai.http.domain.images import ImageLimits, read_messages
+from axon_ai.mcp.api import DelegatedAuthorization
 from axon_ai_contracts import Message
 
 CAPABILITY_FIELDS: Final = tuple(sorted(WIDENING_FIELDS))
@@ -55,6 +57,7 @@ class ChatRequestInvalid(InvalidRequest):
 class ChatRequest:
     """O que a API extrai do corpo e entrega ao serviço."""
 
+    mcp_delegation: DelegatedAuthorization | None = confidential_field(default=None, repr=False)
     model: str
     messages: tuple[Message, ...]
     stream: bool

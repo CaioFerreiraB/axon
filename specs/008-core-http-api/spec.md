@@ -438,3 +438,8 @@ visão; com um não admin, as rotas novas respondem o 404 de rota inexistente.
 - As interfaces são o Open WebUI (chat) e, opcional, a console de administração (013, Fase 9); nenhuma lógica de agente nem regra de negócio vive nelas (princípio XI, ADR-029).
 - O Open WebUI faz login no mesmo provedor OIDC que a 003 verifica e repassa o access token de cada usuário (`system_oauth`); o token precisa ter o emissor, a audiência e as claims de subject e grupos que a configuração da 003 lê. Desde a Fase 9, a instalação de referência (002) usa o provedor da própria plataforma (012, ADR-030) no lugar do Keycloak de desenvolvimento; um provedor externo continua possível.
 - Na instalação de referência, as tarefas auxiliares do Open WebUI (título, tags, sugestões de continuação, autocompletar) ficam desligadas; o operador que as religar sabe que cada uma é uma execução completa do Assistant e ocupa vaga da fila (FR-016).
+
+
+## Incremento: delegação MCP por execução (2026-10-29)
+
+Regido por [ADR-055](../../docs/adr/ADR-055-autenticacao-mcp-delegada.md). Protocolo 1: um MCP delegado por grant, identidade confidencial por execução, sem cache compartilhado e sem alteração da ACL. Contrato: [delegação](../007-core-mcp-integration/contracts/delegation.md). Casos D01 isolamento concorrente; D02 falha fechada; D03 metadados e superfície privada; D04 segredo ausente de persistência/trace; D05 regressão estática.

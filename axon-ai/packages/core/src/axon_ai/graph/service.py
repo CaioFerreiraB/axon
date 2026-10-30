@@ -93,6 +93,7 @@ class ExecutionService:
             reference_time=reference_time,
             question=question,
             messages=request.messages,
+            mcp_delegation=request.mcp_delegation,
             composition=grant.composition,
             hooks=self._hooks,
             router=router,

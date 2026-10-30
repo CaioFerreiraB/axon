@@ -83,6 +83,13 @@ def validate_draft(draft: McpServerDraft, *, scope: Scope, origin: Origin) -> Mc
         raise _reject("user_access", "precisa ser verdadeiro ou falso")
     if scope == "user" and draft.user_access:
         raise _reject("user_access", "só um MCP global pode ser liberado a usuários")
+    if draft.auth_type == "delegated" and (
+        scope != "global"
+        or transport != "http"
+        or draft.user_access
+        or not (draft.endpoint or "").startswith("https://")
+    ):
+        raise _reject("auth_type", "delegated exige MCP global HTTP HTTPS sem user_access")
     if not isinstance(draft.policy, SecurityPolicy):
         raise _reject("policy", "obrigatória")
     return draft
@@ -128,7 +135,7 @@ def _description(value: object) -> None:
 
 def _auth(auth_type: object, ref: object, *, scope: Scope, transport: Transport) -> None:
     if auth_type not in AUTH_TYPES:
-        raise _reject("auth_type", f"precisa ser none ou bearer: {auth_type!r}")
+        raise _reject("auth_type", f"precisa ser none, bearer ou delegated: {auth_type!r}")
     if scope == "user":
         if auth_type != "none":
             raise _reject("auth_type", "MCP de usuário não tem autenticação nesta fase")

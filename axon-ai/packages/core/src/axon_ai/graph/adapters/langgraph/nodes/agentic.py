@@ -100,6 +100,7 @@ async def open_session(state: AgentState, *, stage: str) -> tuple[ToolSession, l
     session = await ctx.capabilities.open(
         ctx.grant,
         ToolContext(
+            mcp_delegation=ctx.mcp_delegation,
             request_id=state["request_id"],
             reference_time=state["reference_time"],
             retrieval_filters=_retrieval_filters(state.get("packs", {})),

@@ -25,12 +25,12 @@ from axon_ai_contracts import JSONValue, ToolResult, ToolSpec
 
 type Scope = Literal["global", "user"]
 type Transport = Literal["http", "sse", "stdio"]
-type AuthType = Literal["none", "bearer"]
+type AuthType = Literal["none", "bearer", "delegated"]
 type Origin = Literal["file", "registry"]
 
 SCOPES: Final[tuple[Scope, ...]] = ("global", "user")
 TRANSPORTS: Final[tuple[Transport, ...]] = ("http", "sse", "stdio")
-AUTH_TYPES: Final[tuple[AuthType, ...]] = ("none", "bearer")
+AUTH_TYPES: Final[tuple[AuthType, ...]] = ("none", "bearer", "delegated")
 
 USER_PREFIX: Final = "~"
 """Prefixo reservado aos aliases de usuário (FR-015): os dois espaços de nomes nunca se cruzam."""
@@ -222,8 +222,42 @@ class Discovery:
 # ---------------------------------------------------------------------------------------------------------------------
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class McpDelegation:
+    alias: str
+    endpoint: str
+    version: int = 1
+
+
+class DelegatedAuthorization:
+    """Credencial opaca por execução (ADR-055). Não é dado serializável nem estado de conversa."""
+
+    __slots__ = ("alias", "authorization", "endpoint")
+    alias: str
+    endpoint: str
+    authorization: str
+
+    def __init__(self, *, alias: str, endpoint: str, authorization: str) -> None:
+        if not re.fullmatch(r"Bearer [\x21-\x7e]{1,4096}", authorization):
+            raise McpRejected("autorização MCP delegada inválida", field="X-Axon-MCP-Authorization")
+        object.__setattr__(self, "alias", alias)
+        object.__setattr__(self, "endpoint", endpoint)
+        object.__setattr__(self, "authorization", authorization)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        raise AttributeError("autorização imutável")
+
+    def __repr__(self) -> str:
+        return "DelegatedAuthorization(<confidential>)"
+
+    def __getstate__(self) -> object:
+        raise TypeError("autorização delegada não pode ser serializada")
+
+
 class McpRegistry(Protocol):
     """CRUD por escopo. Globais: autoridade do operador — quem confere o grupo de administração é a borda (008)."""
+
+    async def delegation_for(self, grant: ExecutionGrant) -> McpDelegation | None: ...
 
     async def globals(self) -> Sequence[McpServer]: ...
 
@@ -276,6 +310,8 @@ class RestrictedMcpClient(Protocol):
 
 
 class McpClients(Protocol):
-    def client_for(self, grant: ExecutionGrant) -> RestrictedMcpClient:
+    def client_for(
+        self, grant: ExecutionGrant, *, delegation: DelegatedAuthorization | None = None
+    ) -> RestrictedMcpClient:
         """O cliente de uma execução. Não faz I/O."""
         ...
