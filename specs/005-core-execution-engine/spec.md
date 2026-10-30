@@ -229,3 +229,8 @@ Quando o catálogo inclui a rotina de um pack, o controller pode invocá-la como
 - Na composição de vários packs em `rag_first`, a recuperação consulta os retrievers de todos os packs do grant e une os resultados por score; se isso se mostrar inadequado, a regra muda aqui sem afetar packs.
 - Defaults do hardware alvo: limite de iterações 3 quando o Assistant não declara outro (FR-006) e catálogo mínimo em contexto.
 - O limiar do portão de cobertura é calibrado na Fase 6 (spec 105), não aqui; até lá o default é não ter limiar, e o operador pode configurar um provisório.
+
+
+## Incremento: delegação MCP por execução (2026-10-29)
+
+Regido por [ADR-055](../../docs/adr/ADR-055-autenticacao-mcp-delegada.md). Protocolo 1: um MCP delegado por grant, identidade confidencial por execução, sem cache compartilhado e sem alteração da ACL. Contrato: [delegação](../007-core-mcp-integration/contracts/delegation.md). Casos D01 isolamento concorrente; D02 falha fechada; D03 metadados e superfície privada; D04 segredo ausente de persistência/trace; D05 regressão estática.

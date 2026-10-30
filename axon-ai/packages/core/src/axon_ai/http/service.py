@@ -396,7 +396,9 @@ class ChatService:
     @staticmethod
     def _execution_request(turn: _Turn, request: ChatRequest, request_id: str) -> ExecutionRequest:
         """A API **nunca** preenche a data de referência: avaliação fixa a data em processo (FR-012, ADR-013)."""
-        return ExecutionRequest(request_id=request_id, messages=turn.messages, stream=request.stream)
+        return ExecutionRequest(
+            request_id=request_id, messages=turn.messages, stream=request.stream, mcp_delegation=request.mcp_delegation
+        )
 
 
 def _queue_timeout() -> ExecutionIssue:

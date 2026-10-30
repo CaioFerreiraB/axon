@@ -98,6 +98,7 @@ def create_app(
     )
     app.state.authenticator = authenticator
     app.state.directory = directory
+    app.state.grants = grants
     app.state.keys = keys
     app.state.packs = packs
     app.state.admin = admin

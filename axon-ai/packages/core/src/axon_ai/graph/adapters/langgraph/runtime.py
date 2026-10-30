@@ -78,6 +78,7 @@ class LangGraphRuntime:
             trace=plan.trace,
             grant=plan.grant,
             capabilities=plan.capabilities,
+            mcp_delegation=plan.mcp_delegation,
             rag=plan.rag,
             escalate=plan.escalate,
             timezone=plan.timezone,

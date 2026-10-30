@@ -872,3 +872,12 @@ interativo pelo evento `embeds`.
 
 - [X] T128 Waterfall (ADR-053, R63): `_waterfall_option`, a tabela com variação e acumulado, as cores e a dica do
   `candlestick` no `axon-chart.js`; rótulos de categoria sem esconder; `-R$` no negativo prefixado; testes do domínio
+
+
+## Incremento ADR-055
+
+- [X] D01 Contratos e testes de delegação/isolamento antes do código.
+- [X] D02 Implementar os seams confidenciais e falha fechada deste módulo.
+- [X] D03 Validar regressões, types, lint e atualizar documentação operacional.
+
+Validação ADR-055: suítes MCP/gateway/motor/HTTP com Postgres temporário; testes novos de isolamento, API e canal confidencial; mypy, Ruff e 69 contratos import-linter aprovados. Testes de transporte e destinos estáticos preservados.

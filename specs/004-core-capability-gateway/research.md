@@ -264,3 +264,8 @@ não abre outra marca nem fecha a cerca. Na auditoria, uma tool de escrita que d
 **Alternatives considered**: os dados do gráfico no texto cercado (o modelo os repetiria ou redesenharia, e o corte os
 quebraria); uma coluna `charts` na auditoria (migração sem caso de uso); o gráfico como `Attachment` de outro tipo
 (quebraria o invariante "anexo é imagem" da 005 e da 008).
+
+
+## Delegação por execução (ADR-055)
+
+`ToolContext.mcp_delegation` propaga credencial confidencial ao cliente MCP restrito. Nenhuma credencial em prompts, argumentos, resultados ou eventos. Contrato em [delegation.md](../007-core-mcp-integration/contracts/delegation.md).

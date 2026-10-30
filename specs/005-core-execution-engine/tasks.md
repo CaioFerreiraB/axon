@@ -901,3 +901,12 @@ que ele foi mostrado.
 - [X] T109 [P] Testes: filtro em qualquer corte do streaming, outros blocos de código intactos, bloco sem fechar,
   leitura e erros; fluxo (`ChartEvent`, texto sem o bloco, inválido como registro, teto, `chat` sem aviso); ponta a
   ponta pela API com `embeds`
+
+
+## Incremento ADR-055
+
+- [X] D01 Contratos e testes de delegação/isolamento antes do código.
+- [X] D02 Implementar os seams confidenciais e falha fechada deste módulo.
+- [X] D03 Validar regressões, types, lint e atualizar documentação operacional.
+
+Validação ADR-055: suítes MCP/gateway/motor/HTTP com Postgres temporário; testes novos de isolamento, API e canal confidencial; mypy, Ruff e 69 contratos import-linter aprovados. Testes de transporte e destinos estáticos preservados.

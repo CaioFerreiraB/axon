@@ -63,7 +63,11 @@ class CapabilityService:
         self._limits = limits
 
     async def open(self, grant: ExecutionGrant, context: ToolContext) -> Session:
-        client = self._mcp.client_for(grant)
+        client = (
+            self._mcp.client_for(grant, delegation=context.mcp_delegation)
+            if context.mcp_delegation is not None
+            else self._mcp.client_for(grant)
+        )
         discovered: list[tuple[str, Sequence[ToolSpec]]] = []
         unavailable: dict[str, str] = {}
         # Um alias por vez: um que falhe — ou que deixou de ser visível — não derruba a descoberta dos outros (R3).

@@ -16,6 +16,7 @@ from types import MappingProxyType
 from typing import Final, Literal, Protocol
 
 from axon_ai.assistants.api import ExecutionGrant
+from axon_ai.mcp.api import DelegatedAuthorization as DelegatedAuthorization
 from axon_ai.observability.api import AttachmentInfo
 from axon_ai_contracts import Attachment, Chart, Chunk, JSONValue, ToolKind
 
@@ -64,6 +65,7 @@ class ToolContext:
 
     request_id: str
     reference_time: datetime
+    mcp_delegation: DelegatedAuthorization | None = field(default=None, repr=False)
     retrieval_filters: Mapping[str, Mapping[str, JSONValue]] = field(default_factory=lambda: MappingProxyType({}))
 
     def __post_init__(self) -> None:

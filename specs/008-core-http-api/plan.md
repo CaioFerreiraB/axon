@@ -656,3 +656,8 @@ Nenhuma linha nova.
 
 Reavaliado com [contracts/admin-api.md](contracts/admin-api.md), [data-model.md](data-model.md) e
 [quickstart.md](quickstart.md) ("Fase 9 (2026-10-21)"): **PASS**.
+
+
+## Incremento: delegação MCP por execução (2026-10-29)
+
+Regido por [ADR-055](../../docs/adr/ADR-055-autenticacao-mcp-delegada.md). Protocolo 1: um MCP delegado por grant, identidade confidencial por execução, sem cache compartilhado e sem alteração da ACL. Contrato: [delegação](../007-core-mcp-integration/contracts/delegation.md). Casos D01 isolamento concorrente; D02 falha fechada; D03 metadados e superfície privada; D04 segredo ausente de persistência/trace; D05 regressão estática.

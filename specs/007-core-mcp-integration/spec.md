@@ -183,3 +183,8 @@ O cliente bloqueia `localhost` e faixas de IP privadas para todo MCP (inclusive 
 - MCPs globais `http`/`sse` são registrados pela superfície privada (spec 008), e os `stdio`, pelo arquivo de configuração do operador; MCPs de usuário, pela superfície pública.
 - O registry usa armazenamento persistente a partir da Fase 3 (adapter Postgres; em memória antes).
 - Fora do escopo da Fase 3: autenticação de MCP de usuário (segredo por usuário cifrado ou OAuth). Até lá, MCP de usuário é sem autenticação (FR-014).
+
+
+## Incremento: delegação MCP por execução (2026-10-29)
+
+Regido por [ADR-055](../../docs/adr/ADR-055-autenticacao-mcp-delegada.md). Protocolo 1: um MCP delegado por grant, identidade confidencial por execução, sem cache compartilhado e sem alteração da ACL. Contrato: [delegação](../007-core-mcp-integration/contracts/delegation.md). Casos D01 isolamento concorrente; D02 falha fechada; D03 metadados e superfície privada; D04 segredo ausente de persistência/trace; D05 regressão estática.
