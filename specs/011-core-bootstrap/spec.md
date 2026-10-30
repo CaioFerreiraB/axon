@@ -298,3 +298,9 @@ configuração nomeando `AXON_PROFILE`; a suíte inteira do workspace passa com 
 - US7 (ADR-037): a passada renomeia de forma mecânica o import em todos os módulos do core, o workspace, os workflows da CI e os documentos vivos das specs 001–013 (`spec.md`, `design.md`, `contracts/`, `data-model.md`, `quickstart.md`) onde citam o core, o comando ou o prefixo — os de 004–007 sem ciclo próprio. Os `research.md`, `plan.md`, `tasks.md` e `checklists/` já executados ficam como estão. As specs `1xx` mudam na passada da 101: até lá, o pack depende do core pela tag `v0.3.0`, ainda com o nome antigo.
 - US7: `CLAUDE.md`, `.specify/templates/overrides/` e o `README.md` da raiz mudam no fechamento do renome (ADR-037, depois da passada da instalação); a instalação (`agentic-deploy`) continua presa à tag antiga até a passada dela.
 - US7: se a instalação definiu o próprio nome ou logotipo (`instance.custom` da 008, ADR-038) é decisão da passada da 008 sobre a configuração que a 011 já entrega.
+
+### Saúde de MCP delegado — integração ADR-055
+
+Um servidor delegado válido não degrada a plataforma pela ausência esperada de credencial na sonda
+sem usuário. A saúde agregada informa o limite da checagem; a execução continua falhando de forma
+fechada. Servidores desabilitados ou inválidos permanecem não saudáveis.

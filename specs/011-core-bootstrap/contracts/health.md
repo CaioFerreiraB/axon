@@ -45,3 +45,10 @@ verifica servidor MCP. Servidores de usuário não entram: são do usuário, e a
 - servidor que não anuncia uma tool da allowlist → item não saudável nomeando a tool;
 - registry que não lista → item `mcp` não saudável, não crítico;
 - consulta repetida dentro de 15 s não chama `check` de novo.
+
+### MCP delegado (ADR-055)
+
+A saúde agregada não possui identidade de execução. Para `auth_type=delegated`, valida apenas
+`available` e `enabled`, sem sondagem de rede, e informa que a conectividade é verificada por
+execução. Configuração inválida/desabilitada continua degradando a saúde. A checagem explícita
+`McpRegistry.check` continua recusando a ausência de autorização; não existe fallback estático.
