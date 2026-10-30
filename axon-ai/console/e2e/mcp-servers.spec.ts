@@ -35,3 +35,17 @@ test("cadastra e remove um servidor pela console", async ({ page }) => {
   await page.getByRole("alert").getByRole("button", { name: "Remover" }).click();
   await expect(row).toHaveCount(0);
 });
+
+test("a API real com MCP delegado não bloqueia a lista nem exige uma sondagem sem autorização", async ({ page }) => {
+  const probes: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/mcp/delegado/health")) probes.push(request.url());
+  });
+  await login(page, "/servidores-mcp");
+  const row = page.getByRole("row", { name: /delegado/ });
+  await expect(row.getByText("Por execução")).toBeVisible();
+  await expect(page.getByRole("row", { name: /planilhas/ })).toBeVisible();
+  await row.getByRole("button", { name: "Ver delegado, somente leitura" }).click();
+  await expect(page.getByText("Delegada por execução; sem credencial estática")).toBeVisible();
+  expect(probes).toEqual([]);
+});

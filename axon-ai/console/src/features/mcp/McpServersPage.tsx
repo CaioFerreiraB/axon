@@ -93,7 +93,7 @@ export default function McpServersPage() {
   const filter = (FILTERS.find((f) => f.value === params.get("filtro"))?.value ?? "todos") as Filter;
   const servers = useMcpServers();
   const globals = (servers.data ?? []).filter((server) => server.scope === "global");
-  const healths = useMcpHealths(globals.map((server) => server.alias));
+  const healths = useMcpHealths(globals);
   const assistants = useAssistants();
   const remove = useDeleteMcp();
   const [editing, setEditing] = useState<McpServer | "novo" | null>(null);
@@ -244,8 +244,8 @@ export default function McpServersPage() {
                   </td>
                   <td className={`${t.num} ${t.wideOnly}`}>{health && health.ok ? health.tools.length : "—"}</td>
                   <td>
-                    <Badge tone={state.ok ? "ok" : "bad"} dot>
-                      {state.ok ? "Disponível" : "Indisponível"}
+                    <Badge tone={!state.ok ? "bad" : server.auth.type === "delegated" ? "neutral" : "ok"} dot>
+                      {!state.ok ? "Indisponível" : server.auth.type === "delegated" ? "Por execução" : "Disponível"}
                     </Badge>
                     <span className={styles.usage}>
                       {state.reason

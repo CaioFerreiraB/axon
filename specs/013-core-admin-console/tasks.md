@@ -428,3 +428,10 @@ desse domínio, então o nginx repassa `/static/` ao core, como os outros prefix
   cache imutável, CORS, `nosniff`); `contracts/serving.md` com o prefixo
 - [X] `e2e/serving.spec.ts`: o locale do ECharts pelo nginx, 200, imutável, com CORS e sem a CSP da SPA — 5 passed com
   o nginx da instalação (`e2e/serve_nginx.sh`) e a plataforma do e2e
+
+## Correção de 2026-10-30: MCP delegado na console (ADR-055)
+
+- [X] T076 Reproduzir lista mista rejeitada e cobrir detalhes, edição sem downgrade e aba do Assistant.
+- [X] T077 Aceitar o contrato delegado e distinguir verificação por execução nos dois consumidores de saúde.
+- [X] T078 Validar typecheck, lint, Vitest e e2e contra API real: 153 testes de unidade e 5 e2e MCP passaram;
+  publicação segue a versão 0.7.0rc15.
