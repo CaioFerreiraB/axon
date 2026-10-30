@@ -675,3 +675,7 @@ paralelo com T077.
   `AXON_PUBLIC_URL` de reserva, ligação ao `create_app`; `contracts/configuration.md` (R57)
 - [X] T088 Item informativo `charts` na saúde agregada
 - [X] T089 [P] Testes: leitura, reserva, precedência e recusa da variável; a prova ponta a ponta sem rede
+
+### Integração de saúde com delegação MCP
+- [X] D01 Contrato: sonda agregada informa validação por execução; configuração inválida continua falhando.
+- [X] D02 Testes: nenhuma chamada de rede/credencial na sonda delegada, regressão dos MCPs estáticos.

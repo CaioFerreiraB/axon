@@ -193,11 +193,23 @@ class PlatformHealth:
         servers, failure = await self._attempt(self._mcp.globals())
         if servers is None:
             return (HealthItem(name="mcp", ok=False, detail=failure),)
-        aliases = tuple(dict.fromkeys(server.alias for server in servers))
-        return tuple(await asyncio.gather(*(self._mcp_item(alias) for alias in aliases)))
+        unique = {server.alias: server for server in servers}
+        return tuple(await asyncio.gather(*(self._mcp_item(server) for server in unique.values())))
 
-    async def _mcp_item(self, alias: str) -> HealthItem:
+    async def _mcp_item(self, server: McpServer) -> HealthItem:
+        alias = server.alias
         name = f"mcp:{alias}"
+        if server.auth_type == "delegated":
+            ok = server.available and server.enabled
+            return HealthItem(
+                name=name,
+                ok=ok,
+                detail=(
+                    "configuração válida; conectividade autenticada verificada por execução"
+                    if ok
+                    else server.reason or "desabilitado no registry"
+                ),
+            )
         result, failure = await self._attempt(self._mcp.check(alias)) if self._mcp else (None, None)
         if result is None:
             return HealthItem(name=name, ok=False, detail=failure or "sem resultado")
