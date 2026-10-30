@@ -80,3 +80,16 @@ describe("seção de permissões e chaves (ADR-040)", () => {
     expect(s.apiKeySchema.safeParse(semRotacao).success).toBe(false);
   });
 });
+
+describe("MCP delegado (ADR-055)", () => {
+  it("aceita lista mista e recusa modo desconhecido ou referência estática na delegação", () => {
+    const delegated = { ...f.servers[0], auth: { type: "delegated", credential: null } };
+    expect(s.mcpListSchema.safeParse({ data: [...f.servers, delegated] }).success).toBe(true);
+    expect(s.mcpServerSchema.safeParse({ ...delegated, auth: { type: "unknown", credential: null } }).success).toBe(
+      false,
+    );
+    expect(
+      s.mcpServerSchema.safeParse({ ...delegated, auth: { type: "delegated", credential: "static" } }).success,
+    ).toBe(false);
+  });
+});

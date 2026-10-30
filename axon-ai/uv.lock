@@ -202,7 +202,7 @@ wheels = [
 
 [[package]]
 name = "axon-ai"
-version = "0.7.0rc14"
+version = "0.7.0rc15"
 source = { editable = "packages/core" }
 dependencies = [
     { name = "argon2-cffi" },

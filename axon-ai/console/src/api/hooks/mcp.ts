@@ -2,6 +2,7 @@ import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/rea
 
 import { useApi } from "../ApiProvider";
 import { mcpHealthSchema, mcpListSchema, mcpServerSchema } from "../schemas";
+import type { McpServer } from "../schemas";
 import { keys } from "./keys";
 
 export type McpDraft = {
@@ -9,7 +10,7 @@ export type McpDraft = {
   transport: "http" | "sse";
   endpoint: string;
   description?: string;
-  auth?: { type: "none" | "bearer"; credential?: string };
+  auth?: { type: "none" | "bearer"; credential?: string } | { type: "delegated" };
   user_access?: boolean;
   policy: { allowed_tools: string[]; write_tools: string[] };
 };
@@ -20,12 +21,14 @@ export function useMcpServers() {
 }
 
 /** A saúde de cada servidor traz as tools descobertas (a aba MCP do Assistant as usa). */
-export function useMcpHealths(aliases: readonly string[]) {
+export function useMcpHealths(servers: readonly McpServer[]) {
   const api = useApi();
   return useQueries({
-    queries: aliases.map((alias) => ({
-      queryKey: keys.mcpHealth(alias),
+    queries: servers.map(({ alias, auth }) => ({
+      queryKey: [...keys.mcpHealth(alias), auth.type],
       queryFn: () => api.get(`/mcp/${encodeURIComponent(alias)}/health`, mcpHealthSchema),
+      // A console não possui a autorização confidencial de uma execução delegada.
+      enabled: auth.type !== "delegated",
       staleTime: 60_000,
       retry: false,
     })),
