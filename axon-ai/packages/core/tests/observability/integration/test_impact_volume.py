@@ -48,6 +48,10 @@ async def test_relatorio_de_400_dias_com_100_mil_chamadas(migrated_pool: Any) ->
         )
     for batch in range(0, len(rows), 10_000):
         await store.append(rows[batch : batch + 10_000], [])
+    # Em produção o autovacuum mantém as estatísticas; logo depois de uma carga em massa, sem elas, o planejador
+    # agrega por ordenação, e o tempo medido não é o de uma instalação em uso.
+    async with migrated_pool.connection() as connection:
+        await connection.execute("ANALYZE observability.model_calls")
     service = ImpactService(store=store, clock=FixedClock(START + timedelta(days=400)), estimator=estimator)
     query = ImpactQuery(start=date(2025, 10, 1), end=date(2026, 11, 4), tz="America/Sao_Paulo", grain="month")
     began = time.perf_counter()
