@@ -1,5 +1,7 @@
 /**
- * Custo, requisições ou tokens por dia, empilhados por modelo ou Assistant (013 FR-010, R2). SVG próprio com
+ * Custo, requisições ou tokens por dia, empilhados por modelo ou Assistant (013 FR-010, R2) — e, na página Meio
+ * ambiente, uma grandeza por balde de dia, semana, mês, trimestre ou semestre, empilhada por fase (FR-034): os rótulos do
+ * eixo, da dica e da tabela vêm de quem chama, e `day` é a chave do balde (o primeiro dia dele). SVG próprio com
  * `d3-scale`, nas regras da skill dataviz: barras de até 24 px, topo arredondado de 4 px e base reta, vão de 2 px entre segmentos, grade de
  * 1 px, marcos de mudança (preço novo, sobreposição gravada), dica pelo mouse e pelas setas do teclado, e a tabela
  * equivalente para leitores de tela.
@@ -108,6 +110,10 @@ export function placeMarkers<M extends { left: number; text: string }>(
 }
 
 const HEIGHT = 230;
+const EMPTY_TEXT = {
+  title: "Nenhuma chamada de modelo neste período",
+  text: "O uso aparece aqui assim que a primeira conversa acontecer.",
+};
 const AXIS_LEFT = 48;
 const AXIS_BOTTOM = 24;
 const BAR_MAX = 24;
@@ -146,6 +152,13 @@ export function DailyChart({
   axisFormat,
   integer = false,
   emptyDay,
+  axisLabel = formatDayMonth,
+  tooltipLabel = formatWeekdayDay,
+  rowHeader = "Dia",
+  emptyText = EMPTY_TEXT,
+  tooltipExtra,
+  labelStep,
+  height: baseHeight = HEIGHT,
 }: {
   stacks: DayStack[];
   series: Series[];
@@ -162,6 +175,20 @@ export function DailyChart({
   integer?: boolean;
   /** A dica de um dia sem valor: "Sem custo neste dia". */
   emptyDay: string;
+  /** O rótulo do eixo de um balde ("10/10", "S45", "nov/26"). */
+  axisLabel?: (day: string) => string;
+  /** O título da dica e da linha da tabela equivalente ("sex, 10/10", "S45 · 3–9 nov"). */
+  tooltipLabel?: (day: string) => string;
+  /** O cabeçalho da primeira coluna da tabela equivalente. */
+  rowHeader?: string;
+  /** O estado vazio, por cima da grade. */
+  emptyText?: { title: string; text: string };
+  /** Linhas depois do total na dica (faixa, chamadas). */
+  tooltipExtra?: (stack: DayStack) => { label: string; value: string }[];
+  /** De quantos em quantos baldes sai um rótulo no eixo; sem ele, 7 ou 14 dias. */
+  labelStep?: number;
+  /** Altura da área das barras e do eixo (sem a faixa dos marcos). */
+  height?: number;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(800);
@@ -227,7 +254,7 @@ export function DailyChart({
   );
   // A faixa dos rótulos fica acima do máximo do eixo: as barras mantêm a altura, e o gráfico cresce.
   const band = placedMarkers.length > 0 ? (Math.max(...placedMarkers.map((marker) => marker.row)) + 1) * LABEL_ROW : 0;
-  const height = HEIGHT + band;
+  const height = baseHeight + band;
   const plotHeight = height - AXIS_BOTTOM;
   const maxTotal = state === "data" ? Math.max(0, ...stacks.map((s) => s.total)) : 0;
   const top = niceMax(maxTotal);
@@ -240,7 +267,7 @@ export function DailyChart({
   );
   const barWidth = Math.min(BAR_MAX, x.bandwidth());
   const ticks = y.ticks(3).filter((tick) => !integer || Number.isInteger(tick));
-  const labelEvery = stacks.length > 45 ? 14 : 7;
+  const labelEvery = labelStep ?? (stacks.length > 45 ? 14 : 7);
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (stacks.length === 0) {
@@ -374,7 +401,7 @@ export function DailyChart({
                 y={height - 6}
                 textAnchor="middle"
               >
-                {formatDayMonth(stack.day)}
+                {axisLabel(stack.day)}
               </text>
             ) : null,
           )}
@@ -394,13 +421,13 @@ export function DailyChart({
         ))}
         {state === "empty" ? (
           <div className={styles.overlay}>
-            <p className={styles.overlayTitle}>Nenhuma chamada de modelo neste período</p>
-            <p className={styles.overlayText}>O uso aparece aqui assim que a primeira conversa acontecer.</p>
+            <p className={styles.overlayTitle}>{emptyText.title}</p>
+            <p className={styles.overlayText}>{emptyText.text}</p>
           </div>
         ) : null}
         {activeStack && state === "data" ? (
           <div className={styles.tooltip} style={{ left: tooltipLeft, top: band + 96 }} role="status">
-            <p className={styles.tooltipDay}>{formatWeekdayDay(activeStack.day)}</p>
+            <p className={styles.tooltipDay}>{tooltipLabel(activeStack.day)}</p>
             {activeStack.segments.length === 0 ? (
               <p>{emptyDay}</p>
             ) : (
@@ -419,6 +446,12 @@ export function DailyChart({
               <span>Total</span>
               <strong>{format(activeStack.total)}</strong>
             </div>
+            {tooltipExtra?.(activeStack).map((line) => (
+              <div key={line.label} className={styles.tooltipNote}>
+                <span>{line.label}</span>
+                <span>{line.value}</span>
+              </div>
+            ))}
           </div>
         ) : null}
       </div>
@@ -428,7 +461,7 @@ export function DailyChart({
           <caption>{caption}</caption>
           <thead>
             <tr>
-              <th scope="col">Dia</th>
+              <th scope="col">{rowHeader}</th>
               {series.map((entry) => (
                 <th key={entry.id} scope="col">
                   {entry.label}
@@ -441,7 +474,7 @@ export function DailyChart({
             {state === "data"
               ? stacks.map((stack) => (
                   <tr key={stack.day}>
-                    <th scope="row">{formatWeekdayDay(stack.day)}</th>
+                    <th scope="row">{tooltipLabel(stack.day)}</th>
                     {series.map((entry) => (
                       <td key={entry.id}>{format(stack.segments.find((s) => s.series.id === entry.id)?.value ?? 0)}</td>
                     ))}

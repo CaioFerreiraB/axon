@@ -24,7 +24,7 @@ from axon_ai.assistants.api import ADMIN_SURFACE, Conflict, NotFound, OverrideSe
 from axon_ai.http.adapters.auth import authenticated
 from axon_ai.http.adapters.chat import REQUEST_ID_HEADER, json_body
 from axon_ai.http.adapters.errors import ApiError, respond
-from axon_ai.http.domain import admin_accounts, admin_assistants, admin_observability, admin_usage
+from axon_ai.http.domain import admin_accounts, admin_assistants, admin_impact, admin_observability, admin_usage
 from axon_ai.http.domain.admin_common import only
 from axon_ai.http.domain.errors import admin_error_for, key_revoked
 from axon_ai.http.domain.private import health_json, issue_request, key_json
@@ -223,6 +223,16 @@ def admin_router(seams: AdminSeams, instance: InstanceBranding) -> APIRouter:
             dict(request.query_params), now=clock(request).now(), default_tz=seams.default_timezone
         )
         return admin_usage.report_json(await seams.usage.report(query))
+
+    @route("GET", "/impact")
+    async def impact(request: Request, principal: Principal) -> Any:
+        """Impacto ambiental estimado (009 US9; ADR-056)."""
+        query = admin_impact.impact_query(
+            dict(request.query_params), now=clock(request).now(), default_tz=seams.default_timezone
+        )
+        if seams.impact is None:
+            return admin_impact.disabled_json(query)
+        return admin_impact.impact_json(await seams.impact.report(query))
 
     @route("GET", "/prices")
     async def prices(request: Request, principal: Principal) -> Any:

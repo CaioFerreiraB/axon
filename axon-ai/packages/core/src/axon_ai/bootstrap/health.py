@@ -29,6 +29,7 @@ from axon_ai.http.ports import HealthItem, HealthReport
 from axon_ai.llm.api import ModelPolicy, ModelRef, ModelRouting
 from axon_ai.mcp.api import McpServer, ServerHealth
 from axon_ai.observability.api import DestinationHealth
+from axon_ai.observability.service import ImpactService
 from axon_ai.packs.api import PackRegistry, PackStatus
 
 CHECK_TIMEOUT: Final = 3.0
@@ -89,8 +90,10 @@ class PlatformHealth:
         identity: Callable[[], str | None] | None = None,
         destinations: DestinationProbe | None = None,
         charts: bool | None = None,
+        impact: Callable[[], Awaitable[str]] | None = None,
     ) -> None:
         self.report: BootReport | None = None
+        self._impact = impact
         self._charts = charts
         self._mcp = mcp
         self._identity = identity
@@ -111,8 +114,12 @@ class PlatformHealth:
         now = self._monotonic()
         if self._cached is not None and now - self._cached[0] < self._ttl:
             return self._cached[1]
-        database, assistants, models, mcp = await asyncio.gather(
-            self._database_items(), self._assistant_items(), self._model_items(), self._mcp_items()
+        database, assistants, models, mcp, impact = await asyncio.gather(
+            self._database_items(),
+            self._assistant_items(),
+            self._model_items(),
+            self._mcp_items(),
+            self._impact_items(),
         )
         report = HealthReport(
             items=(
@@ -125,6 +132,7 @@ class PlatformHealth:
                 *mcp,
                 *self._destination_items(),
                 *self._chart_items(),
+                *impact,
             )
         )
         self._cached = (now, report)
@@ -151,6 +159,13 @@ class PlatformHealth:
         if self._charts is None:
             return ()
         return (HealthItem(name="charts", ok=True, detail=None if self._charts else CHARTS_WITHOUT_URL),)
+
+    async def _impact_items(self) -> tuple[HealthItem, ...]:
+        """Informativo (ADR-056, item 7; R54): cobertura baixa ou a consulta que falha não são falha da instância."""
+        if self._impact is None:
+            return ()
+        detail, failure = await self._attempt(self._impact())
+        return (HealthItem(name="impact", ok=True, detail=detail or f"cobertura indisponível: {failure}"),)
 
     def _pack_items(self) -> tuple[HealthItem, ...]:
         return tuple(
@@ -277,3 +292,17 @@ def health_command(report: HealthReport, out: TextIO) -> int:
         print(line, file=out)
     print(f"status: {report.status}", file=out)
     return EXIT_CODES[report.status]
+
+
+async def impact_detail(service: ImpactService) -> str:
+    """`EcoLogits 0.11.3; 96,4% estimadas nas últimas 24 h (12 aproximadas)` — ou que a instalação desligou."""
+    if not service.enabled:
+        return "estimativa desligada pela instalação (AXON_IMPACT_ENABLED=false)"
+    coverage = await service.recent()
+    if coverage is None or coverage.eligible == 0:
+        return f"EcoLogits {service.version}; nenhuma chamada estimável nas últimas 24 h"
+    share = f"{coverage.fraction * 100:.1f}".replace(".", ",")
+    return (
+        f"EcoLogits {service.version}; {share}% estimadas nas últimas 24 h "
+        f"({coverage.approximate} aproximadas, {coverage.unestimated} sem estimativa)"
+    )

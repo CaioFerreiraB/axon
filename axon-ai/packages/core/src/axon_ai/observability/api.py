@@ -636,3 +636,163 @@ class TraceDestinations(Protocol):
     ) -> ConnectionCheck: ...
 
     def health(self) -> tuple[DestinationHealth, ...]: ...
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Incremento 9.6 (ADR-056; research R44 a R51): impacto ambiental estimado pelo EcoLogits
+# ---------------------------------------------------------------------------------------------------------------------
+
+type ImpactGrain = Literal["day", "week", "month", "quarter", "semester"]
+type ImpactMatch = Literal["exact", "approximate"]
+
+IMPACT_GRAINS: Final[tuple[ImpactGrain, ...]] = ("day", "week", "month", "quarter", "semester")
+DEFAULT_TREE_KG_CO2E: Final = 140.0
+"""CO₂e que uma árvore da Mata Atlântica fixa em 20 anos (Revista DAE, Programa Plante Árvore; ADR-056, item 5)."""
+TREE_YEARS: Final = 20
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ImpactQuery:
+    """Período em dias locais (inclusivos) no fuso `tz`, em baldes do grão, agrupado por modelo ou Assistant."""
+
+    start: date
+    end: date
+    tz: str = "UTC"
+    grain: ImpactGrain = "day"
+    by: UsageGrouping = "model"
+    origin: UsageOrigin = "production"
+
+    def __post_init__(self) -> None:
+        if self.start > self.end:
+            raise InvalidQuery("o início do período é depois do fim", field="start")
+        if self.grain not in IMPACT_GRAINS:
+            raise InvalidQuery(f"grão desconhecido: {self.grain!r}", field="grain")
+        if self.grain == "day" and self.days > MAX_REPORT_DAYS:
+            raise InvalidQuery(f"por dia, o período vai até {MAX_REPORT_DAYS} dias", field="grain")
+        if self.by not in ("model", "assistant"):
+            raise InvalidQuery(f"agrupamento desconhecido: {self.by!r}", field="by")
+        if self.origin not in ("production", "evaluation", "all"):
+            raise InvalidQuery(f"origem desconhecida: {self.origin!r}", field="origin")
+        if not self.tz.strip():
+            raise InvalidQuery("fuso vazio", field="tz")
+
+    @property
+    def days(self) -> int:
+        return (self.end - self.start).days + 1
+
+
+@dataclass(frozen=True, slots=True)
+class ImpactMetric:
+    """Uma grandeza com a faixa do EcoLogits; o valor exibido é a média dos extremos."""
+
+    min: float = 0.0
+    max: float = 0.0
+
+    @property
+    def mean(self) -> float:
+        return (self.min + self.max) / 2
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ImpactMetrics:
+    """Energia (kWh), aquecimento global (kgCO₂eq), recursos abióticos (kgSbeq), energia primária (MJ) e água (L); e
+    GWP, ADPe e PE por fase — a fabricação só existe para essas três."""
+
+    energy_kwh: ImpactMetric = ImpactMetric()
+    gwp_kgco2eq: ImpactMetric = ImpactMetric()
+    adpe_kgsbeq: ImpactMetric = ImpactMetric()
+    pe_mj: ImpactMetric = ImpactMetric()
+    wcf_l: ImpactMetric = ImpactMetric()
+    gwp_usage: ImpactMetric = ImpactMetric()
+    gwp_embodied: ImpactMetric = ImpactMetric()
+    adpe_usage: ImpactMetric = ImpactMetric()
+    adpe_embodied: ImpactMetric = ImpactMetric()
+    pe_usage: ImpactMetric = ImpactMetric()
+    pe_embodied: ImpactMetric = ImpactMetric()
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ImpactCoverage:
+    """Elegível = sem falha e com tokens de saída; estimada = elegível com estimativa (exata ou aproximada)."""
+
+    calls: int = 0
+    eligible: int = 0
+    estimated: int = 0
+    approximate: int = 0
+
+    @property
+    def unestimated(self) -> int:
+        return self.eligible - self.estimated
+
+    @property
+    def fraction(self) -> float:
+        return 1.0 if self.eligible == 0 else self.estimated / self.eligible
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ImpactRow:
+    """Impacto de uma chave (`provider/model` ou Assistant; `None` = fora de Assistant) num balde ou no período."""
+
+    key: str | None
+    impact_model: str | None = None
+    """O modelo do EcoLogits da chamada estimada mais recente da chave (`provedor/nome`)."""
+    match: ImpactMatch | None = None
+    calls: int = 0
+    responses: int = 0
+    estimated_responses: int = 0
+    estimated_output_tokens: int = 0
+    coverage: ImpactCoverage = ImpactCoverage()
+    metrics: ImpactMetrics = ImpactMetrics()
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ImpactBucket:
+    start: date
+    end: date
+    """Inclusivos e recortados ao período: o primeiro e o último balde podem ser parciais."""
+    calls: int = 0
+    responses: int = 0
+    estimated_responses: int = 0
+    metrics: ImpactMetrics = ImpactMetrics()
+    rows: tuple[ImpactRow, ...] = ()
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ImpactTotals:
+    metrics: ImpactMetrics = ImpactMetrics()
+    coverage: ImpactCoverage = ImpactCoverage()
+    responses: int = 0
+    estimated_responses: int = 0
+    estimated_output_tokens: int = 0
+    trees: float = 0.0
+    """Árvores para compensar: GWP médio (kg) ÷ fator da instalação."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ImpactReport:
+    query: ImpactQuery
+    enabled: bool = True
+    version: str | None = None
+    """Versão do EcoLogits do processo (as linhas antigas podem ter sido estimadas por outra)."""
+    tree_kg_co2e: float = DEFAULT_TREE_KG_CO2E
+    tree_years: int = TREE_YEARS
+    buckets: tuple[ImpactBucket, ...] = ()
+    rows: tuple[ImpactRow, ...] = ()
+    totals: ImpactTotals | None = None
+    previous: ImpactTotals | None = None
+    """O período de mesmo tamanho imediatamente antes, para a comparação."""
+    clipped_start: date | None = None
+    """Primeiro dia que a retenção ainda guarda, quando o período pedido começa antes dele."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class BackfillResult:
+    estimated: int = 0
+    unmatched: int = 0
+    failed: int = 0
+
+
+class ImpactReportSeam(Protocol):
+    """Relatório de impacto ambiental — consumido pela 008 (superfície de administração)."""
+
+    async def report(self, query: ImpactQuery) -> ImpactReport: ...

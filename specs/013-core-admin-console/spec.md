@@ -10,7 +10,8 @@
 e senha ou Google; modelos e MCPs de cada Assistant, sobrepondo o `assistants.yaml` quando a flag do YAML permite;
 dashboard de requisições, tokens e custo por modelo e por dia; Langfuse; ajustes de login; instalação com ou sem a
 interface. ADR-029, ADR-031, ADR-032, ADR-033, ADR-034. Fase 9, incremento 9.5 (2026-10-20): identidade Axon —
-ADR-037, ADR-038, ADR-039. Fase 9 (2026-10-21): chaves de API e acesso dos Assistants de sistema pela console — ADR-040.
+ADR-037, ADR-038, ADR-039. Fase 9 (2026-10-21): chaves de API e acesso dos Assistants de sistema pela console — ADR-040. Fase 9, incremento 9.6
+(2026-11-03): página Meio ambiente e emissões em Uso e custo — ADR-056.
 
 ## Module Boundary *(mandatory)*
 
@@ -34,7 +35,8 @@ ADR-037, ADR-038, ADR-039. Fase 9 (2026-10-21): chaves de API e acesso dos Assis
   [ADR-034](../../docs/adr/ADR-034-trace-com-destinos-e-conteudo-opcional.md),
   [ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md), [ADR-038](../../docs/adr/ADR-038-marca-da-plataforma-e-marca-da-instalacao.md),
   [ADR-039](../../docs/adr/ADR-039-hover-do-botao-primario-no-escuro.md),
-  [ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md).
+  [ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md),
+  [ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md).
 
 ## Clarifications
 
@@ -60,6 +62,13 @@ ADR-037, ADR-038, ADR-039. Fase 9 (2026-10-21): chaves de API e acesso dos Assis
 ### Session 2026-10-22
 
 - Q: Como a console mostra e muda o `vision` de um papel ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 10)? → A: Na aba Modelos, cada papel ganha a caixa "Enxerga imagens" na coluna da sobreposição (desligada sem modelo), com a dica de que a pergunta com imagem a um Assistant sem visão é recusada; o efetivo mostra o selo "Visão". A sobreposição de `models` é a seção inteira, então o `vision` vai junto: papel marcado sai como `{model, vision: true}`, o resto como o texto de sempre. O resumo da sobreposição e o histórico mostram "(visão)" no papel.
+
+### Session 2026-11-03
+
+- Q: Onde fica o impacto ambiental na console? → A: Numa página própria, "Meio ambiente" (`/meio-ambiente`), item do menu logo abaixo de "Uso e custo", com ícone de folha no traço dos outros; e na célula "Emissões" da faixa de Uso e custo, que leva a ela. O desenho é o mockup aprovado em 2026-11-03 no Penpot ("axon mockup": boards "Meio ambiente", "— carregando", "— vazio", "— erro", "— período personalizado", "— tablet" e "Uso e custo — com emissões", nas páginas Console — claro e Console — escuro).
+- Q: Que filtros a página tem? → A: Período (30 dias, 90 dias, 12 meses, ano atual ou personalizado com De e Até, numa caixa flutuante com Cancelar e Aplicar), agregação (Dia, Semana, Mês, Trimestre, Semestre) e origem (produção ou avaliação), na linha abaixo do título; padrão 30 dias por dia.
+- Q: Como a página mostra os números sem "verde ecológico"? → A: Como o resto da console (DESIGN.md): faixa de números sem ícone, séries só em `serie-1` (uso) e `serie-2` (fabricação), verde, âmbar e vermelho só como estado. O selo "Aproximado" usa o tom de aviso com bolinha, como "Sem preço". A tabela por modelo não leva amostras de cor, porque os gráficos são por fase, não por modelo.
+- Q: Como mostrar valores tão pequenos (gramas por resposta, frações de árvore)? → A: Com prefixo de unidade em pt-BR — `mg`/`g`/`kg CO₂e`, `Wh`/`kWh`, `mL`/`L`, `kJ`/`MJ`, `µg`/`mg`/`g Sb eq` — e árvores abaixo de 0,01 como "menos de 0,01"; o número principal da faixa leva a unidade menor que o valor.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -325,6 +334,44 @@ salvar; a visão efetiva traz o esquema e a entrada; o histórico registra a gra
 
 ---
 
+### User Story 11 - Ver o impacto ambiental (Priority: P2)
+
+O admin abre "Meio ambiente" e vê, para o período e a agregação que escolher: a faixa de resumo — Emissões (GWP) com a
+faixa mínimo–máximo, a variação sobre o período anterior e o aviso de estimativa parcial; Energia; Água; Árvores para
+compensar, com "Mata Atlântica, 20 anos" e o fator —; a faixa de intensidade — gCO₂e, energia e água por resposta,
+gCO₂e por mil tokens gerados e a cobertura da estimativa —; um gráfico por métrica (Emissões em largura total; Energia,
+Água, Energia primária e Recursos abióticos em grade), com uso e fabricação empilhados onde o EcoLogits estima as duas
+fases, e na dica de cada barra a média, a faixa e as chamadas; a tabela por modelo ou por Assistant com o modelo do
+EcoLogits usado e o selo "Aproximado"; e a nota de método. Em Uso e custo, a célula "Emissões" mostra o total do mesmo
+período e leva à página ([ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md); 008 US12).
+
+**Why this priority**: Pedido do mantenedor (2026-11-03); a medida existe para ser vista.
+
+**Independent Test**: Com a API simulada devolvendo um relatório de 90 dias por semana, abrir a página e conferir a faixa,
+os cinco gráficos, a tabela e a nota contra o relatório; trocar para Mês e ver os rótulos e a chamada nova; em Uso e
+custo, a célula Emissões com o mesmo período.
+
+**Acceptance Scenarios**:
+
+1. **Given** um relatório com estimativas, **When** o admin abre a página, **Then** vê a faixa de resumo, a de
+   intensidade, os cinco gráficos, a tabela e a nota de método, no fuso que a API informa, nos dois temas.
+2. **Given** a agregação trocada para Semana, Mês, Trimestre ou Semestre, **When** a página atualiza, **Then** os eixos e
+   as dicas usam o formato do grão ("S45 · 3–9 nov", "nov/26", "T4 2026", "2º sem 2026").
+3. **Given** "Personalizado", **When** o admin escolhe De e Até e aplica, **Then** o período e o subtítulo mudam; data
+   inválida ou Dia com mais de 366 dias aparece junto ao campo, com o motivo da API.
+4. **Given** um modelo casado por aproximação, **When** a tabela aparece, **Then** ele traz o modelo do EcoLogits com o
+   selo "Aproximado"; abaixo de 1100 px, o modelo do EcoLogits desce para baixo do nome.
+5. **Given** chamadas sem estimativa no período, **When** a página abre, **Then** a célula de Emissões avisa "Parcial"
+   com a porcentagem, e a cobertura diz quantas foram por aproximação.
+6. **Given** nenhuma chamada estimada, a API indisponível ou a estimativa desligada na instalação, **When** a página
+   abre, **Then** mostra o estado vazio, o erro com "Tentar de novo" ou a explicação de que a instalação desligou a
+   estimativa, conforme o caso.
+7. **Given** Uso e custo aberto, **When** o relatório de impacto do mesmo período chega, **Then** a célula Emissões
+   mostra o total e as árvores e leva à página Meio ambiente com o mesmo período; a faixa passa a 5 colunas, e a 2
+   abaixo de 1100 px.
+
+---
+
 ### Edge Cases
 
 - Dois admins editam o mesmo Assistant: quem salva por último recebe aviso de que houve mudança, pode recarregar e não
@@ -433,8 +480,12 @@ salvar; a visão efetiva traz o esquema e a entrada; o histórico registra a gra
   inexistente) e as que nunca casam com os esquemas ligados (sistema com "Chave de API" desligada); e DEVE impedir salvar
   com os dois esquemas desligados ou sem entradas, explicando o porquê, como a plataforma também recusa (003 FR-031).
 - **FR-031**: O histórico do Assistant DEVE mostrar as gravações e os descartes de acesso com os esquemas e as entradas, e
-- **FR-032**: A aba Modelos DEVE ler as duas formas de papel da API (`provider/modelo` e `{model, vision}`), permitir marcar `vision` por papel na sobreposição e mostrar o `vision` efetivo ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 10).
   a lista de Assistants DEVE contar `auth` nas marcas de "sobreposto", "sobreposição inativa" e "travado" (FR-004).
+- **FR-032**: A aba Modelos DEVE ler as duas formas de papel da API (`provider/modelo` e `{model, vision}`), permitir marcar `vision` por papel na sobreposição e mostrar o `vision` efetivo ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 10).
+- **FR-033**: A console DEVE ter a página "Meio ambiente" (`/meio-ambiente`), no menu abaixo de "Uso e custo", com os filtros de período (30 dias, 90 dias, 12 meses, ano atual, personalizado com De e Até), agregação (Dia, Semana, Mês, Trimestre, Semestre) e origem, lida só de `GET /admin/v1/impact` (008 FR-045) ([ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md)).
+- **FR-034**: A página DEVE mostrar a faixa de resumo (Emissões com faixa, variação e aviso de estimativa parcial; Energia; Água; Árvores para compensar com o fator), a faixa de intensidade (por resposta, por mil tokens gerados, cobertura), um gráfico por métrica com uso (`serie-1`) e fabricação (`serie-2`) empilhados onde existem as duas fases, dica por mouse e teclado com média, faixa e chamadas, e tabela equivalente para leitor de tela; a tabela por modelo ou Assistant com o modelo do EcoLogits e o selo "Aproximado"; e a nota de método com a versão do EcoLogits e o fator da árvore. Sem ícone nem cor decorativa (DESIGN.md).
+- **FR-035**: Os eixos e as dicas DEVEM usar o formato do grão, e os valores DEVEM ter prefixo de unidade em pt-BR (`mg`/`g`/`kg CO₂e`, `Wh`/`kWh`, `mL`/`L`, `kJ`/`MJ`, `µg`/`mg`/`g Sb eq`), com árvores abaixo de 0,01 como "menos de 0,01".
+- **FR-036**: A faixa de Uso e custo DEVE ganhar a célula "Emissões" — total de CO₂e e árvores do mesmo período, com o link "Meio ambiente" —, em 5 colunas, e 2 abaixo de 1100 px; sem impacto (estimativa desligada ou erro só do impacto), a célula diz isso sem afetar as outras.
 
 ### Key Entities
 
@@ -446,6 +497,8 @@ salvar; a visão efetiva traz o esquema e a entrada; o histórico registra a gra
 - **Ajustes do Langfuse**: endereço, chave pública, existência da chave secreta, envio ligado, captura de conteúdo, e a
   origem de cada campo (instalação, runtime ou padrão); estado do envio.
 - **Conta** e **Grupo**: como na 012.
+- **Relatório de impacto**: período, fuso, grão, agrupamento, baldes, totais e período anterior, linhas com modelo do
+  EcoLogits e casamento, cobertura, árvores e método.
 
 ## Success Criteria *(mandatory)*
 
@@ -464,6 +517,7 @@ salvar; a visão efetiva traz o esquema e a entrada; o histórico registra a gra
 - **SC-008**: Em 100% das telas, nos dois temas, a marca segue a FR-020 e o contraste atende AA (inclusive o hover do botão primário); zero ocorrências de "Agentic" e de `@agentic/console` no código, nos testes e nos documentos vivos da console (fora do histórico do ADR-037, item 6).
 - **SC-009**: Em teste, a chave em claro aparece só no diálogo da criação ou da rotação: depois de fechado, ela não está em nenhum texto da tela, na memória de dados da API nem no registro do navegador; criar uma chave e dar acesso a um sistema leva menos de 2 minutos sem tocar no `assistants.yaml`.
 - **SC-010**: Zero violações automáticas de WCAG 2.2 AA na tela de chaves, no diálogo da chave e na aba de acesso, nos dois temas, operáveis só pelo teclado.
+- **SC-011**: Zero violações automáticas de WCAG 2.2 AA na página Meio ambiente — com dados, vazia, com erro e com o período personalizado aberto —, nos dois temas e em 1440 e 768 px, operável só pelo teclado; os números da página batem 100% com o relatório da API.
 
 ## Assumptions
 

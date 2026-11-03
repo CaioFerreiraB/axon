@@ -410,3 +410,77 @@ axon-ai/packages/core/
 
 **Constitution Check — pós-design (US8)**: reavaliado com [contracts/ports.md](contracts/ports.md),
 [design.md](design.md) e [quickstart.md](quickstart.md) ("Fase 9, incremento 9.5"): **PASS**.
+
+## Passada de 2026-11-03: impacto ambiental (US9; [ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md))
+
+**Insumos lidos**: [spec.md](spec.md) (US9, FR-025–FR-030, SC-010, SC-011, clarificações de 2026-11-03),
+[design.md](design.md) (seção "Impacto ambiental"), ADR-034, ADR-036, ADR-056, constituição, o mockup aprovado da 013 e o
+código atual do uso (`domain/usage.py`, `adapters/usage.py`, `adapters/postgres.py`, `adapters/memory.py`). Research:
+R44–R51. **Sem divergência do `design.md`**; sem ADR novo além do 056.
+
+**Summary**: cada chamada de modelo elegível é estimada pelo EcoLogits no `flush` do destino de uso, e a estimativa
+(mínimo e máximo das cinco métricas e das três por fase, com modelo da base, casamento, zona, versão e avisos) é gravada
+na própria linha (`005_impacts.sql`). A resolução do nome é pura e mais estrita que a do LiteLLM (R45). O seam novo
+**Impact Report** agrega por dia, semana ISO, mês, trimestre ou semestre, com período anterior, cobertura, respostas
+estimadas e árvores; o preenchimento estima as linhas antigas.
+
+**Technical Context**: Python 3.14 (workspace); dependências novas `ecologits>=0.11.3,<0.12` (traz `pydantic`,
+`wrapt`, `packaging`) e `rapidfuzz>=3.12,<4`, só em `observability/adapters/` (import-linter). Storage: migração
+`005_impacts.sql` no schema `observability`. Performance: `emit` inalterado; estimativa no `flush` com cache de
+resolução; relatório de 400 dias e 100 mil chamadas < 1 s fora do grão `day` (SC-011). Testes: `pytest` (unidade,
+contrato contra o EcoLogits real — determinístico e sem rede —, conformidade memória × Postgres). Nenhum
+`NEEDS CLARIFICATION`.
+
+**Constitution Check (US9)**
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| II. Módulos substituíveis por seams | ✅ | Seam novo `ImpactReportSeam` (009 → 008) registrado em `specs/README.md`; `TraceSink` e `ModelCall` inalterados; a 006 não muda |
+| V. Determinismo antes de LLM | ✅ | Estimativa e resolução determinísticas; nenhum modelo julga nada |
+| VII. Falha fechada e explícita | ✅ | Falha da estimativa contada e visível; sem par vira "sem estimativa" na cobertura, nunca um modelo de outra família (R45); desligado é dito, não zero (FR-030) |
+| X. Medir antes de calibrar | ✅ | Estimativa declarada com faixa, versão e casamento; o corte 75 vem de medição (R45) |
+| XII. Simplicidade deliberada | ✅ | Colunas na linha existente, sem tabela nova nem agregados pré-calculados |
+| XIII. Portas e adapters | ✅ | `ImpactEstimator` (real e dublê); resolução, grãos e agregação puros em `domain/impact.py`; EcoLogits e `rapidfuzz` só no adapter |
+
+**Module boundary gate**: `axon_ai/observability/**`, `tests/observability/**`, `packages/core/pyproject.toml`
+(dependências) e `axon-ai/pyproject.toml` (import-linter, marca `us9`). Nada em `http/`, `bootstrap/` nem `llm/`
+(passadas da 008 e da 011). **Ports & adapters gate**: porta nova `ImpactEstimator` (não determinismo de biblioteca
+externa e troca prevista por outro método); `UsageStore` ganha três métodos com memória e Postgres. **Resultado**: PASS.
+
+**Project Structure (US9)**
+
+```text
+axon-ai/packages/core/src/axon_ai/observability/
+├── api.py                  # + ImpactGrain, ImpactQuery, ImpactMetrics, ImpactBucket, ImpactRow, ImpactCoverage,
+│                           #   ImpactReport, BackfillResult, ImpactReportSeam
+├── domain/
+│   ├── impact.py           # normalize, resolve (R45), bucket_start/buckets (R48), agregação de referência, relatório (R49)
+│   └── usage_records.py    # + ImpactEstimate, ModelCallRow.impact, ImpactCell, ImpactAggregate, UnestimatedCall
+├── ports.py                # + ImpactEstimator; UsageStore.impact/unestimated/set_impacts; DestinationStats.impact_failed
+├── service.py              # + ImpactService (report, recent, backfill)
+└── adapters/
+    ├── ecologits.py        # EcologitsEstimator (único import de ecologits e rapidfuzz)
+    ├── usage.py            # flush estima antes do append (R46)
+    ├── postgres.py         # colunas novas; impact(), unestimated(), set_impacts()
+    ├── memory.py           # as mesmas operações pelas fórmulas do domínio
+    └── sql/005_impacts.sql
+axon-ai/packages/core/tests/observability/
+├── unit/test_impact_domain.py
+├── contract/test_ecologits_estimator.py
+├── contract/test_impact_report.py            # memória × Postgres
+└── integration/test_impact_flush.py          # estimador que falha; backfill idempotente
+```
+
+**Seam Notes for Consumers (US9)**
+
+| Consumidor | O que precisa saber |
+|---|---|
+| 008 | `ImpactReportSeam.report(ImpactQuery) -> ImpactReport`; `InvalidQuery(field)` → 422 (`grain`, `start`, `end`, `tz`, `by`, `origin`); `enabled=False` → 200 sem números; floats a escrever como texto decimal; `method` com versão, fator e anos |
+| 011 | Montar `EcologitsEstimator(zone=AXON_IMPACT_ZONE)` nos três perfis quando `AXON_IMPACT_ENABLED`; `UsageDestination(…, estimator=…)`; `ImpactService(store=, clock=, estimator=EcologitsEstimator | None, tree_kg_co2e=, retention_days=)` (sem estimador = desligado); `EcologitsEstimator.known_zone(z)` para conferir a zona no boot; `ImpactService.recent()` para o item `impact`; `ImpactService.backfill(limit)` para `axon usage impact-backfill` |
+| 013 | Nada direto (lê pela 008) |
+
+**Complexity Tracking (US9)**: nenhuma linha nova.
+
+**Constitution Check — pós-design (US9)**: reavaliado com [data-model.md](data-model.md) ("Passada de 2026-11-03"),
+[contracts/usage-api.md](contracts/usage-api.md), [contracts/ports.md](contracts/ports.md) e
+[quickstart.md](quickstart.md): **PASS**.

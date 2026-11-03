@@ -2,13 +2,15 @@
 
 import { Link } from "react-router";
 
-import type { Provider, UsageReport } from "../../api/schemas";
+import type { ImpactReport, Provider, UsageReport } from "../../api/schemas";
 import {
   formatChange,
   formatCompact,
   formatDayMonth,
   formatInteger,
+  formatMeasure,
   formatRatio,
+  formatTrees,
   formatUsd,
   plural,
 } from "../../i18n/format";
@@ -23,7 +25,36 @@ type Props = {
   providers?: Provider[] | undefined;
   /** Modelos sem preço no período (`/prices/unpriced`): agrupado por Assistant, as linhas não são modelos. */
   unpriced?: string[] | undefined;
+  /** O impacto ambiental do mesmo período (013 FR-036; ADR-056): a quinta célula, que leva a Meio ambiente. */
+  impact?: { report?: ImpactReport | undefined; failed: boolean } | undefined;
 };
+
+/** A célula Emissões: o total de CO₂e e as árvores do período, ou o que impede de mostrá-los, sem afetar as outras. */
+function EmissionsCell({ impact }: { impact: NonNullable<Props["impact"]> }) {
+  const report = impact.report;
+  const link = report
+    ? `/meio-ambiente?periodo=personalizado&de=${report.query.from}&ate=${report.query.to}`
+    : "/meio-ambiente";
+  let value = <span className={styles.dash} aria-hidden="true" />;
+  let note = impact.failed ? "Indisponível" : "Carregando…";
+  if (report && !report.enabled) {
+    note = "Estimativa desligada na instalação";
+  } else if (report?.totals) {
+    value = <span className={styles.value}>{formatMeasure(report.totals.metrics.gwp_kgco2eq.mean, "co2")}</span>;
+    note = `${formatTrees(report.totals.trees)} árvore${Number(report.totals.trees) >= 2 ? "s" : ""}`;
+  }
+  return (
+    <div className={styles.cell}>
+      <span className={styles.label}>Emissões</span>
+      {value}
+      <span className={styles.note}>{note}</span>
+      <Link to={link} className={styles.more}>
+        Meio ambiente
+        <Icon name="direita" size={14} />
+      </Link>
+    </div>
+  );
+}
 
 /** Os modelos que pedem preço: os sem preço cujo provider não informa o custo (ADR-036). */
 function needingPrice(
@@ -38,11 +69,12 @@ function needingPrice(
   return models ? models.filter((model) => !reportsCost(model, providers)).length : null;
 }
 
-export function StatStrip({ report, state, providers, unpriced: unpricedModels }: Props) {
+export function StatStrip({ report, state, providers, unpriced: unpricedModels, impact }: Props) {
+  const stripClass = impact ? `${styles.strip} ${styles.five}` : styles.strip;
   if (state !== "data" || !report) {
     const note = state === "loading" ? "Carregando…" : "Indisponível";
     return (
-      <section className={styles.strip} aria-label="Totais do período" aria-busy={state === "loading"}>
+      <section className={stripClass} aria-label="Totais do período" aria-busy={state === "loading"}>
         {["Custo do período", "Requisições", "Chamadas de modelo", "Tokens"].map((label, index) => (
           <div key={label} className={styles.cell}>
             <span className={styles.label}>{label}</span>
@@ -54,6 +86,7 @@ export function StatStrip({ report, state, providers, unpriced: unpricedModels }
             )}
           </div>
         ))}
+        {impact ? <EmissionsCell impact={impact} /> : null}
       </section>
     );
   }
@@ -71,7 +104,7 @@ export function StatStrip({ report, state, providers, unpriced: unpricedModels }
       : null;
   const empty = calls === 0;
   return (
-    <section className={styles.strip} aria-label="Totais do período">
+    <section className={stripClass} aria-label="Totais do período">
       <div className={styles.cell}>
         <span className={styles.label}>Custo do período</span>
         <span className={`${styles.value} ${styles.hero}`}>{formatUsd(report.total_cost ?? "0")}</span>
@@ -117,6 +150,7 @@ export function StatStrip({ report, state, providers, unpriced: unpricedModels }
           </span>
         )}
       </div>
+      {impact ? <EmissionsCell impact={impact} /> : null}
     </section>
   );
 }

@@ -110,6 +110,7 @@ REQUIRED_PORTS: Final = (
     "price_store",
     "destination_settings",
     "langfuse_transport",
+    "impact_estimator",
 )
 """Portas secundárias que um perfil precisa atender, **na ordem de construção**. Acrescentar uma porta é acrescentar
 uma linha aqui. As seis depois de `oidc` são as da 007 e da 004 (Fase 3, research R22); `llm_secrets` vem antes de

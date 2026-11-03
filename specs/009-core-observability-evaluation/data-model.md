@@ -259,3 +259,40 @@ Erros novos: `InstallationDefined(field)`, `MasterKeyMissing`, `InvalidPrice(fie
 | `prices` | (`provider`, `model`, `effective_from`) | `usd_per_mtok_in numeric(12,6)`, `usd_per_mtok_out numeric(12,6)`, `created_by`, `created_at` |
 | `destination_settings` | `id = 1` | `langfuse_enabled`, `langfuse_host`, `langfuse_public_key`, `langfuse_secret_sealed bytea`, `capture_content`, `version`, `updated_by`, `updated_at` |
 | `schema_version` | `version` | padrão |
+
+## Passada de 2026-11-03: impacto ambiental (US9; ADR-056; research R44–R51)
+
+### Domínio (`domain/usage_records.py`, reexportado por `ports.py`)
+
+| Nome | Campos |
+|---|---|
+| `ImpactEstimate` | `model: str` (`provedor/nome` do EcoLogits), `match: Literal["exact", "approximate"]`, `zone: str` (ISO alpha-3), `version: str`, `warnings: tuple[str, ...]` (códigos) e `values: Mapping[str, float]` com as 22 chaves de `IMPACT_COLUMNS` (`<métrica>_min`/`<métrica>_max` de `energy_kwh`, `gwp_kgco2eq`, `adpe_kgsbeq`, `pe_mj`, `wcf_l`, `gwp_usage`, `gwp_embodied`, `adpe_usage`, `adpe_embodied`, `pe_usage`, `pe_embodied`; falta de chave → `ValueError`) |
+| `ModelCallRow` | + `impact: ImpactEstimate \| None = None`, `impact_tried: bool = False` (`True` com `impact=None` = sem par, `impact_match='none'`) |
+| `ImpactCell` | `bucket: date`, `key: str \| None`, `calls`, `eligible`, `estimated`, `approximate`, `estimated_output_tokens`, `sums: Mapping[str, float]` (as 22 colunas) |
+| `ImpactAggregate` | `cells`, `bucket_responses: Mapping[date, tuple[int, int]]` (todas, estimadas), `key_responses: Mapping[str \| None, tuple[int, int]]`, `key_models: Mapping[str \| None, tuple[str, str]]` (modelo e casamento mais recentes), `responses: tuple[int, int]` |
+| `UnestimatedCall` | `id: int`, `provider`, `model`, `output_tokens`, `duration_ms` |
+
+Regras: elegível = `not failed and output_tokens > 0`; estimada = elegível com `impact`; a média de cada métrica é
+`(min + max) / 2`; os totais somam mínimos e máximos separadamente.
+
+### Seam (`api.py`)
+
+| Nome | Campos |
+|---|---|
+| `ImpactGrain` | `Literal["day", "week", "month", "quarter", "semester"]` |
+| `ImpactQuery` | `start: date`, `end: date` (inclusivos), `tz`, `grain = "day"`, `by: UsageGrouping = "model"`, `origin: UsageOrigin = "production"`; `__post_init__`: `start > end` → `InvalidQuery("start")`; `grain == "day"` e mais de 366 dias → `InvalidQuery("grain")`; grão, agrupamento ou origem desconhecidos → `InvalidQuery` com o campo |
+| `ImpactMetric` | `min: float`, `max: float`; `mean` (propriedade) |
+| `ImpactMetrics` | `energy_kwh`, `gwp_kgco2eq`, `adpe_kgsbeq`, `pe_mj`, `wcf_l` e `gwp_usage`, `gwp_embodied`, `adpe_usage`, `adpe_embodied`, `pe_usage`, `pe_embodied`, cada um `ImpactMetric` |
+| `ImpactCoverage` | `calls`, `eligible`, `estimated`, `approximate`; `unestimated` = `eligible − estimated`; `fraction` = `estimated / eligible` (1 com zero elegíveis) |
+| `ImpactBucket` | `start: date`, `end: date` (recortados ao período), `calls`, `responses`, `estimated_responses`, `metrics: ImpactMetrics`, `rows: tuple[ImpactRow, ...]` |
+| `ImpactRow` | `key: str \| None`, `impact_model: str \| None`, `match: Literal["exact", "approximate"] \| None`, `calls`, `responses`, `estimated_responses`, `estimated_output_tokens`, `coverage: ImpactCoverage`, `metrics: ImpactMetrics` |
+| `ImpactTotals` | `metrics`, `coverage`, `responses`, `estimated_responses`, `estimated_output_tokens`, `trees: float` (GWP médio ÷ fator) |
+| `ImpactReport` | `query`, `enabled: bool`, `version: str \| None`, `tree_kg_co2e: float`, `tree_years: int = 20`, `buckets`, `rows`, `totals: ImpactTotals \| None`, `previous: ImpactTotals \| None`, `clipped_start: date \| None` (período recortado à retenção) |
+| `BackfillResult` | `estimated`, `unmatched`, `failed` |
+
+### Tabela (`observability.model_calls`, migração `005_impacts.sql`)
+
+`impact_model text`, `impact_match text` (`exact`, `approximate`, `none`; nulo = nunca tentado), `impact_zone text`,
+`ecologits_version text`, `impact_warnings text[]`, e 22 `double precision`: `energy_kwh_{min,max}`,
+`gwp_kgco2eq_{min,max}`, `adpe_kgsbeq_{min,max}`, `pe_mj_{min,max}`, `wcf_l_{min,max}`,
+`{gwp,adpe,pe}_{usage,embodied}_{min,max}`. Índice parcial `model_calls_unestimated` (R47).

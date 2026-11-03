@@ -10,16 +10,27 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
-from axon_ai.observability.api import ConnectionCheck, Price, TraceRecord, UsageGrouping, UsageOrigin
+from axon_ai.observability.api import (
+    ConnectionCheck,
+    ImpactGrain,
+    Price,
+    TraceRecord,
+    UsageGrouping,
+    UsageOrigin,
+)
 from axon_ai.observability.domain.settings import DestinationSettings, LangfuseCredentials
 from axon_ai.observability.domain.usage_records import (
     DailyRequests,
     DailyTokens,
     DayRequests,
     ExecutionRow,
+    ImpactAggregate,
+    ImpactCell,
+    ImpactEstimate,
     KeyRequests,
     ModelCallRow,
     Origin,
+    UnestimatedCall,
     UsageAggregate,
 )
 
@@ -29,10 +40,14 @@ __all__ = [
     "DayRequests",
     "DestinationSettings",
     "ExecutionRow",
+    "ImpactAggregate",
+    "ImpactCell",
+    "ImpactEstimate",
     "KeyRequests",
     "LangfuseCredentials",
     "ModelCallRow",
     "Origin",
+    "UnestimatedCall",
     "UsageAggregate",
 ]
 
@@ -75,6 +90,8 @@ class DestinationStats:
     dropped_at: tuple[datetime, ...] = ()
     last_error: str | None = None
     last_sent_at: datetime | None = None
+    impact_failed: int = 0
+    """Estimativas de impacto que levantaram no destino de uso (research R46); as linhas gravaram sem impacto."""
 
 
 class TraceDestination(Protocol):
@@ -109,6 +126,21 @@ class UsageStore(Protocol):
         ...
 
     async def purge(self, *, before: datetime) -> int: ...
+
+    async def impact(
+        self, *, start: datetime, end: datetime, tz: str, grain: ImpactGrain, by: UsageGrouping, origin: UsageOrigin
+    ) -> ImpactAggregate:
+        """Impacto por balde do grão, no dia local do fuso `tz`, para chamadas em `[start, end)` (research R49)."""
+        ...
+
+    async def unestimated(self, limit: int, *, after: int = -1) -> tuple[UnestimatedCall, ...]:
+        """Chamadas elegíveis nunca estimadas (`impact_match` nulo) com `id` maior que `after`, pela ordem de gravação
+        (research R50): o cursor deixa o preenchimento passar pelas que falharam sem voltar a elas."""
+        ...
+
+    async def set_impacts(self, items: Sequence[tuple[int, ImpactEstimate | None]]) -> None:
+        """Grava a estimativa — ou o marcador de sem par, com `None` — só onde ainda não houve tentativa."""
+        ...
 
 
 class PriceStore(Protocol):
@@ -151,3 +183,22 @@ class LangfuseTransport(Protocol):
     async def flush(self) -> None: ...
 
     def shutdown(self) -> None: ...
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Incremento 9.6 (contracts/ports.md, "Passada de 2026-11-03"; ADR-056)
+# ---------------------------------------------------------------------------------------------------------------------
+
+
+class ImpactEstimator(Protocol):
+    """Estimativa do impacto ambiental de uma chamada de modelo (research R44)."""
+
+    @property
+    def version(self) -> str:
+        """Versão do método (a do EcoLogits), gravada com cada estimativa."""
+        ...
+
+    def estimate(self, provider: str, model: str, output_tokens: int, latency_s: float) -> ImpactEstimate | None:
+        """`None` quando o modelo não tem par na base ou o método recusa a chamada. PODE levantar: quem chama conta e
+        grava a linha sem impacto."""
+        ...

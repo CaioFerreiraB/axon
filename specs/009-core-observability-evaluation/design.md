@@ -1,7 +1,7 @@
 # Design — 009 Observability & Evaluation
 
 > Insumo técnico pré-aprovado para `/speckit-plan`. Origem: arch-v1 §29, §27; ADR-007, ADR-012, ADR-013; Fase 9:
-> ADR-033, ADR-034 e o plano da Fase 9 (2026-10-13).
+> ADR-033, ADR-034 e o plano da Fase 9 (2026-10-13); incremento 9.6: ADR-056.
 
 ## Localização
 
@@ -88,6 +88,31 @@ mestra, gravar a secreta é recusado.
 `ModelCall`; o destino os pareia pela ordem. Redação de credenciais e corte por mensagem (16 KB). JSONL e memória nunca o
 recebem — teste de conformidade dos destinos.
 
+## Impacto ambiental (incremento 9.6, [ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md))
+
+- **Onde estima.** No `flush` do destino de uso (`adapters/usage.py`), antes do `append`: cada `ModelCallRow` sem falha
+  e com `output_tokens` passa pela porta `ImpactEstimator`; a falha de uma estimativa é contada (`impact_failed`) e a
+  linha grava sem impacto. Nada muda no `emit`.
+- **Domínio puro (`domain/impact.py`).** A normalização e a resolução de nomes (exato, aproximado com nota ≥ 75 e mesma
+  família, sem par) sobre a lista `(provedor, nome)` que o adapter fornece; `bucket_start(day, grain)` para semana ISO
+  (segunda), mês, trimestre e semestre (janeiro e julho); a agregação em memória (o espelho do SQL); a média
+  `(mín + máx) / 2`; árvores = GWP médio ÷ fator. A similaridade entra por uma função injetada, para o domínio não
+  importar `rapidfuzz`.
+- **Adapter (`adapters/ecologits.py`).** `EcologitsEstimator`: único import de `ecologits` e `rapidfuzz`; a lista de
+  modelos vem de `models.list_models()`; a resolução é guardada num cache por (provider, model); chama `llm_impacts(...)`
+  com a zona de `AXON_IMPACT_ZONE` ou a do provedor; converte `RangeValue` e `float` em mínimo e máximo; com `errors`,
+  devolve `None`; silencia o logger `ecologits` e guarda os `warnings` na estimativa. Valores de referência (0.11.3):
+  `gpt-4.1-mini`, 500 tokens, 3 s → 0,03–0,10 g CO₂e e 0,08–0,26 Wh.
+- **Armazenamento.** Migração `005_impacts.sql` em `observability.model_calls`: `impact_model`, `impact_match`,
+  `impact_zone`, `ecologits_version`, `impact_warnings text[]` e 22 colunas `double precision` —
+  `energy_kwh_{min,max}`, `gwp_kgco2eq_{min,max}`, `adpe_kgsbeq_{min,max}`, `pe_mj_{min,max}`, `wcf_l_{min,max}` e
+  `{gwp,adpe,pe}_{usage,embodied}_{min,max}`. Consulta agrupada pelo dia local (`(at AT TIME ZONE tz)::date`) e
+  `date_trunc` do grão (semestre por `make_date(ano, CASE WHEN mês <= 6 THEN 1 ELSE 7 END, 1)`); somas com
+  `FILTER (WHERE impact_model IS NOT NULL)`; respostas por `count(DISTINCT request_id)`. A memória usa as fórmulas do
+  domínio.
+- **Serviço.** `ImpactService.report(query)`, com o período anterior de mesmo tamanho, e `backfill(limit)` sobre
+  `UsageStore.unestimated(limit)` e `UsageStore.set_impacts(...)`.
+
 ## Harness de avaliação
 
 A versão v0 afirmava corretamente que os números do RAG "devem ser calibrados empiricamente" — sem harness, não há empiria.
@@ -136,11 +161,13 @@ qualidade em português · tool calling · fidelidade em RAG
 | Consulta de trace | primária (seam) | `observability/service.py` | por `request_id` |
 | `TraceExporter` | secundária | arquivo (Fase 1); Fase 9: lista de destinos (principal, uso, Langfuse), cada um com `accepts_content` | em memória; falha de um destino não interrompe a execução nem os outros |
 | Usage Report, Price Book, Trace Destinations | primária (seams, Fase 9) | `observability/service.py` | relatório contra chamadas emitidas; precedência de ajustes; segredo só de escrita |
-| `UsageStore` | secundária (Fase 9) | memória → Postgres | conformidade memória + Postgres (fuso, vigência de preço) |
+| `UsageStore` | secundária (Fase 9) | memória → Postgres | conformidade memória + Postgres (fuso, vigência de preço; no 9.6, impacto por grão, `unestimated` e `set_impacts`) |
 | `PriceStore` | secundária (Fase 9) | memória → Postgres | conformidade memória + Postgres |
 | `DestinationSettingsStore` | secundária (Fase 9) | memória → Postgres | conformidade memória + Postgres |
 | `SecretCipher` | secundária (Fase 9) | AES-GCM + HKDF | chave fixa de teste |
 | `LangfuseTransport` | secundária (Fase 9) | OTLP/HTTP (ou API de ingestão) | Langfuse simulado; travado não bloqueia |
+| Impact Report | primária (seam, incremento 9.6) | `observability/service.py` (`ImpactService`) | relatório contra estimativas gravadas, nos cinco grãos |
+| `ImpactEstimator` | secundária (incremento 9.6) | EcoLogits (`adapters/ecologits.py`); dublê fixo nas suítes | exato, aproximado e sem par; falha isolada no `flush` |
 | `Clock` | secundária | sistema | relógio fixo |
 | Eval Harness | adapter primário sobre `ExecutionEngine` (005) | `eval/service.py` + CLI | conjunto dourado mínimo contra o pack de referência |
 | `BaselineStore` | secundária | arquivo versionado | em memória |

@@ -915,3 +915,28 @@ servidor que o operador escolheu; a do usuário, de qualquer cliente).
 - Exigir o endereço sempre: quebraria as instalações só de API.
 - O item `charts` com `ok: false` não crítico: degrada a saúde, como visto acima.
 - Montar o endereço a partir do `Host` do pedido: atrás do proxy, o core vê o endereço interno.
+
+## Passada de 2026-11-03: impacto ambiental na montagem ([ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md); US8)
+
+### R54 — A porta `impact_estimator`, as variáveis e o item `impact`
+
+- **Decision**: `impact_estimator` entra em `REQUIRED_PORTS` depois de `langfuse_transport`; a fábrica
+  `observability.impact_estimator` (a mesma nos três perfis, por `memory_ports()`/`postgres_ports()`) devolve
+  `EcologitsEstimator(zone=AXON_IMPACT_ZONE)` ou `None` com `AXON_IMPACT_ENABLED=false`. `trace_parts` passa o estimador
+  ao `UsageDestination` e monta `ImpactService` (fator `AXON_IMPACT_TREE_KG_CO2E`, retenção
+  `AXON_USAGE_RETENTION_DAYS`), que vai a `parts["impact"]`, `Platform.impact` e `AdminSeams.impact`. `Settings`
+  recusa fator não positivo e zona que `EcologitsEstimator.known_zone` não conhece (só com a estimativa ligada),
+  nomeando a variável. A saúde ganha o item **informativo** `impact` (sempre `ok`): versão, porcentagem estimada das
+  últimas 24 h, aproximadas e sem estimativa, ou "estimativa desligada"; a consulta que falha vira "cobertura
+  indisponível", sem derrubar nada. Na linha de comando, o item lê o armazenamento da sessão (R13).
+- **Rationale (ADR-056, item 7; FR-031)**: o EcoLogits é determinístico e não usa rede, então o `test` usa o real —
+  as suítes provam a estimativa de verdade (`ollama/gpt-4.1-mini` casa exato com `openai/gpt-4.1-mini`). Item
+  informativo pela mesma razão do `charts` (R57): cobertura baixa não é falha da instância.
+- **Alternatives**: estimador simulado no `test` (provaria menos e divergiria do real); item não crítico com falha
+  abaixo de um limiar (deixaria `axon health` com saída 1 numa instalação que só usa modelos locais sem par).
+
+### R55 — `axon usage impact-backfill`
+
+- **Decision**: entrada nova em `COMMANDS`; monta só configuração e adapters (sem rede), abre a sessão de
+  armazenamento, chama `ImpactService.backfill(limit)` (padrão 10 000) e imprime estimadas, sem par e com falha; saída
+  0, 1 se alguma falhou ou se a estimativa está desligada, 2 para `--limit` inválido.

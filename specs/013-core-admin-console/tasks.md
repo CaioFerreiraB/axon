@@ -435,3 +435,23 @@ desse domínio, então o nginx repassa `/static/` ao core, como os outros prefix
 - [X] T077 Aceitar o contrato delegado e distinguir verificação por execução nos dois consumidores de saúde.
 - [X] T078 Validar typecheck, lint, Vitest e e2e contra API real: 153 testes de unidade e 5 e2e MCP passaram;
   publicação segue a versão 0.7.0rc15.
+
+## Passada de 2026-11-03: Meio ambiente — US11 ([ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md); research R29, R30)
+
+- [X] T079 [US11] `axon-ai/console/src/api/schemas.ts` (`impactReportSchema`), `src/api/hooks/impact.ts`
+  (`useImpact`) e `keys.ts`
+- [X] T080 [P] [US11] `src/i18n/format.ts` (`measureParts`, `formatMeasure`, `measureFormatter`, `formatTrees`,
+  `formatPercent`) e `src/features/impact/grain.ts` (rótulos do grão, semana ISO)
+- [X] T081 [US11] `src/features/usage/DailyChart.tsx`: props opcionais para baldes (R29), sem mudar Uso e custo
+- [X] T082 [US11] `src/features/impact/ImpactPage.tsx`, `ImpactTable.tsx` e `ImpactPage.module.css`: filtros, período
+  personalizado, faixas, cinco gráficos, tabela com "Aproximado", nota de método e estados (desligado, vazio, erro)
+- [X] T083 [US11] `src/i18n/pt-BR.ts` (`NAV`), `src/ui/icons.tsx` (`folha`), `src/app/router.tsx` (`meio-ambiente`)
+- [X] T084 [US11] `src/features/usage/StatStrip.tsx`, `StatStrip.module.css` e `UsagePage.tsx`: a célula Emissões
+  (FR-036)
+- [X] T085 [P] [US11] `tests/msw/fixtures.ts` e `handlers.ts` (`/impact`, ordens de grandeza do EcoLogits);
+  `tests/impact/impact.test.tsx` (faixas, gráficos, grão, período personalizado com recusa no campo, desligado, vazio,
+  erro, célula Emissões)
+- [X] T086 [P] [US11] `e2e/impact.spec.ts`; `/meio-ambiente` (por dia e por semana) em `e2e/a11y.spec.ts`;
+  `e2e/serve_platform.py` estima o uso semeado com `ImpactService.backfill`
+- [X] T087 `npm run typecheck && npm run lint && npm test`; `npx playwright test` (impacto, a11y nos dois temas e no
+  tablet, uso, teclado); capturas comparadas com o mockup aprovado

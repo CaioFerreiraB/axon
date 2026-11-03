@@ -104,6 +104,37 @@ das chamadas sem custo informado (ADR-035). Um modelo só aparece em `unpriced` 
 Provider que informa o custo não ganha preço novo (ADR-036): as chamadas dele sem custo informado (anteriores ao ADR-035)
 ficam como custo não informado, e os preços já gravados continuam valendo para elas.
 
+## Impacto ambiental (009 US9; ADR-056)
+
+`GET /impact?from=2026-07-16&to=2026-10-13&tz=America/Sao_Paulo&grain=week&by=model&origin=production` →
+
+```json
+{"enabled": true,
+ "query": {"from": "2026-07-16", "to": "2026-10-13", "tz": "America/Sao_Paulo", "grain": "week", "by": "model",
+           "origin": "production"},
+ "method": {"ecologits_version": "0.11.3", "tree_kg_co2e": "140", "tree_years": 20},
+ "clipped_from": null,
+ "totals": {"metrics": {"gwp_kgco2eq": {"min": "0.21", "max": "0.63", "mean": "0.42"}, "energy_kwh": {…}, …},
+            "coverage": {"calls": 17900, "eligible": 17256, "estimated": 16612, "approximate": 1906,
+                         "unestimated": 644},
+            "responses": 9790, "estimated_responses": 9600, "estimated_output_tokens": 8700000, "trees": "0.003"},
+ "previous_totals": {…},
+ "buckets": [{"start": "2026-07-16", "end": "2026-07-19", "calls": 512, "responses": 280, "estimated_responses": 274,
+              "metrics": {…}, "rows": [{…}]}],
+ "rows": [{"key": "openrouter/z-ai/glm-5.3-flash", "impact_model": "mistralai/zai-glm-5-3", "match": "approximate",
+           "calls": 1980, "responses": 1090, "estimated_responses": 1090, "estimated_output_tokens": 980000,
+           "coverage": {…}, "metrics": {…}}]}
+```
+
+`metrics` tem as onze grandezas — `energy_kwh`, `gwp_kgco2eq`, `adpe_kgsbeq`, `pe_mj`, `wcf_l` e `gwp_usage`,
+`gwp_embodied`, `adpe_usage`, `adpe_embodied`, `pe_usage`, `pe_embodied` —, cada uma `{"min", "max", "mean"}` em texto
+decimal sem expoente, com 6 algarismos significativos (R65). Padrões: os últimos 30 dias no fuso da instalação,
+`grain=day`, `by=model`, `origin=production`. `grain` em `day`, `week` (ISO, segunda), `month`, `quarter`, `semester`;
+`day` vai até 366 dias (`422`, `param: "grain"`); nos outros grãos, o início antes da retenção é recortado e
+`clipped_from` diz o primeiro dia guardado. Outros parâmetros inválidos → `422` com `param` (`from`, `to`, `tz`, `by`,
+`origin`). Estimativa desligada pela instalação → `200` com `enabled: false`, `method.ecologits_version: null`,
+`totals`/`previous_totals` nulos e listas vazias.
+
 ## Observabilidade (009)
 
 | Rota | Corpo | Resposta |

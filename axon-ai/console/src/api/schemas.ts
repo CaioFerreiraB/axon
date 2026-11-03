@@ -218,6 +218,96 @@ export type Price = z.infer<typeof priceSchema>;
 export const priceListSchema = z.object({ data: z.array(priceSchema) });
 export const unpricedSchema = z.object({ data: z.array(z.string()) });
 
+// --- impacto ambiental (009 US9, ADR-056) ---------------------------------------------------------------------------
+
+const impactMetricSchema = z.object({ min: decimal, max: decimal, mean: decimal });
+export const IMPACT_METRICS = [
+  "energy_kwh",
+  "gwp_kgco2eq",
+  "adpe_kgsbeq",
+  "pe_mj",
+  "wcf_l",
+  "gwp_usage",
+  "gwp_embodied",
+  "adpe_usage",
+  "adpe_embodied",
+  "pe_usage",
+  "pe_embodied",
+] as const;
+export type ImpactMetricName = (typeof IMPACT_METRICS)[number];
+const impactMetricsSchema = z.object(
+  Object.fromEntries(IMPACT_METRICS.map((name) => [name, impactMetricSchema])) as Record<
+    ImpactMetricName,
+    typeof impactMetricSchema
+  >,
+);
+export type ImpactMetrics = z.infer<typeof impactMetricsSchema>;
+
+const impactCoverageSchema = z.object({
+  calls: z.number().int(),
+  eligible: z.number().int(),
+  estimated: z.number().int(),
+  approximate: z.number().int(),
+  unestimated: z.number().int(),
+});
+export type ImpactCoverage = z.infer<typeof impactCoverageSchema>;
+
+export const impactRowSchema = z.object({
+  key: z.string().nullable(),
+  impact_model: z.string().nullable(),
+  match: z.enum(["exact", "approximate"]).nullable(),
+  calls: z.number().int(),
+  responses: z.number().int(),
+  estimated_responses: z.number().int(),
+  estimated_output_tokens: z.number().int(),
+  coverage: impactCoverageSchema,
+  metrics: impactMetricsSchema,
+});
+export type ImpactRow = z.infer<typeof impactRowSchema>;
+
+const impactTotalsSchema = z.object({
+  metrics: impactMetricsSchema,
+  coverage: impactCoverageSchema,
+  responses: z.number().int(),
+  estimated_responses: z.number().int(),
+  estimated_output_tokens: z.number().int(),
+  trees: decimal,
+});
+export type ImpactTotals = z.infer<typeof impactTotalsSchema>;
+
+export const IMPACT_GRAINS = ["day", "week", "month", "quarter", "semester"] as const;
+export type ImpactGrain = (typeof IMPACT_GRAINS)[number];
+
+export const impactReportSchema = z.object({
+  enabled: z.boolean(),
+  query: z.object({
+    from: z.string(),
+    to: z.string(),
+    tz: z.string(),
+    grain: z.enum(IMPACT_GRAINS),
+    by: z.enum(["model", "assistant"]),
+    origin: z.enum(["production", "evaluation", "all"]),
+  }),
+  method: z.object({ ecologits_version: z.string().nullable(), tree_kg_co2e: decimal, tree_years: z.number().int() }),
+  clipped_from: z.string().nullable(),
+  totals: impactTotalsSchema.nullable(),
+  previous_totals: impactTotalsSchema.nullable(),
+  buckets: z.array(
+    z.object({
+      start: z.string(),
+      end: z.string(),
+      calls: z.number().int(),
+      responses: z.number().int(),
+      estimated_responses: z.number().int(),
+      metrics: impactMetricsSchema,
+      rows: z.array(impactRowSchema),
+    }),
+  ),
+  rows: z.array(impactRowSchema),
+});
+export type ImpactReport = z.infer<typeof impactReportSchema>;
+export type ImpactBucket = ImpactReport["buckets"][number];
+
 // --- observabilidade (009) ------------------------------------------------------------------------------------------
 
 export const destinationHealthSchema = z.object({

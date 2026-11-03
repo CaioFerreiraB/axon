@@ -17,11 +17,16 @@ from decimal import Decimal
 from typing import Any, Final, Protocol
 
 from axon_ai.observability.api import (
+    DEFAULT_TREE_KG_CO2E,
+    BackfillResult,
     Conflict,
     ConnectionCheck,
     DestinationHealth,
     DestinationSettingsView,
     DestinationState,
+    ImpactCoverage,
+    ImpactQuery,
+    ImpactReport,
     InstallationDefined,
     InvalidPrice,
     MasterKeyMissing,
@@ -35,6 +40,8 @@ from axon_ai.observability.api import (
     UsageReport,
 )
 from axon_ai.observability.domain.content import exchange_record
+from axon_ai.observability.domain.impact import build_impact_report
+from axon_ai.observability.domain.impact import window as impact_window
 from axon_ai.observability.domain.prices import check_amount, with_states
 from axon_ai.observability.domain.records import to_record
 from axon_ai.observability.domain.settings import (
@@ -50,6 +57,7 @@ from axon_ai.observability.ports import (
     Clock,
     DestinationSettingsStore,
     DestinationStats,
+    ImpactEstimator,
     LangfuseTransport,
     PriceStore,
     SealError,
@@ -238,6 +246,105 @@ class UsageService:
     async def purge(self, *, retention_days: int = DEFAULT_RETENTION_DAYS) -> int:
         """Retenção do uso (R34): tarefa diária da 011. Preços não expiram."""
         return await self._store.purge(before=self._clock.now() - timedelta(days=retention_days))
+
+
+# --- impacto ambiental (US9, ADR-056) ---------------------------------------------------------------------------------
+
+
+class ImpactService:
+    """`ImpactReportSeam` (contracts/usage-api.md, "Passada de 2026-11-03"), a cobertura recente para a saúde e o
+    preenchimento. Sem estimador, a estimativa está desligada pela instalação, e o relatório diz isso (FR-030)."""
+
+    def __init__(
+        self,
+        *,
+        store: UsageStore,
+        clock: Clock,
+        estimator: ImpactEstimator | None,
+        tree_kg_co2e: float = DEFAULT_TREE_KG_CO2E,
+        retention_days: int = DEFAULT_RETENTION_DAYS,
+    ) -> None:
+        self._store = store
+        self._clock = clock
+        self._estimator = estimator
+        self._tree = tree_kg_co2e
+        self._retention = retention_days
+
+    @property
+    def enabled(self) -> bool:
+        return self._estimator is not None
+
+    @property
+    def version(self) -> str | None:
+        return None if self._estimator is None else self._estimator.version
+
+    async def report(self, query: ImpactQuery) -> ImpactReport:
+        if self._estimator is None:
+            return ImpactReport(query=query, enabled=False, tree_kg_co2e=self._tree)
+        clipped: date | None = None
+        earliest = (self._clock.now() - timedelta(days=self._retention)).date()
+        if query.start < earliest:
+            clipped = min(earliest, query.end)
+            query = dataclasses.replace(query, start=clipped)
+        days = timedelta(days=query.days)
+        before = dataclasses.replace(query, start=query.start - days, end=query.end - days)
+        current = await self._aggregate(query)
+        previous_ = await self._aggregate(before)
+        return build_impact_report(
+            query, current, previous_, version=self.version, tree_kg_co2e=self._tree, clipped_start=clipped
+        )
+
+    async def _aggregate(self, query: ImpactQuery) -> Any:
+        start, end = impact_window(query)
+        return await self._store.impact(
+            start=start, end=end, tz=query.tz, grain=query.grain, by=query.by, origin=query.origin
+        )
+
+    async def recent(self) -> ImpactCoverage | None:
+        """Cobertura das últimas 24 h, de todas as origens (o item `impact` da saúde, 011)."""
+        if self._estimator is None:
+            return None
+        now = self._clock.now()
+        aggregate = await self._store.impact(
+            start=now - timedelta(hours=24), end=now, tz="UTC", grain="day", by="model", origin="all"
+        )
+        cells = aggregate.cells
+        return ImpactCoverage(
+            calls=sum(cell.calls for cell in cells),
+            eligible=sum(cell.eligible for cell in cells),
+            estimated=sum(cell.estimated for cell in cells),
+            approximate=sum(cell.approximate for cell in cells),
+        )
+
+    async def backfill(self, *, limit: int = 1000, batch: int = 500) -> BackfillResult:
+        """Estima até `limit` chamadas guardadas nunca estimadas (research R50); as que falham ficam nulas."""
+        if self._estimator is None:
+            return BackfillResult()
+        estimated = unmatched = failed = 0
+        after = -1
+        remaining = limit
+        while remaining > 0:
+            calls = await self._store.unestimated(min(batch, remaining), after=after)
+            if not calls:
+                break
+            items = []
+            for call in calls:
+                try:
+                    impact = self._estimator.estimate(
+                        call.provider, call.model, call.output_tokens, call.duration_ms / 1000
+                    )
+                except Exception:
+                    failed += 1
+                    continue
+                items.append((call.id, impact))
+                if impact is None:
+                    unmatched += 1
+                else:
+                    estimated += 1
+            await self._store.set_impacts(items)
+            after = calls[-1].id
+            remaining -= len(calls)
+        return BackfillResult(estimated=estimated, unmatched=unmatched, failed=failed)
 
 
 # --- destinos: Langfuse e captura de conteúdo (US6, US7) --------------------------------------------------------------

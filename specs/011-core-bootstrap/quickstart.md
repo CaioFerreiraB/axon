@@ -209,3 +209,12 @@ Esperado: a versão nova; a saúde `ok` com o prefixo novo; a recusa com a linha
 ausente. A suíte inteira (`uv run pytest && uv run mypy && uv run ruff check packages && uv run lint-imports`), a
 conformidade Postgres com `AXON_TEST_POSTGRES_DSN` e a console (`npm run typecheck && npm run lint && npm test`, a partir
 de `axon-ai/console/`) passam com os nomes novos. A chave tem o prefixo `axn_` desde a passada da 003.
+
+## Fase 9, incremento 9.6 (2026-11-03): US8 — impacto ambiental na montagem
+
+```bash
+cd axon-ai && uv run pytest packages/core/tests/bootstrap -k impact
+AXON_PROFILE=memory AXON_DEV_API_KEY=axn_0000000000000001_dev uv run axon health   # item impact: EcoLogits <versão>
+AXON_IMPACT_ZONE=XXX uv run axon health                                              # boot interrompido: AXON_IMPACT_ZONE
+uv run axon usage impact-backfill --limit 1000                                       # estimadas, sem par, com falha
+```

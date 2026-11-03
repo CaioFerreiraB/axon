@@ -34,6 +34,7 @@ from axon_ai.mcp.ports import RemoteTool
 from axon_ai.observability.adapters.cipher import AesGcmCipher
 from axon_ai.observability.adapters.langfuse import LangfuseDestination
 from axon_ai.observability.adapters.memory import (
+    FixedImpactEstimator,
     InMemoryDestinationSettingsStore,
     InMemoryPriceStore,
     InMemoryUsageStore,
@@ -41,7 +42,7 @@ from axon_ai.observability.adapters.memory import (
 )
 from axon_ai.observability.domain.settings import InstallationDestinations, LangfuseCredentials
 from axon_ai.observability.ports import ModelCallRow
-from axon_ai.observability.service import DestinationService, UsageService
+from axon_ai.observability.service import DestinationService, ImpactService, UsageService
 
 pytestmark = pytest.mark.us9
 
@@ -87,6 +88,7 @@ def _kit(
     google: bool = False,
     seams: bool = True,
     extra_assistants: dict[str, Any] | None = None,
+    impact: bool = True,
 ) -> Kit:
     identity = harness(google=google)
     asyncio.run(identity.service.start())
@@ -112,6 +114,10 @@ def _kit(
         )
     )
     usage = UsageService(store=usage_store, prices=InMemoryPriceStore(), clock=FixedClock(CREATED))
+    impact_service = ImpactService(
+        store=usage_store, clock=FixedClock(CREATED), estimator=FixedImpactEstimator(version="0.11.3")
+    )
+    asyncio.run(impact_service.backfill())
     transport = RecordingLangfuseTransport()
     destinations = DestinationService(
         store=InMemoryDestinationSettingsStore(),
@@ -141,6 +147,7 @@ def _kit(
             destinations=destinations,
             accounts=identity.service,
             login=identity.service,
+            impact=impact_service if impact else None,
         )
 
     platform = Platform(
@@ -195,6 +202,7 @@ ROUTES: Final[list[tuple[str, str, Any]]] = [
     ("GET", "/assistants/geral/history", None),
     ("POST", "/assistants/geral/models/check", {"role": "generation", "model": MINI}),
     ("GET", "/providers", None),
+    ("GET", "/impact", None),
     ("GET", "/mcp", None),
     ("POST", "/mcp", GLOBAL_MCP),
     ("GET", "/mcp/agenda", None),
@@ -426,6 +434,75 @@ def test_uso_preco_e_custo_calculado_na_consulta(kit: Kit) -> None:
         _error(kit.call("POST", "/prices", body=price | {"input": 0.4, "effective_from": "2026-09-01"}))["param"]
         == "input"
     )
+
+
+# --- impacto ambiental (008 US12, 009 US9) --------------------------------------------------------------------------
+
+
+@pytest.mark.us12
+def test_impacto_pela_administracao(kit: Kit) -> None:
+    response = kit.call("GET", "/impact?grain=month&tz=UTC")
+    assert response.status_code == 200 and response.headers["cache-control"] == "no-store"
+    body = response.json()
+    assert body["enabled"] is True and body["method"] == {
+        "ecologits_version": "0.11.3",
+        "tree_kg_co2e": "140",
+        "tree_years": 20,
+    }
+    assert (body["query"]["grain"], body["query"]["by"], body["query"]["origin"]) == ("month", "model", "production")
+    (row,) = body["rows"]
+    assert (row["key"], row["impact_model"], row["match"], row["calls"]) == (
+        MINI,
+        f"teste/{'openai/gpt-4.1-mini'}",
+        "exact",
+        1,
+    )
+    gwp = body["totals"]["metrics"]["gwp_kgco2eq"]
+    assert gwp == {"min": "0.0000002", "max": "0.0000004", "mean": "0.0000003"}
+    assert body["totals"]["coverage"] == {"calls": 1, "eligible": 1, "estimated": 1, "approximate": 0, "unestimated": 0}
+    assert set(body["totals"]["metrics"]) == {
+        "energy_kwh",
+        "gwp_kgco2eq",
+        "adpe_kgsbeq",
+        "pe_mj",
+        "wcf_l",
+        "gwp_usage",
+        "gwp_embodied",
+        "adpe_usage",
+        "adpe_embodied",
+        "pe_usage",
+        "pe_embodied",
+    }
+
+
+@pytest.mark.us12
+@pytest.mark.parametrize(
+    ("query", "param"),
+    [
+        ("grain=day&from=2025-01-01&to=2026-03-01", "grain"),
+        ("grain=year", "grain"),
+        ("by=pack", "by"),
+        ("tz=Lua/Base", "tz"),
+        ("from=2026-10-10&to=2026-10-01", "from"),
+        ("extra=1", "extra"),
+    ],
+)
+def test_impacto_recusa_parametro_invalido(kit: Kit, query: str, param: str) -> None:
+    response = kit.call("GET", f"/impact?{query}")
+    assert response.status_code == 422 and _error(response)["param"] == param
+
+
+@pytest.mark.us12
+def test_impacto_desligado_e_nao_admin() -> None:
+    off = _kit(impact=False)
+    body = off.call("GET", "/impact").json()
+    assert (body["enabled"], body["totals"], body["buckets"], body["method"]["ecologits_version"]) == (
+        False,
+        None,
+        [],
+        None,
+    )
+    assert off.call("GET", "/impact", token=CONSOLE_ANA).status_code == 404
 
 
 # --- observabilidade (009 US6, US7) ----------------------------------------------------------------------------------

@@ -76,3 +76,14 @@ npm run e2e -- keys.spec.ts permissions.spec.ts a11y.spec.ts
 fechar, nada a mostra; rotacionar mostra a nova e a antiga deixa de autenticar; revogar pede confirmação na linha. Em
 `/assistentes/<nome>/permissoes`, ligar "Chave de API", adicionar `svc:relatorios` e salvar grava a sobreposição; num
 Assistant sem `auth` em `overrides`, a aba fica travada. Zero violações de axe nas duas telas e no diálogo.
+
+## Fase 9, incremento 9.6 (2026-11-03): US11 — Meio ambiente
+
+```bash
+cd axon-ai/console && source ~/.nvm/nvm.sh && nvm use
+npm run typecheck && npm run lint && npm test
+npx playwright test e2e/impact.spec.ts e2e/a11y.spec.ts
+```
+
+Esperado: `/meio-ambiente` com as faixas, os cinco gráficos, a tabela com "Aproximado" no GLM e a nota de método, sem
+violação do axe nos dois temas e no tablet; em `/uso`, a célula Emissões leva à página com o mesmo período.

@@ -64,6 +64,22 @@ EXPECTED_NAMES = {
     "UsageReportSeam",
     "PriceBook",
     "TraceDestinations",
+    # incremento 9.6 (ADR-056): impacto ambiental
+    "ImpactGrain",
+    "ImpactMatch",
+    "IMPACT_GRAINS",
+    "DEFAULT_TREE_KG_CO2E",
+    "TREE_YEARS",
+    "ImpactQuery",
+    "ImpactMetric",
+    "ImpactMetrics",
+    "ImpactCoverage",
+    "ImpactRow",
+    "ImpactBucket",
+    "ImpactTotals",
+    "ImpactReport",
+    "BackfillResult",
+    "ImpactReportSeam",
 }
 
 

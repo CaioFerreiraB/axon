@@ -59,6 +59,8 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 | [052](ADR-052-graficos-na-conversa.md) | Gráficos na conversa: a tool entrega dados, a API desenha o ECharts no `embeds` do Open WebUI atrás de `x-axon-charts` | Aceita | 001, 004, 005, 008, 010, 011, 013 |
 | [053](ADR-053-listas-do-grafico-crescem-sem-quebrar.md) | As listas fechadas do gráfico crescem sem quebrar, e o waterfall entra | Aceita | 001, 008, 010 |
 | [054](ADR-054-a-geracao-declara-graficos-em-json.md) | A geração declara gráficos em JSON na resposta | Aceita | 005 |
+| [055](ADR-055-autenticacao-mcp-delegada.md) | Autenticação MCP delegada | Aceita | 004, 005, 007, 008 |
+| [056](ADR-056-impacto-ambiental-estimado-pelo-ecologits.md) | Impacto ambiental das chamadas de modelo, estimado pelo EcoLogits | Aceita | 009, 008, 011, 013 |
 
 ## Modelo para ADR novo
 

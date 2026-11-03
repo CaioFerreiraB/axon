@@ -133,6 +133,7 @@ def test_os_comandos_vem_de_uma_lista_de_registro() -> None:
         ("keys", "revoke"),
         ("keys", "rotate"),
         ("health",),
+        ("usage", "impact-backfill"),
         ("audit",),
         ("eval", "run"),
         ("eval", "compare"),

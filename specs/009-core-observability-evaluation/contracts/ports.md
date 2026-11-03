@@ -67,3 +67,11 @@ descartes sobe.
 | `DestinationSettingsStore` | `get()`, `put(settings, expected_version)` | Postgres `observability.destination_settings` | valor | versão |
 | `SecretCipher` | `seal`, `open` | AES-GCM + HKDF (`axon-ai/observability/v1`; era `ai-core/…`, ADR-037) | o real com chave fixa | ida e volta; chave errada |
 | `LangfuseTransport` | `send(spans)`, `check(host, public, secret)`, `shutdown()` | OTel SDK + OTLP/HTTP (serviço `axon`, R39) | coletor OTLP falso local; transporte que trava | lote; descarta sem bloquear; autenticação |
+
+## Passada de 2026-11-03 (US9; ADR-056)
+
+| Porta | Métodos | Real | Memória / teste | Conformidade |
+|---|---|---|---|---|
+| `ImpactEstimator` | `estimate(provider, model, output_tokens, latency_s) -> ImpactEstimate \| None` (sem par ou erro do EcoLogits → `None`; PODE levantar), `version: str` | `EcologitsEstimator(zone=None)` (`adapters/ecologits.py`; `known_zone(z)` estático) | `FixedImpactEstimator(version, unknown=(), raises=False)` (o mesmo impacto pequeno para todo modelo; `unknown` sem par; `raises` levanta) | exato, aproximado, sem par, zona desconhecida, avisos, cache de resolução |
+| `UsageStore` (+) | `impact(start, end, tz, grain, by, origin) -> ImpactAggregate`, `unestimated(limit, *, after=-1) -> tuple[UnestimatedCall, ...]` (cursor por `id`), `set_impacts(Sequence[tuple[int, ImpactEstimate \| None]])`; `append` grava `impact`/`impact_tried` | Postgres (`005_impacts.sql`) | listas com as fórmulas de `domain/impact.py` | grãos, fuso, `FILTER`, respostas distintas, `set_impacts` só onde nulo |
+| `TraceDestination` (uso) | `stats().impact_failed` | `UsageDestination(estimator=…)` | estimador que levanta | a linha grava sem impacto; o lote não cai |

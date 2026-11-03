@@ -34,6 +34,10 @@ dependencies = [
     # por import-linter — o núcleo do trace nunca importa biblioteca de observabilidade (R1).
     "opentelemetry-sdk>=1.30,<2",
     "opentelemetry-exporter-otlp-proto-http>=1.30,<2",
+    # Spec 009 (research R44, R45; ADR-056): estimativa de impacto ambiental das chamadas de modelo e a similaridade
+    # da resolução de nomes, confinadas a axon_ai/observability/adapters/ecologits.py por import-linter.
+    "ecologits>=0.11.3,<0.12",
+    "rapidfuzz>=3.12,<4",
 ]
 
 [project.scripts]

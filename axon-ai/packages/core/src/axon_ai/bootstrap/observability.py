@@ -18,6 +18,7 @@ from axon_ai.assistants.adapters.overrides_postgres import PostgresSystemOverrid
 from axon_ai.bootstrap import identity as identity_parts
 from axon_ai.bootstrap.settings import PERSISTENT_PROFILE, Settings
 from axon_ai.observability.adapters.cipher import AesGcmCipher
+from axon_ai.observability.adapters.ecologits import EcologitsEstimator
 from axon_ai.observability.adapters.langfuse import LangfuseDestination, OtelLangfuseTransport
 from axon_ai.observability.adapters.memory import (
     InMemoryDestinationSettingsStore,
@@ -33,7 +34,7 @@ from axon_ai.observability.adapters.postgres import (
 from axon_ai.observability.adapters.usage import UsageDestination
 from axon_ai.observability.domain.settings import InstallationDestinations, LangfuseCredentials
 from axon_ai.observability.ports import Origin
-from axon_ai.observability.service import DestinationService, UsageService
+from axon_ai.observability.service import DestinationService, ImpactService, UsageService
 
 PRODUCTION: Final[Origin] = "production"
 EVALUATION: Final[Origin] = "evaluation"
@@ -54,6 +55,7 @@ def memory_ports() -> dict[str, Any]:
         "usage_store": lambda _s, _p: InMemoryUsageStore(),
         "price_store": lambda _s, _p: InMemoryPriceStore(),
         "destination_settings": lambda _s, _p: InMemoryDestinationSettingsStore(),
+        "impact_estimator": impact_estimator,
     }
 
 
@@ -63,7 +65,14 @@ def postgres_ports() -> dict[str, Any]:
         "usage_store": lambda _s, p: PostgresUsageStore(p["database"]),
         "price_store": lambda _s, p: PostgresPriceStore(p["database"]),
         "destination_settings": lambda _s, p: PostgresDestinationSettingsStore(p["database"]),
+        "impact_estimator": impact_estimator,
     }
+
+
+def impact_estimator(settings: Settings, _parts: Mapping[str, Any]) -> EcologitsEstimator | None:
+    """O EcoLogits nos três perfis — determinístico e sem rede, também no `test` (ADR-056, item 7); desligado pela
+    instalação, nenhum estimador, e o relatório diz isso."""
+    return EcologitsEstimator(zone=settings.impact_zone) if settings.impact_enabled else None
 
 
 def otel_transport(_settings: Settings, _parts: Mapping[str, Any]) -> Any:
@@ -106,6 +115,7 @@ class TraceParts:
     langfuse_destination: LangfuseDestination
     destinations: DestinationService
     usage: UsageService
+    impact: ImpactService
 
 
 def trace_parts(parts: dict[str, Any]) -> TraceParts:
@@ -113,7 +123,10 @@ def trace_parts(parts: dict[str, Any]) -> TraceParts:
     settings: Settings = parts["settings"]
     clock = parts["clock"]
     usage_destination = UsageDestination(
-        store=parts["usage_store"], origin=parts.get("origin", PRODUCTION), clock=clock
+        store=parts["usage_store"],
+        origin=parts.get("origin", PRODUCTION),
+        clock=clock,
+        estimator=parts["impact_estimator"],
     )
     langfuse_destination = LangfuseDestination(parts["langfuse_transport"], clock=clock.now)
     destinations = DestinationService(
@@ -136,4 +149,17 @@ def trace_parts(parts: dict[str, Any]) -> TraceParts:
         langfuse_destination=langfuse_destination,
         destinations=destinations,
         usage=usage,
+        impact=impact_service(parts, store=parts["usage_store"]),
+    )
+
+
+def impact_service(parts: Mapping[str, Any], *, store: Any) -> ImpactService:
+    """O seam Impact Report sobre o armazenamento dado: o da plataforma, ou o de uma sessão da linha de comando."""
+    settings: Settings = parts["settings"]
+    return ImpactService(
+        store=store,
+        clock=parts["clock"],
+        estimator=parts["impact_estimator"],
+        tree_kg_co2e=settings.impact_tree_kg_co2e,
+        retention_days=settings.usage_retention_days,
     )

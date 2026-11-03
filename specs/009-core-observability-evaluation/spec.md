@@ -6,18 +6,18 @@
 
 **Status**: Draft
 
-**Input**: Tradução de arch-v1 §29 (trace, harness, métricas), §27 (benchmark de modelos), §31 Fase 6; ADR-007. Fase 9 (2026-10-13): uso e custo por modelo e por dia, Langfuse e captura opcional de conteúdo — ADR-033, ADR-034. Fase 9, incremento 9.5 (2026-10-20): identidade Axon — ADR-037.
+**Input**: Tradução de arch-v1 §29 (trace, harness, métricas), §27 (benchmark de modelos), §31 Fase 6; ADR-007. Fase 9 (2026-10-13): uso e custo por modelo e por dia, Langfuse e captura opcional de conteúdo — ADR-033, ADR-034. Fase 9, incremento 9.5 (2026-10-20): identidade Axon — ADR-037. Fase 9, incremento 9.6 (2026-11-03): impacto ambiental das chamadas de modelo pelo EcoLogits — ADR-056.
 
 ## Module Boundary *(mandatory)*
 
 - **Módulo**: Observability & Evaluation — trace estruturado de cada execução e harness genérico que roda conjuntos dourados fornecidos por packs.
 - **Repositório / distribuição**: `axon-ai` → `axon_ai/observability/` (Trace Sink e consulta de trace) e `axon_ai/eval/` (harness).
 - **Consome (seams)**: Execution Engine (eventos) — 005, pelo harness; `Chunk` — 001.
-- **Expõe (seams)**: **Trace Sink** (porta de emissão de dados de trace por requisição) — consumido por 004, 005 e 006; **Trace** (consulta por identificador de requisição) — consumido por 008 e pelo operador; **Eval Harness** com o **formato de conjunto dourado** — consumidos pelo CI e por packs (ex.: 105); **Usage Report** (uso e custo por dia, modelo e Assistant), **Price Book** (preços com vigência) e **Trace Destinations** (Langfuse, captura de conteúdo, estado dos destinos) — consumidos pela 008, superfície de administração (Fase 9).
-- **Depende de infraestrutura (via portas)**: backend de trace (exporter), destinos adicionais do trace (projeção de uso, Langfuse — rede), armazenamento de uso, preços e ajustes dos destinos, cifra com a chave mestra da instalação, segredos de instalação, relógio, armazenamento de linhas de base, juiz LLM (só offline).
+- **Expõe (seams)**: **Trace Sink** (porta de emissão de dados de trace por requisição) — consumido por 004, 005 e 006; **Trace** (consulta por identificador de requisição) — consumido por 008 e pelo operador; **Eval Harness** com o **formato de conjunto dourado** — consumidos pelo CI e por packs (ex.: 105); **Usage Report** (uso e custo por dia, modelo e Assistant), **Price Book** (preços com vigência) e **Trace Destinations** (Langfuse, captura de conteúdo, estado dos destinos) — consumidos pela 008, superfície de administração (Fase 9); **Impact Report** (impacto ambiental estimado por período, grão, modelo e Assistant) — consumido pela 008 (incremento 9.6, ADR-056).
+- **Depende de infraestrutura (via portas)**: backend de trace (exporter), destinos adicionais do trace (projeção de uso, Langfuse — rede), armazenamento de uso, preços e ajustes dos destinos, estimador de impacto ambiental (EcoLogits, só em `adapters/`), cifra com a chave mestra da instalação, segredos de instalação, relógio, armazenamento de linhas de base, juiz LLM (só offline).
 - **Não conhece**: domínio (métricas específicas de domínio são fornecidas pelo pack), flows internos (lê apenas eventos e dados de trace), quem emite dados de trace além do que chega pelo Trace Sink.
 - **Substituição**: preservar o Trace Sink, o formato do conjunto dourado, o formato de relatório e os seams de uso, preços e destinos; o backend de trace e os destinos podem ser trocados (são adapters).
-- **Insumo técnico**: [design.md](design.md); [ADR-007](../../docs/adr/ADR-007-citacao-mecanica.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md), [ADR-017](../../docs/adr/ADR-017-trace-sink-cresce-por-eventos-aditivos.md), [ADR-033](../../docs/adr/ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md), [ADR-034](../../docs/adr/ADR-034-trace-com-destinos-e-conteudo-opcional.md).
+- **Insumo técnico**: [design.md](design.md); [ADR-007](../../docs/adr/ADR-007-citacao-mecanica.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md), [ADR-017](../../docs/adr/ADR-017-trace-sink-cresce-por-eventos-aditivos.md), [ADR-033](../../docs/adr/ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md), [ADR-034](../../docs/adr/ADR-034-trace-com-destinos-e-conteudo-opcional.md), [ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md).
 
 ## Clarifications
 
@@ -51,6 +51,14 @@
 - Q: O que o trace guarda de uma imagem ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 11)? → A: Só `id`, tipo e tamanho, nunca os bytes. O `tool_call` (004) ganha `attachments` com esse resumo (`AttachmentInfo`, tipo publicado pelo `api.py` desta spec e usado também pela auditoria da 004); o `size_bytes` dele continua sendo o do texto.
 - Q: Como o trace registra a decisão de ver uma imagem? → A: Pelo `controller_decision`, com a ação nova `view_image` (aditiva, ADR-017) e os ids em `images`, no lugar do nome da tool — no loop, um por iteração; na etapa `image_gate` do `chat` e do `rag_first`, os escolhidos de uma vez, possivelmente nenhum. Nas outras ações, `images` não aparece.
 - Q: E a captura opcional (`model_exchange`)? → A: Leva `[imagem <id>]` no lugar de cada imagem da mensagem (a 006 a escreve ao emitir), nunca o data URI. Uso e custo não mudam: o custo da imagem vem nos tokens que o provider informa.
+
+### Session 2026-11-03
+
+- Q: Quais métricas de impacto ambiental a plataforma registra, e com que ferramenta? → A: Todas as do EcoLogits — energia (kWh), aquecimento global (GWP, kgCO₂eq), recursos abióticos (ADPe, kgSbeq), energia primária (PE, MJ) e água (WCF, L) —, com as fases de uso e de fabricação (esta só para GWP, ADPe e PE), estimadas por chamada de modelo e gravadas no banco como dado de observabilidade ([ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md)).
+- Q: Como um modelo do Axon vira um modelo da base do EcoLogits, que não tem o OpenRouter? → A: Automaticamente, sem cadastro (decisão do mantenedor): o nome normalizado igual ao de um modelo da base é casamento exato; senão, o mais parecido com nota ≥ 75 e a mesma família de nome é aproximado; senão, a chamada fica sem estimativa. O método do tracer do LiteLLM (corte 51) foi medido e rejeitado: liga `z-ai/glm-5.3-flash` ao Gemini (ADR-056, item 3).
+- Q: Por quanto tempo o impacto fica guardado? → A: O mesmo tempo das linhas de uso (`AXON_USAGE_RETENTION_DAYS`, padrão 400): os campos ficam na linha da chamada.
+- Q: Como se estimam árvores para compensar? → A: GWP médio do período ÷ 140 kg CO₂e por árvore da Mata Atlântica em 20 anos (7,14 árvores por tonelada; Revista DAE, Programa Plante Árvore), fator configurável pela instalação.
+- Q: Qual a unidade "por conversa"? → A: Fica fora deste incremento: o Axon não recebe um id de conversa confiável do Open WebUI. A unidade é a **resposta** — a requisição do usuário, que pode ter várias chamadas de modelo no `agentic`.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -209,6 +217,43 @@ A plataforma passa a se chamar Axon (ADR-037). O operador filtra no Langfuse os 
 
 ---
 
+### User Story 9 - Ver o impacto ambiental das chamadas de modelo (Priority: P2)
+
+O operador consulta, para um período, quanta energia, emissão de CO₂e, água, energia primária e recursos abióticos as
+chamadas de modelo da plataforma consumiram, por dia, semana, mês, trimestre ou semestre, e por modelo ou por Assistant,
+com a faixa de incerteza, a intensidade por resposta, a cobertura da estimativa e as árvores que compensariam as
+emissões. Cada chamada é estimada pelo EcoLogits fora do caminho da requisição e gravada com o modelo da base usado, se
+o casamento foi exato ou aproximado, a zona elétrica e a versão do EcoLogits ([ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md)).
+
+**Why this priority**: Pedido do mantenedor (2026-11-03); o dado nasce do trace, como o uso.
+
+**Independent Test**: Emitir, pelo Trace Sink, chamadas em três modelos — um da base (`openai/gpt-4.1-mini`), um que só
+casa por aproximação (`z-ai/glm-5.3-flash`) e um sem par (`qwen3:1.7b`) — em dois meses; esvaziar o destino de uso;
+consultar o relatório por mês e por modelo e conferir os totais com faixa, a cobertura, o casamento de cada modelo e as
+árvores.
+
+**Acceptance Scenarios**:
+
+1. **Given** uma chamada de `openai/gpt-4.1-mini` com tokens de saída e duração, **When** o destino de uso esvazia,
+   **Then** a linha grava energia, GWP, ADPe, PE e WCF com mínimo e máximo, GWP, ADPe e PE por fase, o modelo
+   `openai/gpt-4.1-mini` com casamento exato, a zona e a versão do EcoLogits.
+2. **Given** uma chamada de `z-ai/glm-5.3-flash` pelo OpenRouter, **When** é estimada, **Then** o modelo usado é o GLM
+   5.3 da base, com casamento aproximado — nunca um modelo de outra família.
+3. **Given** uma chamada de um modelo sem par na base, uma chamada com falha ou uma sem tokens de saída, **When** o
+   destino esvazia, **Then** a linha grava sem impacto e o relatório a conta como "sem estimativa" na cobertura.
+4. **Given** chamadas em vários dias, **When** o operador consulta com o grão semana, mês, trimestre ou semestre,
+   **Then** os baldes começam na segunda-feira (semana ISO), no dia 1, no início do trimestre ou em janeiro e julho, no
+   fuso pedido.
+5. **Given** um período, **When** o relatório é consultado, **Then** traz os totais com o período anterior de mesmo
+   tamanho, as respostas (requisições distintas), os tokens de saída e as árvores para compensar pelo fator da
+   instalação.
+6. **Given** a falha do estimador numa linha, **When** o lote esvazia, **Then** as outras linhas gravam, a falha é
+   contada e nenhuma execução é afetada.
+7. **Given** chamadas antigas sem estimativa, **When** o operador roda o preenchimento, **Then** elas ganham a
+   estimativa, e as já estimadas não mudam.
+
+---
+
 ### Edge Cases
 
 - Item do conjunto dourado que referencia documento fora do corpus: não é falha do sistema. O core não conhece o corpus — conferir o conjunto contra o catálogo é do pack (105) —, e o harness aponta, como aviso no item, a evidência esperada que não aparece entre os candidatos de nenhum item da rodada ("evidência não vista"); item com formato inválido é sinalizado como inválido e não roda.
@@ -221,6 +266,11 @@ A plataforma passa a se chamar Axon (ADR-037). O operador filtra no Langfuse os 
 - Chave mestra ausente no perfil persistente: gravar a chave secreta do Langfuse é recusado com a explicação; o resto dos ajustes grava.
 - Segredo do Langfuse selado antes do renome: não abre com o rótulo novo; o destino da console fica sem credencial e a saúde mostra o motivo até o admin gravar o segredo de novo (sem migração, corte seco do ADR-037).
 - Subchave de outro módulo (a da identidade, por exemplo) com a mesma chave mestra: continua não abrindo o selo da 009, e vice-versa.
+- Modelo cujo nome normalizado aparece em dois provedores do EcoLogits: vence o do prefixo do fornecedor; sem prefixo, a ordem fixa da lista (ADR-056, item 3).
+- Zona elétrica configurada que o EcoLogits não conhece: erro de configuração no boot, que nomeia a variável (011).
+- Estimativa desligada pela instalação: nada é estimado, as linhas gravam sem impacto, e o relatório diz que a estimativa está desligada, em vez de mostrar zero.
+- Versão nova do EcoLogits: vale para as chamadas novas; o preenchimento não reescreve linha já estimada.
+- Grão `day` com mais de 366 dias: recusado com erro que nomeia o grão; nos outros grãos, o período é recortado ao que a retenção guarda, com aviso.
 
 ## Requirements *(mandatory)*
 
@@ -251,6 +301,12 @@ A plataforma passa a se chamar Axon (ADR-037). O operador filtra no Langfuse os 
 - **FR-022**: O segredo do Langfuse gravado pela console DEVE ser selado com a subchave de rótulo `axon-ai/observability/v1`, própria da 009 (ADR-033, ADR-037). Segredo selado com outro rótulo, inclusive o antigo, NÃO DEVE abrir; o destino da console fica sem credencial e a saúde DEVE dizer que o segredo gravado não abre, sem migração nem janela de compatibilidade.
 - **FR-023**: Os consumidores no workspace que citam o rótulo ou o nome do serviço — testes de outros módulos e documentos vivos — DEVEM usar os nomes novos na mesma passada (ADR-037, item 7).
 - **FR-024**: Nenhum registro de trace, de uso ou de captura DEVE levar os bytes de uma imagem: o `tool_call` DEVE trazer `attachments` com `id`, tipo e tamanho; o `controller_decision` DEVE aceitar a ação `view_image` com os ids em `images`; o `model_exchange` DEVE trazer `[imagem <id>]` no lugar de cada imagem ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), itens 3, 8 e 11).
+- **FR-025**: O módulo DEVE estimar o impacto ambiental de cada chamada de modelo com tokens de saída e sem falha por uma porta `ImpactEstimator` (provider, modelo, tokens de saída, latência), cujo adapter é o único lugar que importa o EcoLogits; a estimativa DEVE acontecer ao esvaziar o destino de uso, fora do caminho da requisição, e a falha de uma estimativa NÃO DEVE impedir a gravação das linhas nem afetar execuções — é contada ([ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md), itens 1 e 2).
+- **FR-026**: A resolução do modelo DEVE ser pura e automática: nome normalizado (minúsculas, sem `:<tag>`, `.`, `_`, `:` e espaços como `-`) igual ao de um modelo da base, com e sem o prefixo do fornecedor → `exact`; senão, o mais parecido com nota ≥ 75 e a mesma família de nome → `approximate`; senão, sem estimativa. Empate entre provedores DEVE ser resolvido pelo prefixo do fornecedor e, sem ele, por ordem fixa (ADR-056, item 3).
+- **FR-027**: A linha da chamada DEVE guardar mínimo e máximo de energia (kWh), GWP (kgCO₂eq), ADPe (kgSbeq), PE (MJ) e WCF (L), e de GWP, ADPe e PE por fase (uso e fabricação), mais o modelo do EcoLogits usado, o casamento, a zona elétrica, a versão do EcoLogits e os avisos; a retenção DEVE ser a do uso (FR-020).
+- **FR-028**: O seam Impact Report DEVE devolver, para um período, um fuso, um grão (`day`, `week` ISO começando na segunda, `month`, `quarter`, `semester` com início em janeiro e julho), um agrupamento (modelo ou Assistant) e o filtro de origem da FR-016: os baldes com as cinco métricas (mínimo, máximo e média; GWP, ADPe e PE por fase), as chamadas e as respostas de cada balde; os totais e os do período anterior de mesmo tamanho; as linhas por modelo ou Assistant com o modelo do EcoLogits e o casamento; a cobertura (chamadas estimadas, aproximadas e sem estimativa); os tokens de saída; as árvores para compensar (GWP médio ÷ fator); a versão do EcoLogits e o fator usados. O grão `day` DEVE aceitar até 366 dias; os demais, até a retenção, recortando o período com aviso.
+- **FR-029**: O módulo DEVE oferecer o preenchimento das chamadas guardadas sem estimativa, em lotes, sem reescrever linha já estimada.
+- **FR-030**: Com a estimativa desligada pela instalação, o módulo NÃO DEVE estimar, e o Impact Report DEVE dizer que ela está desligada.
 
 
 ### Key Entities
@@ -266,6 +322,8 @@ A plataforma passa a se chamar Axon (ADR-037). O operador filtra no Langfuse os 
 - **Price**: provider, modelo, USD por milhão de tokens de entrada e de saída, data de início.
 - **Destination Settings**: ajustes do Langfuse e da captura de conteúdo, com a origem de cada campo; a chave secreta cifrada.
 - **Model Exchange**: o evento com as mensagens e a saída de uma chamada de modelo, só para destinos que aceitam conteúdo.
+- **Impact Estimate**: o impacto de uma chamada — mínimo e máximo das cinco métricas e das três por fase — com a impressão digital (modelo do EcoLogits, casamento, zona, versão) e os avisos.
+- **Impact Report**: baldes por grão, totais, período anterior, linhas por modelo ou Assistant, cobertura e árvores para compensar.
 
 ## Success Criteria *(mandatory)*
 
@@ -280,6 +338,8 @@ A plataforma passa a se chamar Axon (ADR-037). O operador filtra no Langfuse os 
 - **SC-007**: Em nenhum cenário de teste o texto de prompt ou de resposta chega ao backend principal, e com a captura desligada não chega a nenhum destino.
 - **SC-008**: O relatório de 90 dias com até 100 mil chamadas de modelo responde em menos de 1 segundo.
 - **SC-009**: Depois da passada da US8, zero ocorrências do rótulo `ai-core/observability/v1` e do nome de serviço `ai-core` da 009 no código, nos testes e nos documentos vivos do workspace e das specs do core (fora do histórico do ADR-037, item 6, e dos testes e textos que nomeiam o antigo de propósito), e as suítes do workspace passam.
+- **SC-010**: Em teste, os totais de impacto do relatório batem 100% com a soma das estimativas gravadas no período, em todos os grãos, e nenhuma chamada de modelo de outra família é casada por aproximação no conjunto de nomes da instalação de referência.
+- **SC-011**: O relatório de impacto de 400 dias com até 100 mil chamadas, em qualquer grão diferente de `day`, responde em menos de 1 segundo.
 
 ## Assumptions
 

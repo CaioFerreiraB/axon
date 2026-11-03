@@ -6,18 +6,18 @@
 
 **Status**: Draft
 
-**Input**: Tradução de arch-v1 §25 (API, duas superfícies, compat OpenAI e Open WebUI, streaming, requisição nativa), §28 (histórico de conversa), §31 Fase 7; ADR-002. Fase 9 (2026-10-13): superfície de administração para a console — ADR-029, ADR-031, ADR-032, ADR-033, ADR-034. Fase 9, incremento 9.5 (2026-10-20): identidade Axon — ADR-037, ADR-038. Fase 9 (2026-10-21): rotação de chaves e sobreposição de `auth` na administração — ADR-040.
+**Input**: Tradução de arch-v1 §25 (API, duas superfícies, compat OpenAI e Open WebUI, streaming, requisição nativa), §28 (histórico de conversa), §31 Fase 7; ADR-002. Fase 9 (2026-10-13): superfície de administração para a console — ADR-029, ADR-031, ADR-032, ADR-033, ADR-034. Fase 9, incremento 9.5 (2026-10-20): identidade Axon — ADR-037, ADR-038. Fase 9 (2026-10-21): rotação de chaves e sobreposição de `auth` na administração — ADR-040. Fase 9, incremento 9.6 (2026-11-03): impacto ambiental na administração — ADR-056.
 
 ## Module Boundary *(mandatory)*
 
 - **Módulo**: HTTP API — superfícies pública, privada e de administração, compatibilidade com o formato OpenAI, tradução de eventos do motor para SSE e histórico de conversa.
 - **Repositório / distribuição**: `axon-ai` → `axon_ai/http/` (antes `axon_ai/api/`; renomeado para não colidir com a convenção `api.py` do ADR-012).
-- **Consome (seams)**: autenticação, Principal, Execution Grant, Assistant Directory, API Key Admin e, na Fase 9, System Assistant Admin — 003, pelo `api.py` dela a partir da Fase 2 (na Fase 1, pelas formas que este módulo publicava como `Protocol`); Execution Engine (eventos) — 005; Pack Registry (introspecção) — 002; MCP Registry (CRUD e saúde) — 007, a partir da Fase 3; Model Router (verificação de saúde de modelo, "testar modelo") — 006, na Fase 9; Trace (identificador de requisição) e, na Fase 9, Usage Report, Price Book e Trace Destinations — 009; Account Admin e Login Settings — 012, na Fase 9.
+- **Consome (seams)**: autenticação, Principal, Execution Grant, Assistant Directory, API Key Admin e, na Fase 9, System Assistant Admin — 003, pelo `api.py` dela a partir da Fase 2 (na Fase 1, pelas formas que este módulo publicava como `Protocol`); Execution Engine (eventos) — 005; Pack Registry (introspecção) — 002; MCP Registry (CRUD e saúde) — 007, a partir da Fase 3; Model Router (verificação de saúde de modelo, "testar modelo") — 006, na Fase 9; Trace (identificador de requisição) e, na Fase 9, Usage Report, Price Book e Trace Destinations — 009, e, no incremento 9.6, Impact Report — 009; Account Admin e Login Settings — 012, na Fase 9.
 - **Expõe (seams)**: **API HTTP** — `/v1` (OIDC), `/private/v1` (chave de API) e `/admin/v1` (token da console ou chave de API, grupo de administração — Fase 9) — consumida por clientes externos (Open WebUI, console 013, scripts). É o adapter primário da plataforma; não expõe seam Python.
 - **Depende de infraestrutura (via portas)**: armazenamento das conversas; relógio (expiração de conversas); saúde agregada da plataforma (porta própria, implementada pela composition root, 011). O framework HTTP é o próprio adapter.
 - **Não conhece**: flows e seu estado, packs individuais, providers, políticas de tool.
 - **Substituição**: preservar os endpoints e o formato compatível com OpenAI; a camada HTTP pode ser reescrita sem afetar outros módulos.
-- **Insumo técnico**: [design.md](design.md); [ADR-002](../../docs/adr/ADR-002-assistant-fronteira-isolamento.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md), [ADR-029](../../docs/adr/ADR-029-console-de-administracao-propria.md), [ADR-031](../../docs/adr/ADR-031-superficie-de-administracao.md), [ADR-032](../../docs/adr/ADR-032-assistants-de-sistema-sobrepostos-em-runtime.md), [ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md).
+- **Insumo técnico**: [design.md](design.md); [ADR-002](../../docs/adr/ADR-002-assistant-fronteira-isolamento.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md), [ADR-029](../../docs/adr/ADR-029-console-de-administracao-propria.md), [ADR-031](../../docs/adr/ADR-031-superficie-de-administracao.md), [ADR-032](../../docs/adr/ADR-032-assistants-de-sistema-sobrepostos-em-runtime.md), [ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md), [ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md).
 
 ## Clarifications
 
@@ -87,6 +87,10 @@
 - Q: No Open WebUI, o `[n]` das respostas com citação é texto puro e não há lista de referências. Como as citações aparecem lá? → A: Como fontes nativas do Open WebUI v0.12, ligadas pelo cabeçalho opcional `x-axon-citations: sources` que a conexão da instalação envia ([ADR-051](../../docs/adr/ADR-051-link-da-citacao-e-fontes-no-open-webui.md)). Em streaming, depois do último texto e antes do chunk final, cada citação sai como evento `source` na chave `event`, na ordem do `[n]`, com o `chunk_id` como id, a legenda `Documento — seção, p. N` e, quando a citação traz `url` `http(s)`, o link (`url`). O chip do `[n]` abre o detalhe da fonte, com o nome ligado ao original, e a lista "N Fontes" é colapsável. Sem `embed_url`: o painel lateral do Open WebUI é um iframe com `sandbox`, e o Chrome não mostra PDF nele (verificado no dev). Sem o cabeçalho, ou sem streaming, nada muda: as citações seguem em `x_axon.citations`, que passa a levar a `url`.
 - Q: Como um gráfico que uma tool devolveu aparece no Open WebUI ([ADR-052](../../docs/adr/ADR-052-graficos-na-conversa.md))? → A: Em três formas, todas escritas pela API a partir do `Chart` do contrato 001 — dados, nunca HTML de fora: (1) uma tabela em `<details>` depois do texto (e antes das imagens), sempre, em streaming e sem, na conversa gravada e no histórico; (2) com `x-axon-charts: embeds` e streaming, **um** evento `embeds` do Open WebUI com uma página por gráfico (ECharts, tema pelo `prefers-color-scheme`, altura por `postMessage`), depois da cauda de texto e antes das fontes e do chunk final; (3) o `Chart` em JSON em `x_axon.charts`.
 - Q: De onde a página carrega o ECharts? → A: Da própria plataforma: `GET /static/echarts/6.1.0/<arquivo>` (o `echarts.min.js` e o locale pt-BR vendorizados, com licença) e `GET /static/charts/<impressão>/axon-chart.js` (o desenhista), públicas, imutáveis, com CORS aberto e `integrity` na página. A página não tem script inline: a especificação vai num `<script type="application/json">`. O endereço base é o que a 011 informa; sem ele, o `embeds` não sai e fica a tabela.
+
+### Session 2026-11-03
+
+- Q: Como a console lê o impacto ambiental? → A: Por `GET /admin/v1/impact`, ao lado de `/usage`, com os parâmetros `from`, `to`, `tz`, `grain` (`day`, `week`, `month`, `quarter`, `semester`), `by` (`model` ou `assistant`) e `origin` (os mesmos do uso), sobre o seam Impact Report da 009, sem regra própria ([ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md)). Os números vão como texto decimal, como no uso, e a resposta traz o método: versão do EcoLogits, fator e anos da árvore.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -312,6 +316,33 @@ visão; com um não admin, as rotas novas respondem o 404 de rota inexistente.
 
 ---
 
+### User Story 12 - Impacto ambiental pela administração (Priority: P2)
+
+Um admin, pela console ou por automação com chave, consulta o impacto ambiental das chamadas de modelo num período, com
+o grão, o agrupamento e a origem que escolher, e recebe o que a 009 calcula: baldes, totais com faixa, período anterior,
+linhas por modelo ou Assistant, cobertura e árvores para compensar ([ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md); 009 US9).
+
+**Why this priority**: A página Meio ambiente e a célula Emissões da console (013) não existem sem a rota; a console
+não tem lógica própria (ADR-029).
+
+**Independent Test**: Com chamadas estimadas em dois meses, pedir o impacto por mês e por modelo com uma chave de admin
+e conferir os números com o seam da 009; com um não admin, 404 de rota inexistente; com `grain=day` e 400 dias, 422 que
+nomeia `grain`.
+
+**Acceptance Scenarios**:
+
+1. **Given** chamadas estimadas, **When** um admin pede `GET /admin/v1/impact` com período, fuso, grão, agrupamento e
+   origem, **Then** recebe os baldes, os totais e os do período anterior, as linhas, a cobertura, as árvores e o método,
+   com os números como texto decimal.
+2. **Given** um parâmetro inválido — grão ou agrupamento desconhecido, fuso inexistente, `from` depois de `to`, ou o grão
+   `day` acima de 366 dias —, **When** pedido, **Then** recebe 422 que nomeia o parâmetro.
+3. **Given** a estimativa desligada pela instalação, **When** um admin pede o impacto, **Then** recebe 200 com
+   `enabled: false` e nenhum número, para a console explicar.
+4. **Given** um Principal fora do grupo de administração, **When** pede a rota, **Then** recebe o 404 de rota
+   inexistente; a resposta de quem administra tem `Cache-Control: no-store`.
+
+---
+
 ### Edge Cases
 
 - Execução sem streaming com MCP do Assistant fora do ar: a resposta é gerada sem a tool, o registro `McpUnavailable` é `error`, e a API responde 502 com a resposta, os motivos e `x-should-retry: false` — o SDK oficial não repete.
@@ -399,6 +430,7 @@ visão; com um não admin, as rotas novas respondem o 404 de rota inexistente.
 - **FR-042**: A resposta DEVE levar as imagens das tools depois do texto, em markdown com data URI e em parágrafo próprio — em streaming, depois do último token —, e `x_axon.attachments` com `id`, `mime` e `size_bytes` (item 9).
 - **FR-043**: Na conversa guardada, as imagens DEVEM ficar em `http.attachments`, presas à mensagem (cascata e expiração da conversa), com a marca no texto; a leitura DEVE trazer os metadados por mensagem, e `GET /v1/conversations/{id}/attachments/{attachment_id}` os bytes, só ao dono (404 aos outros) (item 9).
 - **FR-044**: A sobreposição de `models` e o Assistant de usuário DEVEM aceitar e devolver `vision` por papel, na forma do YAML (item 10).
+- **FR-045**: A administração DEVE expor `GET /admin/v1/impact` sobre o seam Impact Report da 009, sem regra própria: parâmetros `from`, `to`, `tz`, `grain`, `by` e `origin`; números como texto decimal; o método (versão do EcoLogits, fator da árvore em kg CO₂e e anos) e `enabled`. Parâmetro inválido → 422 com `param`. As regras da superfície (FR-024, FR-039) valem ([ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md)).
 
 
 ### Key Entities

@@ -15,7 +15,7 @@ DEFAULT_DAYS = 30
 _USAGE_PARAMS = ("from", "to", "tz", "by", "origin")
 
 
-def _today(now: datetime, tz: str) -> date:
+def today(now: datetime, tz: str) -> date:
     try:
         return now.astimezone(ZoneInfo(tz)).date()
     except (ZoneInfoNotFoundError, ValueError):
@@ -26,7 +26,7 @@ def usage_query(params: Mapping[str, str], *, now: datetime, default_tz: str) ->
     """Padrões: fuso da instalação, por modelo, produção, os últimos 30 dias no fuso."""
     only(params, _USAGE_PARAMS)
     tz = params.get("tz") or default_tz
-    end = day(params["to"], "to") if "to" in params else _today(now, tz)
+    end = day(params["to"], "to") if "to" in params else today(now, tz)
     start = day(params["from"], "from") if "from" in params else end - timedelta(days=DEFAULT_DAYS - 1)
     try:
         return UsageQuery(

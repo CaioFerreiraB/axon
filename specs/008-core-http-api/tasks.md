@@ -881,3 +881,28 @@ interativo pelo evento `embeds`.
 - [X] D03 Validar regressões, types, lint e atualizar documentação operacional.
 
 Validação ADR-055: suítes MCP/gateway/motor/HTTP com Postgres temporário; testes novos de isolamento, API e canal confidencial; mypy, Ruff e 69 contratos import-linter aprovados. Testes de transporte e destinos estáticos preservados.
+
+## Passada de 2026-11-03: impacto ambiental na administração — US12 ([ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md); research R64, R65)
+
+**Goal**: `GET /admin/v1/impact` sobre o seam Impact Report, com números em texto decimal.
+
+**Independent Test**: [quickstart.md, "incremento 9.6"](quickstart.md).
+
+- [X] T129 [US12] `axon-ai/pyproject.toml`: a marca `us12` (criar se não existe) com `008 US12 — impacto ambiental na
+  administração`
+- [X] T130 [P] [US12] `axon-ai/packages/core/tests/http/unit/test_admin_impact.py`: `impact_query` com padrões (30
+  dias, `day`, `model`, `production`, fuso da instalação), `from`/`to`/`grain`/`by`/`origin`, parâmetro desconhecido →
+  `AdminInvalid`, `grain=day` com 400 dias → `field == "grain"`, `from` depois de `to` → `field == "from"`;
+  `decimal_number(3.2e-05) == "0.000032"`, `decimal_number(0.0) == "0"`, `decimal_number(123456789.0)` sem expoente;
+  `impact_json` de um `ImpactReport` montado à mão (todas as chaves do contrato) e de um desligado
+- [X] T131 [P] [US12] `axon-ai/packages/core/tests/http/contract/test_admin_api.py`: casos `us12` — `GET /impact` com
+  chave de admin e um `ImpactReportSeam` simulado que registra a consulta (os parâmetros chegam como `ImpactQuery`); 422
+  com `param`; `AdminSeams(impact=None)` → `enabled: false`; não admin → 404; `Cache-Control: no-store`. Rodar T130–T131
+  e ver falhar
+- [X] T132 [US12] `axon-ai/packages/core/src/axon_ai/http/domain/admin_impact.py` (R64, R65): `impact_query(params, *,
+  now, default_tz)`, `decimal_number(value: float) -> str`, `impact_json(report)` e `disabled_json(query)`
+- [X] T133 [US12] `axon-ai/packages/core/src/axon_ai/http/ports.py`: `AdminSeams.impact: ImpactReportSeam | None = None`;
+  `axon-ai/packages/core/src/axon_ai/http/adapters/admin.py`: `@route("GET", "/impact")` ao lado de `/usage`. Rodar
+  T130–T131 e ver passar
+- [X] T134 Rodar a partir de `axon-ai/`: `uv run pytest packages/core/tests/http && uv run mypy && uv run ruff check
+  packages && uv run lint-imports`

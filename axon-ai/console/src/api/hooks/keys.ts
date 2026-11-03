@@ -8,6 +8,7 @@ export const keys = {
   mcp: ["mcp"] as const,
   mcpHealth: (alias: string) => ["mcp", alias, "health"] as const,
   usage: (params: object) => ["usage", params] as const,
+  impact: (params: object) => ["impact", params] as const,
   prices: ["prices"] as const,
   unpriced: (params: object) => ["prices", "unpriced", params] as const,
   observability: ["observability"] as const,

@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: ADR-012 (composition root), ADR-013 (relógio único, Trace Sink); [relatório de estilo arquitetural](../../docs/relatorio-estilo-arquitetural.md), lacuna G6; arch-v1 §13 (boot, CLI) e §14 (deployment). Fase 9 (2026-10-13): identidade da plataforma, superfície de administração, sobreposições, destinos do trace e chave mestra — ADR-030 a ADR-034. Fase 9, incremento 9.5 (2026-10-20): identidade Axon — ADR-037, ADR-038.
+**Input**: ADR-012 (composition root), ADR-013 (relógio único, Trace Sink); [relatório de estilo arquitetural](../../docs/relatorio-estilo-arquitetural.md), lacuna G6; arch-v1 §13 (boot, CLI) e §14 (deployment). Fase 9 (2026-10-13): identidade da plataforma, superfície de administração, sobreposições, destinos do trace e chave mestra — ADR-030 a ADR-034. Fase 9, incremento 9.5 (2026-10-20): identidade Axon — ADR-037, ADR-038. Fase 9, incremento 9.6 (2026-11-03): impacto ambiental pelo EcoLogits — ADR-056.
 
 ## Module Boundary *(mandatory)*
 
@@ -17,7 +17,7 @@
 - **Depende de infraestrutura (via portas)**: configuração do operador (arquivos e ambiente). Indiretamente, toda a infraestrutura dos módulos, cujos adapters instancia.
 - **Não conhece**: regras de negócio de qualquer módulo (grant, catálogo, flows, políticas de tool), o estado interno do motor e o contexto de execução (005), qualquer domínio.
 - **Substituição**: preservar a ordem de boot com falha fechada, os perfis de adapters e os comandos da linha de comando; a técnica de injeção é livre.
-- **Insumo técnico**: [design.md](design.md); [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md), [ADR-009](../../docs/adr/ADR-009-deploy-docker-build-arg.md), [ADR-020](../../docs/adr/ADR-020-segredos-uma-fonte-por-perfil-uma-porta-por-modulo.md), [ADR-030](../../docs/adr/ADR-030-a-plataforma-e-o-provedor-de-identidade.md), [ADR-033](../../docs/adr/ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md), [ADR-034](../../docs/adr/ADR-034-trace-com-destinos-e-conteudo-opcional.md), [ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md), [ADR-038](../../docs/adr/ADR-038-marca-da-plataforma-e-marca-da-instalacao.md).
+- **Insumo técnico**: [design.md](design.md); [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md), [ADR-009](../../docs/adr/ADR-009-deploy-docker-build-arg.md), [ADR-020](../../docs/adr/ADR-020-segredos-uma-fonte-por-perfil-uma-porta-por-modulo.md), [ADR-030](../../docs/adr/ADR-030-a-plataforma-e-o-provedor-de-identidade.md), [ADR-033](../../docs/adr/ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md), [ADR-034](../../docs/adr/ADR-034-trace-com-destinos-e-conteudo-opcional.md), [ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md), [ADR-038](../../docs/adr/ADR-038-marca-da-plataforma-e-marca-da-instalacao.md), [ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md).
 
 ## Clarifications
 
@@ -62,6 +62,12 @@
 
 - Q: De que endereço a página dos gráficos carrega o ECharts ([ADR-052](../../docs/adr/ADR-052-graficos-na-conversa.md))? → A: De `AXON_CHARTS_SCRIPT_BASE_URL`, validado como o `AXON_PUBLIC_URL` (http(s) absoluto, sem query; `https` fora de `localhost`); ausente, do próprio `AXON_PUBLIC_URL`. A composition root passa o efetivo à fábrica da 008 (`charts_base_url`). Sem nenhum dos dois, os gráficos saem só como tabela.
 - Q: A saúde mostra a falta do endereço? → A: Sim, como item **informativo** `charts`: sempre `ok`, com o aviso no `detail` quando não há endereço. Item com falha, mesmo não crítico, deixaria o status `degraded` e o `axon health` com saída 1 numa instalação só de API, que não precisa do `embeds`.
+
+### Session 2026-11-03
+
+- Q: Como a composição liga o impacto ambiental ([ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md), item 7)? → A: Pela porta `impact_estimator` nos três perfis, com o estimador do EcoLogits também no `test` (é determinístico e não usa rede), entregue ao destino de uso e ao `ImpactService` da 009, que entra nos seams da administração. Variáveis: `AXON_IMPACT_ENABLED` (padrão `true`; `false` não monta o estimador), `AXON_IMPACT_ZONE` (ISO alpha-3 opcional, conferida no boot contra os mixes do EcoLogits; desconhecida para o boot nomeando a variável) e `AXON_IMPACT_TREE_KG_CO2E` (padrão `140`, número positivo).
+- Q: A saúde mostra o impacto? → A: Sim, como item **informativo** `impact`, sempre `ok`: a versão do EcoLogits, se está ligado e a cobertura das últimas 24 h no `detail` — cobertura baixa não é falha da instância.
+- Q: Como o operador estima as chamadas antigas? → A: Por `axon usage impact-backfill [--limit N]`, registrado na lista de `bootstrap/cli.py`, que monta configuração e adapters, chama o preenchimento da 009 em lotes e imprime quantas linhas estimou, quantas ficaram sem par e quantas falharam.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -216,6 +222,31 @@ configuração nomeando `AXON_PROFILE`; a suíte inteira do workspace passa com 
 
 ---
 
+### User Story 8 - A plataforma sobe estimando o impacto ambiental (Priority: P2)
+
+O operador sobe a plataforma e cada chamada de modelo passa a ser estimada pelo EcoLogits, sem configurar nada; se
+quiser, fixa a zona elétrica, muda o fator das árvores ou desliga a estimativa pelo ambiente, e estima as chamadas
+antigas por um comando ([ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md); 009 US9).
+
+**Why this priority**: Sem a composição, a estimativa e o relatório da 009 não existem no processo; é a passada de
+encaixe do incremento 9.6.
+
+**Independent Test**: No perfil `test`, conversar, esvaziar os destinos e pedir `GET /admin/v1/impact` com o grão
+`month`: os números são maiores que zero; com `AXON_IMPACT_ZONE=XXX`, o boot falha nomeando a variável.
+
+**Acceptance Scenarios**:
+
+1. **Given** qualquer perfil sem variáveis de impacto, **When** a plataforma sobe e atende uma conversa, **Then** a
+   chamada de modelo é estimada ao esvaziar o destino de uso, e o item `impact` da saúde mostra a versão do EcoLogits.
+2. **Given** `AXON_IMPACT_ZONE` com uma zona que o EcoLogits não conhece ou `AXON_IMPACT_TREE_KG_CO2E` não positivo,
+   **When** a plataforma sobe, **Then** a configuração é recusada nomeando a variável.
+3. **Given** `AXON_IMPACT_ENABLED=false`, **When** a plataforma atende conversas, **Then** nada é estimado e o relatório
+   diz que a estimativa está desligada.
+4. **Given** chamadas guardadas sem estimativa, **When** o operador roda `axon usage impact-backfill`, **Then** elas
+   ganham a estimativa e o comando informa quantas estimou, quantas ficaram sem par e quantas falharam.
+
+---
+
 ### Edge Cases
 
 - Configuração de pack que referencia pack não instalado: tratada pela 002 (`error: não instalado`); o boot continua.
@@ -266,6 +297,7 @@ configuração nomeando `AXON_PROFILE`; a suíte inteira do workspace passa com 
 - **FR-028**: A configuração DEVE aceitar `AXON_PACKS_DATA_DIR`, a raiz dos diretórios de dados dos packs, e entregá-la à 002 nos três perfis; ausente, nenhum pack recebe diretório. A raiz de comandos DEVE registrar `packs prepare` (002 FR-030), e só ele chama o hook `prepare` (002 FR-031).
 - **FR-029**: A configuração DEVE ler `AXON_TOOL_MAX_ATTACHMENT_BYTES`, `AXON_MAX_REQUEST_BYTES`, `AXON_MAX_INPUT_IMAGE_BYTES` e `AXON_MAX_INPUT_IMAGES`, com faixas que nomeiam a variável, e ligá-las à 007 e à 008 nos três perfis ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 12).
 - **FR-030**: A configuração DEVE ler `AXON_CHARTS_SCRIPT_BASE_URL` (opcional, validado como o `AXON_PUBLIC_URL`; o erro para o boot nomeando a variável) e passar à 008 o endereço efetivo dos scripts dos gráficos — o próprio ou, sem ele, o `AXON_PUBLIC_URL`; a saúde DEVE ter o item informativo `charts`, sempre `ok`, com o aviso no `detail` quando não há endereço ([ADR-052](../../docs/adr/ADR-052-graficos-na-conversa.md), item 6).
+- **FR-031**: A composição DEVE montar a porta `impact_estimator` da 009 nos três perfis (o estimador do EcoLogits, também no `test`) e entregá-la ao destino de uso e ao `ImpactService`, que entra nos seams da administração; DEVE ler `AXON_IMPACT_ENABLED` (padrão `true`), `AXON_IMPACT_ZONE` (opcional, conferida contra os mixes do EcoLogits) e `AXON_IMPACT_TREE_KG_CO2E` (padrão 140, positivo), recusando valor inválido com erro que nomeia a variável; a saúde DEVE ter o item informativo `impact`, sempre `ok`, com versão, estado e cobertura das últimas 24 h; a raiz de comandos DEVE registrar `usage impact-backfill [--limit N]` ([ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md), item 7).
 
 ### Key Entities
 

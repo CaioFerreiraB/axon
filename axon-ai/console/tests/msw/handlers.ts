@@ -23,6 +23,7 @@ export const handlers = [
   http.get(api("/mcp"), () => HttpResponse.json({ data: f.servers })),
   http.get(api("/mcp/:alias/health"), ({ params }) => HttpResponse.json(f.healths[String(params.alias)])),
   http.get(api("/usage"), () => HttpResponse.json(f.report)),
+  http.get(api("/impact"), () => HttpResponse.json(f.impactReport)),
   http.get(api("/prices"), () => HttpResponse.json({ data: f.prices })),
   http.get(api("/prices/unpriced"), () => HttpResponse.json({ data: ["ollama/qwen3:1.7b"] })),
   http.get(api("/observability"), () => HttpResponse.json(f.observability)),

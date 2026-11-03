@@ -661,3 +661,21 @@ Reavaliado com [contracts/admin-api.md](contracts/admin-api.md), [data-model.md]
 ## Incremento: delegação MCP por execução (2026-10-29)
 
 Regido por [ADR-055](../../docs/adr/ADR-055-autenticacao-mcp-delegada.md). Protocolo 1: um MCP delegado por grant, identidade confidencial por execução, sem cache compartilhado e sem alteração da ACL. Contrato: [delegação](../007-core-mcp-integration/contracts/delegation.md). Casos D01 isolamento concorrente; D02 falha fechada; D03 metadados e superfície privada; D04 segredo ausente de persistência/trace; D05 regressão estática.
+
+## Passada de 2026-11-03: impacto ambiental na administração (US12; [ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md))
+
+**Insumos lidos**: [spec.md](spec.md) (US12, FR-045, clarificação de 2026-11-03), ADR-056, a passada da 009 (seam
+Impact Report, `contracts/usage-api.md`), `http/domain/admin_usage.py` e `http/adapters/admin.py`. Research: R64, R65.
+
+**Summary**: `GET /admin/v1/impact` traduz o seam Impact Report da 009 em JSON com números como texto decimal; sem regra
+própria.
+
+**Technical Context**: sem dependência nem migração; um módulo puro novo (`http/domain/admin_impact.py`), uma rota e um
+campo opcional em `AdminSeams`. Nenhum `NEEDS CLARIFICATION`.
+
+**Constitution Check (US12)**: II ✅ (consome só o `api.py` da 009); VII ✅ (desligado é dito; 422 com `param`);
+XI ✅ (a API serve a console e a automação igualmente); XIII ✅ (formato puro em `domain/`, FastAPI só no adapter).
+**Module boundary gate**: `axon_ai/http/**` e `tests/http/**`. **Resultado**: PASS.
+
+**Seam Notes for Consumers (US12)**: 011 — passar `impact=ImpactService` em `AdminSeams`; 013 — ler o formato de
+[contracts/admin-api.md](contracts/admin-api.md), "Impacto ambiental".

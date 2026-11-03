@@ -42,3 +42,27 @@ exige um campo `acknowledged: true` no pedido.
 `test_usage_report.py` (dias no fuso, agrupamentos, origem, sem preço, incompleto, período anterior — SC-005),
 `test_price_book.py` (vigência; preço no passado recalcula), `test_trace_destinations.py` (precedência, segredo só de
 escrita, conflito, `MasterKeyMissing`, `reload`).
+
+## Passada de 2026-11-03: Impact Report (US9; ADR-056)
+
+```python
+class ImpactReportSeam(Protocol):
+    async def report(self, query: ImpactQuery) -> ImpactReport: ...
+```
+
+| Situação | Resultado |
+|---|---|
+| `start > end`; grão, agrupamento, origem ou fuso desconhecidos | `InvalidQuery(field)` |
+| grão `day` com mais de 366 dias | `InvalidQuery("grain")` |
+| início antes da retenção (outros grãos) | relatório com `clipped_start` = o primeiro dia guardado |
+| estimativa desligada pela instalação | `ImpactReport(enabled=False)`, sem baldes nem totais |
+| nenhuma chamada no período | `enabled=True`, baldes com zeros, `totals` com cobertura `calls=0` |
+
+Os baldes cobrem do que contém `start` ao que contém `end`, recortados ao período; `previous` usa o mesmo número de
+dias imediatamente antes. As linhas (`rows`) são do período inteiro; `buckets[i].rows`, do balde.
+
+### Conformidade
+
+`test_impact_report.py` (memória × Postgres): os cinco grãos com semana ISO e semestre, fuso local, origem, as duas
+chaves, cobertura, respostas estimadas, período anterior, recorte da retenção, desligado; totais iguais à soma das
+estimativas gravadas (SC-010).
