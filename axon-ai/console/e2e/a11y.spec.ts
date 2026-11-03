@@ -8,6 +8,8 @@ import { expectAccessible, login, OUTSIDER } from "./fixtures/session";
 const SCREENS = [
   "/uso",
   "/uso/precos",
+  "/meio-ambiente",
+  "/meio-ambiente?agregacao=semana&periodo=90",
   "/assistentes",
   "/assistentes/geral/modelos",
   "/assistentes/geral/mcp",

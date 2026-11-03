@@ -615,3 +615,123 @@ T072 → T073 ∥ T074 (veem falhar) → T075 → T076 → T077 → T078; T079 e
 - [X] T081 `view_image` em `DecisionAction`; `ControllerDecision.images`; `contracts/record-format.md`
 - [X] T082 [P] Testes: registro do `tool_call` com `attachments`; `view_image` com e sem ids, `images` fora da ação
   recusado; marca no `model_exchange` (`tests/llm/unit/test_llm_vision.py`)
+
+## Passada de 2026-11-03: impacto ambiental — US9 ([ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md); research R44–R51)
+
+**Goal**: cada chamada elegível estimada pelo EcoLogits no `flush` do uso e gravada na linha; o seam Impact Report agrega
+por dia, semana ISO, mês, trimestre e semestre, com período anterior, cobertura, respostas estimadas e árvores; o
+preenchimento estima as linhas antigas.
+
+**Independent Test**: [quickstart.md, "incremento 9.6"](quickstart.md) — `-m us9` em `observability/` e a conformidade
+memória × Postgres.
+
+### Setup
+
+- [X] T083 `axon-ai/packages/core/pyproject.toml`: dependências `ecologits>=0.11.3,<0.12` e `rapidfuzz>=3.12,<4`,
+  cada uma com o comentário no padrão das outras (ADR-056; R44); `uv lock` a partir de `axon-ai/`
+- [X] T084 `axon-ai/pyproject.toml`: a marca `us9` ganha `; 009 US9 — impacto ambiental (EcoLogits)`; no contrato "o
+  núcleo do trace não importa biblioteca de observabilidade", `forbidden_modules` ganha `"ecologits"` e `"rapidfuzz"`;
+  contrato novo "EcoLogits só no adapter do trace": `source_modules = ["axon_ai"]`, `forbidden_modules =
+  ["ecologits", "rapidfuzz"]`, `ignore_imports = ["axon_ai.observability.adapters.ecologits -> ecologits",
+  "axon_ai.observability.adapters.ecologits -> rapidfuzz"]` (ou a forma equivalente que o import-linter do workspace
+  aceita)
+
+### Foundational (bloqueia o resto da US9)
+
+- [X] T085 `axon-ai/packages/core/src/axon_ai/observability/api.py` (data-model, "Seam"): `ImpactGrain =
+  Literal["day", "week", "month", "quarter", "semester"]`; `ImpactQuery(start, end, tz="UTC", grain="day",
+  by: UsageGrouping="model", origin: UsageOrigin="production")` com `__post_init__`: `start > end` →
+  `InvalidQuery(field="start")`; grão desconhecido → `InvalidQuery(field="grain")`; `grain == "day"` e mais de
+  `MAX_REPORT_DAYS` (366) dias → `InvalidQuery(field="grain")`; `by`/`origin` como no `UsageQuery`; fuso vazio →
+  `field="tz"`; propriedade `days`. `ImpactMetric(min, max)` com `mean = (min + max) / 2`; `ImpactMetrics` com os onze
+  campos; `ImpactCoverage(calls, eligible, estimated, approximate)` com `unestimated` e `fraction` (1.0 com zero
+  elegíveis); `ImpactRow`, `ImpactBucket`, `ImpactTotals` (com `trees`), `ImpactReport(query, enabled, version,
+  tree_kg_co2e, tree_years=20, buckets=(), rows=(), totals=None, previous=None, clipped_start=None)`,
+  `BackfillResult(estimated, unmatched, failed)` e `ImpactReportSeam(Protocol)` com `async def report(self, query:
+  ImpactQuery) -> ImpactReport`
+- [X] T086 `axon-ai/packages/core/src/axon_ai/observability/domain/usage_records.py` (data-model, "Domínio"):
+  `ImpactEstimate` (modelo `provedor/nome`, `match: Literal["exact", "approximate"]`, `zone`, `version`,
+  `warnings: tuple[str, ...]`, 22 floats `<métrica>_min`/`<métrica>_max` para `energy_kwh`, `gwp_kgco2eq`,
+  `adpe_kgsbeq`, `pe_mj`, `wcf_l`, `gwp_usage`, `gwp_embodied`, `adpe_usage`, `adpe_embodied`, `pe_usage`,
+  `pe_embodied`); `IMPACT_COLUMNS: Final` com os 22 nomes na ordem das colunas SQL (`energy_kwh_min`, …,
+  `pe_embodied_max`); `ModelCallRow` + `impact: ImpactEstimate | None = None` e `impact_tried: bool = False`;
+  `ImpactCell`, `ImpactAggregate`, `UnestimatedCall`; `eligible(row)` = `not row.failed and row.output_tokens > 0`
+- [X] T087 `axon-ai/packages/core/src/axon_ai/observability/ports.py` (contracts/ports.md, "Passada de 2026-11-03"):
+  `ImpactEstimator(Protocol)` com `version: str` e `estimate(provider, model, output_tokens, latency_s) ->
+  ImpactEstimate | None` (docstring: sem par ou erro do EcoLogits → `None`; PODE levantar); `UsageStore` + `impact(*,
+  start, end, tz, grain, by, origin) -> ImpactAggregate`, `unestimated(limit) -> tuple[UnestimatedCall, ...]`,
+  `set_impacts(items: Sequence[tuple[int, ImpactEstimate | None]]) -> None`; `DestinationStats` + `impact_failed: int =
+  0`; reexportar os tipos novos
+- [X] T088 [P] `axon-ai/packages/core/src/axon_ai/observability/adapters/sql/005_impacts.sql` (R47): as colunas
+  `impact_model text`, `impact_match text CHECK (impact_match IN ('exact', 'approximate', 'none'))`, `impact_zone
+  text`, `ecologits_version text`, `impact_warnings text[]` e as 22 `double precision` de `IMPACT_COLUMNS`; índice
+  parcial `model_calls_unestimated ON observability.model_calls (id) WHERE impact_match IS NULL AND NOT failed AND
+  output_tokens > 0`; comentário de cabeçalho no padrão das outras migrações; registrar a `005` em
+  `adapters/postgres_schema.py` se a lista for explícita
+
+### Tests (antes da T093; marca `us9`)
+
+- [X] T089 [P] [US9] `axon-ai/packages/core/tests/observability/unit/test_impact_domain.py`: `normalize`
+  (`"Qwen3:1.7B"` → `"qwen3"`, `"gpt-4.1_mini"` → `"gpt-4-1-mini"`); `resolve` com uma lista fixa que imita a base
+  (`openai/gpt-4.1-mini`, `openai/gpt-4.1-nano`, `mistralai/zai-glm-5-3`, `google_genai/gemini-2.5-flash`,
+  `huggingface_hub/meta-llama/Meta-Llama-3.1-70B-Instruct`, um nome repetido em dois provedores) e a similaridade
+  `difflib.SequenceMatcher(None, a, b).ratio() * 100` (o domínio a recebe injetada): os casos do R45 (exato, aproximado
+  com família, sem par, empate pelo fornecedor e pela ordem fixa) e `z-ai/glm-5.3-flash` nunca no Gemini; `bucket_start`
+  (2026-11-05 → semana 2026-11-02; mês 2026-11-01; trimestre 2026-10-01; semestre 2026-07-01; 2026-03-15 → semestre
+  2026-01-01) e `buckets(start, end, grain)` recortados ao período; agregação de referência com média, cobertura,
+  respostas estimadas e árvores (`gwp médio 280 kg`, fator 140 → 2.0)
+- [X] T090 [P] [US9] `axon-ai/packages/core/tests/observability/contract/test_ecologits_estimator.py`: o
+  `EcologitsEstimator` real — `("openrouter", "openai/gpt-4.1-mini", 500, 3.0)` → `exact`,
+  `model == "openai/gpt-4.1-mini"`, `zone == "USA"`, `0.00002 < gwp_kgco2eq_min <= gwp_kgco2eq_max < 0.0002`,
+  `version == ecologits.__version__`; `("openrouter", "z-ai/glm-5.3-flash", 500, 4.0)` → `approximate`,
+  `mistralai/zai-glm-5-3`; `("ollama", "qwen3:1.7b", …)` e `("openrouter", "deepseek/deepseek-chat", …)` → `None`;
+  `EcologitsEstimator(zone="BRA")` → `zone == "BRA"`; `known_zone("XXX")` falso e `known_zone("BRA")` verdadeiro;
+  avisos com códigos (`model-arch-not-released`); duas chamadas iguais resolvem o nome uma vez (cache)
+- [X] T091 [P] [US9] `axon-ai/packages/core/tests/observability/contract/test_impact_report.py` (contracts/usage-api.md,
+  "Passada de 2026-11-03"): parametrizado memória × Postgres (Postgres só com `AXON_TEST_POSTGRES_DSN`, como
+  `test_usage_store.py`): linhas com `ImpactEstimate` fixas em dois meses e dois fusos; `report` por `week`, `month`,
+  `quarter`, `semester` e `day` confere baldes, `rows` por modelo e por Assistant, cobertura (inclui `none`, falha e
+  sem tokens), respostas estimadas, período anterior, totais = soma das linhas gravadas (SC-010), `day` com 400 dias →
+  `InvalidQuery("grain")`, `clipped_start` com retenção curta, `enabled=False` sem consultar o armazenamento
+- [X] T092 [P] [US9] `axon-ai/packages/core/tests/observability/integration/test_impact_flush.py`: `UsageDestination`
+  com um estimador fixo → `append` recebe `impact` nas elegíveis, `impact_tried` com `None` nas sem par, nada nas
+  falhas e sem tokens; com um estimador que levanta → as linhas gravam sem impacto e `stats().impact_failed` soma;
+  `ImpactService.backfill` estima as nulas, devolve `BackfillResult` e, de novo, devolve zeros (FR-029). Rodar T089–T092
+  e ver falhar
+
+### Implementation
+
+- [X] T093 [US9] `axon-ai/packages/core/src/axon_ai/observability/domain/impact.py` (R45, R48, R49): `normalize`,
+  `family`, `resolve(provider, model, index, similarity) -> tuple[str, str, Literal["exact", "approximate"]] | None`
+  com o corte `APPROXIMATE_MIN_SCORE: Final = 75` e a ordem `PROVIDER_ORDER`; `bucket_start`, `buckets`; a agregação
+  de referência sobre `ModelCallRow` (usada pela memória) e `build_impact_report(query, aggregate, previous,
+  *, version, tree_kg_co2e, clipped_start)`; puro, sem `rapidfuzz` nem `ecologits`
+- [X] T094 [US9] `axon-ai/packages/core/src/axon_ai/observability/adapters/ecologits.py` (R44): `EcologitsEstimator(zone:
+  str | None = None)`; índice da base por `normalize`; `similarity = rapidfuzz.fuzz.ratio`; cache por `(provider,
+  model)`; `llm_impacts(provider, name, output_tokens, latency_s, electricity_mix_zone=zone)`; `RangeValue`/`float` →
+  min/max; `errors` → `None`; logger `ecologits` em `ERROR`; `version` de `ecologits.__version__`;
+  `@staticmethod known_zone(zone) -> bool` (sem `errors` numa estimativa de referência com a zona)
+- [X] T095 [US9] `axon-ai/packages/core/src/axon_ai/observability/adapters/usage.py` (R46): `UsageDestination(…,
+  estimator: ImpactEstimator | None = None)`; no `flush`, antes do `append`, `dataclasses.replace(row, impact=…,
+  impact_tried=True)` nas elegíveis; exceção → linha intacta e `self._impact_failed += 1`; `stats()` com
+  `impact_failed`
+- [X] T096 [US9] `axon-ai/packages/core/src/axon_ai/observability/adapters/postgres.py` e `adapters/memory.py`: o
+  `append` grava `impact_match` (`'none'` para `impact_tried` sem `impact`) e as colunas; `impact(...)` em SQL (dia local,
+  `date_trunc` do grão, semestre por `make_date`, somas com `FILTER (WHERE impact_model IS NOT NULL)`, `count(DISTINCT
+  request_id)` total e estimado por balde, por chave e no período, modelo e casamento mais recentes por chave);
+  `unestimated(limit)` pelo índice parcial; `set_impacts` com `WHERE id = %s AND impact_match IS NULL`. A memória
+  guarda o `id` sequencial e usa a agregação de `domain/impact.py`
+- [X] T097 [US9] `axon-ai/packages/core/src/axon_ai/observability/service.py`: `ImpactService(*, store, clock, enabled,
+  estimator: ImpactEstimator | None, tree_kg_co2e=140.0, retention_days=DEFAULT_RETENTION_DAYS)` com `report` (desligado
+  → `ImpactReport(enabled=False)` sem consultar; recorte à retenção fora do `day`; período anterior pela `previous` do
+  uso), `recent()` (cobertura das últimas 24 h) e `backfill(limit=1000, batch=500)`; `UsageService` não muda.
+  Rodar T089–T092 e ver passar
+
+### Polish
+
+- [X] T098 [P] `axon-ai/packages/core/tests/observability/integration/test_usage_volume.py` (ou arquivo novo ao lado,
+  marca `slow`): 100 mil chamadas estimadas em 400 dias no Postgres; `ImpactService.report` por `month` < 1 s (SC-011)
+- [X] T099 Rodar a partir de `axon-ai/`: `uv run pytest && uv run mypy && uv run ruff check packages && uv run
+  lint-imports`, e a conformidade com `AXON_TEST_POSTGRES_DSN` (Postgres 17 em contêiner); `graphify update .` na raiz
+- [X] T100 Marcar a US9 como feita no `CLAUDE.md` (parágrafo da Fase 9) só depois das passadas da 008, 011 e 013
+  (o incremento fecha junto)

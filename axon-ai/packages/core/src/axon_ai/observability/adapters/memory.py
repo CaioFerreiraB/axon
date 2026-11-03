@@ -5,18 +5,31 @@ Todo porta secundária tem adapter em memória (princípio XIII); estes também 
 
 from __future__ import annotations
 
+import dataclasses
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from datetime import date, datetime
 
-from axon_ai.observability.api import ConnectionCheck, Price, TraceRecord, UsageGrouping, UsageOrigin
+from axon_ai.observability.api import (
+    ConnectionCheck,
+    ImpactGrain,
+    Price,
+    TraceRecord,
+    UsageGrouping,
+    UsageOrigin,
+)
+from axon_ai.observability.domain.impact import aggregate_impact
 from axon_ai.observability.domain.usage import aggregate
+from axon_ai.observability.domain.usage_records import IMPACT_COLUMNS, eligible
 from axon_ai.observability.ports import (
     DestinationSettings,
     DestinationStats,
     ExecutionRow,
+    ImpactAggregate,
+    ImpactEstimate,
     LangfuseCredentials,
     ModelCallRow,
+    UnestimatedCall,
     UsageAggregate,
 )
 
@@ -100,6 +113,31 @@ class InMemoryUsageStore:
     ) -> UsageAggregate:
         return aggregate(self.calls, start=start, end=end, tz=tz, by=by, origin=origin)
 
+    async def impact(
+        self, *, start: datetime, end: datetime, tz: str, grain: ImpactGrain, by: UsageGrouping, origin: UsageOrigin
+    ) -> ImpactAggregate:
+        return aggregate_impact(self.calls, start=start, end=end, tz=tz, grain=grain, by=by, origin=origin)
+
+    async def unestimated(self, limit: int, *, after: int = -1) -> tuple[UnestimatedCall, ...]:
+        """O `id` é a posição na lista — a ordem de gravação, como o `bigserial` do Postgres."""
+        found = (
+            UnestimatedCall(
+                id=index,
+                provider=row.provider,
+                model=row.model,
+                output_tokens=row.output_tokens,
+                duration_ms=row.duration_ms,
+            )
+            for index, row in enumerate(self.calls)
+            if index > after and eligible(row) and not row.impact_tried
+        )
+        return tuple(call for _, call in zip(range(limit), found, strict=False))
+
+    async def set_impacts(self, items: Sequence[tuple[int, ImpactEstimate | None]]) -> None:
+        for index, estimate in items:
+            if 0 <= index < len(self.calls) and not self.calls[index].impact_tried:
+                self.calls[index] = dataclasses.replace(self.calls[index], impact=estimate, impact_tried=True)
+
     async def purge(self, *, before: datetime) -> int:
         kept = [row for row in self.calls if row.at >= before]
         removed = len(self.calls) - len(kept)
@@ -163,3 +201,27 @@ class RecordingLangfuseTransport:
 
     def shutdown(self) -> None:
         self.credentials = None
+
+
+class FixedImpactEstimator:
+    """Estimador de teste (contracts/ports.md): o mesmo impacto pequeno para todo modelo, salvo os de `unknown` (sem
+    par); com `raises`, levanta em toda estimativa."""
+
+    def __init__(self, *, version: str = "teste", unknown: Collection[str] = (), raises: bool = False) -> None:
+        self._version = version
+        self._unknown = frozenset(unknown)
+        self._raises = raises
+        self.calls: list[tuple[str, str, int, float]] = []
+
+    @property
+    def version(self) -> str:
+        return self._version
+
+    def estimate(self, provider: str, model: str, output_tokens: int, latency_s: float) -> ImpactEstimate | None:
+        self.calls.append((provider, model, output_tokens, latency_s))
+        if self._raises:
+            raise RuntimeError("estimador de teste fora do ar")
+        if model in self._unknown:
+            return None
+        values = {column: output_tokens * 1e-9 * (2.0 if column.endswith("_max") else 1.0) for column in IMPACT_COLUMNS}
+        return ImpactEstimate(model=f"teste/{model}", match="exact", zone="USA", version=self._version, values=values)

@@ -486,3 +486,16 @@ axon-ai/                                  # era ai-core/ (git mv)
 ### Complexity Tracking (US7)
 
 Nenhuma linha nova: a recusa é uma checagem de prefixo na carga da configuração, sem caminho paralelo.
+
+## Passada de 2026-11-03: impacto ambiental na montagem (US8; [ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md))
+
+**Insumos lidos**: [spec.md](spec.md) (US8, FR-031, clarificação de 2026-11-03), ADR-056, as passadas da 009 (seam
+Impact Report, porta `ImpactEstimator`) e da 008 (`AdminSeams.impact`). Research: R54, R55. Sem divergência do
+`design.md`.
+
+**Summary**: a porta `impact_estimator` nos três perfis, as variáveis `AXON_IMPACT_*`, o `ImpactService` nos seams da
+administração, o item informativo `impact` na saúde e `axon usage impact-backfill`.
+
+**Constitution Check (US8)**: II ✅ (só os `api.py` e adapters dos módulos, como composition root); VII ✅ (valor
+inválido para o boot nomeando a variável; desligado é dito); XIII ✅ (a única instância do adapter do EcoLogits nasce
+aqui). **Module boundary gate**: `axon_ai/bootstrap/**` e `tests/bootstrap/**`. **Resultado**: PASS.

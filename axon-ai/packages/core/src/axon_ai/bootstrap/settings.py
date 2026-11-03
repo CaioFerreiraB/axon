@@ -18,7 +18,8 @@ from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from axon_ai.assistants.domain.keys import KEY_PREFIX, parse_key
-from axon_ai.observability.api import InvalidField
+from axon_ai.observability.adapters.ecologits import EcologitsEstimator
+from axon_ai.observability.api import DEFAULT_TREE_KG_CO2E, InvalidField
 from axon_ai.observability.domain.settings import check_host
 
 MEMORY_PROFILE: Final = "memory"
@@ -148,6 +149,12 @@ class Settings:
     timezone: str = DEFAULT_TIMEZONE
     """`AXON_TIMEZONE`: o fuso da data de referência que o motor dá ao modelo no `agentic` (005 R50)."""
     usage_retention_days: int = DEFAULT_USAGE_RETENTION_DAYS
+    impact_enabled: bool = True
+    """`AXON_IMPACT_ENABLED`: estimativa do impacto ambiental pelo EcoLogits (009 US9; ADR-056, item 7)."""
+    impact_zone: str | None = None
+    """`AXON_IMPACT_ZONE`: zona elétrica (ISO alpha-3) de todas as estimativas; sem ela, a do provedor do modelo."""
+    impact_tree_kg_co2e: float = DEFAULT_TREE_KG_CO2E
+    """`AXON_IMPACT_TREE_KG_CO2E`: CO₂e que uma árvore compensa (padrão: Mata Atlântica, 20 anos)."""
 
     @property
     def charts_base_url(self) -> str | None:
@@ -231,6 +238,14 @@ class Settings:
                 ZoneInfo(zone)
             except (ZoneInfoNotFoundError, ValueError):
                 raise ConfigurationError(f"{PREFIX}{name}: fuso IANA desconhecido: {zone!r}") from None
+        if not self.impact_tree_kg_co2e > 0:
+            raise ConfigurationError(
+                f"{PREFIX}IMPACT_TREE_KG_CO2E: precisa ser um número positivo: {self.impact_tree_kg_co2e!r}"
+            )
+        if self.impact_enabled and self.impact_zone is not None and not EcologitsEstimator.known_zone(self.impact_zone):
+            raise ConfigurationError(
+                f"{PREFIX}IMPACT_ZONE: o EcoLogits não tem o mix elétrico da zona {self.impact_zone!r} (ISO alpha-3)"
+            )
         if self.usage_retention_days < MIN_USAGE_RETENTION_DAYS:
             raise ConfigurationError(
                 f"{PREFIX}USAGE_RETENTION_DAYS: precisa ser ao menos {MIN_USAGE_RETENTION_DAYS}: "
@@ -352,6 +367,9 @@ class EnvConfigSource:
             usage_timezone=self._text("USAGE_TIMEZONE", DEFAULT_USAGE_TIMEZONE),
             timezone=self._text("TIMEZONE", DEFAULT_TIMEZONE),
             usage_retention_days=self._int("USAGE_RETENTION_DAYS", DEFAULT_USAGE_RETENTION_DAYS),
+            impact_enabled=self._bool("IMPACT_ENABLED", True),
+            impact_zone=self._optional("IMPACT_ZONE"),
+            impact_tree_kg_co2e=self._float("IMPACT_TREE_KG_CO2E", DEFAULT_TREE_KG_CO2E),
         )
 
     def _refuse_legacy(self) -> None:

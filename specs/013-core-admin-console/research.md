@@ -383,3 +383,26 @@ sem saber o que gravar de volta.
 
 **Alternatives considered**: um controle de `vision` fora da tabela de papéis (separa o atributo do papel); converter
 para uma estrutura própria na leitura (cada tela leria um formato diferente do da API).
+
+## Passada de 2026-11-03: Meio ambiente ([ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md); US11)
+
+## R29 — A página e o gráfico por balde
+
+- **Decision**: `features/impact/ImpactPage.tsx` lê só `GET /impact` (`useImpact`, `impactReportSchema`); os 30 dias
+  são o padrão da API (o fuso e o "hoje" vêm dela), e 90 dias, 12 meses e ano atual terminam no `query.to` que ela
+  informou, como em Uso e custo. O `DailyChart` foi **generalizado**, não duplicado: props opcionais de rótulo do eixo,
+  título da dica e da tabela acessível, cabeçalho da tabela, texto do vazio, linhas extras da dica (faixa e chamadas),
+  passo dos rótulos e altura; `day` passa a ser a chave do balde. Rótulos do grão em `features/impact/grain.ts`
+  (semana ISO; "S45 · 3–9 nov", "nov/26", "T4 2026", "2º sem 2026"). O eixo mostra só o número — a unidade está no
+  subtítulo e na dica —, porque "100 µg Sb eq" invadia a área das barras (verificado nas capturas).
+- **Rationale (FR-033–FR-035; mockup aprovado)**: uma só implementação do gráfico mantém dica pelo teclado, tabela
+  equivalente e regras de barra iguais nas duas telas.
+
+## R30 — Unidades com prefixo e a célula Emissões
+
+- **Decision**: `i18n/format.ts` ganha `measureParts`/`formatMeasure` (3 algarismos significativos; `mg`/`g`/`kg
+  CO₂e`, `Wh`/`kWh`, `mL`/`L`, `kJ`/`MJ`, `µg`/`mg`/`g Sb eq`), `measureFormatter` (unidade fixada pelo máximo de um
+  gráfico), `formatTrees` ("menos de 0,01") e `formatPercent`. Os rótulos de intensidade dizem "Emissões por
+  resposta" e "Emissões por mil tokens gerados" (o mockup dizia "gCO₂e por…", que contradiz um valor em mg). Em Uso e
+  custo, `StatStrip` recebe `impact` e mostra a quinta célula (`styles.five`; 2 colunas abaixo de 1100 px), com o
+  link `/meio-ambiente?periodo=personalizado&de=…&ate=…`; o impacto que falha ou está desligado só muda a célula.

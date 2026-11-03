@@ -15,7 +15,7 @@ limitando `/speckit-tasks` e `/speckit-implement` às user stories da fase (ex.:
 | **6 — Avaliação** | **Antes de calibrar qualquer número do RAG** | 009 · US2, US3, US4 · 105 · US1–US5 |
 | **7 — Open WebUI** ✅ | Assistants aparecem como modelos | 008 · US6, US8 |
 | **8 — GraphRAG** | Retriever de grafo atrás do contrato existente | 106 (resolver a ontologia primeiro) |
-| **9 — Console e identidade própria** | Login da própria plataforma (senha e Google) no lugar do Keycloak e administração gráfica do que o deploy permitir: modelos e MCPs por Assistant, uso e custo, Langfuse, ajustes de login | 012 · todas · 013 · todas · 003 · US9, US10 · 009 · US5–US7 · 006 · toque `model_exchange` · 008 · US9 · 011 · US6 · 002 · US7 · identidade Axon (incremento 9.5): US "Identidade Axon" em 001, 011, 010, 002, 003, 009, 008, 012, 013 e 101 · chaves e permissões pela console (ADR-040): 003 · US12, US13 · 008 · US11 · 013 · US9, US10 |
+| **9 — Console e identidade própria** | Login da própria plataforma (senha e Google) no lugar do Keycloak e administração gráfica do que o deploy permitir: modelos e MCPs por Assistant, uso e custo, Langfuse, ajustes de login | 012 · todas · 013 · todas · 003 · US9, US10 · 009 · US5–US7 · 006 · toque `model_exchange` · 008 · US9 · 011 · US6 · 002 · US7 · identidade Axon (incremento 9.5): US "Identidade Axon" em 001, 011, 010, 002, 003, 009, 008, 012, 013 e 101 · chaves e permissões pela console (ADR-040): 003 · US12, US13 · 008 · US11 · 013 · US9, US10 · impacto ambiental (incremento 9.6, ADR-056): 009 · US9 · 008 · US12 · 011 · US8 · 013 · US11 |
 
 **Fase 1 concluída em 2026-09-21.** `ai-core serve` sobe a plataforma a partir de `packs.yaml` e `assistants.yaml`, e
 uma requisição no formato OpenAI atravessa API (008), motor (005), Pack Hooks (002) com o `ai-generic` (010) e Model
@@ -135,6 +135,15 @@ subject no trace e no uso ficam para um ADR próprio. **Feito**; core `0.7.0rc2`
 (011 R34) —, e a instalação
 (`axon-deploy`) atualizada sobre os dados existentes — migrações 004 e 005 aplicadas —, com `auth` liberado em `scouting`,
 `geral` e `interno`.
+
+**Incremento 9.6, impacto ambiental (2026-11-03; ADR-056).** Cada chamada de modelo é estimada pelo EcoLogits ao
+esvaziar o destino de uso — energia, GWP, ADPe, PE e água, com mínimo e máximo e as fases de uso e fabricação — e
+gravada na linha da chamada, com o modelo da base, o casamento (exato ou aproximado, nunca de outra família), a zona e
+a versão. A 009 ganha o seam Impact Report (grãos dia, semana, mês, trimestre e semestre; árvores para compensar,
+140 kg CO₂e por árvore da Mata Atlântica em 20 anos); a 008, `GET /admin/v1/impact`; a 011, `AXON_IMPACT_*`, o item
+`impact` da saúde e `axon usage impact-backfill`; a 013, a página Meio ambiente e a célula Emissões em Uso e custo,
+pelo mockup aprovado no Penpot. Specs: 009 · US9 · 008 · US12 · 011 · US8 · 013 · US11. **Feito** (2026-11-03): suítes do core
+(com Postgres) e da console verdes, e2e com axe nos dois temas e no tablet; sem tag nova ainda.
 
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 

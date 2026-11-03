@@ -50,11 +50,11 @@ markers = [
     "us5: 007 US5 — política por servidor; 006 US5 — allowlist de modelo; 009 US5 — uso e custo",
     "us6: 007 US6 — proteções de rede; 003 US6 — Assistants de usuário; 009 US6 — destino Langfuse",
     "us7: 009 US7 — captura opcional de prompt e resposta",
-    "us8: 003 US8 — validação de Assistants; 009 US8 — identidade Axon (serviço e rótulo do selo); 012 US8 — identidade Axon (marca das páginas, cookie, realm e rótulos)",
-    "us9: 003 US9 — administração por grupo, com token da plataforma ou chave",
+    "us8: 003 US8 — validação de Assistants; 009 US8 — identidade Axon (serviço e rótulo do selo); 012 US8 — identidade Axon (marca das páginas, cookie, realm e rótulos); 011 US8 — impacto ambiental na montagem",
+    "us9: 003 US9 — administração por grupo, com token da plataforma ou chave; 009 US9 — impacto ambiental (EcoLogits)",
     "us10: 003 US10 — sobreposições de Assistants de sistema; 008 US10 — identidade Axon (cabeçalhos, extensão, OpenAPI e instance.custom)",
     "us11: 003 US11 — identidade Axon (audiências e prefixo da chave); 008 US11 — chaves rotacionáveis e auth na administração",
-    "us12: 003 US12 — rotação do segredo de chaves de API",
+    "us12: 003 US12 — rotação do segredo de chaves de API; 008 US12 — impacto ambiental na administração",
     "us13: 003 US13 — sobreposição de auth de Assistants de sistema",
 ]
 asyncio_default_fixture_loop_scope = "function"
@@ -149,7 +149,18 @@ source_modules = [
     "axon_ai.observability.ports",
     "axon_ai.observability.service",
 ]
-forbidden_modules = ["opentelemetry", "logfire", "sentry_sdk"]
+forbidden_modules = ["opentelemetry", "logfire", "sentry_sdk", "ecologits", "rapidfuzz"]
+
+# 009 research R44 (ADR-056): o EcoLogits e a similaridade da resolução de nomes moram só no adapter do estimador.
+[[tool.importlinter.contracts]]
+name = "EcoLogits só no adapter do trace"
+type = "forbidden"
+source_modules = ["axon_ai"]
+forbidden_modules = ["ecologits", "rapidfuzz"]
+ignore_imports = [
+    "axon_ai.observability.adapters.ecologits -> ecologits",
+    "axon_ai.observability.adapters.ecologits -> rapidfuzz",
+]
 
 [[tool.importlinter.contracts]]
 name = "o trace não importa outros módulos do core"

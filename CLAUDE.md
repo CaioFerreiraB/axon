@@ -623,6 +623,20 @@ Gráficos na conversa (ADR-052): os contratos `0.2.4` têm `Chart` (com `ChartSe
   formato só entra em execução com tools.
 - **Versão.** O core está em `0.7.0rc12` (contratos `0.2.5`).
 
+Impacto ambiental (incremento 9.6, ADR-056): cada chamada de modelo com tokens de saída é estimada pelo EcoLogits
+0.11.3 no `flush` do destino de uso (porta `ImpactEstimator`; o adapter `observability/adapters/ecologits.py` é o único
+import de `ecologits` e `rapidfuzz`) e gravada na própria linha de `observability.model_calls` (migração `005`: mínimo e
+máximo de energia, GWP, ADPe, PE e água, e de GWP, ADPe e PE por fase; modelo da base, casamento `exact`/`approximate`/
+`none`, zona e versão). A resolução do nome é pura (`domain/impact.py`): nome normalizado igual → exato; senão o mais
+parecido com nota ≥ 75 **e** a mesma família → aproximado (o método do LiteLLM ligava o GLM ao Gemini); senão sem
+estimativa. O seam **Impact Report** agrega por dia, semana ISO, mês, trimestre ou semestre, com período anterior,
+cobertura, respostas estimadas e árvores (140 kg CO₂e por árvore da Mata Atlântica em 20 anos); a 008 o expõe em
+`GET /admin/v1/impact` (números em texto decimal); a 011 monta o estimador real nos três perfis
+(`AXON_IMPACT_ENABLED`, `AXON_IMPACT_ZONE`, `AXON_IMPACT_TREE_KG_CO2E`), o item informativo `impact` da saúde e
+`axon usage impact-backfill`; a 013 tem a página Meio ambiente (`/meio-ambiente`) e a célula Emissões em Uso e custo,
+pelo mockup aprovado no Penpot ("axon mockup"). O `DailyChart` aceita baldes (rótulos de grão em
+`features/impact/grain.ts`). Valores reais são pequenos: o `gpt-4.1-mini` com 500 tokens dá 0,03–0,10 g CO₂e.
+
 O `axon-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
 true }`, suíte de conformidade nos próprios testes e zero import do core (import-linter, nas duas direções). Ele é

@@ -2,6 +2,7 @@
 
 export const NAV = [
   { to: "/uso", label: "Uso e custo", icon: "uso" },
+  { to: "/meio-ambiente", label: "Meio ambiente", icon: "folha" },
   { to: "/assistentes", label: "Assistentes", icon: "assistente" },
   { to: "/servidores-mcp", label: "Servidores MCP", icon: "mcp" },
   { to: "/observabilidade", label: "Observabilidade", icon: "observabilidade" },

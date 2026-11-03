@@ -1,0 +1,115 @@
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.origin {
+  width: auto;
+  min-width: 158px;
+}
+.periodWrap {
+  position: relative;
+}
+/* A caixa do período personalizado flutua sobre a página: a única sombra é a flutuante (DESIGN.md). */
+.popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--borda-base);
+  border-radius: var(--raio-painel);
+  background: var(--fundo-base);
+  box-shadow: var(--sombra-flutuante);
+}
+.dates {
+  display: flex;
+  gap: 12px;
+}
+.dates > * {
+  width: 170px;
+}
+.popoverActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.heroUnit {
+  font-size: var(--tamanho-28);
+  letter-spacing: -0.014em;
+}
+/* A faixa de intensidade: cinco colunas iguais; abaixo de 1100 px, duas, e a cobertura ocupa a linha toda. */
+.intensity {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+.wideChart {
+  grid-column: 1 / -1;
+}
+.chart {
+  min-width: 0;
+}
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.sectionTitle {
+  font-size: var(--tamanho-16);
+  font-weight: 600;
+  word-spacing: 0.06em;
+}
+.method {
+  max-width: 76ch;
+  color: var(--texto-secundario);
+  font-size: var(--tamanho-13);
+  line-height: 1.5;
+}
+.muted {
+  color: var(--texto-terciario);
+}
+.ecoModel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.narrowOnly {
+  display: none;
+}
+@media (max-width: 1100px) {
+  .intensity {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .intensity > div:nth-child(odd) {
+    border-left: 0;
+  }
+  .intensity > div:nth-child(n + 3) {
+    border-top: 1px solid var(--borda-base);
+  }
+  .intensity > div:last-child {
+    grid-column: 1 / -1;
+  }
+  .charts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* O modelo do EcoLogits sai da tabela e volta sob o nome, em linha menor (DESIGN.md, "Abaixo de 1100px"). */
+  .narrowOnly {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    color: var(--texto-secundario);
+    font-size: var(--tamanho-12);
+  }
+}

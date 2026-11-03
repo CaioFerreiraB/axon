@@ -291,6 +291,9 @@ async def _seed(plataforma: Platform) -> None:
                     )
                 )
     await plataforma.parts["usage_store"].append(rows, [])
+    # As linhas semeadas entram sem estimativa: o preenchimento as estima com o EcoLogits real (ADR-056, 009 R50).
+    assert plataforma.impact is not None
+    await plataforma.impact.backfill(limit=len(rows))
 
 
 def main() -> None:

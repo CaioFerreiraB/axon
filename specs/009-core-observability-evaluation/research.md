@@ -630,3 +630,130 @@ pela tabela do ADR-037.
   contam decisões por ação.
 - **Alternatives**: ids em `tool` separados por vírgula (misturaria duas coisas num campo que o harness e a 008 leem
   como nome de tool); evento novo `image_decision` (a decisão é do controller, e o evento dele já existe).
+
+## Passada de 2026-11-03: impacto ambiental ([ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md); US9)
+
+Decisões pré-aprovadas no ADR-056 e no [design.md](design.md) (seção "Impacto ambiental"); não se re-pesquisou a
+escolha do EcoLogits. Os fatos da biblioteca foram conferidos num ambiente isolado com `ecologits==0.11.3` em
+2026-11-03.
+
+### R44 — O EcoLogits sem wrapper, atrás da porta `ImpactEstimator`
+
+- **Decision**: `ImpactEstimator.estimate(provider, model, output_tokens, latency_s) -> ImpactEstimate | None` em
+  `ports.py`; o adapter `EcologitsEstimator` (`adapters/ecologits.py`) chama
+  `ecologits.tracers.utils.llm_impacts(provider, model_name, output_token_count, request_latency,
+  electricity_mix_zone)`, a lista de modelos de `ecologits.model_repository.models.list_models()` e a versão de
+  `ecologits.__version__`. `RangeValue` vira `(min, max)` e `float` vira `(x, x)`; com `errors`, devolve `None`; os
+  `warnings` (códigos, como `model-arch-not-released`) vão para a estimativa. O logger `ecologits` é silenciado
+  (`warning_once` imprime cada aviso no primeiro uso). Dependências `ecologits>=0.11.3,<0.12` e
+  `rapidfuzz>=3.12,<4` no `packages/core/pyproject.toml`; o import-linter barra os dois fora de
+  `axon_ai.observability.adapters`.
+- **Rationale (ADR-056, itens 1 e 7)**: a função é pura (sem rede), aceita a zona por argumento e devolve os dois
+  extremos; `ImpactsOutput` tem `energy`, `gwp`, `adpe`, `pe`, `wcf`, `usage` (as cinco) e `embodied` (GWP, ADPe e PE).
+  Valores medidos: `openai/gpt-4.1-mini`, 500 tokens, 3 s → GWP 0,032–0,102 g, energia 0,081–0,260 Wh, WCF
+  0,29–0,94 mL; `mistralai/zai-glm-5-3`, 500 tokens, 4 s → GWP 0,066 g, energia 1,27 Wh. Zona desconhecida →
+  `errors=[ZoneNotRegisteredError]`; modelo desconhecido → `ModelNotRegisteredError`.
+- **Alternatives**: os wrappers por SDK (`EcoLogits.init`) — instrumentam clientes de provedor e não conhecem o
+  OpenRouter; a extra `litellm` — puxa o LiteLLM inteiro para usar uma função de casamento que se mostrou errada (R45).
+
+### R45 — Resolução do modelo: normalização, exato, aproximado com família
+
+- **Decision**: `domain/impact.py` resolve `(provider, model)` do Axon contra a lista `(provedor_ecologits, nome)`:
+  1. `normalize(s)`: minúsculas; sem o sufixo `:<tag>` do Ollama (`qwen3:1.7b` → `qwen3`); `.`, `_` e espaços →
+     `-`; hífens repetidos colapsam.
+  2. consulta = o `model` do `ModelCall`; o fornecedor é a parte antes de `/` (se houver), senão o `provider` do Axon.
+     Nome = a parte depois da última `/`. Candidatos exatos: `normalize(nome)` e `normalize(fornecedor sem hífens) +
+     "-" + normalize(nome)` (`z-ai/glm-5.3` → `glm-5-3`, `zai-glm-5-3`).
+  3. índice da base: `normalize(última parte do nome)` → lista de `(provedor, nome)`; exato com um só → `exact`; com
+     vários, vence o provedor mapeado do fornecedor (`openai`, `anthropic`, `google`→`google_genai`, `mistralai`,
+     `cohere`), senão a ordem fixa `openai, anthropic, google_genai, mistralai, cohere, huggingface_hub`.
+  4. senão, `similarity(consulta, chave)` (injetada; o adapter passa `rapidfuzz.fuzz.ratio`) para cada candidato da
+     consulta contra as chaves do índice; o melhor com nota ≥ 75 **e** cuja chave contém a **família** — o primeiro
+     termo só de letras de `normalize(nome)` (`glm`, `llama`, `gpt`, `claude`) — → `approximate`, com a nota.
+  5. senão, `None` (sem par).
+  O adapter guarda o resultado num `dict` por `(provider, model)`.
+- **Rationale (ADR-056, item 3)**: medido contra a base de 351 modelos: `z-ai/glm-5.3-flash` → `mistralai/zai-glm-5-3`
+  (79, aproximado); `openai/gpt-4.1-mini`, `openai/gpt-4.1-nano`, `anthropic/claude-sonnet-4.5`,
+  `google/gemini-2.5-flash`, `openai/gpt-5-mini` → exatos; `meta-llama/llama-3.3-70b-instruct` →
+  `meta-llama/Meta-Llama-3.1-70B-Instruct` (88, aproximado, mesma família); `deepseek/deepseek-chat` (47),
+  `moonshotai/kimi-k2` (49), `qwen3:1.7b` (29) → sem par; `mistralai/mistral-small-3.2-24b-instruct` dava 72 com um
+  Llama — barrado pelo corte e pela família. O método do LiteLLM (`token_sort_ratio`, 51, sobre `provedor/modelo`) dá
+  `z-ai/glm-5.3-flash` → `google_genai/gemini-2.5-flash` (55).
+- **Alternatives**: corte 51 do LiteLLM (errado no modelo da instalação); `WRatio` (premia substring curta e casou
+  `gpt-4.1` com `gpt-4.1-nano` em teste exploratório); cadastro manual (rejeitado pelo mantenedor).
+
+### R46 — Estimar no `flush` e o marcador `none`
+
+- **Decision**: `UsageDestination(…, estimator: ImpactEstimator | None)`. No `flush`, antes do `append`, cada
+  `ModelCallRow` com `failed=False` e `output_tokens > 0` recebe `impact = estimator.estimate(provider, model,
+  output_tokens, duration_ms / 1000)`; o resultado `None` vira o marcador `impact_match = "none"` (tentado, sem par); uma
+  exceção deixa a linha sem nada (`impact_match` nulo) e soma em `impact_failed` (nas `DestinationStats` do destino
+  de uso). Sem estimador (desligado), nada é tentado.
+- **Rationale (ADR-056, item 2; FR-025)**: o `emit` continua O(1); o CPU da estimativa (microssegundos com o cache de
+  resolução) corre na tarefa de 2 s. O marcador separa "tentado e sem par" de "nunca tentado", para o preenchimento
+  (R50) não repetir as sem par a cada rodada.
+- **Alternatives**: estimar no `export` (CPU no caminho de quem emite); tabela própria de impacto (join a cada
+  consulta e duas escritas por chamada).
+
+### R47 — Colunas na linha da chamada (migração `005_impacts.sql`)
+
+- **Decision**: `ALTER TABLE observability.model_calls ADD COLUMN` `impact_model text`, `impact_match text CHECK
+  (impact_match IN ('exact','approximate','none'))`, `impact_zone text`, `ecologits_version text`,
+  `impact_warnings text[]` e 22 `double precision`: `energy_kwh_{min,max}`, `gwp_kgco2eq_{min,max}`,
+  `adpe_kgsbeq_{min,max}`, `pe_mj_{min,max}`, `wcf_l_{min,max}`, `{gwp,adpe,pe}_{usage,embodied}_{min,max}`. Índice
+  parcial `model_calls_unestimated ON (id) WHERE impact_match IS NULL AND NOT failed AND output_tokens > 0` para o
+  preenchimento. `impact_model` guarda `provedor/nome` do EcoLogits.
+- **Rationale (ADR-056, item 4; FR-027)**: mesma retenção e expurgo das linhas de uso, sem join. `double precision`
+  basta: são estimativas com faixa de até 3×, e os valores vão de 1e-9 a 1e3.
+- **Alternatives**: `numeric` (custo de agregação sem ganho de exatidão); JSON numa coluna (agregação lenta, sem
+  `FILTER`).
+
+### R48 — Grãos e o período anterior
+
+- **Decision**: `ImpactGrain = Literal["day", "week", "month", "quarter", "semester"]`; `bucket_start(day, grain)`
+  puro: semana ISO (segunda-feira), dia 1, primeiro dia do trimestre, 1º de janeiro ou 1º de julho. Os baldes vão do
+  balde que contém `start` ao que contém `end`, cada um recortado ao período (`start`/`end` do balde no relatório). O
+  SQL agrupa por `date_trunc('week'|'month'|'quarter', dia_local)` e o semestre por `make_date(extract(year), CASE WHEN
+  extract(month) <= 6 THEN 1 ELSE 7 END, 1)`, com `dia_local = (at AT TIME ZONE tz)::date`. O período anterior tem o
+  mesmo número de dias, imediatamente antes (a função `previous` do uso). Limites: `day` até 366 dias
+  (`InvalidQuery(field="grain")`); os demais até a retenção — o `ImpactService` recorta `start` a `hoje − retenção` e
+  devolve o aviso `clipped_start`.
+- **Rationale (FR-028)**: o `date_trunc('week')` do Postgres é a semana ISO; o domínio repete a regra para a memória e
+  para os testes.
+- **Alternatives**: períodos de calendário fechados no anterior (o "mês anterior" muda de tamanho e quebra a
+  comparação da faixa).
+
+### R49 — Agregado, cobertura, respostas e árvores
+
+- **Decision**: `UsageStore.impact(start, end, tz, grain, by, origin) -> ImpactAggregate`, com:
+  `cells` por (balde, chave): `calls`, `eligible` (sem falha e com tokens de saída), `estimated`, `approximate`,
+  `estimated_output_tokens` e a soma de cada uma das 22 colunas; `bucket_responses` por balde: requisições distintas
+  e requisições distintas com alguma chamada estimada; `key_responses` por chave (o período inteiro); `key_models` por
+  chave: o `impact_model` e o `impact_match` da chamada estimada mais recente; e os totais de respostas. O serviço
+  monta o `ImpactReport` no domínio: média = (mín + máx) / 2 por métrica; intensidades sobre as **respostas estimadas**
+  e os **tokens de saída estimados**; cobertura = `estimated / eligible`; árvores = GWP médio total (kg) ÷
+  `tree_kg_co2e`. Números em `float` no seam; a 008 os escreve como texto decimal (008).
+- **Rationale (FR-028, SC-010)**: dividir pelas respostas de todas as chamadas subestimaria a intensidade quando a
+  cobertura é parcial. As requisições distintas exigem contagem própria, como o `UsageDay.requests` (ADR-036).
+- **Alternatives**: `Decimal` (o custo usa, porque é dinheiro; aqui a faixa já domina o arredondamento).
+
+### R50 — Preenchimento (`backfill`)
+
+- **Decision**: `UsageStore.unestimated(limit) -> tuple[UnestimatedCall, ...]` (`id`, `provider`, `model`,
+  `output_tokens`, `duration_ms`; as elegíveis com `impact_match IS NULL`, por `id`) e `UsageStore.set_impacts(
+  Sequence[tuple[int, ImpactEstimate | None]])` (grava a estimativa, ou `none`, só onde `impact_match IS NULL`).
+  `ImpactService.backfill(limit=1000, batch=500) -> BackfillResult(estimated, unmatched, failed)`; uma exceção do
+  estimador conta em `failed` e deixa a linha nula, e o cursor `after` (o maior `id` visto) impede voltar a ela na
+  mesma rodada.
+- **Rationale (FR-029)**: idempotente e sem reescrever o que já foi estimado (ADR-056, consequências).
+
+### R51 — Desligado, saúde e testes
+
+- **Decision**: `ImpactService(*, store, clock, estimator, tree_kg_co2e, retention_days)` — sem estimador, está desligado;
+  `report` devolve `ImpactReport(enabled=False, query=…)` sem consultar o armazenamento; `recent()` devolve a cobertura
+  das últimas 24 h (UTC, grão `day`) para o item `impact` da saúde (011). Testes: unidade de `domain/impact.py`
+  (normalização, os nomes do R45, grãos com semana ISO e semestre, agregação de referência, árvores, média);
+  contrato do `EcologitsEstimator` contra o EcoLogits real (exato, aproximado, sem par, zona desconhecida → `None`,
+  avisos); conformidade do `UsageStore.impact` memória × Postgres (fusos, grãos, origem, `FILTER`, respostas, período
+  anterior; com `AXON_TEST_POSTGRES_DSN`); `flush` com estimador que levanta; `backfill` idempotente; desempenho de
+  400 dias × 100 mil chamadas no Postgres (SC-011, marca `slow`).

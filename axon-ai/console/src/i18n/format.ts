@@ -155,3 +155,77 @@ export function initials(name: string): string {
 export function plural(count: number, one: string, many: string): string {
   return `${formatInteger(count)} ${count === 1 ? one : many}`;
 }
+
+// --- impacto ambiental (013 FR-035; ADR-056) -------------------------------------------------------------------------
+
+export type Measure = "co2" | "energy" | "water" | "primary" | "abiotic";
+
+const significant = new Intl.NumberFormat("pt-BR", { maximumSignificantDigits: 3 });
+
+/** As unidades de cada grandeza, da maior para a menor, com o fator sobre a unidade da API (kg, kWh, L, MJ, kg Sb). */
+const UNITS: Record<Measure, readonly (readonly [number, string])[]> = {
+  co2: [
+    [1, "kg CO₂e"],
+    [1e-3, "g CO₂e"],
+    [1e-6, "mg CO₂e"],
+  ],
+  energy: [
+    [1, "kWh"],
+    [1e-3, "Wh"],
+  ],
+  water: [
+    [1, "L"],
+    [1e-3, "mL"],
+  ],
+  primary: [
+    [1, "MJ"],
+    [1e-3, "kJ"],
+  ],
+  abiotic: [
+    [1e-3, "g Sb eq"],
+    [1e-6, "mg Sb eq"],
+    [1e-9, "µg Sb eq"],
+  ],
+};
+
+/** O valor na unidade com prefixo em que ele fica de 1 para cima (0,000032 kg → "32" + "mg CO₂e"). */
+export function measureParts(value: number | string, measure: Measure): { value: string; unit: string } {
+  const number = typeof value === "number" ? value : Number(value);
+  const units = UNITS[measure];
+  const smallest = units[units.length - 1] ?? [1, ""];
+  if (!Number.isFinite(number) || number === 0) {
+    return { value: "0", unit: smallest[1] };
+  }
+  const [factor, unit] = units.find(([scale]) => Math.abs(number) >= scale) ?? smallest;
+  return { value: significant.format(number / factor), unit };
+}
+
+export function formatMeasure(value: number | string, measure: Measure): string {
+  const parts = measureParts(value, measure);
+  return `${parts.value} ${parts.unit}`;
+}
+
+/** Árvores para compensar: "0,13"; abaixo de 0,01, "menos de 0,01". */
+export function formatTrees(value: number | string): string {
+  const number = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(number) || number === 0) {
+    return "0";
+  }
+  if (number < 0.01) {
+    return "menos de 0,01";
+  }
+  return number < 10 ? twoDecimals.format(number).replace(/,?0+$/, "") : formatInteger(number);
+}
+
+/** Porcentagem com uma casa: "96,4%". */
+export function formatPercent(fraction: number): string {
+  return `${oneDecimal.format(fraction * 100)}%`;
+}
+
+/** Um formatador com a unidade fixada pelo valor de referência (o máximo de um gráfico): o eixo não mistura g e kg. */
+export function measureFormatter(reference: number, measure: Measure): (value: number) => string {
+  const units = UNITS[measure];
+  const smallest = units[units.length - 1] ?? [1, ""];
+  const [factor, unit] = units.find(([scale]) => Math.abs(reference) >= scale) ?? smallest;
+  return (value: number) => `${significant.format(value / factor)} ${unit}`;
+}

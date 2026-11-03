@@ -14,19 +14,60 @@ from typing import Any, Final
 
 from psycopg_pool import AsyncConnectionPool
 
-from axon_ai.observability.api import Price, UsageGrouping, UsageOrigin
+from axon_ai.observability.api import ImpactGrain, Price, UsageGrouping, UsageOrigin
+from axon_ai.observability.domain.usage_records import IMPACT_COLUMNS
 from axon_ai.observability.ports import (
     DailyRequests,
     DailyTokens,
     DayRequests,
     DestinationSettings,
     ExecutionRow,
+    ImpactAggregate,
+    ImpactCell,
+    ImpactEstimate,
     KeyRequests,
     ModelCallRow,
+    UnestimatedCall,
     UsageAggregate,
 )
 
 _KEY: Final = {"model": "provider || '/' || model", "assistant": "assistant"}
+
+_DAY: Final = "(at AT TIME ZONE %(tz)s)::date"
+_BUCKET: Final = {
+    "day": _DAY,
+    "week": f"date_trunc('week', {_DAY})::date",
+    "month": f"date_trunc('month', {_DAY})::date",
+    "quarter": f"date_trunc('quarter', {_DAY})::date",
+    "semester": (
+        f"make_date(extract(year FROM {_DAY})::int, CASE WHEN extract(month FROM {_DAY}) <= 6 THEN 1 ELSE 7 END, 1)"
+    ),
+}
+"""O balde de cada grão no dia local (research R48): `date_trunc('week')` é a semana ISO, começando na segunda."""
+
+_IMPACT: Final = (
+    "impact_model",
+    "impact_match",
+    "impact_zone",
+    "ecologits_version",
+    "impact_warnings",
+    *IMPACT_COLUMNS,
+)
+"""As colunas de impacto da linha (migração `005`), na ordem de `_impact_values`."""
+
+
+def _impact_values(impact: ImpactEstimate | None, tried: bool) -> tuple[Any, ...]:
+    """As colunas de impacto de uma linha: `none` quando tentada sem par; tudo nulo quando nunca tentada."""
+    if impact is None:
+        return (None, "none" if tried else None, *([None] * (len(_IMPACT) - 2)))
+    return (
+        impact.model,
+        impact.match,
+        impact.zone,
+        impact.version,
+        list(impact.warnings),
+        *(impact.values[column] for column in IMPACT_COLUMNS),
+    )
 
 
 class PostgresUsageStore:
@@ -38,8 +79,8 @@ class PostgresUsageStore:
             if calls:
                 await cursor.executemany(
                     "INSERT INTO observability.model_calls (request_id, at, origin, assistant, provider, model, role, "
-                    "input_tokens, output_tokens, duration_ms, failed, reported_cost_usd) "
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    "input_tokens, output_tokens, duration_ms, failed, reported_cost_usd, "
+                    f"{', '.join(_IMPACT)}) VALUES ({', '.join(['%s'] * (12 + len(_IMPACT)))})",
                     [
                         (
                             row.request_id,
@@ -54,6 +95,7 @@ class PostgresUsageStore:
                             row.duration_ms,
                             row.failed,
                             row.reported_cost,
+                            *_impact_values(row.impact, row.impact_tried),
                         )
                         for row in calls
                     ],
@@ -142,6 +184,86 @@ class PostgresUsageStore:
             day_requests=tuple(per_day),
             total_requests=int(total[0]) if total else 0,
         )
+
+    async def impact(
+        self, *, start: datetime, end: datetime, tz: str, grain: ImpactGrain, by: UsageGrouping, origin: UsageOrigin
+    ) -> ImpactAggregate:
+        """Mesma regra de `domain/impact.aggregate_impact` (research R49), no banco."""
+        key = _KEY[by]
+        bucket = _BUCKET[grain]
+        where = "at >= %(start)s AND at < %(end)s" + ("" if origin == "all" else " AND origin = %(origin)s")
+        params: dict[str, Any] = {"start": start, "end": end, "tz": tz, "origin": origin}
+        done = "FILTER (WHERE impact_model IS NOT NULL)"
+        sums = ", ".join(f"COALESCE(sum({column}) {done}, 0)" for column in IMPACT_COLUMNS)
+        base = f"FROM observability.model_calls WHERE {where}"
+        async with self._pool.connection() as connection:
+            cursor = await connection.execute(
+                f"SELECT {bucket}, {key}, count(*), count(*) FILTER (WHERE NOT failed AND output_tokens > 0), "
+                f"count(*) {done}, count(*) FILTER (WHERE impact_match = 'approximate'), "
+                f"COALESCE(sum(output_tokens) {done}, 0), {sums} {base} GROUP BY 1, 2 ORDER BY 1, 2",
+                params,
+            )
+            cells = [
+                ImpactCell(
+                    bucket=row[0],
+                    key=row[1],
+                    calls=int(row[2]),
+                    eligible=int(row[3]),
+                    estimated=int(row[4]),
+                    approximate=int(row[5]),
+                    estimated_output_tokens=int(row[6]),
+                    sums=dict(zip(IMPACT_COLUMNS, (float(value) for value in row[7:]), strict=True)),
+                )
+                for row in await cursor.fetchall()
+            ]
+            responses = f"count(DISTINCT request_id), count(DISTINCT request_id) {done}"
+            cursor = await connection.execute(f"SELECT {bucket}, {responses} {base} GROUP BY 1", params)
+            per_bucket = {row[0]: (int(row[1]), int(row[2])) for row in await cursor.fetchall()}
+            cursor = await connection.execute(f"SELECT {key}, {responses} {base} GROUP BY 1", params)
+            per_key = {row[0]: (int(row[1]), int(row[2])) for row in await cursor.fetchall()}
+            cursor = await connection.execute(
+                f"SELECT DISTINCT ON ({key}) {key}, impact_model, impact_match {base} AND impact_model IS NOT NULL "
+                f"ORDER BY {key}, at DESC, id DESC",
+                params,
+            )
+            models = {row[0]: (row[1], row[2]) for row in await cursor.fetchall()}
+            cursor = await connection.execute(f"SELECT {responses} {base}", params)
+            total = await cursor.fetchone()
+        return ImpactAggregate(
+            cells=tuple(sorted(cells, key=lambda cell: (cell.bucket, cell.key or ""))),
+            bucket_responses=per_bucket,
+            key_responses=per_key,
+            key_models=models,
+            responses=(int(total[0]), int(total[1])) if total else (0, 0),
+        )
+
+    async def unestimated(self, limit: int, *, after: int = -1) -> tuple[UnestimatedCall, ...]:
+        async with self._pool.connection() as connection:
+            cursor = await connection.execute(
+                "SELECT id, provider, model, output_tokens, duration_ms FROM observability.model_calls "
+                "WHERE impact_match IS NULL AND NOT failed AND output_tokens > 0 AND id > %s ORDER BY id LIMIT %s",
+                (after, limit),
+            )
+            return tuple(
+                UnestimatedCall(
+                    id=int(row[0]),
+                    provider=row[1],
+                    model=row[2],
+                    output_tokens=int(row[3]),
+                    duration_ms=float(row[4]),
+                )
+                for row in await cursor.fetchall()
+            )
+
+    async def set_impacts(self, items: Sequence[tuple[int, ImpactEstimate | None]]) -> None:
+        if not items:
+            return
+        assignments = ", ".join(f"{column} = %s" for column in _IMPACT)
+        async with self._pool.connection() as connection, connection.transaction(), connection.cursor() as cursor:
+            await cursor.executemany(
+                f"UPDATE observability.model_calls SET {assignments} WHERE id = %s AND impact_match IS NULL",
+                [(*_impact_values(estimate, True), call_id) for call_id, estimate in items],
+            )
 
     async def purge(self, *, before: datetime) -> int:
         async with self._pool.connection() as connection, connection.transaction():

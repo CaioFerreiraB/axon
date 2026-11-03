@@ -118,6 +118,14 @@
 .tooltipTotal strong {
   font-weight: 600;
 }
+/* Linhas depois do total (Meio ambiente: faixa e chamadas), em texto secundário. */
+.tooltipNote {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+  color: var(--texto-secundario);
+}
 .overlay {
   position: absolute;
   inset: 0;

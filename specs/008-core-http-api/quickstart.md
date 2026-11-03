@@ -241,3 +241,13 @@ uv run pytest packages/core/tests/http/contract/test_admin_api.py -q
 privada; revogada → 409 `key_revoked`; `rotated_at` na listagem; emissão com `svc:Relatorios` ou com o grupo de
 administração → 422 com `param`; `PUT /assistants/{name}/auth` grava, recusa `*` em privado e seção não liberada com
 `param`, e a visão traz `yaml.auth`/`effective.auth`; não admin recebe o 404 de rota inexistente em todas.
+
+## Fase 9, incremento 9.6 (2026-11-03): US12 — impacto ambiental na administração
+
+```bash
+cd axon-ai && uv run pytest packages/core/tests/http -m us12
+```
+
+Esperado: `GET /admin/v1/impact` com uma chave de admin devolve o formato de [contracts/admin-api.md](contracts/admin-api.md)
+("Impacto ambiental") com números em texto; `grain=day` com 400 dias → 422 `param: "grain"`; `grain=year` → 422; sem o
+seam (estimativa desligada) → 200 com `enabled: false`; um não admin recebe o 404 de rota inexistente.

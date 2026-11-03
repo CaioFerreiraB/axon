@@ -1074,3 +1074,25 @@ transparente empilhada (quebra no zero).
 ## Incremento: delegação MCP por execução (2026-10-29)
 
 Regido por [ADR-055](../../docs/adr/ADR-055-autenticacao-mcp-delegada.md). Protocolo 1: um MCP delegado por grant, identidade confidencial por execução, sem cache compartilhado e sem alteração da ACL. Contrato: [delegação](../007-core-mcp-integration/contracts/delegation.md). Casos D01 isolamento concorrente; D02 falha fechada; D03 metadados e superfície privada; D04 segredo ausente de persistência/trace; D05 regressão estática.
+
+## Passada de 2026-11-03: impacto ambiental na administração ([ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md); US12)
+
+## R64 — `GET /admin/v1/impact` sobre o seam Impact Report
+
+- **Decision**: rota ao lado de `/usage` em `http/adapters/admin.py`; o formato é puro em `http/domain/admin_impact.py`
+  (`impact_query`, `impact_json`), no padrão de `admin_usage.py`. Parâmetros `from`, `to`, `tz`, `grain`, `by`,
+  `origin`; padrões: os últimos 30 dias no fuso da instalação, `grain=day`, `by=model`, `origin=production`;
+  `InvalidQuery` da 009 → `AdminInvalid` com `param` (`start`→`from`, `end`→`to`, o resto igual) → 422. `AdminSeams`
+  ganha `impact: ImpactReportSeam | None = None`; sem seam, a rota responde como a estimativa desligada.
+- **Rationale (FR-045; ADR-029, ADR-031)**: a console não tem regra própria; o seam da 009 já valida a consulta e
+  decide o recorte da retenção.
+- **Alternatives**: estender `/usage` com o impacto (mistura dinheiro e impacto num relatório que a console já lê e
+  quebraria a validação estrita dela).
+
+## R65 — Números como texto decimal, sem notação científica
+
+- **Decision**: cada grandeza vai como `{"min", "max", "mean"}` em texto, com 6 algarismos significativos e sem
+  expoente (`3.2e-05` → `"0.000032"`; `Decimal(f"{v:.6g}")` formatado em `f`); contagens como inteiros; `trees` como
+  texto. `enabled: false` → `method.ecologits_version`, `totals`, `previous_totals`, `buckets` e `rows` nulos ou vazios.
+- **Rationale**: o JSON do uso já usa texto decimal para dinheiro; o JavaScript da console perde precisão com floats
+  longos e mostraria `3.2e-5` se recebesse número.

@@ -23,7 +23,7 @@ from axon_ai.assistants.api import AssistantsConfigError, Principal
 from axon_ai.assistants.service import AccessService
 from axon_ai.bootstrap import identity as identity_parts
 from axon_ai.bootstrap.health import boot_items, health_command
-from axon_ai.bootstrap.observability import EVALUATION, PRODUCTION
+from axon_ai.bootstrap.observability import EVALUATION, PRODUCTION, impact_service
 from axon_ai.bootstrap.profiles import NO_CREDENTIALS_WARNING, lacks_credentials
 from axon_ai.bootstrap.settings import ConfigurationError, EnvConfigSource, Settings
 from axon_ai.bootstrap.wiring import (
@@ -462,6 +462,44 @@ async def _check(built: Platform, out: TextIO) -> int:
         return health_command(await health.health(), out)
 
 
+# --- usage impact-backfill (009 US9) ---------------------------------------------------------------------------------
+
+
+def _backfill_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--limit", type=int, default=10_000, help="quantas chamadas estimar nesta rodada (default 10000)"
+    )
+
+
+def _impact_backfill(args: argparse.Namespace, io: Io) -> int:
+    """Estima as chamadas guardadas antes do EcoLogits (ADR-056; 009 R50). Só configuração e adapters: sem rede."""
+    if args.limit < 1:
+        print("--limit: precisa ser ao menos 1", file=io.err)
+        return EXIT_DOWN
+    built = _boot(args, io, until=STAGE_ADAPTERS)
+    if built is None:
+        return EXIT_FAILURE
+    try:
+        return asyncio.run(_backfill(built.parts, args.limit, io))
+    finally:
+        built.aclose()
+
+
+async def _backfill(parts: Mapping[str, Any], limit: int, io: Io) -> int:
+    async with storage(parts) as session:
+        service = impact_service(parts, store=session["usage_store"])
+        if not service.enabled:
+            print("estimativa desligada pela instalação (AXON_IMPACT_ENABLED=false)", file=io.err)
+            return EXIT_FAILURE
+        result = await service.backfill(limit=limit)
+    print(
+        f"{result.estimated} estimadas, {result.unmatched} sem par na base do EcoLogits, {result.failed} com falha "
+        f"(EcoLogits {service.version})",
+        file=io.out,
+    )
+    return EXIT_FAILURE if result.failed else EXIT_OK
+
+
 # --- audit (004) ------------------------------------------------------------------------------------------------------
 
 
@@ -628,6 +666,12 @@ COMMANDS: Final[tuple[Command, ...]] = (
         arguments=_key_id_arguments,
     ),
     Command(path=("health",), help="saúde agregada: 0 ok, 1 degradada, 2 fora do ar", run=_health),
+    Command(
+        path=("usage", "impact-backfill"),
+        help="estima o impacto ambiental das chamadas guardadas sem estimativa (EcoLogits); 1 se alguma falhar",
+        run=_impact_backfill,
+        arguments=_backfill_arguments,
+    ),
     Command(
         path=("audit",),
         help="lista as chamadas de tool de escrita auditadas (004); 2 para filtro inválido",

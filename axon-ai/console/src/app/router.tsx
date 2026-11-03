@@ -9,6 +9,7 @@ import { Shell } from "./Shell";
 
 const UsagePage = lazy(() => import("../features/usage/UsagePage"));
 const PricesPage = lazy(() => import("../features/usage/PricesPage"));
+const ImpactPage = lazy(() => import("../features/impact/ImpactPage"));
 const AssistantsPage = lazy(() => import("../features/assistants/AssistantsPage"));
 const AssistantDetail = lazy(() => import("../features/assistants/AssistantDetail"));
 const ModelsTab = lazy(() => import("../features/assistants/ModelsTab"));
@@ -36,6 +37,7 @@ export function createRouter() {
         { index: true, element: <Navigate to="/uso" replace /> },
         { path: "uso", element: <UsagePage /> },
         { path: "uso/precos", element: <PricesPage /> },
+        { path: "meio-ambiente", element: <ImpactPage /> },
         { path: "assistentes", element: <AssistantsPage /> },
         {
           path: "assistentes/:nome",

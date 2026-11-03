@@ -39,7 +39,7 @@ from axon_ai.assistants.ports import AssistantConfigSource
 from axon_ai.assistants.service import AccessService, AssistantsService
 from axon_ai.bootstrap import identity as identity_parts
 from axon_ai.bootstrap import observability as observability_parts
-from axon_ai.bootstrap.health import DatabaseProbe, PlatformHealth
+from axon_ai.bootstrap.health import DatabaseProbe, PlatformHealth, impact_detail
 from axon_ai.bootstrap.lifecycle import BootContext, BootReport, Stage, run_stages, shutdown
 from axon_ai.bootstrap.ports import ConfigSource
 from axon_ai.bootstrap.profiles import DEFAULT_PUBLIC_AUDIENCE, STORAGE_PORTS, Profile, profile_for
@@ -65,7 +65,7 @@ from axon_ai.mcp.ports import McpConfig
 from axon_ai.mcp.service import McpService
 from axon_ai.observability.adapters import postgres_schema as observability_schema
 from axon_ai.observability.ports import Origin
-from axon_ai.observability.service import DestinationService, TraceService, UsageService
+from axon_ai.observability.service import DestinationService, ImpactService, TraceService, UsageService
 from axon_ai.packs.adapters.config_yaml import YamlPackConfigSource
 from axon_ai.packs.adapters.data_dirs import LocalPackDataDirs
 from axon_ai.packs.adapters.memory import InMemoryPackConfigSource
@@ -108,6 +108,8 @@ class Platform:
     """O provedor de identidade (012), só com `AXON_IDENTITY_ENABLED`."""
     usage: UsageService | None = None
     """Uso e preços (009 US5) — os seams `UsageReportSeam` e `PriceBook` da superfície de administração."""
+    impact: ImpactService | None = None
+    """Impacto ambiental (009 US9; ADR-056) — o seam `ImpactReportSeam` da superfície de administração."""
     destinations: DestinationService | None = None
     """Ajustes e saúde dos destinos do trace (009 US6, US7)."""
     app: FastAPI | None = None
@@ -170,6 +172,7 @@ def platform(
         conversations=parts.get("conversation_service"),
         identity=parts.get("identity"),
         usage=parts.get("usage"),
+        impact=parts.get("impact"),
         destinations=parts.get("destinations"),
         app=parts.get("app"),
         context=context,
@@ -378,6 +381,7 @@ def _engine(ctx: BootContext) -> None:
     ctx.parts["usage_destination"] = observability.usage_destination
     ctx.parts["destinations"] = observability.destinations
     ctx.parts["usage"] = observability.usage
+    ctx.parts["impact"] = observability.impact
     ctx.closers.append(lambda: _close_trace(trace, ctx.parts["langfuse_transport"]))
     if ctx.parts["database"] is None:
         # Com banco, os ajustes gravados são lidos quando o pool de serviço abre (`app_lifespan`, R13).
@@ -557,6 +561,7 @@ def _api(ctx: BootContext) -> None:
             default_timezone=settings.usage_timezone,
             accounts=identity,
             login=identity,
+            impact=parts["impact"],
         ),
         instance=_instance(settings, identity),
         image_limits=ImageLimits(
@@ -599,7 +604,16 @@ def platform_health(
         identity=_identity_probe(identity if identity is not None else parts.get("identity")),
         destinations=destinations.health if destinations is not None else None,
         charts=parts["settings"].charts_base_url is not None,
+        impact=_impact_probe(parts, session),
     )
+
+
+def _impact_probe(parts: Mapping[str, Any], session: Mapping[str, Any]) -> Callable[[], Awaitable[str]] | None:
+    """O item informativo `impact` (R54): versão e cobertura das últimas 24 h, sobre o armazenamento da sessão."""
+    if "impact_estimator" not in parts:
+        return None
+    service = observability_parts.impact_service(parts, store=session["usage_store"])
+    return lambda: impact_detail(service)
 
 
 async def session_identity(parts: Mapping[str, Any], session: Mapping[str, Any]) -> IdentityService | None:

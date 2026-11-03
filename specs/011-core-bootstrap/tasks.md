@@ -679,3 +679,23 @@ paralelo com T077.
 ### Integração de saúde com delegação MCP
 - [X] D01 Contrato: sonda agregada informa validação por execução; configuração inválida continua falhando.
 - [X] D02 Testes: nenhuma chamada de rede/credencial na sonda delegada, regressão dos MCPs estáticos.
+
+## Passada de 2026-11-03: impacto ambiental na montagem — US8 ([ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md); research R54, R55)
+
+- [X] T090 [P] [US8] `axon-ai/packages/core/tests/bootstrap/unit/test_settings_impact.py`: padrões, desligado sem
+  estimador, zona e fator válidos, `AXON_IMPACT_ZONE=XXX`, fator `0` ou texto e `AXON_IMPACT_ENABLED=talvez` param o
+  boot nomeando a variável
+- [X] T091 [P] [US8] `axon-ai/packages/core/tests/bootstrap/integration/test_platform_impact.py`: conversa no `test`
+  com `ollama/gpt-4.1-mini`, `flush`, `GET /admin/v1/impact?grain=month` com números > 0, casamento exato e dois
+  baldes; item `impact` informativo; desligado → `enabled: false` e o motivo na saúde; `axon usage impact-backfill`
+  → `0 estimadas, 0 sem par…`
+- [X] T092 [US8] `axon-ai/packages/core/src/axon_ai/bootstrap/settings.py`: `impact_enabled`, `impact_zone`,
+  `impact_tree_kg_co2e`, leitura e validação (R54)
+- [X] T093 [US8] `axon-ai/packages/core/src/axon_ai/bootstrap/profiles.py` e `observability.py`: porta
+  `impact_estimator` em `REQUIRED_PORTS` e nas fábricas; `impact_service(parts, store=)`; `TraceParts.impact`;
+  estimador no `UsageDestination`
+- [X] T094 [US8] `axon-ai/packages/core/src/axon_ai/bootstrap/wiring.py` e `health.py`: `parts["impact"]`,
+  `Platform.impact`, `AdminSeams(impact=…)`, item `impact` (`impact_detail`)
+- [X] T095 [US8] `axon-ai/packages/core/src/axon_ai/bootstrap/cli.py`: `usage impact-backfill [--limit N]` (R55);
+  `tests/bootstrap/contract/test_cli_commands.py` com o caminho novo; marca `us8` com `011 US8`
+- [X] T096 Suíte do workspace, `mypy`, `ruff`, `lint-imports` verdes

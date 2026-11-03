@@ -283,3 +283,13 @@ A console não expõe seam. Operador: a aba "Permissões" só edita Assistants c
 
 Reavaliado com [contracts/screens.md](contracts/screens.md), [data-model.md](data-model.md) e
 [quickstart.md](quickstart.md) ("Fase 9 (2026-10-21)"): **PASS**.
+
+## Passada de 2026-11-03: Meio ambiente (US11; [ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md))
+
+**Insumos lidos**: [spec.md](spec.md) (US11, FR-033–FR-036, SC-011, clarificação de 2026-11-03), o mockup aprovado no
+Penpot (2026-11-03), `DESIGN.md`, a passada da 008 (`GET /admin/v1/impact`, `contracts/admin-api.md`). Research: R29,
+R30.
+
+**Constitution Check (US11)**: XI ✅ (só a API de administração); a regra de negócio fica na API (FR-001); acessível
+pelo teclado com tabela equivalente em cada gráfico (FR-017). **Module boundary gate**: `axon-ai/console/**`.
+**Resultado**: PASS.

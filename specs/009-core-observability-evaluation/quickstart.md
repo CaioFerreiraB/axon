@@ -203,3 +203,25 @@ devolve o destino, sem restart; a subchave da 009 e a da identidade não abrem o
 
 Num ambiente local que já tinha o segredo do Langfuse gravado pela console: na tela de observabilidade, gravar a chave
 secreta de novo; a saúde (`axon health` ou a console) deixa de mostrar o erro do segredo.
+
+## Fase 9, incremento 9.6 (2026-11-03): US9 — impacto ambiental
+
+A partir de `axon-ai/`, com `XDG_DATA_HOME=$HOME/.local/share`:
+
+```bash
+uv sync
+uv run pytest packages/core/tests/observability -m "us9"          # domínio, estimador real, flush, backfill
+AXON_TEST_POSTGRES_DSN=postgresql://postgres:pg@localhost:55432/postgres \
+  uv run pytest packages/core/tests/observability/contract/test_impact_report.py   # memória × Postgres
+uv run lint-imports                                                 # ecologits e rapidfuzz só em observability.adapters
+```
+
+Esperado:
+
+- `openai/gpt-4.1-mini` com 500 tokens e 3 s: casamento `exact`, GWP médio entre 0,03 e 0,11 g, energia entre 0,08 e
+  0,26 Wh, zona `USA` e a versão `0.11.3`.
+- `z-ai/glm-5.3-flash`: `mistralai/zai-glm-5-3`, `approximate`; `qwen3:1.7b` e `deepseek/deepseek-chat`: sem par.
+- O relatório por mês de chamadas em dois meses traz dois baldes, totais iguais à soma das estimativas e as árvores pelo
+  fator 140; com `grain="day"` e 400 dias, `InvalidQuery("grain")`.
+- O `flush` com um estimador que levanta grava as linhas sem impacto e soma `impact_failed`; o `backfill` estima as
+  nulas e, rodado de novo, não muda nada.

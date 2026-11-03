@@ -6,6 +6,7 @@ import { Link, useSearchParams } from "react-router";
 
 import { useAssistants, useProviders } from "../../api/hooks/assistants";
 import { useHistories } from "../../api/hooks/history";
+import { useImpact } from "../../api/hooks/impact";
 import { usePrices, useUnpriced, useUsage } from "../../api/hooks/usage";
 import { isMcpPayload, type UsageGrouping, type UsageOrigin } from "../../api/schemas";
 import { formatCompact, formatDayMonth, formatInteger, formatUsd } from "../../i18n/format";
@@ -114,6 +115,9 @@ export default function UsagePage() {
   const prices = usePrices();
   const providers = useProviders();
   const unpriced = useUnpriced(report ? { from: report.query.from, to: report.query.to } : {});
+  const impact = useImpact(report ? { from: report.query.from, to: report.query.to, grain: "month" } : {}, {
+    enabled: Boolean(report),
+  });
   const assistants = useAssistants();
   const histories = useHistories((assistants.data ?? []).map((a) => a.name));
 
@@ -214,7 +218,13 @@ export default function UsagePage() {
           }}
         />
       ) : null}
-      <StatStrip report={report} state={state} providers={providers.data} unpriced={unpriced.data} />
+      <StatStrip
+        report={report}
+        state={state}
+        providers={providers.data}
+        unpriced={unpriced.data}
+        impact={{ report: impact.data, failed: impact.isError }}
+      />
       <Panel
         title={text.title}
         subtitle={chartSubtitle}

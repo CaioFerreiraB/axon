@@ -3,10 +3,14 @@
 `export` só projeta e enfileira (buffer limitado: cheio, a linha mais antiga sai e é contada). `flush` — chamado por uma
 tarefa periódica da 011 e no encerramento — grava o lote pelo `UsageStore`; falha de gravação é contada aqui e nunca
 chega a quem emite. A origem (`production` ou `evaluation`) é do processo: a 011 a fixa (clarificação de 2026-10-13).
+
+Com um estimador de impacto (ADR-056; research R46), o `flush` estima cada chamada elegível antes de gravar: sem par,
+a linha leva a marca de tentada; uma estimativa que levanta é contada, e a linha grava sem impacto.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 from collections import deque
 from datetime import datetime
@@ -14,10 +18,12 @@ from typing import Final
 
 from axon_ai.observability.api import TraceRecord
 from axon_ai.observability.domain.usage import EXECUTION_TTL, call_row, execution_finished, execution_started
+from axon_ai.observability.domain.usage_records import eligible
 from axon_ai.observability.ports import (
     Clock,
     DestinationStats,
     ExecutionRow,
+    ImpactEstimator,
     ModelCallRow,
     Origin,
     UsageStore,
@@ -29,8 +35,18 @@ BUFFER: Final = 10_000
 
 
 class UsageDestination:
-    def __init__(self, *, store: UsageStore, origin: Origin, clock: Clock, buffer: int = BUFFER) -> None:
+    def __init__(
+        self,
+        *,
+        store: UsageStore,
+        origin: Origin,
+        clock: Clock,
+        buffer: int = BUFFER,
+        estimator: ImpactEstimator | None = None,
+    ) -> None:
         self._store = store
+        self._estimator = estimator
+        self._impact_failed = 0
         self._origin: Origin = origin
         self._clock = clock
         self._buffer: deque[ModelCallRow | ExecutionRow] = deque(maxlen=buffer)
@@ -81,7 +97,7 @@ class UsageDestination:
             return
         batch = list(self._buffer)
         self._buffer.clear()
-        calls = [row for row in batch if isinstance(row, ModelCallRow)]
+        calls = [self._estimate(row) for row in batch if isinstance(row, ModelCallRow)]
         executions = [row for row in batch if isinstance(row, ExecutionRow)]
         try:
             await (store or self._store).append(calls, executions)
@@ -93,8 +109,20 @@ class UsageDestination:
             return
         self._last_sent_at = self._clock.now()
 
+    def _estimate(self, row: ModelCallRow) -> ModelCallRow:
+        if self._estimator is None or not eligible(row):
+            return row
+        try:
+            impact = self._estimator.estimate(row.provider, row.model, row.output_tokens, row.duration_ms / 1000)
+        except Exception as error:
+            self._impact_failed += 1
+            logger.warning("impacto: estimativa falhou para %s/%s (%s)", row.provider, row.model, type(error).__name__)
+            return row
+        return dataclasses.replace(row, impact=impact, impact_tried=True)
+
     def stats(self) -> DestinationStats:
         return DestinationStats(
+            impact_failed=self._impact_failed,
             queued=len(self._buffer),
             dropped=self._dropped,
             dropped_at=tuple(self._dropped_at),

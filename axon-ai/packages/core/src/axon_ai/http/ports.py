@@ -25,7 +25,7 @@ from axon_ai.http.domain.records import (
 )
 from axon_ai.identity.api import AccountAdmin, LoginSettings
 from axon_ai.llm.api import ModelRouting
-from axon_ai.observability.api import PriceBook, TraceDestinations, UsageReportSeam
+from axon_ai.observability.api import ImpactReportSeam, PriceBook, TraceDestinations, UsageReportSeam
 from axon_ai_contracts import Attachment
 
 __all__ = [
@@ -138,3 +138,5 @@ class AdminSeams:
     default_timezone: str = "UTC"
     accounts: AccountAdmin | None = None
     login: LoginSettings | None = None
+    impact: ImpactReportSeam | None = None
+    """Impacto ambiental (009 US9; ADR-056). Sem ele, `GET /impact` responde como a estimativa desligada."""

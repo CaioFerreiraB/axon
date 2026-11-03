@@ -5,6 +5,7 @@ import type {
   ApiKey,
   AssistantView,
   Group,
+  ImpactReport,
   LoginSettings,
   McpHealth,
   McpServer,
@@ -385,3 +386,133 @@ export const apiKeys: ApiKey[] = [
     rotated_at: null,
   },
 ];
+
+// --- impacto ambiental (013 US11; 008 US12) — ordens de grandeza do EcoLogits 0.11.3 ---------------------------------
+
+const IMPACT_NAMES = [
+  "energy_kwh",
+  "gwp_kgco2eq",
+  "adpe_kgsbeq",
+  "pe_mj",
+  "wcf_l",
+  "gwp_usage",
+  "gwp_embodied",
+  "adpe_usage",
+  "adpe_embodied",
+  "pe_usage",
+  "pe_embodied",
+] as const;
+
+/** Por chamada de um gpt-4.1-mini com 500 tokens de saída: GWP 0,03–0,10 g, energia 0,08–0,26 Wh. */
+const PER_CALL: Record<(typeof IMPACT_NAMES)[number], number> = {
+  energy_kwh: 0.00017,
+  gwp_kgco2eq: 0.000067,
+  adpe_kgsbeq: 3.1e-10,
+  pe_mj: 0.0019,
+  wcf_l: 0.00061,
+  gwp_usage: 0.000065,
+  gwp_embodied: 0.0000015,
+  adpe_usage: 1.2e-11,
+  adpe_embodied: 3e-10,
+  pe_usage: 0.00188,
+  pe_embodied: 0.00002,
+};
+
+export function impactMetrics(calls: number): ImpactReport["rows"][number]["metrics"] {
+  // Texto decimal sem expoente, como a API manda (008 R65).
+  const text = (value: number) => (value === 0 ? "0" : value.toFixed(15).replace(/0+$/, "").replace(/\.$/, ""));
+  return Object.fromEntries(
+    IMPACT_NAMES.map((name) => {
+      const mean = PER_CALL[name] * calls;
+      return [name, { min: text(mean * 0.5), max: text(mean * 1.5), mean: text(mean) }];
+    }),
+  ) as ImpactReport["rows"][number]["metrics"];
+}
+
+const coverage = (calls: number, unestimated = 0, approximate = 0) => ({
+  calls,
+  eligible: calls,
+  estimated: calls - unestimated,
+  approximate,
+  unestimated,
+});
+
+export const impactReport: ImpactReport = {
+  enabled: true,
+  query: {
+    from: "2026-09-14",
+    to: "2026-10-13",
+    tz: "America/Sao_Paulo",
+    grain: "week",
+    by: "model",
+    origin: "production",
+  },
+  method: { ecologits_version: "0.11.3", tree_kg_co2e: "140", tree_years: 20 },
+  clipped_from: null,
+  totals: {
+    metrics: impactMetrics(5_024),
+    coverage: coverage(5_902, 878, 1_906),
+    responses: 3_214,
+    estimated_responses: 2_890,
+    estimated_output_tokens: 2_512_000,
+    trees: "0.0024",
+  },
+  previous_totals: {
+    metrics: impactMetrics(4_600),
+    coverage: coverage(5_300, 700, 1_700),
+    responses: 2_900,
+    estimated_responses: 2_600,
+    estimated_output_tokens: 2_300_000,
+    trees: "0.0022",
+  },
+  buckets: [
+    ["2026-09-14", "2026-09-20", 1_102],
+    ["2026-09-21", "2026-09-27", 1_215],
+    ["2026-09-28", "2026-10-04", 1_330],
+    ["2026-10-05", "2026-10-11", 1_120],
+    ["2026-10-12", "2026-10-13", 257],
+  ].map(([start, end, calls]) => ({
+    start: String(start),
+    end: String(end),
+    calls: Number(calls),
+    responses: Math.round(Number(calls) * 0.55),
+    estimated_responses: Math.round(Number(calls) * 0.5),
+    metrics: impactMetrics(Number(calls)),
+    rows: [],
+  })),
+  rows: [
+    {
+      key: "openrouter/openai/gpt-4.1-mini",
+      impact_model: "openai/gpt-4.1-mini",
+      match: "exact",
+      calls: 3_118,
+      responses: 1_802,
+      estimated_responses: 1_802,
+      estimated_output_tokens: 1_559_000,
+      coverage: coverage(3_118),
+      metrics: impactMetrics(3_118),
+    },
+    {
+      key: "openrouter/z-ai/glm-5.3-flash",
+      impact_model: "mistralai/zai-glm-5-3",
+      match: "approximate",
+      calls: 1_906,
+      responses: 1_088,
+      estimated_responses: 1_088,
+      estimated_output_tokens: 953_000,
+      coverage: coverage(1_906, 0, 1_906),
+      metrics: impactMetrics(1_906),
+    },
+    {
+      key: "ollama/qwen3:1.7b",
+      impact_model: null,
+      match: null,
+      calls: 878,
+      responses: 324,
+      estimated_responses: 0,
+      estimated_output_tokens: 0,
+      coverage: coverage(878, 878),
+      metrics: impactMetrics(0),
+    },
+  ],
+};
