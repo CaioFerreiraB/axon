@@ -757,3 +757,12 @@ escolha do EcoLogits. Os fatos da biblioteca foram conferidos num ambiente isola
   avisos); conformidade do `UsageStore.impact` memória × Postgres (fusos, grãos, origem, `FILTER`, respostas, período
   anterior; com `AXON_TEST_POSTGRES_DSN`); `flush` com estimador que levanta; `backfill` idempotente; desempenho de
   400 dias × 100 mil chamadas no Postgres (SC-011, marca `slow`).
+
+### R52 — Desempenho do relatório (SC-011, achado na CI do release 0.7.0rc16)
+
+- **Decision**: as respostas distintas (por balde, por chave e no período) agregam primeiro uma linha por requisição,
+  por hash (`GROUP BY …, request_id` com `bool_or`), e só depois contam — o `count(DISTINCT …)` ordenava e era a maior
+  parte do tempo. O teste de volume roda `ANALYZE` depois da carga em massa: sem estatísticas, o planejador escolhe
+  agregar por ordenação, o que não é o estado de uma instalação em uso (o autovacuum mantém as estatísticas).
+- **Rationale**: na CI, o relatório de 400 dias com 100 mil chamadas levou 1,015 s; localmente, de 0,56 s para
+  0,29 s com as duas mudanças. `GROUPING SETS` com `count(DISTINCT …)` foi medido e ficou mais lento (0,64 s).

@@ -216,10 +216,21 @@ class PostgresUsageStore:
                 )
                 for row in await cursor.fetchall()
             ]
-            responses = f"count(DISTINCT request_id), count(DISTINCT request_id) {done}"
-            cursor = await connection.execute(f"SELECT {bucket}, {responses} {base} GROUP BY 1", params)
+
+            # Respostas distintas: primeiro uma linha por requisição (agregação por hash), depois a contagem — o
+            # `count(DISTINCT …)` ordena, e era a maior parte do tempo do relatório (SC-011).
+            def distinct(group: str) -> str:
+                outer = "r.g, " if group else ""
+                inner = f"{group} AS g, " if group else ""
+                return (
+                    f"SELECT {outer}count(*), count(*) FILTER (WHERE r.d) FROM (SELECT {inner}request_id, "
+                    f"bool_or(impact_model IS NOT NULL) AS d {base} GROUP BY {'1, 2' if group else '1'}) AS r"
+                    + (" GROUP BY 1" if group else "")
+                )
+
+            cursor = await connection.execute(distinct(bucket), params)
             per_bucket = {row[0]: (int(row[1]), int(row[2])) for row in await cursor.fetchall()}
-            cursor = await connection.execute(f"SELECT {key}, {responses} {base} GROUP BY 1", params)
+            cursor = await connection.execute(distinct(key), params)
             per_key = {row[0]: (int(row[1]), int(row[2])) for row in await cursor.fetchall()}
             cursor = await connection.execute(
                 f"SELECT DISTINCT ON ({key}) {key}, impact_model, impact_match {base} AND impact_model IS NOT NULL "
@@ -227,7 +238,7 @@ class PostgresUsageStore:
                 params,
             )
             models = {row[0]: (row[1], row[2]) for row in await cursor.fetchall()}
-            cursor = await connection.execute(f"SELECT {responses} {base}", params)
+            cursor = await connection.execute(distinct(""), params)
             total = await cursor.fetchone()
         return ImpactAggregate(
             cells=tuple(sorted(cells, key=lambda cell: (cell.bucket, cell.key or ""))),
