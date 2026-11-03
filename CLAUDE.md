@@ -621,7 +621,7 @@ Gráficos na conversa (ADR-052): os contratos `0.2.4` têm `Chart` (com `ChartSe
   ADR-054, a geração pode escrever um bloco ` ```axon-chart {json} ```` na resposta. O motor o tira do texto em
   streaming (`graph/domain/chart_blocks.py`), valida pelo `Chart` e o entrega como os gráficos de tool. O aviso com o
   formato só entra em execução com tools.
-- **Versão.** O core está em `0.7.0rc12` (contratos `0.2.5`).
+- **Versão.** O core estava em `0.7.0rc12` (contratos `0.2.5`) nesta passada; a do MCP delegado (ADR-055) levou a `0.7.0rc15`.
 
 Impacto ambiental (incremento 9.6, ADR-056): cada chamada de modelo com tokens de saída é estimada pelo EcoLogits
 0.11.3 no `flush` do destino de uso (porta `ImpactEstimator`; o adapter `observability/adapters/ecologits.py` é o único
@@ -635,7 +635,8 @@ cobertura, respostas estimadas e árvores (140 kg CO₂e por árvore da Mata Atl
 (`AXON_IMPACT_ENABLED`, `AXON_IMPACT_ZONE`, `AXON_IMPACT_TREE_KG_CO2E`), o item informativo `impact` da saúde e
 `axon usage impact-backfill`; a 013 tem a página Meio ambiente (`/meio-ambiente`) e a célula Emissões em Uso e custo,
 pelo mockup aprovado no Penpot ("axon mockup"). O `DailyChart` aceita baldes (rótulos de grão em
-`features/impact/grain.ts`). Valores reais são pequenos: o `gpt-4.1-mini` com 500 tokens dá 0,03–0,10 g CO₂e.
+`features/impact/grain.ts`). Valores reais são pequenos: o `gpt-4.1-mini` com 500 tokens dá 0,03–0,10 g CO₂e. O core está em `0.7.0rc16` (tag
+`v0.7.0-rc16`, contratos `0.2.5`).
 
 O `axon-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
