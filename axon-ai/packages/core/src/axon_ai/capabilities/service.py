@@ -29,12 +29,12 @@ from axon_ai.capabilities.api import (
 from axon_ai.capabilities.domain.arguments import validate_arguments
 from axon_ai.capabilities.domain.catalog import Entry, assemble
 from axon_ai.capabilities.domain.fencing import cut, fence
-from axon_ai.capabilities.domain.rendering import attachment_markers, render_value, render_within
+from axon_ai.capabilities.domain.rendering import attachment_markers, chart_markers, render_value, render_within
 from axon_ai.capabilities.ports import AuditLog, Clock, PackToolSource
 from axon_ai.mcp.api import McpClients, RestrictedMcpClient, UnknownServer
-from axon_ai.observability.api import ExecutionError, TraceSink, attachment_info
+from axon_ai.observability.api import ExecutionError, TraceSink, attachment_info, chart_info
 from axon_ai.observability.api import ToolCall as ToolCallEvent
-from axon_ai_contracts import Attachment, Chunk, ToolInvocation, ToolResult, ToolSpec
+from axon_ai_contracts import Attachment, Chart, Chunk, ToolInvocation, ToolResult, ToolSpec
 
 logger: Final = logging.getLogger("axon_ai.capabilities")
 
@@ -63,7 +63,11 @@ class CapabilityService:
         self._limits = limits
 
     async def open(self, grant: ExecutionGrant, context: ToolContext) -> Session:
-        client = self._mcp.client_for(grant)
+        client = (
+            self._mcp.client_for(grant, delegation=context.mcp_delegation)
+            if context.mcp_delegation is not None
+            else self._mcp.client_for(grant)
+        )
         discovered: list[tuple[str, Sequence[ToolSpec]]] = []
         unavailable: dict[str, str] = {}
         # Um alias por vez: um que falhe — ou que deixou de ser visível — não derruba a descoberta dos outros (R3).
@@ -118,6 +122,7 @@ class _Outcome:
     chunks: tuple[Chunk, ...] = ()
     truncated: bool = False
     attachments: tuple[Attachment, ...] = ()
+    charts: tuple[Chart, ...] = ()
 
 
 class Session:
@@ -180,6 +185,7 @@ class Session:
                 size_bytes=len(result.text.encode("utf-8")),
                 truncated=result.truncated,
                 attachments=tuple(attachment_info(item) for item in result.attachments),
+                charts=tuple(chart_info(item) for item in result.charts),
             )
         )
         return result
@@ -241,7 +247,8 @@ class Session:
         truncated = cut_here or outcome.truncated
         # As marcas das imagens entram depois do corte: são o único rastro delas que o modelo vê (R13).
         attachments = tuple({item.id: item for item in outcome.attachments}.values())
-        content += attachment_markers(attachments)
+        charts = tuple({item.id: item for item in outcome.charts}.values())
+        content += attachment_markers(attachments) + chart_markers(charts)
         return FencedToolResult(
             name=name,
             kind=entry.tool.kind if entry is not None else None,
@@ -251,6 +258,7 @@ class Session:
             error=outcome.error,
             chunks=outcome.chunks,
             attachments=attachments,
+            charts=charts,
         )
 
     # --- escrita auditada (R8) --------------------------------------------------------------------------------------
@@ -288,11 +296,16 @@ class Session:
 
 
 def _from_result(result: ToolResult) -> _Outcome:
-    """Um `ToolResult` — de MCP ou de tool nativa — com os anexos fora do texto (R13)."""
+    """Um `ToolResult` — de MCP ou de tool nativa — com os anexos e os gráficos fora do texto (R13, R15)."""
     content = render_value(result.content)
     status: ToolStatus = "error" if result.error is not None else "ok"
     return _Outcome(
-        status=status, content=content, error=result.error, truncated=result.truncated, attachments=result.attachments
+        status=status,
+        content=content,
+        error=result.error,
+        truncated=result.truncated,
+        attachments=result.attachments,
+        charts=result.charts,
     )
 
 

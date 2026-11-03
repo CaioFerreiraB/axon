@@ -156,6 +156,7 @@ variável. O harness de avaliação (009) não passa pela API e não entra na fi
 |---|---|---|
 | `AXON_IDENTITY_ENABLED` | `false` | liga o provedor de identidade (012) |
 | `AXON_PUBLIC_URL` | — | obrigatório com a identidade; é o emissor; `https` exceto `localhost` |
+| `AXON_CHARTS_SCRIPT_BASE_URL` | `AXON_PUBLIC_URL` | de onde o navegador carrega o ECharts e o desenhista dos gráficos (`/static/…` da 008); sem os dois, os gráficos saem só como tabela e a saúde avisa no item `charts`; `https` exceto `localhost` (ADR-052) |
 | `AXON_IDENTITY_CLIENTS_FILE` | — | obrigatório com a identidade; formato da 012 (`identity.yaml`) |
 | `AXON_MASTER_KEY` | — | 32 bytes em base64; obrigatória no `persistent` com a identidade ligada ou segredo gravado; aleatória no `memory`, fixa no `test`; nunca em log |
 | `AXON_DISPLAY_NAME` | `Axon` | nome da instalação nas páginas e na console (era `Agentic`; ADR-038, US7) |

@@ -14,6 +14,9 @@ DEFAULT_MAX_ITERATIONS: Final = 3
 """Limite quando o Assistant não declara outro (clarificação 3 de 2026-10-01). Constante, não configuração: quem precisa
 de mais declara no Assistant."""
 
+ITERATION_LIMIT: Final = "IterationLimit"
+"""`kind` do registro do corte pelo limite; a geração o lê para avisar o modelo (R54)."""
+
 type DecisionKind = Literal["tool", "invalid", "answer", "failed", "view_image"]
 """`failed`: a chamada ao controller falhou (FR-006a). `view_image` conta como iteração, como `tool` (ADR-044)."""
 

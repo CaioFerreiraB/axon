@@ -266,6 +266,26 @@ class Registry:
         return ServerHealth(alias=alias, ok=not missing, tools=("eco",), missing=missing)
 
 
+@pytest.mark.parametrize("enabled,available", [(True, True), (False, True), (True, False)])
+async def test_mcp_delegado_valido_nao_exige_credencial_de_usuario_na_sonda(enabled: bool, available: bool) -> None:
+    from dataclasses import replace
+
+    class DelegatedRegistry(Registry):
+        async def globals(self) -> Sequence[McpServer]:
+            return tuple(
+                replace(s, auth_type="delegated", enabled=enabled, available=available) for s in await super().globals()
+            )
+
+    registry = DelegatedRegistry("mango")
+    report = await health(mcp=registry).health()
+    item = next(i for i in report.items if i.name == "mcp:mango")
+    assert report.status == ("ok" if enabled and available else "degraded")
+    assert item.ok == (enabled and available)
+    if item.ok:
+        assert "por execução" in (item.detail or "")
+    assert registry.checks == 0
+
+
 @pytest.mark.us5
 async def test_servidor_mcp_fora_do_ar_degrada_sem_derrubar() -> None:
     report = await health(mcp=Registry("demo", "crm", down=["crm"])).health()

@@ -111,3 +111,88 @@ def test_conteudo_multimodal_com_data_uri_invalido_e_recusado_nomeando_a_parte()
     )
     assert response.status_code == 400
     assert response.json()["error"]["param"] == "messages[0].content[1].image_url.url"
+
+
+# --- Fontes: cabeçalho `x-axon-citations` (FR-005b, ADR-051) ----------------------------------------------------------
+
+CITACOES = (
+    {
+        "chunk_id": "por-2025#r13@p12",
+        "document": "POR 2025",
+        "version": "2.1",
+        "status": "vigente",
+        "section": "Regra 13",
+        "page": 12,
+        "url": "https://example.org/por.pdf#page=12",
+    },
+    {"chunk_id": "estatuto#art5@p3", "document": "Estatuto 2024", "page": 3, "url": "javascript:alert(1)"},
+)
+
+
+def _com_citacoes() -> Platform:
+    from graph_testkit import ScriptedHooks, outcome
+
+    return Platform(llm=provider(), hooks=ScriptedHooks(outcome=outcome(answer="Brasília [1] [2]", citations=CITACOES)))
+
+
+def test_com_o_cabecalho_cada_citacao_vira_uma_fonte_do_open_webui_depois_do_texto() -> None:
+    """FR-005b: um evento `source` por citação, na ordem do `[n]`, depois do último texto e antes do chunk final;
+    id pelo `chunk_id`, legenda do ADR-026, página do Open WebUI (`page - 1`) e só URL `http(s)`."""
+    client = TestClient(_com_citacoes().app)
+
+    response = client.post("/v1/chat/completions", headers=headers(ANA_TOKEN), json=body())
+
+    assert response.status_code == 200
+    chunks = chunks_of(response.text)
+    fontes = [(i, c["event"]["data"]) for i, c in enumerate(chunks) if c.get("event", {}).get("type") == "source"]
+    assert [data["source"]["id"] for _, data in fontes] == ["por-2025#r13@p12", "estatuto#art5@p3"]
+    ultimo_texto = max(i for i, c in enumerate(chunks) if c["choices"][0]["delta"].get("content"))
+    assert all(ultimo_texto < i < len(chunks) - 1 for i, _ in fontes)
+    assert all(chunks[i]["choices"][0]["delta"] == {} for i, _ in fontes)
+
+    primeira, segunda = fontes[0][1], fontes[1][1]
+    assert primeira["source"] == {
+        "id": "por-2025#r13@p12",
+        "name": "POR 2025 — Regra 13, p. 12",
+        "url": "https://example.org/por.pdf#page=12",
+    }
+    assert primeira["metadata"] == [{"source": "por-2025#r13@p12", "name": "POR 2025 — Regra 13, p. 12", "page": 11}]
+    assert primeira["document"] == [
+        "Documento: POR 2025\n\nVersão: 2.1\n\nSituação: vigente\n\nSeção: Regra 13\n\nPágina: 12"
+    ]
+    assert segunda["source"] == {"id": "estatuto#art5@p3", "name": "Estatuto 2024, p. 3"}, "URL não http(s) não sai"
+    assert chunks[-1]["x_axon"]["citations"][0]["url"] == "https://example.org/por.pdf#page=12"
+
+
+def test_sem_o_cabecalho_de_citacoes_nenhuma_fonte_sai() -> None:
+    client = TestClient(_com_citacoes().app)
+    sem = {name: value for name, value in headers(ANA_TOKEN).items() if name != "x-axon-citations"}
+
+    response = client.post("/v1/chat/completions", headers=sem, json=body())
+
+    chunks = chunks_of(response.text)
+    assert not any(c.get("event", {}).get("type") == "source" for c in chunks)
+    assert [c["chunk_id"] for c in chunks[-1]["x_axon"]["citations"]] == ["por-2025#r13@p12", "estatuto#art5@p3"]
+
+
+def test_sem_streaming_nenhuma_fonte_sai() -> None:
+    client = TestClient(_com_citacoes().app)
+
+    response = client.post("/v1/chat/completions", headers=headers(ANA_TOKEN), json=body(stream=False))
+
+    assert response.status_code == 200
+    assert "event" not in response.json()
+    assert len(response.json()["x_axon"]["citations"]) == 2
+
+
+@pytest.mark.parametrize("path", ["/v1/chat/completions", "/v1/chat"])
+def test_modo_de_citacoes_desconhecido_e_400_nas_duas_entradas(path: str) -> None:
+    client = TestClient(Platform(llm=provider()).app)
+    payload = body() if path.endswith("completions") else {"assistant": "geral", "messages": body()["messages"]}
+    errado = headers(ANA_TOKEN) | {"x-axon-citations": "links"}
+
+    response = client.post(path, headers=errado, json=payload)
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_header"
+    assert response.json()["error"]["param"] == "x-axon-citations"

@@ -471,3 +471,10 @@ T077.
 - O "Agentic" que sobra no código é da console (`Sidebar.tsx`, `AccessDenied.tsx`, a fixture do MSW), da passada da 013.
 - Suítes: workspace 3208 passed, 168 skipped; com `AXON_TEST_POSTGRES_DSN`, 3365 passed, 11 skipped; mypy sem erro; ruff
   limpo; import-linter 69 kept; console 67 testes e e2e 39 passed, 4 skipped.
+
+---
+
+## Correção de 2026-10-28: a CSP com as origens dos clientes no perfil `persistent` (research R27)
+
+- [X] T081 `_Http.csp` calculada por página a partir de `service.clients`; teste de regressão em
+  `tests/identity/integration/test_pages.py`. Verificado no dev: o login por senha pelo Open WebUI volta ao cliente.

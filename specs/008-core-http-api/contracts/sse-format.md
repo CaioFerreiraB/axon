@@ -106,3 +106,46 @@ FinalEvent                  → delta {}, event status por registro e a linha de
 Suíte: `test_timeline.py` (as linhas), `test_openai_chunks.py` (`status_chunk`), `test_chat_request.py` (o cabeçalho),
 `test_admission.py` (fila no modo `status`), `test_open_webui.py` (o pedido do v0.12 com o cabeçalho, o 400 nas duas
 entradas e a requisição nativa).
+
+## Fontes do Open WebUI (2026-10-28, FR-005b; research R61; ADR-051)
+
+Com `x-axon-citations: sources`, em streaming, o `FinalEvent` com citações ganha, depois do último texto (e da cauda de
+imagens) e antes dos status finais e do chunk final:
+
+```text
+FinalEvent.citations[i]     → delta {}, event source {"source": {"id": <chunk_id>, "name": <legenda>, "url"?},
+                                                     "document": [<proveniência>],
+                                                     "metadata": [{"source": <chunk_id>, "name": <legenda>, "page"?: <página − 1>}]}
+```
+
+| Regra | Motivo |
+|---|---|
+| Uma fonte por citação, na ordem da lista | o Open WebUI numera as fontes pela ordem de `metadata.source`; casa com o `[n]` |
+| id = `chunk_id`, nunca a URL | duas citações do mesmo PDF são duas fontes; id com URL vira o nome |
+| `url` só `http(s)` com host | o link vai a um `href` da interface |
+| Nunca `embed_url` | o painel lateral do Open WebUI é um iframe com `sandbox`, e o Chrome não mostra PDF nele |
+| `page` = página − 1 | o Open WebUI mostra `page + 1` |
+| `document` nunca vazio | o Open WebUI descarta fonte sem documento |
+| Sem o cabeçalho (ou `none`), ou sem streaming, nenhuma fonte | FR-005b; `x_axon.citations` segue igual, agora com `url` |
+
+Suíte: `test_sources.py` (o formato), `test_chat_request.py` (o cabeçalho), `test_open_webui.py` (o pedido do v0.12 com
+o cabeçalho, sem ele, sem streaming e o 400 nas duas entradas).
+
+## Gráficos (2026-10-28, FR-005c; research R62; ADR-052)
+
+No `FinalEvent` com gráficos, a cauda de texto (o último token) leva, antes das imagens, um bloco por gráfico:
+
+```text
+\n\n<details>\n<summary>Dados do gráfico: <título></summary>\n\n| <x> | <série 1> | … |\n| --- | --- | … |\n…\n\n</details>
+```
+
+Com `x-axon-charts: embeds` e o endereço do script configurado, em streaming, sai em seguida — antes das fontes, dos
+status finais e do chunk final — **um** chunk:
+
+```text
+delta {}, event {"type": "embeds", "data": {"embeds": [<página de cada gráfico>], "replace": true}}
+```
+
+O chunk final traz `x_axon.charts`: a lista dos `Chart` em JSON (`id`, `kind`, `title`, `subtitle`, `x_type`,
+`x_label`, `y_label`, `unit`, `unit_position`, `series[{name, points[{x, y}]}]`); vazia sem gráfico. Sem streaming, a
+tabela vai no `content` e o JSON em `x_axon.charts`.

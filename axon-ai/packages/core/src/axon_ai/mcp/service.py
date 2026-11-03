@@ -14,8 +14,10 @@ from typing import Final
 from axon_ai.assistants.api import ExecutionGrant, Principal
 from axon_ai.mcp.api import (
     DEFAULT_MAX_ATTACHMENT_BYTES,
+    DelegatedAuthorization,
     Discovery,
     McpConflict,
+    McpDelegation,
     McpNotFound,
     McpRejected,
     McpServer,
@@ -213,9 +215,25 @@ class McpService:
 
     # --- McpClients ------------------------------------------------------------------------------------------------
 
-    def client_for(self, grant: ExecutionGrant) -> RestrictedClient:
+    async def delegation_for(self, grant: ExecutionGrant) -> McpDelegation | None:
         owner = grant_owner(grant.assistant, grant.principal.subject)
-        return RestrictedClient(self, aliases=frozenset(grant.mcp_aliases), owner=owner)
+        delegated = []
+        for alias in sorted(grant.mcp_aliases):
+            server = await self.visible(alias, owner=owner)
+            if server is not None and server.view.auth_type == "delegated":
+                assert server.view.endpoint is not None
+                delegated.append(McpDelegation(alias=alias, endpoint=server.view.endpoint))
+        if len(delegated) > 1:
+            raise McpRejected(
+                "Assistant autoriza mais de um MCP delegado; protocolo 1 aceita apenas um", field="mcp_aliases"
+            )
+        return delegated[0] if delegated else None
+
+    def client_for(
+        self, grant: ExecutionGrant, *, delegation: DelegatedAuthorization | None = None
+    ) -> RestrictedClient:
+        owner = grant_owner(grant.assistant, grant.principal.subject)
+        return RestrictedClient(self, aliases=frozenset(grant.mcp_aliases), owner=owner, delegation=delegation)
 
     # --- internos usados pelo cliente --------------------------------------------------------------------------------
 
@@ -232,8 +250,15 @@ class McpService:
                 return None
         return server if server is not None and usable(server) else None
 
-    async def discover_one(self, server: Server) -> tuple[RemoteTool, ...] | str:
+    async def discover_one(
+        self, server: Server, delegation: DelegatedAuthorization | None = None
+    ) -> tuple[RemoteTool, ...] | str:
         """A lista bruta do cache ou do servidor, ou o motivo da falha (R8)."""
+        if server.view.auth_type == "delegated" or (delegation and delegation.alias == server.alias):
+            try:
+                return tuple(await self._list_remote(server, delegation))
+            except (TransportFailure, CredentialMissing) as error:
+                return _reason(error)
         key = CacheKey(scope=server.view.scope, owner=server.view.owner, alias=server.alias, version=server.version)
         cached = self._cache.get(key)
         if cached is not None:
@@ -247,13 +272,19 @@ class McpService:
         self._cache.put(key, CachedDiscovery(tools=remote), ttl=self._discovery_ttl)
         return remote
 
-    async def call(self, server: Server, tool: str, arguments: Mapping[str, JSONValue]) -> ToolResult:
+    async def call(
+        self,
+        server: Server,
+        tool: str,
+        arguments: Mapping[str, JSONValue],
+        delegation: DelegatedAuthorization | None = None,
+    ) -> ToolResult:
         policy = server.view.policy
         assert policy is not None
         if tool not in policy.allowed_tools:
             return results.failure(f"tool '{tool}' não permitida em '{server.alias}'")
         try:
-            target = self._target(server)
+            target = self._target(server, delegation)
             try:
                 remote = await self._transport(server).call_tool(
                     target, tool, arguments, limits=_limits(server, self._max_attachment_bytes)
@@ -266,8 +297,10 @@ class McpService:
             remote, max_bytes=policy.max_response_bytes, max_attachment_bytes=self._max_attachment_bytes
         )
 
-    async def _list_remote(self, server: Server) -> Sequence[RemoteTool]:
-        target = self._target(server)
+    async def _list_remote(
+        self, server: Server, delegation: DelegatedAuthorization | None = None
+    ) -> Sequence[RemoteTool]:
+        target = self._target(server, delegation)
         try:
             return await self._transport(server).list_tools(target, limits=_limits(server))
         except TransportFailure as error:
@@ -279,12 +312,22 @@ class McpService:
             raise TransportFailure(f"transporte '{transport}' não configurado")
         return self._transports[transport]
 
-    def _target(self, server: Server) -> Target:
+    def _target(self, server: Server, delegation: DelegatedAuthorization | None = None) -> Target:
         """O alvo da operação, com o segredo resolvido agora e só agora (R7)."""
         view, draft = server.view, server.draft
         assert draft is not None and view.transport is not None
         headers: dict[str, str] = {}
         environment: dict[str, str] = {}
+        bound = delegation is not None and delegation.alias == server.alias
+        if draft.auth_type == "delegated" or bound:
+            if (
+                not bound
+                or delegation is None
+                or draft.auth_type != "delegated"
+                or delegation.endpoint != view.endpoint
+            ):
+                raise TransportFailure("autorização delegada ausente ou destino incompatível")
+            headers["Authorization"] = delegation.authorization
         if draft.auth_type == "bearer" and draft.credential_ref is not None:
             headers["Authorization"] = f"Bearer {self._secret(draft.credential_ref)}"
         if server.stdio is not None:
@@ -323,17 +366,25 @@ class McpService:
 class RestrictedClient:
     """O cliente de uma execução: só os aliases do grant, revalidados a cada operação (US3, R9)."""
 
-    def __init__(self, service: McpService, *, aliases: frozenset[str], owner: str | None) -> None:
+    def __init__(
+        self,
+        service: McpService,
+        *,
+        aliases: frozenset[str],
+        owner: str | None,
+        delegation: DelegatedAuthorization | None = None,
+    ) -> None:
         self._service = service
         self._aliases = aliases
         self._owner = owner
+        self._delegation = delegation
 
     async def discover(self, aliases: Sequence[str]) -> Discovery:
         servers = [await self._resolve(alias) for alias in aliases]
         specs: list[ToolSpec] = []
         unavailable: dict[str, str] = {}
         for server in servers:
-            found = await self._service.discover_one(server)
+            found = await self._service.discover_one(server, self._delegation)
             if isinstance(found, str):
                 unavailable[server.alias] = found
                 continue
@@ -347,7 +398,7 @@ class RestrictedClient:
 
     async def execute(self, alias: str, tool: str, arguments: Mapping[str, JSONValue]) -> ToolResult:
         server = await self._resolve(alias)
-        return await self._service.call(server, tool, arguments)
+        return await self._service.call(server, tool, arguments, self._delegation)
 
     async def _resolve(self, alias: str) -> Server:
         if alias not in self._aliases:

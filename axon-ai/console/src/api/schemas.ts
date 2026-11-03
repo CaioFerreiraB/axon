@@ -138,7 +138,10 @@ export const mcpServerSchema = z.object({
   endpoint: z.string().nullable(),
   command: z.string().nullable(),
   description: z.string().nullable(),
-  auth: z.object({ type: z.enum(["none", "bearer"]), credential: z.string().nullable() }),
+  auth: z.discriminatedUnion("type", [
+    z.object({ type: z.enum(["none", "bearer"]), credential: z.string().nullable() }),
+    z.object({ type: z.literal("delegated"), credential: z.null() }),
+  ]),
   enabled: z.boolean(),
   user_access: z.boolean(),
   policy: z

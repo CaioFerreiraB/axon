@@ -16,7 +16,7 @@ generic = "axon_generic.pack:GenericPack"
 ```python
 class GenericPack(PackBase):
     name = "generic"                 # igual ao nome do entry point (002 FR-017)
-    contract_version = "0.2"         # série dos contratos; deriva a faixa >=0.2,<0.3 (ADR-014)
+    contract_version = "0.2.4"       # deriva a faixa >=0.2.4,<0.3 (ADR-014); 0.2.4 traz o Chart (ADR-052)
 ```
 
 `name` e `contract_version` são **atributos de classe**: o Pack Runtime os lê antes de instanciar.
@@ -68,6 +68,23 @@ O core aplica o namespace: o modelo vê `generic.calculate`.
 
 Sucesso devolve `{"expression": <a string recebida, com `strip()`>, "result": <int | float>}`. Os limites
 (`MAX_LENGTH = 200` caracteres, `MAX_EXPONENT = 1000`) estão em [data-model.md](../data-model.md).
+
+## Tool `chart` (2026-10-28, FR-013; ADR-052)
+
+```python
+ToolSpec(
+    name="chart",
+    description=DESCRIPTION,   # quando usar e como passar os dados (research R28)
+    parameters=PARAMETERS,     # kind, title, series obrigatórios; subtitle, x_type, x_label, y_label, unit, unit_position
+    kind="native",
+    mutates=False,
+    handler=chart,             # async (ToolInvocation) -> ToolResult
+)
+```
+
+O modelo vê `generic.chart`. Sucesso: `ToolResult(content="gráfico <id> criado (…)", charts=(Chart,))` — o gateway
+tira o gráfico da cerca e deixa a marca (004 R15). Argumento que o `Chart` recusa: `ToolResult(error="gráfico inválido:
+<motivo>")`, sem exceção.
 
 ## Validator `non_empty_answer`
 
@@ -126,8 +143,8 @@ dele. O resto do texto não muda.
 
 Não é artefato do pack: é uma declaração de Assistant (formato da 003) que usa o pack, um servidor MCP (formato da
 007) e o flow `agentic` (005). Forma mínima no [quickstart.md](../quickstart.md), "Fase 3". O que o pack garante a esse
-Assistant: o prompt acima na geração, a tool `generic.calculate` no catálogo ao lado das tools do MCP e o validator na
-resposta final.
+Assistant: o prompt acima na geração, as tools `generic.calculate` e `generic.chart` no catálogo ao lado das tools do MCP e o
+validator na resposta final.
 
 ### Conformidade da US2 (no core — R18)
 

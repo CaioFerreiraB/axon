@@ -429,3 +429,49 @@ HEAD antes da passada): o flow fica intacto.
 **Rationale**: SC-003 e a lição da 011 (contar o `agentic`).
 
 **Alternatives considered**: nenhuma.
+
+## R28 — A tool `chart` (ADR-052, item 7; FR-013)
+
+**Decision**: `tools/chart.py`, módulo puro:
+- `PARAMETERS`, com `kind`, `title` e `series` obrigatórios e os demais opcionais; `x` é `anyOf` texto ou número;
+  todo objeto é fechado; `series` tem `minItems` 1 e `maxItems` 8.
+- `build_chart`: os opcionais ausentes ou nulos viram o padrão do contrato, porque o adapter da OpenAI os torna
+  obrigatórios e anuláveis (ADR-023).
+- O handler `chart` devolve `ToolResult(content="gráfico <id> criado (<tipo>, N série(s), M ponto(s))",
+  charts=(chart,))` ou `ToolResult(error="gráfico inválido: <motivo>")` para `TypeError`, `ValueError` e `KeyError`
+  do `Chart`.
+
+A descrição da tool diz quando usar e como passar os dados: pedido do usuário; números já agregados; o teto; data ISO
+com `x_type` temporal; uma série na pizza. Ela diz também que o gráfico aparece com a tabela. `GenericPack.tools`
+devolve `(calculate_spec(), chart_spec())`. Versão `0.3.0`, `contract_version = "0.2.4"`, dependência
+`>=0.2.4,<0.3`.
+
+**Rationale** (ADR-052: "A tool é do `axon-generic`"): o pack de uso geral é o lugar das capacidades sem domínio
+(FR-005). O `Chart` já valida tudo na construção, então a tool não repete regra; ela só traduz argumentos e transforma
+a exceção em erro que o controller lê e corrige. O esquema foi conferido contra a conversão estrita da 006 e a
+validação de argumentos da 004. O prompt não muda: a frase do controller sobre gráficos é do core (005 R53).
+
+**Alternatives considered**: a tool no core (o core não tem tools próprias; elas vêm de packs, MCP e retrievers);
+pontos como pares `[x, y]` (o subconjunto estrito recusa `items` em tupla); devolver o erro como exceção (o gateway o
+transformaria em `error` genérico, sem o motivo).
+
+**Verificação com modelo real (dev, 2026-10-28; glm-5.3-flash)**: três ajustes vieram do teste no Open WebUI.
+- **`x_type` inferido.** Sem `x_type` (o modelo o omitiu numa série de datas), `build_chart` usa `temporal` quando
+  todo x é data ISO, `quantitative` quando todo x é número e `nominal` no resto; o explícito vence, e pizza e rosca
+  são sempre `nominal`.
+- **Descrições curtas** nos campos `x_type` e `unit`.
+- **Uma série por grandeza.** Numa rodada, o controller criou uma série repetida ("Valor em Reais", no lugar da
+  unidade) e chamou a tool de novo para corrigir, e os dois gráficos ficaram na tela (gráfico não se desfaz). A
+  descrição passou a dizer: uma série por grandeza, sem repetir valores, unidade em `unit`, uma chamada por gráfico.
+  O resultado da tool passou a dizer que o gráfico "já foi mostrado ao usuário".
+
+Depois dos ajustes, linha, barras empilhadas e pizza saíram com um gráfico cada.
+
+## R29 — O waterfall na tool `chart` (ADR-053)
+
+**Decision**: `waterfall` no `enum` de `kind`. A descrição diz para usar uma série só, com as etapas em ordem e as
+variações com sinal, e para **não** incluir o total, que a plataforma calcula. O eixo é sempre nominal
+(`_inferred_x_type`). Versão `0.3.1`, `contract_version` `0.2.5`, dependência `>=0.2.5,<0.3`.
+
+**Rationale**: em produção, o modelo mandou o "Resultado do mês" como mais um ponto de barras. No waterfall, esse ponto
+seria somado ao acumulado e dobraria o total; dizer que o total é da plataforma evita isso.

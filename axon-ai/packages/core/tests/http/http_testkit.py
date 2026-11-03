@@ -272,7 +272,7 @@ class Platform:
             overrides["mcp"] = self.mcp
         self.conversations = overrides.pop("conversations", None) or InMemoryConversationStore()
         self.app = app_with(
-            engine(llm=llm, trace=trace),
+            engine(hooks=overrides.pop("hooks", None), llm=llm, trace=trace),
             authenticator=self.access,
             grants=self.assistants,
             directory=self.assistants,

@@ -864,3 +864,49 @@ elas, nos três flows.
   decisão, só imagem, sem `vision`, controller com e sem `vision`), `view_image` no loop (ids, repetida, id estranho,
   sem `vision`, catálogo vazio), `image_gate` no `chat` (escolha, nenhuma, falhas, sem controller, sem imagem) e no
   `rag_first`; unidade da tabela, do conteúdo, da escolha e do custo
+
+---
+
+## Passada de 2026-10-28: gráficos na execução ([ADR-052](../../docs/adr/ADR-052-graficos-na-conversa.md); research R53)
+
+**Goal**: o gráfico de uma tool chega ao consumidor como `ChartEvent` e em `FinalEvent.charts`, e o modelo só sabe
+que ele foi mostrado.
+
+**Independent Test**: `tests/graph/contract/test_graph_charts_flow.py`.
+
+- [X] T102 `ChartEvent`, `FinalEvent.charts` e o `ExecutionEvent` (`graph/api.py`); `charts` no estado, no
+  `execute_tool`, no runtime (`_from_custom`, evento final de erro e `_final`) e no `final_event` (`unique_charts`)
+- [X] T103 `CHARTS_INSTRUCTION` na geração com gráfico; "imagens e gráficos" no `CONTROLLER_INSTRUCTION`
+- [X] T104 [P] Testes: ordem (imagens, depois gráficos, logo depois do desfecho), repetição entre chamadas, dados fora
+  do modelo, aviso só com gráfico; `FakeSession(charts=)` no `graph_testkit`
+
+---
+
+## Correção de 2026-10-29: avisos da geração depois do loop (research R54)
+
+- [X] T105 `NO_TOOLS_INSTRUCTION` e `LIMIT_INSTRUCTION` em `generation_messages` (`tools`, `truncated`);
+  `ITERATION_LIMIT` em `domain/limits.py`; o `generate` passa o corte
+- [X] T106 [P] Testes: `tests/graph/contract/test_graph_generation_notices.py` (loop por decisão, corte pelo limite,
+  `chat` sem avisos)
+- [X] T107 Passos do loop em texto na geração (`_generation_transcript`, R55); `is_tool_result` e o corte com
+  cabeçalho em `domain/budget.py`; testes do transcript, do fluxo `agentic`, das propriedades e das integrações
+  atualizados para o formato em texto
+
+---
+
+## Passada de 2026-10-29: a geração declara gráficos em JSON ([ADR-054](../../docs/adr/ADR-054-a-geracao-declara-graficos-em-json.md); research R56)
+
+- [X] T108 `graph/domain/chart_blocks.py` (filtro, leitura, aviso, teto) e o encaixe no `generate`; aviso junto do
+  `NO_TOOLS_INSTRUCTION`; `IMAGES_CAPABILITY` sem prometer gráfico por tool
+- [X] T109 [P] Testes: filtro em qualquer corte do streaming, outros blocos de código intactos, bloco sem fechar,
+  leitura e erros; fluxo (`ChartEvent`, texto sem o bloco, inválido como registro, teto, `chat` sem aviso); ponta a
+  ponta pela API com `embeds`
+
+
+## Incremento ADR-055
+
+- [X] D01 Contratos e testes de delegação/isolamento antes do código.
+- [X] D02 Implementar os seams confidenciais e falha fechada deste módulo.
+- [X] D03 Validar regressões, types, lint e atualizar documentação operacional.
+
+Validação ADR-055: suítes MCP/gateway/motor/HTTP com Postgres temporário; testes novos de isolamento, API e canal confidencial; mypy, Ruff e 69 contratos import-linter aprovados. Testes de transporte e destinos estáticos preservados.

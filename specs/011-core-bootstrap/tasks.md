@@ -660,3 +660,22 @@ paralelo com T077.
 - [X] T086 [P] Testes: `test_settings_phase9.py` (padrões, leitura, faixas) e a prova ponta a ponta
   `test_platform_images.py` (tool MCP com PNG → imagem na resposta → turno seguinte com `view_image` → imagem no
   provider simulado)
+
+---
+
+## Passada de 2026-10-28: o endereço dos scripts dos gráficos ([ADR-052](../../docs/adr/ADR-052-graficos-na-conversa.md); research R57)
+
+**Goal**: a plataforma montada sabe de onde o navegador carrega o ECharts, e uma conversa `agentic` com MCP e
+`generic.chart` chega ao Open WebUI como gráfico.
+
+**Independent Test**: `tests/bootstrap/unit/test_settings_charts.py` e
+`tests/bootstrap/integration/test_platform_charts.py`.
+
+- [X] T087 `AXON_CHARTS_SCRIPT_BASE_URL` em `Settings` (validação com o nome da variável), `charts_base_url` com o
+  `AXON_PUBLIC_URL` de reserva, ligação ao `create_app`; `contracts/configuration.md` (R57)
+- [X] T088 Item informativo `charts` na saúde agregada
+- [X] T089 [P] Testes: leitura, reserva, precedência e recusa da variável; a prova ponta a ponta sem rede
+
+### Integração de saúde com delegação MCP
+- [X] D01 Contrato: sonda agregada informa validação por execução; configuração inválida continua falhando.
+- [X] D02 Testes: nenhuma chamada de rede/credencial na sonda delegada, regressão dos MCPs estáticos.

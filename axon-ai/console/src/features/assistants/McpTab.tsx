@@ -116,8 +116,8 @@ function ServerCard({
         <div className={mcp.title}>
           <div className={mcp.nameRow}>
             <span className={mcp.alias}>{server.alias}</span>
-            <Badge tone={ok ? "ok" : "bad"} dot>
-              {ok ? "Disponível" : "Indisponível"}
+            <Badge tone={!ok ? "bad" : server.auth.type === "delegated" ? "neutral" : "ok"} dot>
+              {!ok ? "Indisponível" : server.auth.type === "delegated" ? "Por execução" : "Disponível"}
             </Badge>
           </div>
           <span className={mcp.description}>{[server.description, origin].filter(Boolean).join(" · ")}</span>
@@ -133,6 +133,9 @@ function ServerCard({
           {mcpReason(reason, "completa")}
           {tools.length === 0 ? " As tools aparecem quando o servidor responder." : ""}
         </p>
+      ) : null}
+      {server.auth.type === "delegated" ? (
+        <p className={mcp.description}>Tools configuradas; descoberta e conexão verificadas durante cada execução.</p>
       ) : null}
       {on && tools.length > 0 ? (
         <table className={mcp.tools}>
@@ -195,7 +198,7 @@ export default function McpTab() {
   const isPublic = view.visibility === "public";
   const servers = useMcpServers();
   const globals = useMemo(() => (servers.data ?? []).filter((server) => server.scope === "global"), [servers.data]);
-  const healths = useMcpHealths(globals.map((server) => server.alias));
+  const healths = useMcpHealths(globals);
   const [draft, setDraftState] = useState<Draft>(() => draftOf(view));
   const [baseVersion, setBaseVersion] = useState<number | null>(override?.version ?? null);
   const save = useSaveMcp(view.name);

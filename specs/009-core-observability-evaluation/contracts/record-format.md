@@ -94,6 +94,11 @@ truncado, com a marca `… [truncado: N caracteres]`.
 
 Nunca aparece no JSONL nem na memória (backends primários).
 
+## Gráficos (2026-10-28, [ADR-052](../../../docs/adr/ADR-052-graficos-na-conversa.md))
+
+- `tool_call` ganha `charts`: lista de `{id, kind, series, points}` dos gráficos do resultado (vazia sem gráfico);
+  nunca os dados nem os textos.
+
 ## Imagens (2026-10-22, [ADR-044](../../../docs/adr/ADR-044-imagens-na-conversa.md))
 
 - `tool_call` ganha `attachments`: lista de `{id, mime, size_bytes}` das imagens do resultado (vazia sem imagem);

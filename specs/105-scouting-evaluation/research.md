@@ -181,3 +181,216 @@ Qwen3 1.7B, Gemma 4 E2B) ficam como estão.
 - **Rationale** (ADR-043, item 7): o embedder é configuração do pack, que vale para a instalação; a comparação são duas
   rodadas, cada uma com o próprio `packs.yaml`, e não dois Assistants — a leitura do ADR que o harness da 009 permite.
 - **Alternatives**: dois packs com nomes diferentes (o mesmo código instalado duas vezes).
+
+---
+
+## Passada de 2026-10-27 (revisão do RAG; [relatório](../../docs/revisao-rag-scouting-2026-10.md))
+
+## R13 — Fatos pelo conteúdo: `scouting:fact_recall`
+
+- **Decision**: o item declara `extra.facts` (texto, ou lista de redações alternativas); a métrica normaliza fatos e
+  textos com o `normalize` da 101 e casa palavra a palavra (`contains_term`) no texto dos trechos de
+  `EvalObservation.delivered`. O texto vem de uma função `chunk_id → texto` que o `pack.py` injeta: `chunk_texts` do
+  adapter do artefato (`rag/index/adapters/artifact.py`), que lê `chunks.jsonl` na primeira consulta, conferindo o
+  sha256 do manifesto. Só com `store: memory`; com o Qdrant, a métrica não é declarada. Determinística (o texto é do
+  artefato, não da geração).
+- **Rationale**: a evidência da 009 casa por documento, seção ou `chunk_id`; um stub "O Marco Simbólico" do manual
+  certo contaria como acerto, e o `chunk_id` muda com o chunking — que a 102 vai mudar. O `EvalChunk` não traz texto, e
+  o pack já tem o artefato: a injeção mantém a métrica pura (R10) e evita mudar o contrato 001.
+- **Alternatives**: `EvalChunk.text` no contrato 001 (ADR e versão de contrato para o que o pack já resolve); uma suíte
+  que simula o pipeline no pack (duplicaria o corte do gateway e o rerank do core, e mediria uma cópia).
+
+## R14 — Corpus sem os PDFs no git: conferência pelo catálogo, semente e linha de base
+
+- **Decision**: com os originais fora do git (decisão do mantenedor em 2026-10-26), o passo "o artefato espelha o
+  corpus" do workflow `eval` deixa de reingerir e roda `tests/rag/ingestion/test_artifact_catalog.py`: valida o
+  `corpus.yaml`, deriva a linhagem e compara, documento a documento, `fields`, `source_file` e `source_url` do
+  `documents.jsonl` com o que a ingestão gravaria. A semente troca s08 e s09 (o "Escotistas em Ação — Ramo Lobinho"
+  saiu do catálogo) pelas mesmas perguntas no Manual do Escotista — Ramo Lobinho (`cap4@p116`, `cap9@p297`), e a
+  cobertura exige os tipos `por`, `estatuto`, `resolucao` e `manual` em vez de todos os títulos. A linha de base é
+  refeita com o corpus de 593 documentos: recall@5 0,8889 → 0,7778 e MRR 0,7222 → 0,5778 — s02 (POR, data de fundação
+  da UEL) e s07 (consulta de 2022) deixaram de achar a evidência entre os novos documentos.
+- **Rationale**: o que se confere sem os PDFs é o que o catálogo decide; uma mudança de catálogo sem reingestão é o erro
+  que o passo existia para pegar. O conteúdo dos PDFs só muda com quem os tem, e a reingestão continua lá.
+- **Alternatives**: conferir o sha256 do `fontes.yaml` contra o `source_sha256` do artefato (acopla o teste a um arquivo
+  de curadoria sem contrato); manter os PDFs no git (decisão contrária do mantenedor).
+
+## R15 — O conjunto de regressão
+
+- **Decision**: `eval/regression.yaml`, 20 itens com data de 2026-10-27: marco simbólico por ramo (5) e duas paráfrases;
+  quatro agregados com os cinco ramos ("dos 5 ramos", "de cada ramo", "dos cinco ramos", os cinco nomeados); uma
+  comparação (Lobinho × Sênior); lema por ramo (3) e de cada ramo; faixa etária do Lobinho e de cada ramo; a Regra 054
+  e o sinal do Ramo Filhotes. `extra.group` agrupa (`individual`, `agregado`, `comparativo`, `normativo`). Validado em
+  `tests/eval/test_regression.py`: formato, grupos e todo fato presente no texto do artefato. Linha de base em
+  `eval/regression-baseline.json` (perfil `test`, artefato e e5): `fact_recall` 0,52 — marcos por ramo 4/5 (Pioneiro
+  0), agregados 0,2–0,4, lemas e faixas etárias quase sempre 0 (só o POR os enuncia), Regra 054 0.
+- **Rationale**: o mesmo conceito em várias formas e outros conceitos com o mesmo padrão (lema, faixa etária) impedem
+  que uma correção acerte só a pergunta do exemplo. Os fatos de lema e faixa etária estão só no POR, então os itens
+  medem também o defeito da ingestão das regras.
+- **Alternatives**: acrescentar os itens à semente (a semente tem 8–12 itens e será trocada pela curadoria, FR-001).
+
+## R16 — `branches` no contexto esperado ([ADR-045](../../docs/adr/ADR-045-filhotes-e-consulta-multifaceta-no-scouting.md))
+
+- **Decision**: `CONTEXT_FIELDS` e a derivação refeita ganham `branches` (comparado como conjunto); a validação da
+  semente aceita só ids do léxico; os agregados e o comparativo do conjunto de regressão declaram as facetas, e a
+  `context_accuracy` desses 7 itens é 1,0 na linha de base de 2026-10-27 (`fact_recall` 0,81).
+- **Rationale**: a busca por faceta depende da derivação; um léxico que deixe de casar "cada ramo" aparece aqui antes de
+  aparecer no `fact_recall`.
+- **Alternatives**: nenhum.
+
+## R17 — `absence_claim_rate` e a rodada com modelo real
+
+- **Decision**: `AbsenceClaimRate` em `eval/metrics.py`: sobre a resposta normalizada pela 101, três padrões —
+  "não existe/há/consta … nos documentos", "os documentos (oficiais) não trazem/contêm/mencionam…" e "nenhum documento
+  (oficial) foi encontrado/trata…"; "trechos" não casa. Só em item com `extra.facts`; `better: lower`, não
+  determinística. `eval/assistants-openrouter.yaml` dá ao Assistant o modelo de geração da instalação
+  (`openrouter/z-ai/glm-5.3-flash`); a rodada é manual, com `AXON_OPENROUTER_API_KEY` e `--judge`.
+- **Rationale**: o defeito que a revisão achou na geração é uma afirmação sobre o acervo feita a partir de cinco
+  trechos; o juiz da 009 mede fidelidade e cobertura, não isso. Os padrões são estreitos de propósito: um falso
+  negativo custa menos que punir "não apareceu nos trechos", que é o que o prompt pede (101 R36).
+- **Alternatives**: pedir ao juiz um julgamento a mais (muda o contrato do juiz na 009).
+- **Rodada de 2026-10-27** (modelo de geração `openrouter/z-ai/glm-5.3-flash`, juiz `openrouter/openai/gpt-4.1-mini`,
+  conjunto de regressão; "antes" = o pack com o prompt anterior, pelo `PYTHONPATH` de uma cópia de trabalho; a chave
+  só no ambiente do processo):
+
+  | | antes | depois |
+  |---|---:|---:|
+  | fidelidade | 0,95 | 1,00 |
+  | cobertura | 0,89 | 0,92 |
+  | citação resolvível / inventada | 1,0 / 0 | 1,0 / 0 |
+  | `flag_rate:ungrounded` | 0,05 | 0 |
+  | `absence_claim_rate` | 0 | 0 |
+  | `fact_recall` | 0,81 | 0,81 |
+  | tokens por resposta | 3.435 | 3.847 |
+
+  A `absence_claim_rate` não discrimina: o modelo já falava em "trechos" antes. A leitura das respostas (6 perguntas de
+  cobertura parcial, pela superfície privada com uma chave de desenvolvimento descartável) mostrou o efeito real do
+  prompt: **antes**, a caracterização de cada ramo ("autonomia acompanhada", "a exploração e as descobertas") aparecia
+  como o marco simbólico, e o lema ganhou uma invenção ("Filhotes, Lobinho, Escoteiro e Sênior compartilham também o
+  'Sempre Alerta'"); **depois**, as caracterizações vêm marcadas como tais, com "a frase do Marco Simbólico não apareceu
+  nos trechos recebidos", e o lema cita as Regras 054, 064, 076 e 092. Antes, uma resposta saiu como chamada de
+  ferramenta crua (`<tool_call>scouting.search_docs…`), que o validator marcou como sem fundamento; depois, não — uma
+  amostra só.
+
+## R18 — A faixa etária também na redação da Regra 013
+
+- **Decision**: os fatos de faixa etária do conjunto de regressão aceitam as duas redações do POR — a das regras de
+  cada ramo ("entre 11 e 14 anos") e a da Regra 013 ("de 11 a 14 anos"). Linha de base regravada: `fact_recall`
+  0,81 → 0,90 (idade do Lobinho 0 → 1,0; de cada ramo 0 → 0,8).
+- **Rationale**: na rodada com modelo real (R17), as respostas de faixa etária estavam certas e citavam a Regra 013,
+  entregue pela recuperação; o conjunto media 0 porque só conhecia a outra redação. É correção do instrumento, não
+  ganho do sistema — a recuperação é a mesma.
+- **Alternatives**: trocar o fato pela redação da Regra 013 (perderia a outra fonte, que também responde).
+
+## R19 — As perguntas do teste no dev viram itens; `suggested_types` no contexto
+
+- **Decision**: 8 itens novos no conjunto de regressão, tirados do teste do mantenedor no Open WebUI local:
+  especialidades (três variações), etapas do Escoteiro e de cada ramo (Lobinho, Escoteiro, Sênior e Pioneiro — o
+  corpus não nomeia etapas de Filhotes), ciclo de vida do adulto, políticas nacionais (grupo `lista`) e uma pessoa
+  (grupo `pessoa`). Perguntas sem resposta no corpus não viram item. O fato de especialidades aceita "certificação
+  externa" e "as especialidades nos Ramos Sênior e Pioneiro": a primeira versão exigia um trecho só, e a busca
+  corrigida trazia outros que respondem. `CONTEXT_FIELDS` ganha `suggested_types` ([ADR-046](../../docs/adr/ADR-046-tipo-sugerido-ordena-no-scouting.md)).
+- **Rationale**: medir cada correção pelas perguntas que o mantenedor fez. Antes do ADR-046, 0,7634 nos 28 itens
+  (especialidades 0, etapas de cada ramo 0, políticas 0,375); depois, 0,8705, com o mesmo instrumento nas duas pontas.
+- **Alternatives**: nenhum.
+
+## R20 — Quantos trechos entregar: 10, 20 ou 30
+
+- **Decision**: a instalação passa a entregar **20 trechos de 20 candidatos**, com `AXON_TOOL_MAX_RESPONSE_BYTES=65536`
+  (com 16 KB, o gateway corta os 20 candidatos em 10–14 antes do rerank; 103 R13). 30 fica como opção medida, a
+  reavaliar depois do modo catálogo, que ataca as perguntas de lista por outro caminho.
+- **Rationale**: o conjunto de regressão (28 itens), primeiro com o gerador simulado (só recuperação), variando
+  candidatos/entregues/limite do gateway:
+
+  | candidatos / entregues / limite | `fact_recall` |
+  |---|---:|
+  | 20 / 5 / 16 KB | 0,870 |
+  | 20 / 10 / 16 KB (produção até aqui) | 0,900 |
+  | 20 / 20 / 64 KB | 0,980 |
+  | 30 / 20 / 64 KB | 0,970 |
+  | 30 / 30 / 96 KB | 0,990 |
+
+  E com o modelo de produção (`glm-5.3-flash` pelo OpenRouter, perfil `memory`, sem juiz, uma rodada cada):
+
+  | entregues | `fact_recall` | latência p50 / p95 | 1º token p50 / p95 | tokens por resposta |
+  |---:|---:|---:|---:|---:|
+  | 10 | 0,899 | 15,6 s / 35,6 s | 9,9 s / 28,3 s | 6,1 mil |
+  | 20 | 0,978 | 17,4 s / 39,0 s | 12,4 s / 31,5 s | 10,5 mil |
+  | 30 | 0,991 | 14,5 s / 47,2 s | 11,3 s / 42,1 s | 14,4 mil |
+
+  Nas três: nenhuma citação inventada, nenhum erro, `absence_claim_rate` 0. De 10 para 20, a cobertura sobe 8 pontos
+  por +73% de tokens; de 20 para 30, mais 1 ponto por +37% e +8 s no p95. A mediana oscila com a rede (o p50 de 30 saiu
+  menor que o de 10), o p95 cresce com o contexto. O que 20 ainda perde está nas listas (políticas, 0,62 no simulado),
+  que mais trechos não resolvem bem: a lista inteira não cabe em nenhuma quantidade razoável de trechos.
+- **Alternatives**: 30 trechos (1 ponto a mais, p95 maior; reconsiderar se o catálogo não fechar as listas); manter 10
+  (8 pontos a menos); subir o limite do gateway sem subir os entregues (não muda o que chega à geração).
+
+## R21 — A lista de documentos medida ([ADR-047](../../docs/adr/ADR-047-lista-de-documentos-do-acervo-no-scouting.md))
+
+- **Decision**: `CONTEXT_FIELDS` ganha `catalog`, comparado por espécie e termos em ordem (o `extra` chega congelado
+  pelos contratos, com os termos em tupla); o item `politicas-nacionais` declara `catalog: {kind: politica, terms:
+  [nacionais]}`. O `fact_recall` lê o texto das fichas por `with_cards`. A regressão na CI roda com as quantidades da
+  instalação (20/20/64 KB, R20), e a linha de base foi regravada nelas: **0,9911** (de 0,8705 com 5 trechos).
+- **Rationale**: com 20/20/64 KB, antes e depois do catálogo, o mesmo instrumento: `fact_recall` 0,978 → 0,991;
+  políticas 0,625 → 1,0; nenhum outro item muda; a semente fica igual (recall@5 0,67, MRR 0,44). Com o catálogo, 20
+  trechos dão o que 30 davam sem ele (0,990), por 4 mil tokens a menos por resposta.
+- **Alternatives**: manter a regressão com os padrões do core (mediria uma configuração que nenhuma instalação usa).
+
+## R22 — O conjunto do acervo, com controle
+
+- **Decision**: `eval/acervo.yaml`, 43 perguntas escritas lendo 21 PDFs (POR, Estatuto, Código de Conduta, cinco
+  políticas, os guias de especialidades e de progressão, o Manual de Filhotes, Padrões de Atividades, abrir uma UEL, o
+  regulamento do CAN, bullying e perfis de cargos), em cinco grupos — `simples`, `lista`, `comparativo`,
+  `multidocumento` (a resposta precisa de dois documentos ou mais) e `normativo` —, com 86 fatos copiados do texto do
+  PDF (ordem de leitura, sem passar pelo índice) e conferidos contra ele. Cada item tem `extra.split`:
+  `desenvolvimento` (o que se lê para diagnosticar) ou `controle` (só se mede); cada grupo tem os dois. A CI roda o
+  conjunto contra `eval/acervo-baseline.json` com as quantidades da instalação (R20).
+- **Rationale**: o conjunto de regressão nasceu das perguntas que falharam e é medido por quem as corrige; um conjunto
+  escrito do corpus, com uma metade que ninguém olha ao corrigir, diz se a correção generaliza. Primeiro uso: a fusão
+  com k=60 e profundidade 100–200 levou o desenvolvimento de 0,852 a 0,894, mas o controle ficou em 0,825–0,841 e a
+  regressão caiu de 0,991 para 0,975 — **não adotada**; a hierarquia dos títulos (102 R32) subiu as duas metades
+  (0,898 e 0,865) e foi adotada. Linha de base: 0,882.
+- **Pendente**: a lista das especialidades do Sênior e do Pioneiro (o trecho é uma tabela de nomes) fica em 45º no
+  denso e 24º no esparso mesmo dentro do próprio guia; nenhum ajuste de fusão, faceta ou busca por documento a traz. A
+  saída geral é enriquecer o trecho na ingestão (contexto do documento e da seção escrito por modelo, offline) ou o
+  reranker que lê a pergunta (103 R14, medido e caro) — decisão à parte, com ADR.
+- **Alternatives**: gerar as perguntas por modelo (sem a leitura, os fatos tendem a vir do que a busca já acha).
+
+## R23 — A enumeração medida por grupo ([ADR-048](../../docs/adr/ADR-048-arvore-de-unidades-e-enumeracao-no-scouting.md))
+
+- **Decision**: o relatório da rodada agrega o `fact_recall` por `extra.group` além do total, e a comparação com a linha
+  de base nomeia o grupo; a regra de regressão continua a do agregado (tolerância 0,02), com o grupo no texto da
+  falha. Os três itens de especialidades da regressão ganham fatos da lista (um nome por eixo: "Comunicações",
+  "Agricultura Sustentável", "Direitos Humanos", "Saúde Mental e Bem-estar Emocional" no Sênior/Pioneiro). O acervo
+  ganha itens de enumeração de documentos sem exceção no `estrutura.yaml`, escritos lendo os PDFs (como na R22), metade
+  de controle: o ganho da rota de enumeração tem de aparecer também onde nenhuma curadoria de estrutura chegou. Cada
+  passo do ADR-048 (102 → 101 + 103 → entrega → prompt) é medido antes e depois.
+- **Rationale**: a linha de base do acervo (0,882) escondia `especialidades-pioneiro` em 0,25 e `orgaos-nacionais` em
+  0,33; a regressão passava com 1,0 porque os itens de especialidades só conferiam "como conquistar". O controle fora
+  das exceções é o que separa uma melhora geral de um ajuste ao guia de especialidades.
+- **Alternatives**: barrar o CI por grupo (grupos pequenos, de 4 a 8 itens, oscilariam acima da tolerância); só o
+  agregado (o que deixou a falha passar).
+- **Medido (2026-10-28)**, ADR-048 implementado, nas condições do CI: semente MRR 0,435 → 0,528; regressão
+  1,0 → 0,991; acervo 0,882 → 0,910 (102 R34, 103 R17). A comparação item a item mostrou as duas regressões que a média
+  escondia (s03 e `etapas-cada-ramo` quando a rota sem tipo custava 5 vagas) — o relatório por grupo (FR-018) ainda não
+  está no harness; as linhas de base não foram regravadas.
+
+## R24 — A `estrutural-v5` medida ([ADR-049](../../docs/adr/ADR-049-taxonomia-e-a-tipologia-do-acervo-no-scouting.md), [ADR-050](../../docs/adr/ADR-050-leitura-fiel-e-trecho-que-cabe-no-embedder-no-scouting.md))
+
+Artefato `scouting__20261028T…` (639 documentos, 15.607 trechos, nenhum acima de 512 tokens do e5; antes 593, 14.706 e
+378), com 20 candidatos e 20 trechos, gerador simulado do perfil `test`:
+
+| Conjunto | `fact_recall` v4 | v5 | O que mudou |
+|---|---|---|---|
+| regressão (28) | 0,991 | 0,977 | `marco-5-ramos` e `marco-ramos-nomeados` 1,0 → 0,8: o trecho com a frase do marco do Ramo Escoteiro caiu de 1º para 13º na faceta, atrás dos trechos gerais do capítulo e de uma tabela de competências |
+| acervo (43) | 0,910 | 0,892 | `tipos-de-risco` 0,8 → 1,0; `reconhecimento-de-cada-ramo` e `passagem-senior-pioneiro` 1,0 → 0,5: a Regra 178 do POR (todos os reconhecimentos) era um trecho só, que o e5 lia só no começo e o BM25 inteiro; agora são 5 partes, e a da Lis de Ouro fica mais abaixo |
+| semente (9) | recall@5 0,667, MRR 0,435 | 0,667 e 0,551 | os ids de seção de `s08`/`s09` mudaram (evidência atualizada) |
+
+- **Decision**: aceitar a v5 e gravar as três linhas de base. A queda é o preço de um trecho que o embedder lê inteiro:
+  o "acerto" da v4 vinha de um trecho de 3 mil tokens com a resposta de todos os ramos, que o vetor denso não
+  representava. O caso que motivou o ADR-050 (o prêmio do Caio Ferreira Bernardo) passa: o trecho em 2º traz o rótulo
+  "Prêmio Walter Dohme" e o nome sob "Gestão Institucional".
+- **Rejeitado, medido**: contar cada unidade uma vez por faceta — o `unit_group` de um trecho narrativo é o capítulo, e
+  o marco do Ramo Escoteiro foi a 0,2.
+- **Próximo**: entregar com a parte de uma unidade normativa as partes irmãs (ou o caput) quando a pergunta cobre
+  vários ramos; a tabela de competências com o rótulo errado ("SEGURANÇA…").

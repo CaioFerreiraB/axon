@@ -810,3 +810,95 @@ respondida corretamente. Texto de prompt, sem seam novo: sem ADR.
 catálogo na geração para ela decidir (mais tokens por turno, e quem decide chamar tool é o controller); frase no prompt
 do pack `generic` (o prompt do pack é neutro quanto ao flow, 010 FR-008, e o `scouting` e outros packs ficariam sem ela).
 
+### R53 — Gráficos no motor (ADR-052, item 2; FR-024)
+
+**Decision**: `ChartEvent(chart, tool)` e `FinalEvent.charts: tuple[Chart, ...] = ()` no seam (`graph/api.py`; o
+`ExecutionEvent` ganha o tipo). No `execute_tool` do loop, depois das imagens, cada gráfico de `result.charts` que a
+execução ainda não emitiu vai ao stream (`{"kind": "chart"}`) e ao acumulador `charts` do estado; o runtime o traduz em
+`ChartEvent`, e o `final_event` (e o evento final de uma execução que falhou) leva os gráficos na ordem, sem repetir
+`id` (`domain/images.unique_charts`). O `rag_first` só executa tools pelo loop quando escala, então o mesmo nó cobre
+os dois flows. Texto: o `CONTROLLER_INSTRUCTION` fala de "imagens e gráficos"; `CHARTS_INSTRUCTION`
+(`graph/domain/images.py`) entra no sistema da geração quando algum passo de tool tem gráfico.
+
+**Rationale** (ADR-052: "a 005 publica `ChartEvent` e `FinalEvent.charts`; o modelo não recebe os dados"): o mesmo
+caminho das imagens (R51), sem nó novo. A frase da geração vem do aprendizado do R52 — sem ela, o modelo pequeno diz
+que só produz texto ou redesenha os dados em tabela, o que repetiria a tabela que a 008 já põe na resposta.
+
+**Alternatives considered**: o gráfico como `AttachmentEvent` de outro tipo (o anexo é imagem para o `view_image`, a
+etapa `image_gate` e o teto de contexto); mandar os dados à geração para ela comentar (o resultado da tool de origem,
+um MCP por exemplo, já está na transcrição; repetir custaria tokens); frase no prompt do pack `generic` (o prompt é
+neutro quanto ao flow, 010 FR-008).
+
+### R54 — A geração sabe que as ferramentas acabaram e que o limite foi atingido (FR-006b; produção, 2026-10-29)
+
+**Decision**: duas frases fixas do core em `graph/domain/transcript.py`, ambas no sistema da geração:
+- `NO_TOOLS_INSTRUCTION`, sempre que a geração vem do loop (`tools=True` em `generation_messages`);
+- `LIMIT_INSTRUCTION`, quando o loop foi cortado pelo limite (`truncated=True`).
+
+O `generate` passa `truncated` quando algum registro tem `kind == ITERATION_LIMIT`. Essa constante agora fica em
+`graph/domain/limits.py`, usada também pelo nó que registra o corte.
+
+**Rationale**: no Langfuse de produção, duas conversas do `geral` pediram um gráfico de rosca dos gastos do mês. O
+controller gastou as 3 iterações padrão buscando dados num MCP paginado, e o loop foi para a geração sem chamar
+`generic.chart`. A geração, sem ferramentas e sem saber disso, escreveu `<tool_call>renderizar_grafico…` (uma tool
+inventada) e, na outra conversa, `<tool_call>mango.listar_transacoes…`. O `ToolMarkupFilter` (R50) cortou a marcação,
+a resposta ficou vazia e saiu o `EMPTY_ANSWER`. As frases tratam a causa na geração. O limite do Assistant é
+configuração da instalação: o `geral` do `axon-cfblabs` passou a declarar `max_iterations: 8`.
+
+**Alternatives considered**:
+- **Reservar uma iteração final do controller para "terminar".** Mudaria a tabela de rotas do FR-006 sem saber se
+  falta algo.
+- **Orientar o controller a preferir resumos a paginar.** Recusado pelo mantenedor: a escolha da fonte é do
+  controller.
+- **Subir o `DEFAULT_MAX_ITERATIONS`.** O padrão é decisão da clarificação 3 de 2026-10-01, e o Assistant declara o
+  que precisa.
+
+### R55 — A geração recebe os passos do loop em texto (FR-006b; produção, 2026-10-29)
+
+**Decision**: na geração, cada passo de tool do loop vira uma mensagem `user` em texto (`_generation_transcript`):
+`Resultado da ferramenta <nome>, chamada com <argumentos>:` e o resultado cercado. O passo sintético do `rag_first`
+(os trechos do portão) segue no formato nativo, como antes. O controller não muda: ele continua recebendo o formato
+nativo, porque é ele quem chama ferramentas. O corte por teto (`trim_results`) reconhece as duas formas
+(`is_tool_result`); no texto, mantém a linha do cabeçalho e troca o resto pela marca de omissão.
+
+**Rationale**: com a rc10, a geração já sabia que as ferramentas tinham acabado (R54), e ainda assim o glm-5.3-flash
+escreveu `<tool_call>generic.chart…</tool_call>` como texto numa conversa longa. O controller tinha feito um gráfico de
+barras quando o usuário pediu rosca, e a geração tentou consertar chamando a tool. A causa é o formato: no nativo
+(`assistant` com `tool_calls` e a mensagem `tool`), a geração vê uma conversa de chamadas de ferramenta e continua o
+padrão. Em texto, ela lê resultados. O `rag_first` coberto não muda: o passo dele é sintético, e o `fact_recall` do
+scouting foi medido com o formato nativo.
+
+**Alternatives considered**:
+- **Repetir a geração quando o filtro esvazia a resposta.** Custa uma chamada a mais e trata o sintoma; o mantenedor
+  escolheu só o texto.
+- **Mandar as tools com `tool_choice: none`.** Nem todo provider da 006 aceita.
+- **Texto também no passo sintético.** Mexeria nos números do eval do scouting sem medição.
+
+### R56 — A geração declara gráficos em JSON (ADR-054; FR-024a)
+
+**Decision**: o módulo `graph/domain/chart_blocks.py`, puro, tem três peças:
+- `ChartBlockFilter`, que tira os blocos ` ```axon-chart … ``` ` em streaming; segura só o que pode abrir um bloco, e
+  um bloco sem fechar conta no fim;
+- `parse_chart`, que lê o JSON (pontos `{x, y}` ou `[x, y]`; eixo temporal inferido de data ISO) e deixa a validação
+  com o `Chart`;
+- `CHART_BLOCK_INSTRUCTION`, o aviso com o formato e as regras (uma série em pizza, rosca e waterfall; total do
+  waterfall pela plataforma; só números dos resultados ou da conversa; nunca gráfico em texto).
+
+No `generate`, o filtro fica depois do `ToolMarkupFilter` e antes do filtro dos validators. Cada bloco fechado vira
+`ChartEvent` (`tool` = `generate`) na hora e entra no acumulador `charts`, e daí no `FinalEvent.charts`. O teto é
+`MAX_BLOCK_CHARTS` = 4, e um gráfico com id já desenhado não sai de novo. O aviso entra junto do `NO_TOOLS_INSTRUCTION`
+(execução com tools). O `IMAGES_CAPABILITY` passou a falar de "imagem que não é um gráfico".
+
+**Rationale**: nos traces da rc11 em produção, o controller paginou o Mango até a regra de ação repetida encerrar o
+loop, e a geração, com os números, desenhou o gráfico em ASCII. Com o glm-5.3-flash real e as mensagens montadas pelo
+motor (o `resumo_financeiro` de setembro do trace), três pedidos (rosca, waterfall e barras) deram um bloco válido
+cada. O waterfall veio sem o total, e nenhuma `<tool_call>` apareceu no texto. A prova sem rede está em
+`tests/bootstrap/integration/test_platform_charts.py`, e os testes em `tests/graph/unit/test_graph_chart_blocks.py` e
+`tests/graph/contract/test_graph_chart_blocks_flow.py`.
+
+**Alternatives considered**: ver o ADR-054.
+
+
+## Incremento: delegação MCP por execução (2026-10-29)
+
+Regido por [ADR-055](../../docs/adr/ADR-055-autenticacao-mcp-delegada.md). Protocolo 1: um MCP delegado por grant, identidade confidencial por execução, sem cache compartilhado e sem alteração da ACL. Contrato: [delegação](../007-core-mcp-integration/contracts/delegation.md). Casos D01 isolamento concorrente; D02 falha fechada; D03 metadados e superfície privada; D04 segredo ausente de persistência/trace; D05 regressão estática.

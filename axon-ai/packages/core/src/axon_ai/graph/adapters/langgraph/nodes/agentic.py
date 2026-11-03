@@ -14,7 +14,7 @@ from langgraph.config import get_stream_writer
 from langgraph.runtime import get_runtime
 
 from axon_ai.capabilities.api import ToolCall, ToolContext, ToolSession
-from axon_ai.graph.adapters.langgraph.nodes.common import ATTACHMENT, PROGRESS, finished
+from axon_ai.graph.adapters.langgraph.nodes.common import ATTACHMENT, CHART, PROGRESS, finished
 from axon_ai.graph.adapters.langgraph.state import AgentContext, AgentState
 from axon_ai.graph.api import CatalogOutcome, ControllerOutcome, ExecutionIssue, ToolCallsOutcome
 from axon_ai.graph.domain.actions import (
@@ -26,7 +26,7 @@ from axon_ai.graph.domain.actions import (
     response_format,
 )
 from axon_ai.graph.domain.budget import estimate_tokens, exceeds
-from axon_ai.graph.domain.limits import DecisionKind, after_decision
+from axon_ai.graph.domain.limits import ITERATION_LIMIT, DecisionKind, after_decision
 from axon_ai.graph.domain.steps import tool_summary
 from axon_ai.graph.domain.transcript import (
     InvalidStep,
@@ -100,6 +100,7 @@ async def open_session(state: AgentState, *, stage: str) -> tuple[ToolSession, l
     session = await ctx.capabilities.open(
         ctx.grant,
         ToolContext(
+            mcp_delegation=ctx.mcp_delegation,
             request_id=state["request_id"],
             reference_time=state["reference_time"],
             retrieval_filters=_retrieval_filters(state.get("packs", {})),
@@ -247,10 +248,16 @@ async def execute_tool(state: AgentState) -> dict[str, Any]:
     writer = get_stream_writer()
     for item in fresh:
         writer({"kind": ATTACHMENT, "attachment": item, "tool": call.name})
+    # Os gráficos também, do mesmo jeito (ADR-052, item 2).
+    drawn = {item.id for item in state.get("charts", ())}
+    charts = [item for item in {chart.id: chart for chart in result.charts}.values() if item.id not in drawn]
+    for chart in charts:
+        writer({"kind": CHART, "chart": chart, "tool": call.name})
     iteration = state.get("iteration", 0)
     return _after(state, "tool", iteration, step=ToolStep(iteration=iteration, call=call, result=result)) | {
         "pending": None,
         "attachments": fresh,
+        "charts": charts,
     }
 
 
@@ -309,7 +316,7 @@ def _after(
         errors.append(
             ExecutionIssue(
                 stage=STAGE_CONTROLLER,
-                kind="IterationLimit",
+                kind=ITERATION_LIMIT,
                 message=f"limite de {limit} iterações atingido; a resposta foi gerada com o que havia",
                 severity="notice",
             )

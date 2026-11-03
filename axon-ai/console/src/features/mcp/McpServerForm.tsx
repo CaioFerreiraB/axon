@@ -45,9 +45,11 @@ export function McpServerForm({ server, onDone }: { server?: McpServer; onDone: 
       user_access: draft.userAccess,
       policy: { allowed_tools: list(draft.allowed), write_tools: list(draft.write) },
       ...(draft.description.trim() ? { description: draft.description.trim() } : {}),
-      ...(draft.credential.trim()
-        ? { auth: { type: "bearer" as const, credential: draft.credential.trim() } }
-        : { auth: { type: "none" as const } }),
+      ...(server?.auth.type === "delegated"
+        ? { auth: { type: "delegated" as const } }
+        : draft.credential.trim()
+          ? { auth: { type: "bearer" as const, credential: draft.credential.trim() } }
+          : { auth: { type: "none" as const } }),
     };
     mutation.mutate(body, { onSuccess: onDone });
   };
@@ -56,7 +58,8 @@ export function McpServerForm({ server, onDone }: { server?: McpServer; onDone: 
   const placed =
     isApiError(mutation.error) &&
     mutation.error.param !== null &&
-    shown.includes(mutation.error.param.split(".")[0] ?? "");
+    shown.includes(mutation.error.param.split(".")[0] ?? "") &&
+    !(server?.auth.type === "delegated" && mutation.error.param.startsWith("auth"));
   const unplaced = mutation.error && !placed ? mutation.error : null;
 
   return (
@@ -95,19 +98,25 @@ export function McpServerForm({ server, onDone }: { server?: McpServer; onDone: 
         <Field label="Descrição" error={error("description")}>
           <TextInput value={draft.description} onChange={set("description")} />
         </Field>
-        <Field
-          label="Credencial (referência)"
-          error={error("auth")}
-          help="O nome da referência, não o valor: a instalação define AXON_MCP_SECRET_<REF>."
-        >
-          <TextInput
-            mono
-            value={draft.credential}
-            onChange={set("credential")}
-            placeholder="sem credencial"
-            autoComplete="off"
-          />
-        </Field>
+        {server?.auth.type === "delegated" ? (
+          <Notice tone="neutral" title="Autenticação delegada">
+            Autorização temporária fornecida por execução. Este formulário preserva o modo delegado.
+          </Notice>
+        ) : (
+          <Field
+            label="Credencial (referência)"
+            error={error("auth")}
+            help="O nome da referência, não o valor: a instalação define AXON_MCP_SECRET_<REF>."
+          >
+            <TextInput
+              mono
+              value={draft.credential}
+              onChange={set("credential")}
+              placeholder="sem credencial"
+              autoComplete="off"
+            />
+          </Field>
+        )}
         <Field
           label="Tools permitidas"
           error={error("policy")}
@@ -174,7 +183,9 @@ export function McpServerDetails({ server, onClose }: { server: McpServer; onClo
         ) : null}
         <dt>Credencial (referência)</dt>
         <dd className={server.auth.credential ? styles.detailsMono : undefined}>
-          {server.auth.credential ?? "Sem credencial"}
+          {server.auth.type === "delegated"
+            ? "Delegada por execução; sem credencial estática"
+            : (server.auth.credential ?? "Sem credencial")}
         </dd>
         <dt>Tools permitidas</dt>
         <dd className={styles.detailsMono}>{tools(policy?.allowed_tools)}</dd>

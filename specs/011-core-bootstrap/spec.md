@@ -58,6 +58,11 @@
 - Q: Que configuração as imagens na conversa trazem ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 12)? → A: Quatro variáveis, com os valores propostos no ADR: `AXON_TOOL_MAX_ATTACHMENT_BYTES` (2 MiB; vai ao `McpService` da 007), `AXON_MAX_REQUEST_BYTES` (32 MiB), `AXON_MAX_INPUT_IMAGE_BYTES` (5 MiB) e `AXON_MAX_INPUT_IMAGES` (4; 0 desliga a imagem do usuário) — as três últimas vão ao `create_app` da 008 como `ImageLimits`. Fora da faixa, o boot para nomeando a variável.
 - Q: Como se prova sem rede? → A: No perfil `test`, com o controller e o servidor MCP programados pelas trocas de porta de sempre: a tool devolve PNG, a resposta leva a imagem em markdown, e no turno seguinte (histórico do cliente) o `view_image` leva a imagem ao provider simulado da geração, que a registra.
 
+### Session 2026-10-28
+
+- Q: De que endereço a página dos gráficos carrega o ECharts ([ADR-052](../../docs/adr/ADR-052-graficos-na-conversa.md))? → A: De `AXON_CHARTS_SCRIPT_BASE_URL`, validado como o `AXON_PUBLIC_URL` (http(s) absoluto, sem query; `https` fora de `localhost`); ausente, do próprio `AXON_PUBLIC_URL`. A composition root passa o efetivo à fábrica da 008 (`charts_base_url`). Sem nenhum dos dois, os gráficos saem só como tabela.
+- Q: A saúde mostra a falta do endereço? → A: Sim, como item **informativo** `charts`: sempre `ok`, com o aviso no `detail` quando não há endereço. Item com falha, mesmo não crítico, deixaria o status `degraded` e o `axon health` com saída 1 numa instalação só de API, que não precisa do `embeds`.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Operador sobe a plataforma e o boot segue uma ordem fixa (Priority: P1)
@@ -260,6 +265,7 @@ configuração nomeando `AXON_PROFILE`; a suíte inteira do workspace passa com 
 - **FR-027**: As credenciais do perfil `test` exportadas para as suítes (FR-014, FR-015, FR-021) DEVEM estar em `axon_ai.bootstrap.profiles`, com os mesmos nomes. O nome do pool de conexões do perfil `persistent` DEVE ser `axon`.
 - **FR-028**: A configuração DEVE aceitar `AXON_PACKS_DATA_DIR`, a raiz dos diretórios de dados dos packs, e entregá-la à 002 nos três perfis; ausente, nenhum pack recebe diretório. A raiz de comandos DEVE registrar `packs prepare` (002 FR-030), e só ele chama o hook `prepare` (002 FR-031).
 - **FR-029**: A configuração DEVE ler `AXON_TOOL_MAX_ATTACHMENT_BYTES`, `AXON_MAX_REQUEST_BYTES`, `AXON_MAX_INPUT_IMAGE_BYTES` e `AXON_MAX_INPUT_IMAGES`, com faixas que nomeiam a variável, e ligá-las à 007 e à 008 nos três perfis ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 12).
+- **FR-030**: A configuração DEVE ler `AXON_CHARTS_SCRIPT_BASE_URL` (opcional, validado como o `AXON_PUBLIC_URL`; o erro para o boot nomeando a variável) e passar à 008 o endereço efetivo dos scripts dos gráficos — o próprio ou, sem ele, o `AXON_PUBLIC_URL`; a saúde DEVE ter o item informativo `charts`, sempre `ok`, com o aviso no `detail` quando não há endereço ([ADR-052](../../docs/adr/ADR-052-graficos-na-conversa.md), item 6).
 
 ### Key Entities
 
@@ -292,3 +298,9 @@ configuração nomeando `AXON_PROFILE`; a suíte inteira do workspace passa com 
 - US7 (ADR-037): a passada renomeia de forma mecânica o import em todos os módulos do core, o workspace, os workflows da CI e os documentos vivos das specs 001–013 (`spec.md`, `design.md`, `contracts/`, `data-model.md`, `quickstart.md`) onde citam o core, o comando ou o prefixo — os de 004–007 sem ciclo próprio. Os `research.md`, `plan.md`, `tasks.md` e `checklists/` já executados ficam como estão. As specs `1xx` mudam na passada da 101: até lá, o pack depende do core pela tag `v0.3.0`, ainda com o nome antigo.
 - US7: `CLAUDE.md`, `.specify/templates/overrides/` e o `README.md` da raiz mudam no fechamento do renome (ADR-037, depois da passada da instalação); a instalação (`agentic-deploy`) continua presa à tag antiga até a passada dela.
 - US7: se a instalação definiu o próprio nome ou logotipo (`instance.custom` da 008, ADR-038) é decisão da passada da 008 sobre a configuração que a 011 já entrega.
+
+### Saúde de MCP delegado — integração ADR-055
+
+Um servidor delegado válido não degrada a plataforma pela ausência esperada de credencial na sonda
+sem usuário. A saúde agregada informa o limite da checagem; a execução continua falhando de forma
+fechada. Servidores desabilitados ou inválidos permanecem não saudáveis.

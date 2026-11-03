@@ -530,3 +530,273 @@ inclusive os vetores do e5.
 **Rationale**: o artefato commitado precisa ser o que o corpus produz; o CI pega um commit do corpus sem reingestão.
 
 **Alternatives**: gerar o artefato no CI e publicar como asset (o ADR deixa para quando passar de dezenas de MB).
+
+---
+
+## Passada de 2026-10-27 (revisão do RAG; [relatório](../../docs/revisao-rag-scouting-2026-10.md))
+
+## R26 — Ordem de leitura pela geometria
+
+- **Decision**: `ParsedDocument` ganha `reading` (o texto de cada página na ordem de leitura) e `for_chunking`
+  (`reading`, ou `pages` quando o parser não sabe a posição — o `MemoryParser`). O `PdfiumParser` separa o texto bruto
+  nas quebras que o PDFium gera, dá a cada linha a caixa dos seus caracteres (`get_charbox`) e entrega as linhas a
+  `domain/layout.py`, puro: tira a linha impressa duas vezes no mesmo lugar (±0,5 pt); decide "uma coluna" quando, entre
+  as linhas com menos de 60% da largura da página, no máximo um grupo de sobreposição horizontal tem 5 linhas ou mais;
+  então ordena por faixas de cima para baixo (sobreposição vertical de metade da altura da menor), com a ordem do
+  parser dentro da faixa ("I -" antes do texto do inciso). A identidade do parser ganha `leitura-v1`, e com ela a chave
+  de conteúdo de todo documento.
+- **Rationale**: no *spike* nas pp. 58, 62, 116 e 118 do POR, os títulos das regras estão **acima** de cada corpo, na
+  mesma coluna (não numa coluna lateral, como a revisão supôs), e são desenhados depois da página inteira; o Manual de
+  Filhotes desenha o título da seção depois do texto e imprime o cabeçalho de margem duas vezes. A ordem vertical
+  resolve os dois sem regra de documento; restringi-la a página de uma coluna evita misturar colunas.
+- **Alternatives**: reancorar no domínio, pelo texto, o bloco "REGRA/NNN" do fim da página (frágil: o corpo de cada
+  regra não se reconhece pelo texto); trocar de parser (sem evidência de necessidade — o PDFium dá as posições).
+
+## R27 — Blocos corridos, hifenização do PDFium e número colado
+
+- **Decision**: `_edges` olha até 4 linhas de cada borda (no máximo um terço das linhas da página); corrida é a linha
+  (dígitos neutralizados) em ≥ 3 páginas e em mais da metade delas, em 80% das páginas entre a primeira e a última
+  ocorrência, ou sempre com o número da própria página. O marcador sozinho ("REGRA", "Art.", com ou sem número) nunca
+  é borda. U+FFFE antes de maiúscula vira quebra de linha; no fim da linha, U+FFFE e U+00AD viram `-` (e a regra do
+  hífen de quebra se aplica); no meio, somem — a mesma política do `-` de quebra (compostos como "vice-presidente"
+  perdem o hífen, como já acontecia). Número de 1 a 4 dígitos colado a um título todo em maiúsculas sai.
+- **Rationale**: o cabeçalho do Manual de Filhotes é um bloco ("CAPÍTULO 3 / O Marco Simbólico", até em páginas do
+  capítulo 6); o título de capítulo repete só nas páginas dele, longe da metade do documento. Medido no texto bruto:
+  4.758 U+FFFE no meio da linha ("com" + U+FFFE + "põem") e 5 U+00AD no fim; 467 prefixos com o número colado.
+- **Alternatives**: posição fixa na página como critério de linha corrida (precisaria da geometria na limpeza; a
+  ordem de leitura já põe o bloco nas bordas).
+
+## R28 — Nenhum trecho só com título; títulos completos; janelas v2
+
+- **Decision**: corpo com menos de 40 letras e nenhuma linha terminada em `.!?:;` (`is_stub`) não vira trecho: no
+  `narrative_chunks`, segue para o corpo da seção seguinte (no fim do texto, entra no último trecho; sem trecho nenhum,
+  vira o único), e a janela final assim de uma seção longa junta-se à anterior; no `normative_chunks`, o texto solto
+  assim entre um agrupamento e a unidade seguinte entra nela, como parágrafo depois do título. Nome de agrupamento que
+  termina em preposição ou artigo ("Capítulo 15 – Segurança nas") continua na linha seguinte, também quando vem na
+  linha do "CAPÍTULO". Linha logo depois
+  de um título, antes de corpo, continua o título: o nome depois de "CAPÍTULO N" (`CAPÍTULO 3 – O Marco Simbólico`, no
+  prefixo e no `chapter`) e as linhas seguintes de um título em maiúsculas. O prefixo normativo usa `Heading.metadata`
+  (`Capítulo 8 – Ramo Filhotes`). `ChunkingPolicy` passa a `estrutural-v2;janela=250-450`; a frase maior que
+  `window_max` é dividida em fatias de palavras inteiras.
+- **Rationale**: a janela de 600 tokens estimados, mais o cabeçalho, passava de 512 tokens reais em 12,9% dos trechos
+  (a razão real é ~3,9 caracteres por token); 450 dá p99 de 563. Listas de nomes sem pontuação nos relatórios anuais
+  viravam "frases" de até 18 mil caracteres.
+- **Alternatives**: medir as janelas com o tokenizador do embedder (acopla o chunking ao modelo, contra R8); reduzir
+  mais a janela (calibração — a 105 decide com o conjunto curado).
+
+## R29 — Medição e a reingestão
+
+- **Decision**: preparo do corpus inteiro sem embeddings (38 s) antes e depois; reindexação com o e5 no artefato do
+  pacote. Os vetores do `pplx` saem do artefato até um `reindex --embedder pplx` com a chave (a instalação usa o e5).
+  Invariantes do artefato em `tests/rag/ingestion/test_artifact_quality.py`; sobram 2 trechos sem frase, que não são
+  títulos — ruído de OCR numa ata e campos de formulário num guia (tolerância de 5). A primeira reindexação achou um
+  defeito do `ArtifactIndex`: `_jsonl` separava as linhas com `str.splitlines()`, que quebra também em U+0085 e U+2028,
+  e o JSON sem `ensure_ascii` os grava como estão (um relatório anual com fonte corrompida os traz); o artefato era
+  gravado e não se lia de volta, e o `discard` do caminho de erro escondia a exceção original. O leitor separa só em
+  `\n`. Quatro documentos com fonte sem mapeamento
+  de caracteres (as três "recomendações" e a ata do FRJL SP 2021) ficam para a curadoria (derivado OCR).
+  O passo de determinismo de R25 no CI deu lugar à conferência do artefato contra o catálogo (105 research R14): sem os
+  PDFs no git, a reingestão byte a byte é de quem os tem.
+  **Efeito na recuperação** (105, perfil `test`, e5): `scouting:fact_recall` 0,52 → 0,75 — o marco simbólico do
+  Pioneiro, os lemas de Lobinho e Filhotes e a Regra 054 passam a chegar à geração (o lema de cada ramo, 0 → 0,6);
+  agregados com os cinco ramos seguem em 0,2–0,4 e as faixas etárias em 0 (seleção, 103). Na semente, s01 apontava a
+  Regra 159 — herança do defeito: o Sinal de Promessa é a **Regra 160**, e a semente foi corrigida. **Pendência**:
+  s09 (os nós do Lobinho) perde a evidência porque o prefixo do trecho perdeu o capítulo — "O Sistema de Progressão
+  Pessoal" vinha do cabeçalho corrido, e a abertura real "CAPÍTULO 9" sai junto, por ter o mesmo texto no topo da
+  página; recuperá-lo como contexto da página pede a geometria (cabeçalho de margem × título de abertura). Também
+  ficam nomes de capítulo de duas linhas cortados nos manuais ("Capítulo 8 – O Sistema de"). Linha de base da semente
+  regravada (recall@5 0,7778 → 0,6667, MRR 0,5778 → 0,4352).
+- **Rationale**: SC-006; o `fact_recall` da 105 mostra o efeito na recuperação.
+- **Alternatives**: nenhum.
+
+| Medida (593 documentos) | antes | depois |
+|---|---:|---:|
+| trechos | 16.742 | 15.504 |
+| `fact_recall` (105, regressão) | 0,52 | 0,75 |
+| só "O Marco Simbólico" | 175 | 0 |
+| sem frase e com menos de 40 letras | — | 2 |
+| corpo < 60 caracteres | 2.656 | 447 |
+| corpo repetido | 2.222 | 971 |
+| com U+FFFE | 1.113 | 0 |
+| regras do POR sem corpo | 108/197 | 0/197 |
+| > 512 tokens do e5 | 12,9% | 2,1% |
+| tokens p50/p95/p99 | 145/578/684 | 218/468/563 |
+
+## R30 — O Ramo Filhotes ([ADR-045](../../docs/adr/ADR-045-filhotes-e-consulta-multifaceta-no-scouting.md))
+
+- **Decision**: `filhotes` em `BRANCHES`, primeiro (a ordem das idades); o catálogo aceita `branch: filhotes`, e os três
+  documentos do Ramo Filhotes (Manual do Escotista, Começando uma Ninhada e Competências e Rotas de Aprendizagem) o
+  declaram. A reingestão só muda metadados: os vetores são reaproveitados.
+- **Rationale**: sem o id, os documentos de Filhotes eram gerais — entravam em toda busca filtrada por outro ramo — e
+  uma pergunta sobre Filhotes não filtrava.
+- **Alternatives**: nenhum.
+
+## R31 — O catálogo de documentos como seam ([ADR-047](../../docs/adr/ADR-047-lista-de-documentos-do-acervo-no-scouting.md))
+
+- **Decision**: `CatalogEntry` e `DocumentCatalog` no `api.py` do índice; `matches` (`domain/filters.py`) aceita o
+  trecho ou a entrada, que têm os mesmos campos de vigência; `catalog_entry(StoredDocument)` em `domain/points.py`. A
+  memória e o artefato filtram o registro de documento do build publicado; o Qdrant lê os pontos de documento (sem as
+  páginas) e filtra com o mesmo predicado, em Python — são centenas de documentos. `catalog_entries(root)` lê
+  `documents.jsonl` sob demanda para a métrica de fatos da 105, como `chunk_texts`.
+- **Rationale**: o registro de documento já existe em todo adapter (`IndexWriter.documents`), mas é porta interna da
+  ingestão; a 103 só vê o `api.py` (import-linter). Reusar `matches` garante a mesma vigência da busca, provada na
+  suíte de conformidade contra os três alvos.
+- **Alternatives**: expor `IndexWriter.documents` à 103 (abre a porta de escrita); um filtro do Qdrant para os pontos de
+  documento (duplicaria a tradução de R5 para um conjunto pequeno).
+
+## R32 — A hierarquia dos títulos (`estrutural-v3`)
+
+- **Decision**: o chunker narrativo lê o documento antes de cortar e conta os títulos candidatos. Um título em
+  maiúsculas que aparece 3 vezes ou mais (dígitos neutralizados) é **subtítulo** do último título que não se repete:
+  "SUGESTÃO DE TEMAS" depois de "GASTRONOMIA" vira "GASTRONOMIA · SUGESTÃO DE TEMAS" no prefixo e em
+  `chapter`/`section`. Um item numerado **não é título** quando o número aparece 3 vezes ou mais (a numeração recomeça:
+  os requisitos de cada especialidade), quando é um ano ("2019. CRIS salienta…") ou quando a linha seguinte começa em
+  minúscula (a frase continua). No normativo, a sobra curta antes de uma unidade entra **antes** dela quando a primeira
+  linha da unidade é frase ("Art. 1º - A União…, fundada em 04 de novembro" / "de 1924"), e não depois dessa linha.
+  Estratégia `estrutural-v3;janela=250-450`; reindexado com o e5: 13.973 trechos (eram 15.504).
+- **Rationale**: no teste do mantenedor em 2026-10-27, a lista de especialidades do Pioneiro não chegou à geração, e o
+  diagnóstico mostrou o defeito geral: 7.023 trechos com rótulo repetido sem o título-pai e 2.179 com um item numerado
+  ou uma frase como capítulo (984 de 1.435 no guia de especialidades de Lobinho e Escoteiro), além do Art. 1 do
+  Estatuto cortado pela sobra da capa. Medido no conjunto do acervo da 105 (R22), com 20 trechos: desenvolvimento
+  0,852 → 0,898, **controle 0,841 → 0,865**, simples 0,917 → 1,0; regressão 0,991 → 1,0; semente: MRR 0,44 → 0,51,
+  recall igual. Nenhum item piorou.
+- **Alternatives**: limiar maior (5) para o recorrente (guias com poucas seções repetidas ficariam como antes); tirar o
+  subtítulo recorrente do rótulo (perde "SUGESTÃO DE TEMAS", que diz o que o trecho é).
+
+## R33 — A taxonomia do acervo e a reorganização do corpus ([ADR-048](../../docs/adr/ADR-048-arvore-de-unidades-e-enumeracao-no-scouting.md))
+
+- **Decision**: `corpus/taxonomia.yaml` guarda o mapeamento semântico do mantenedor ("Mapeamento de documentos.csv",
+  2026-10-27: categoria, subcategoria, nível, documento e tipo) e as linhas inferidas pelo mesmo padrão
+  (`origem: inferido`): ofícios da Comissão Fiscal Regional e da Diretoria Regional, manifestações do CAN e, na Rede de
+  Jovens Líderes, manuais, posicionamentos, editais, recomendações, boletins, apresentações e planejamento. Cada
+  entrada é uma pasta `<categoria>/<subcategoria>/<nível>/` em ASCII (a subcategoria vazia vira o plural do tipo; o
+  nível vazio ou "-" não vira pasta); o documento de uma região fica numa subpasta da entrada com o nome dela
+  (`diretoria-regional/resolucoes/sao-paulo/`), e a cópia OCR repete o caminho sob `ocr/`. O corpus foi reorganizado
+  assim em 2026-10-27: 656 arquivos movidos (599 originais, com as cinco duplicatas e a planilha da RNJL, e as 57 cópias
+  OCR), em 15 pastas de categoria; `file`, `catalog_file`, `ocr_file`, `duplicate_of` e as notas do `fontes.yaml`, o
+  `file` do `corpus.yaml` e o `source_file` do `documents.jsonl` do artefato acompanharam, e nada mais mudou (o
+  `content_key` não depende do caminho). O PDF da Política de Relações Internacionais, renomeado no disco no mesmo dia,
+  ficou com o nome novo ("internacionais"; o "institucionais" era o erro da URL oficial, que não mudou). O tipo
+  semântico (17 valores) é mais fino que o `type` do contrato (seis) e vai para o registro do documento.
+- **Rationale**: o `type` do catálogo não distingue ata de regulamento (`manual`), e por isso 17 normas eram cortadas em
+  janelas (R34); a pasta, que já agrupava por órgão a maior parte do acervo, vira a fonte única da classificação, sem um
+  campo novo em cada uma das 593 entradas. Com categoria e nível no registro, a lista "atas do CAN" que o ADR-047 deixou
+  sem saída passa a ter onde casar.
+- **Alternatives**: campos `category`/`semantic_type` em cada entrada do `corpus.yaml` (593 repetições, e a pasta
+  desmentiria o campo); pastas com acento e espaço como os rótulos da planilha (frágeis em shell, URL e CI); a região
+  antes da categoria (`sao-paulo/…`), como era (separa o mesmo órgão em duas árvores).
+
+## R34 — A árvore de unidades e os perfis ([ADR-048](../../docs/adr/ADR-048-arvore-de-unidades-e-enumeracao-no-scouting.md))
+
+- **Decision**: `corpus/estrutura.yaml` declara 18 tipos de unidade (com o plural que a pergunta usa), o vocabulário
+  dos 4 eixos e 18 blocos (conferido no rodapé dos 4 guias de progressão e validado pelo mantenedor; "Paz e
+  Compreensão" é sinônimo de "Paz e Desenvolvimento"), 11 perfis e `profile_by_type`; as exceções são os dois guias de
+  especialidades (faixas de páginas de especialidades e grupos de insígnias, com ramos), os guias de progressão e os
+  manuais do escotista (`progressao`), competências, "Primeiros meses", perfis de cargos e o FAQ. Resolvido contra o
+  catálogo: `artigos` 281, `ata` 211, `comunicado` 29, `capitulos` 25, `secoes_numeradas` 15, `relatorio` 15,
+  `progressao` 9, `apresentacao` 4, `especialidades` 2, `perguntas` 1, `regras` 1. As fontes do esqueleto, medidas nos
+  593 PDFs: 33 têm página de sumário e 62 têm bookmarks (os manuais do escotista, 39 a 64); o rodapé corrido traz o eixo
+  ("24 Habilidades para a Vida") e o grupo de insígnias com o ramo nos dois guias de especialidades, o eixo nos quatro
+  guias de progressão e o capítulo nos manuais; os títulos de eixo das aberturas são imagem. O sumário confere as faixas:
+  32 especialidades e 16 insígnias no Sênior/Pioneiro, 174 e 18 no Lobinho/Escoteiro. `shape` pela contagem de
+  marcadores com itens de até 12 palavras em média (no artefato atual, ~160 trechos). Estratégia `estrutural-v4`.
+- **Rationale**: medido sem reindexar (2026-10-27): um trecho de sumário na busca normal fica entre o 200º e o 800º,
+  como a lista; restrita aos sumários, a busca põe o documento certo em 1º a 4º de 277, e restrita aos trechos `list`,
+  a lista das especialidades em 1º ou 2º e o Art. 12 do Estatuto em 1º. O tipo de unidade torna a enumeração uma
+  consulta de metadados, completa e com página. Os ramos por unidade fecham o vazamento dos guias de vários ramos, hoje
+  sem `branch` e, portanto, gerais.
+- **Alternatives**: perfil pelo `type` do catálogo (grosso demais); um trecho por capítulo (o e5 corta em 512 tokens;
+  uma especialidade tem ~3 mil); indexar o sumário como trecho comum (perde da prosa, medido); faixas de páginas para
+  todo documento (curadoria sem fim; o rodapé e o vocabulário cobrem os guias de progressão sem faixa).
+- **Medido (2026-10-28)**, `estrutural-v4` reindexada com o e5: 14.140 trechos (eram 13.973; os 17 documentos de
+  `artigos` catalogados como `manual` saíram das janelas — o Regulamento da RNJL com 129 artigos), 353 trechos `list`
+  (a lista das especialidades e o Art. 12 do Estatuto entre eles); no Sênior/Pioneiro, 32 especialidades em 4 eixos e
+  16 insígnias com o ramo do grupo; no Lobinho/Escoteiro, 174 e 18; 18 blocos no Horizonte; as reuniões dos "Primeiros
+  meses" pelo ordinal do sumário. Duas correções saíram da conferência do artefato: o ordinal numa linha à parte no
+  sumário ("1a" / "Reunião de Alcateia") e a ordem do sumário no empate de página; a faixa do grupo Lobinho foi para
+  381-410. Trechos acima de 512 tokens: 2,52% (344 como antes, 6 artigos inteiros das normas novas, 7 janelas que o
+  rótulo tipado empurrou), e o teto do invariante foi a 2,6%. `fact_recall`, nas condições do CI (20/20): semente igual;
+  regressão 1,0 → 0,991 e acervo 0,882 → 0,871, dentro da tolerância — `etapas-cada-ramo` (as etapas do Pioneiro em 8º
+  e 12º na faceta, que guarda 4), `tipos-de-risco` (o trecho em 26º) e `especialidades-pioneiro` (0,25 → 0) trocaram de
+  posição com vizinhos pelo rótulo novo; nenhum perdeu por árvore errada. Sem a rota de enumeração da 103, a 102 não
+  traz ganho de recuperação, e não se esperava. Achado à parte: na Política de Gestão de Riscos, os tipos de risco estão
+  em prosa sob o título "5.4. Melhoria Contínua" — a hierarquia de títulos dessa política está errada desde antes.
+- **Medido (2026-10-28, segunda passada: itens de pauta, FAQ e sumários)**: 14.706 trechos — 14.046 `prose`, 349
+  `list`, 311 `outline` —; 476 itens de pauta em 64 das 211 atas (as que numeram, com a numeração crescente), as 11
+  perguntas do FAQ, 51 reuniões. Duas correções do sumário saíram dos invariantes: a janela final curta junta-se à
+  anterior (eram 145 trechos de uma ou duas linhas) e artigo e regra ficam fora dele (o sumário de uma resolução curta
+  era "Art. 1, Art. 2…"; com isso, a resolução só com artigos fica sem sumário). Os invariantes passam.
+
+## R35 — O tipo é o da taxonomia ([ADR-049](../../docs/adr/ADR-049-taxonomia-e-a-tipologia-do-acervo-no-scouting.md))
+
+- **Decision**: o `type` sai do `corpus.yaml` (as 593 entradas e o contrato); o tipo é o `tipo` da entrada da taxonomia
+  da pasta, como id (`taxonomy_id`); o índice grava também `bodies` (categoria e subcategoria) e `scope` (o nível, senão
+  a jurisdição) e filtra por eles; a taxonomia passa a ser obrigatória (`MISSING_STRUCTURE`).
+- **Rationale**: o `type` (6 valores) era grosso demais para filtrar — 10.722 dos 14.706 trechos eram `manual` — e
+  divergia da taxonomia em 17 normas (10 resoluções regionais de SP e 7 regulamentos catalogados como `manual`); o perfil
+  já saía da taxonomia desde o ADR-048.
+- **Alternatives**: alargar o `type` para os 17 tipos (duplicaria a taxonomia em 593 entradas); comparar rótulos
+  normalizando na busca (o Qdrant filtra por igualdade de payload).
+
+## R36 — Colunas e títulos pela tipografia ([ADR-050](../../docs/adr/ADR-050-leitura-fiel-e-trecho-que-cabe-no-embedder-no-scouting.md))
+
+- **Decision**: colunas de texto lidas uma a uma (`leitura-v2`), tabela alinhada na ordem do parser; o estilo de cada
+  linha (tamanho efetivo pela matriz do texto, família, negrito; `tipografia-v1`) decide o título quando o documento tem
+  estilo de título, com o nível pelos estilos estruturais; seção pequena junta-se à mãe ou à irmã anterior, sem engolir
+  unidade com nome.
+- **Rationale**: na p. 33 do Relatório Anual 2023 o PDF desenha a coluna da direita antes; com a leitura do parser e o
+  nome em maiúsculas como título, o trecho do premiado do Prêmio Walter Dohme ("[… · CAIO FERREIRA BERNARDO]") seguia
+  com o texto do Prêmio Aldo Chioratto, e o assistente trocou os prêmios (teste no dev, 2026-10-28). O `PdfiumParser`
+  devolve tamanho 1,0 para tudo; o tamanho efetivo vem da escala da matriz (14 pt nos títulos, 10 no corpo). Os títulos
+  mais finos picavam os guias (o de especialidades Lobinho/Escoteiro foi de 457 a 1.458 trechos); a junção os traz de
+  volta a 250, sem perder nenhuma das 174 especialidades.
+- **Alternatives**: ordenar toda página de colunas coluna a coluna (a tabela perderia a linha); só o tamanho, sem a
+  família (o guia da Descoberta usa a mesma família, em 14 pt, nos blocos).
+
+## R37 — O teto do trecho
+
+- **Decision**: depois da árvore, todo trecho com mais de 512 tokens do tokenizador do e5 (`passage: ` e especiais
+  incluídos) é dividido — a unidade normativa nas linhas do corpo, com "Art. N (parte i de n)", o caput curto repetido e
+  as páginas de cada parte; a janela, nas linhas e frases —, para qualquer embedder; `teto=512:e5-tok:<sha>` na versão.
+- **Rationale**: no artefato da `estrutural-v4`, 378 trechos passavam do que o e5 lê (82 normativos, o maior com 5.717
+  tokens; 296 janelas, porque o texto real chega a 1,6 vez a estimativa por caracteres).
+- **Alternatives**: janela em tokens reais (mudaria todo trecho); teto por embedder (o artefato tem um só conjunto de
+  trechos para os dois modelos).
+
+## R38 — Transcrição e ruído de OCR
+
+- **Decision**: o digitalizado entra por `ocr/<caminho>.txt` (`transcricao-v1`), de partida pelo Tesseract 5 local e
+  revisado pelo Codex (prompt e scripts em `scripts/`); nos documentos de `ocr/`, sai do trecho o carimbo com cara de
+  carimbo, a linha e o rabo ilegíveis, pelo vocabulário dos nascidos digitais da mesma execução (22.856 palavras).
+- **Rationale**: as 57 cópias OCR em PDF não tinham origem nem como revisar, e as 31 atas da Assembleia Regional de SP
+  de 1994 a 2020 não têm camada de texto. Numa ata de 2005 com carimbo sobre o texto, o Tesseract erra o trecho sob o
+  carimbo ("pagéstoNO «;"); um modelo de visão o recupera ("pagá-lo"), mas por API paga, que o mantenedor recusou. No
+  calibrado sobre as 25.004 linhas OCR do acervo, o filtro tira 558 (carimbo, timbre e lixo) e não tira conteúdo
+  legítimo que se repete ("RAMO LOBINHO" de um relatório escaneado), porque o carimbo precisa ter telefone, CEP, CNPJ ou
+  palavras de cartório.
+- **Alternatives**: vocabulário de dicionário externo (dependência e dado fora do acervo); filtro de carimbo só pela
+  repetição (tirava 2.232 linhas, com conteúdo).
+
+## R39 — Unidades declaradas
+
+- **Decision**: `under` é fonte (o título logo abaixo do nome declarado); a exceção troca as fontes (`sources`) e limpa
+  o título (`trim`); unidade do mesmo tipo dentro de outra é seção dela; a linha da borda colada ao número da página
+  conta como corrida.
+- **Rationale**: com a tipografia, os cargos são títulos de nível 3 sob "LINHA ESCOTISTA" e "LINHA DIRIGENTE" (o
+  "Descritivos de Cargos" da declaração não existe no PDF), e o sumário do guia os cobria como capítulo; as competências
+  são títulos de nível 2 sob "COMPETÊNCIAS ESSENCIAIS/ESPECÍFICAS", com o cabeçalho da tabela colado; as reuniões do Clã
+  vêm sem ordinal; o eixo do Desafio Sênior está no rodapé girado e colado ao número da página ("100MEIO AMBIENTE"), em
+  7 das 24 páginas do eixo. Saíram: 13 cargos, 6 a 10 competências por guia (o de Filhotes não usa essa estrutura), 16
+  reuniões no Clã, 4 eixos e 16 blocos no Desafio Sênior, 4 eixos e 17 blocos na Descoberta.
+
+## R40 — A codificação na GPU na ingestão offline
+
+- **Decision**: o `E5Embedder` aceita `device="cuda"` (`AXON_SCOUTING_EMBEDDING_DEVICE=cuda` na CLI da ingestão), com o
+  `CUDAExecutionProvider` na frente e a CPU de reserva, lotes de 64 e ordenados pelo tamanho; o `onnxruntime-gpu`
+  (CUDA 13 e cuDNN 9 em wheels, carregados por `onnxruntime.preload_dlls`) mora num venv só da ingestão,
+  `.cache/gpu-venv` (`scripts/gpu-venv.sh`). A carga do pack e a imagem de produção continuam na CPU.
+- **Rationale**: a reindexação da `estrutural-v4` levou 22 min, quase todos codificando no e5 na CPU (~10 trechos/s).
+  Na RTX 5060 da máquina do mantenedor: 251 trechos/s, e o cosseno entre o vetor da GPU e o da CPU é ≥ 0,9999998 em
+  mil trechos — o índice é o mesmo, e as perguntas seguem codificadas na CPU.
+- **Alternatives**: `onnxruntime-gpu` no venv do projeto (os dois pacotes ocupam o mesmo módulo e não convivem); a GPU
+  também em produção (as VMs pequenas não têm).

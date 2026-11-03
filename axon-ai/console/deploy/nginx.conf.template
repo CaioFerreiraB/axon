@@ -71,4 +71,10 @@ server {
     location /.well-known/ {
         proxy_pass ${AXON_UPSTREAM};
     }
+
+    # Os scripts dos gráficos da conversa (ECharts e o desenhista; 008 FR-005c, ADR-052): o iframe do Open WebUI os
+    # carrega deste domínio, o AXON_PUBLIC_URL. Os cabeçalhos (cache imutável, CORS, nosniff) são os do core.
+    location /static/ {
+        proxy_pass ${AXON_UPSTREAM};
+    }
 }

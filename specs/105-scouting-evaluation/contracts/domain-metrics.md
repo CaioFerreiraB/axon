@@ -1,6 +1,6 @@
 # Contrato — métricas de domínio do scouting (Fase 6)
 
-Decisões em [research.md](../research.md) R2, R3 e R10; tipos em [data-model.md](../data-model.md). Implementam
+Decisões em [research.md](../research.md) R2, R3, R10 e R13; tipos em [data-model.md](../data-model.md). Implementam
 `EvalMetric` do contrato 001 (`axon_ai_contracts.eval`, ADR-027) e são declaradas pelo `pack.py` em `eval_metrics(ctx)`,
 nesta ordem. O harness da 009 as reporta como `scouting:<nome>`.
 
@@ -11,6 +11,10 @@ nesta ordem. O harness da 009 as reporta como `scouting:<nome>`.
 | `ContextAccuracy` | `context_accuracy` | `higher` | `True` |
 | `CurrentDocumentRate` | `current_document_rate` | `higher` | `True` |
 | `ValidityNoticeRate` | `validity_notice_rate` | `higher` | `False` |
+| `FactRecall` | `fact_recall` | `higher` | `True` |
+
+A `FactRecall` só é declarada com `store: memory` (FR-014): recebe do `pack.py` a função que dá o texto de um trecho
+pelo `chunk_id`, lida do artefato do índice na primeira consulta.
 
 Puras e síncronas: sem relógio, sem I/O, sem estado entre itens. `None` = não se aplica ao item (o harness não o conta
 no agregado).
@@ -56,6 +60,20 @@ Item histórico = `extra.context` com `include_superseded` ou `previous_version`
 | 3 | uma citação `substituido` e nenhuma flag | `0.0` |
 | 4 | citação sem `status` e a flag | `1.0` |
 
+## `fact_recall`
+
+Fatos e textos normalizados como na 101 (`normalize`); casamento por palavra inteira (`contains_term`). Um fato é texto
+ou lista de redações alternativas (basta uma).
+
+| # | `extra.facts` / entregues | Resultado |
+|---|---|---|
+| 1 | sem `extra.facts` | `None` |
+| 2 | dois fatos, os dois no texto entregue | `1.0` |
+| 3 | dois fatos, um no texto entregue | `0.5` |
+| 4 | um fato com alternativas, uma delas no texto | `1.0` |
+| 5 | nada entregue, ou `chunk_id` sem texto | `0.0` |
+| 6 | o fato só aparece como parte de palavra maior | `0.0` |
+
 ## Verificações
 
 | # | Verificação | Onde |
@@ -64,3 +82,4 @@ Item histórico = `extra.context` com `include_superseded` ou `previous_version`
 | 2 | a conformidade da 001 com o pack aceita as três (`eval_metric.*` sem problema) | `tests/test_conformance.py` |
 | 3 | `eval/` não lê relógio | `tests/test_purity.py` |
 | 4 | numa rodada pelo harness, as três aparecem como `scouting:<nome>` | `tests/integration/test_eval.py` (grupo `platform`) |
+| 5 | com o índice em memória, a `fact_recall` lê o texto do artefato | `tests/test_pack.py` |

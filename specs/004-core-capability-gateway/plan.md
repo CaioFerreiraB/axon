@@ -214,3 +214,8 @@ Reavaliado com [data-model.md](data-model.md), [contracts/](contracts/) e [quick
 | Validador sem regex para esquemas de MCP (R5) | expressão regular de terceiro sobre texto do modelo é ReDoS, e nenhum prazo assíncrono interrompe CPU | validar com o esquema inteiro, ou não validar MCP, contraria a FR-006 ou abre o travamento |
 | Porta `PackToolSource` antes da 002 expor o seam (R2) | o módulo precisa da forma para ser construído e testado agora | esperar a passada da 002 inverteria a ordem do roadmap ("junto da 004") |
 | Toque declarado na 009 (R9) | FR-014 exige o trace por chamada, com tamanho e truncamento | `ExecutionError` para tudo perde os campos que a FR-014 pede |
+
+
+## Delegação por execução (ADR-055)
+
+`ToolContext.mcp_delegation` propaga credencial confidencial ao cliente MCP restrito. Nenhuma credencial em prompts, argumentos, resultados ou eventos. Contrato em [delegation.md](../007-core-mcp-integration/contracts/delegation.md).

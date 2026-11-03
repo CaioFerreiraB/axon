@@ -17,6 +17,7 @@ from graph_testkit import ANSWER, ScriptedController, tool_action
 
 from axon_ai.bootstrap.wiring import platform
 from axon_ai.capabilities.api import FENCE_INSTRUCTION
+from axon_ai.graph.domain.budget import is_tool_result
 from axon_ai.llm.adapters.fake import ScriptedProvider
 from axon_ai.mcp.adapters.memory import ScriptedMcpTransport, ScriptedServer
 from axon_ai.mcp.ports import RemotePart, RemoteResult, RemoteTool
@@ -76,5 +77,5 @@ def test_assistant_generico_usa_o_resultado_do_mcp(tmp_path: Path) -> None:
     sistema = [mensagem["content"] for mensagem in mensagens if mensagem["role"] == "system"]
     assert sistema[: len(prompts)] == prompts
     assert FENCE_INSTRUCTION in sistema
-    resultados = [mensagem["content"] or "" for mensagem in mensagens if mensagem["role"] == "tool"]
+    resultados = [mensagem["content"] or "" for mensagem in mensagens if is_tool_result(mensagem)]
     assert any("<tool_result" in resultado and RESULTADO in resultado for resultado in resultados), resultados

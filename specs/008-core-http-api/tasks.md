@@ -846,3 +846,38 @@ conformidade do `ConversationStore` com imagens, em memória e no Postgres.
 - [X] T122 [P] Testes: entrega em streaming e sem, conversa guardada (marcas, metadados, bytes, 404 alheio), turno
   seguinte, imagem do usuário, `vision_unsupported`, 413, histórico do Open WebUI; validação da pergunta; conformidade
   do armazenamento com cascata e expiração; corpos de administração e de Assistant de usuário
+
+---
+
+## Passada de 2026-10-28: gráficos na resposta ([ADR-052](../../docs/adr/ADR-052-graficos-na-conversa.md); research R62)
+
+**Goal**: o gráfico do `FinalEvent` chega ao usuário como tabela em todo cliente e, no Open WebUI, como ECharts
+interativo pelo evento `embeds`.
+
+**Independent Test**: `tests/http/unit/test_charts_domain.py` e `tests/http/contract/test_http_charts.py`.
+
+- [X] T123 `http/domain/charts.py`: tabela, opção do ECharts por tipo, página sem script inline, evento `embeds`, JSON
+  de `x_axon.charts` (R62)
+- [X] T124 `http/adapters/static/`: ECharts 6.1.0 e locale pt-BR vendorizados (com `LICENSE` e `NOTICE`) e o
+  desenhista `axon-chart.js`; `static.py` com `ChartAssets` e as rotas `/static/echarts/<versão>/<arquivo>` e
+  `/static/charts/<impressão>/axon-chart.js`
+- [X] T125 `x-axon-charts` (`parse_charts`, nas duas entradas); `answer_tail` com a tabela antes das imagens; o
+  `embeds` no streaming; a tabela no `content` sem streaming e na conversa gravada; `charts_base_url` em `create_app`
+- [X] T126 [P] Testes: domínio (tabela e escape, rosca com "Outros", união das categorias, zoom, cinco séries ou
+  mais, barras, página só com os scripts da plataforma, título hostil, `script_json`, evento único, JSON neutro) e
+  contrato (com e sem o cabeçalho, sem endereço, sem gráfico, dois gráficos, sem streaming, 400, rota estática com a
+  integridade da página, 404 do que não serve, conversa gravada com a tabela); fixture do Open WebUI com o cabeçalho
+- [X] T127 Verificação no navegador (Playwright, iframe com o `sandbox` do Open WebUI): os cinco tipos nos dois temas,
+  dica, zoom e altura, sem erro no console
+
+- [X] T128 Waterfall (ADR-053, R63): `_waterfall_option`, a tabela com variação e acumulado, as cores e a dica do
+  `candlestick` no `axon-chart.js`; rótulos de categoria sem esconder; `-R$` no negativo prefixado; testes do domínio
+
+
+## Incremento ADR-055
+
+- [X] D01 Contratos e testes de delegação/isolamento antes do código.
+- [X] D02 Implementar os seams confidenciais e falha fechada deste módulo.
+- [X] D03 Validar regressões, types, lint e atualizar documentação operacional.
+
+Validação ADR-055: suítes MCP/gateway/motor/HTTP com Postgres temporário; testes novos de isolamento, API e canal confidencial; mypy, Ruff e 69 contratos import-linter aprovados. Testes de transporte e destinos estáticos preservados.

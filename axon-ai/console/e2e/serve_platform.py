@@ -135,6 +135,13 @@ api_keys:
 
 MCP_YAML: Final = """
 servers:
+  delegado:
+    transport: http
+    endpoint: https://mcp.exemplo.org/delegado
+    auth:
+      type: delegated
+    policy:
+      allowed_tools: [listar]
   planilhas:
     transport: http
     endpoint: https://planilhas.interno.exemplo.org/mcp

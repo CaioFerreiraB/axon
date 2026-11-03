@@ -126,6 +126,9 @@ class Settings:
     """Liga o provedor de identidade da plataforma (012, ADR-030)."""
     public_url: str | None = None
     """Endereço público da instalação: o emissor dos tokens (012 FR-019)."""
+    charts_script_base_url: str | None = None
+    """`AXON_CHARTS_SCRIPT_BASE_URL`: de onde o navegador carrega o ECharts dos gráficos (ADR-052, item 6). Ausente,
+    vale o `public_url`; sem os dois, os gráficos saem só como tabela."""
     identity_clients_file: Path | None = None
     master_key: bytes | None = field(default=None, repr=False)
     """Segredo: 32 bytes que selam a chave de assinatura (ADR-033). Nunca em log, relatório ou mensagem."""
@@ -145,6 +148,11 @@ class Settings:
     timezone: str = DEFAULT_TIMEZONE
     """`AXON_TIMEZONE`: o fuso da data de referência que o motor dá ao modelo no `agentic` (005 R50)."""
     usage_retention_days: int = DEFAULT_USAGE_RETENTION_DAYS
+
+    @property
+    def charts_base_url(self) -> str | None:
+        """O endereço efetivo dos scripts dos gráficos (008 FR-005c)."""
+        return self.charts_script_base_url or self.public_url
 
     @property
     def secure_cookie(self) -> bool:
@@ -235,6 +243,8 @@ class Settings:
             raise ConfigurationError(f"{PREFIX}MASTER_KEY: precisa ter {MASTER_KEY_BYTES} bytes em base64")
         if self.public_url is not None:
             _check_public_url(self.public_url)
+        if self.charts_script_base_url is not None:
+            _check_public_url(self.charts_script_base_url, variable="CHARTS_SCRIPT_BASE_URL")
         for entry in self.trusted_proxies:
             try:
                 ipaddress.ip_network(entry, strict=False)
@@ -259,12 +269,12 @@ class Settings:
             )
 
 
-def _check_public_url(url: str) -> None:
+def _check_public_url(url: str, *, variable: str = "PUBLIC_URL") -> None:
     parts = urlsplit(url)
     if parts.scheme not in ("http", "https") or not parts.hostname or parts.query or parts.fragment:
-        raise ConfigurationError(f"{PREFIX}PUBLIC_URL: precisa ser uma URL http(s) absoluta, sem query: {url!r}")
+        raise ConfigurationError(f"{PREFIX}{variable}: precisa ser uma URL http(s) absoluta, sem query: {url!r}")
     if parts.scheme == "http" and parts.hostname not in _LOCAL_HOSTS:
-        raise ConfigurationError(f"{PREFIX}PUBLIC_URL: precisa ser https (http só para localhost): {url!r}")
+        raise ConfigurationError(f"{PREFIX}{variable}: precisa ser https (http só para localhost): {url!r}")
 
 
 def _within(variable: str, value: int, bounds: tuple[int, int]) -> None:
@@ -326,6 +336,7 @@ class EnvConfigSource:
             queue_wait_ms=self._int("QUEUE_WAIT_MS", DEFAULT_QUEUE_WAIT_MS),
             identity_enabled=self._bool("IDENTITY_ENABLED", False),
             public_url=self._optional("PUBLIC_URL"),
+            charts_script_base_url=self._optional("CHARTS_SCRIPT_BASE_URL"),
             identity_clients_file=self._path("IDENTITY_CLIENTS_FILE"),
             master_key=self._master_key(),
             display_name=self._text("DISPLAY_NAME", DEFAULT_DISPLAY_NAME),

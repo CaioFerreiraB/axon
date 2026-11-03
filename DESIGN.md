@@ -28,6 +28,10 @@ colors:
   serie-2: "#eb6834"
   serie-3: "#1baf7a"
   serie-4: "#eda100"
+  serie-5: "#e87ba4"
+  serie-6: "#008300"
+  serie-7: "#6250d6"
+  serie-8: "#e34948"
   foco: "#2563eb"
   fundo-base-escuro: "#0b0f19"
   fundo-sutil-escuro: "#111724"
@@ -53,6 +57,10 @@ colors:
   serie-2-escuro: "#d95926"
   serie-3-escuro: "#199e70"
   serie-4-escuro: "#c98500"
+  serie-5-escuro: "#d55181"
+  serie-6-escuro: "#008300"
+  serie-7-escuro: "#9085e9"
+  serie-8-escuro: "#e66767"
   foco-escuro: "#93b4fb"
 typography:
   display:
@@ -294,7 +302,8 @@ Paleta de neutros frios (a família ink, slate, line e mist do Axon) com um azul
 - **Verde ok**, **âmbar aviso** e **vermelho erro**, cada um em três papéis: `-texto` (a palavra), `-fundo` (o selo ou aviso) e `-marca` (a bolinha, o ícone, a borda de campo inválido).
 
 ### Séries de dados
-- **Série 1 a 4** (`serie-1` a `serie-4`: azul, laranja, verde e ouro). Usadas só no gráfico de custo e em sua legenda e tabela, atribuídas por ordem de custo. A partir da quinta, "Outros" fica com a cor 4. Nunca se gera uma cor nova.
+- **Série 1 a 4** (`serie-1` a `serie-4`: azul, laranja, verde e ouro). Na console, usadas só no gráfico de custo e em sua legenda e tabela, atribuídas por ordem de custo. A partir da quinta, "Outros" fica com a cor 4. Nunca se gera uma cor nova.
+- **Série 5 a 8** (`serie-5` a `serie-8`: rosa, verde, violeta e vermelho). Só nos gráficos da conversa (ADR-052), depois das quatro primeiras e nesta ordem: as oito passam no validador de paleta entre vizinhas, nos dois temas, sobre o fundo do Open WebUI. Entre todos os pares, a partir da quinta cor a separação cai (rosa × laranja, vermelho × laranja; verde × laranja para o protanope): linha e dispersão com cinco séries ou mais levam o nome na ponta ou uma forma de marcador por série, e todo gráfico tem a tabela dos dados. A cor segue a série, nunca a grandeza; uma nona cor nunca é gerada.
 
 ### Named Rules
 **The Cor Tem Função Rule.** A cor marca ação (azul) ou estado (ok, aviso, erro). Títulos, ícones de navegação, cabeçalhos e números ficam em neutro. As únicas exceções são as séries do gráfico e o logotipo de terceiros (o "G" do Google).
@@ -440,7 +449,7 @@ Barras empilhadas em SVG próprio.
 - **Don't** quebrar identificador mono no meio. Endereço só quebra depois de "/" ou ".".
 - **Don't** pôr sombra em painel, tabela, cartão ou faixa de números.
 - **Don't** usar cartões de métrica com ícone, gradiente ou cor decorativa: a faixa de números é uma tabela de uma linha, com fios.
-- **Don't** gerar cor de série além das quatro validadas; o excedente vira "Outros".
+- **Don't** gerar cor de série além das validadas — quatro na console, oito nos gráficos da conversa; o excedente vira "Outros".
 - **Don't** usar `select` para referência de modelo.
 - **Don't** pôr marca, termo ou imagem de domínio na console ou no login. A marca é o Axon ou a da instalação (ADR-038).
 - **Don't** redesenhar, recolorir, achatar ou tirar o esmaecimento do símbolo; use os arquivos de `brand-kit/svg/`.

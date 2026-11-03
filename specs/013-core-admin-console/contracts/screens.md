@@ -39,3 +39,7 @@ Formatos: números `pt-BR`; dinheiro "US$ 41,87"; tokens compactos ("21,1 M"); d
 Cada imagem existe nas duas versões (para fundo claro e escuro), e o CSS mostra a do tema em vigor, inclusive com o tema
 escolhido na console. Tokens do `DESIGN.md`, os mesmos das páginas da 012; o hover do botão primário no escuro é
 `#1D4ED8` (ADR-039).
+
+MCP com `auth.type: delegated` (ADR-055): ambas as telas aceitam o contrato, não fazem sondagem sem autorização
+por execução e mostram "Por execução" em configuração válida. Tools são as configuradas, ainda sem descoberta.
+Detalhes identificam a autorização temporária; editar outros campos preserva `auth: {type: delegated}`.

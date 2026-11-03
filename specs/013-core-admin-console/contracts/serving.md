@@ -7,7 +7,7 @@ Artefato: `axon-ai/console/dist/` (arquivos estáticos do `vite build`) servidos
 |---|---|
 | `/assets/*` (com hash) | arquivo; `Cache-Control: public, max-age=31536000, immutable` |
 | `/index.html` e qualquer rota da SPA sem extensão | `index.html`; `Cache-Control: no-cache` |
-| `/v1/`, `/private/v1/`, `/admin/v1/`, `/oauth2/`, `/.well-known/` | repasse ao core (`${AXON_UPSTREAM}`, padrão `http://ai-core:8000`) **sem reescrever o caminho**, com `X-Forwarded-Proto`, `X-Forwarded-Host`, `X-Forwarded-For`; `proxy_buffering off` e `proxy_read_timeout 300s` em `/v1/` (SSE) |
+| `/v1/`, `/private/v1/`, `/admin/v1/`, `/oauth2/`, `/.well-known/`, `/static/` (scripts dos gráficos, ADR-052) | repasse ao core (`${AXON_UPSTREAM}`, padrão `http://ai-core:8000`) **sem reescrever o caminho**, com `X-Forwarded-Proto`, `X-Forwarded-Host`, `X-Forwarded-For`; `proxy_buffering off` e `proxy_read_timeout 300s` em `/v1/` (SSE) |
 
 Cabeçalhos da console (não dos repasses, que mantêm os do core):
 

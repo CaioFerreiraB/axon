@@ -89,3 +89,7 @@ Nunca contém o valor de uma credencial — só o nome da referência (007 FR-00
 5. globais: chave fora do grupo → 404; administrador cria, lê, atualiza, lista e remove; entrada do arquivo → 409;
 6. US4 cen. 1: MCP próprio criado pela API e Assistant de usuário que o declara → o Assistant aparece em `/v1/models`;
 7. nenhum corpo de resposta contém valor de credencial.
+
+## Autenticação delegada (ADR-055)
+
+Além de `none` e `bearer`, registros globais aceitam `auth.type: delegated` sem referência de credencial. HTTP HTTPS, sem acesso a Assistants de usuário. Descoberta e admissão seguem [protocolo 1](../../007-core-mcp-integration/contracts/delegation.md). A verificação de saúde sem autorização retorna falha explicativa; não usa credencial estática.

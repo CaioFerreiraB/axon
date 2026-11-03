@@ -247,6 +247,8 @@ forbidden_modules = ["langgraph", "langchain_core"]
 [[tool.importlinter.contracts]]
 name = "o motor só alcança MCP pelo gateway da 004"
 type = "forbidden"
+# ADR-055: apenas o tipo confidencial reexportado; nenhuma chamada direta ao MCP.
+ignore_imports = ["axon_ai.capabilities.api -> axon_ai.mcp.api"]
 source_modules = ["axon_ai.graph"]
 forbidden_modules = ["axon_ai.mcp"]
 
@@ -697,6 +699,8 @@ forbidden_modules = ["yaml", "psycopg", "psycopg_pool", "openai", "httpx"]
 [[tool.importlinter.contracts]]
 name = "o harness só enxerga outros módulos pelo api.py"
 type = "forbidden"
+# ADR-055: ExecutionRequest tipa o canal confidencial pelo seam público.
+ignore_imports = ["axon_ai.graph.api -> axon_ai.capabilities.api"]
 source_modules = ["axon_ai.eval"]
 forbidden_modules = [
     "axon_ai.packs.domain",

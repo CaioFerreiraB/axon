@@ -442,3 +442,8 @@ toques fora da 005 estão nomeados e cobertos por ADR ou pelo design da spec don
 |---|---|---|
 | Passo de tool sintético para os trechos (R41) | conteúdo externo cercado e no papel de tool, como no loop; geração e Turn View sem caminho novo | bloco de sistema daria autoridade de sistema a conteúdo externo |
 | Rerank por pack e junção por score (R38) | o reranker de um pack depende das marcas do retriever dele | reranker único para a composição não tem dono com dois packs |
+
+
+## Incremento: delegação MCP por execução (2026-10-29)
+
+Regido por [ADR-055](../../docs/adr/ADR-055-autenticacao-mcp-delegada.md). Protocolo 1: um MCP delegado por grant, identidade confidencial por execução, sem cache compartilhado e sem alteração da ACL. Contrato: [delegação](../007-core-mcp-integration/contracts/delegation.md). Casos D01 isolamento concorrente; D02 falha fechada; D03 metadados e superfície privada; D04 segredo ausente de persistência/trace; D05 regressão estática.

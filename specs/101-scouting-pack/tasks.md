@@ -564,3 +564,31 @@ T063 → T064 → T065 → T066 ∥ T067 (veem falhar) → T068 → T069 → T07
   `rag_first` sobre um artefato (R34)
 - [X] T075 [P] `README.md` do pack (instalação sem serviço, os dois embedders), `eval/packs.yaml` sem Qdrant e
   `eval/packs-pplx.yaml`
+
+## Passada de 2026-10-27 (revisão do RAG; research R35; [ADR-045](../../docs/adr/ADR-045-filhotes-e-consulta-multifaceta-no-scouting.md))
+
+- [X] T076 [US7] `filhotes` e `all_branches` em `context/lexicon.py`; `ScoutingContext.branches` e `to_slice` em
+  `context/derivation.py`; casos em `tests/test_derivation.py` e `tests/test_lexicon.py`; o contrato
+  `retrieval_filters` com `branches`.
+- [X] T077 [US8] Os três parágrafos no `prompts/domain.py` e os testes de frase e de "nenhum fato" (R36).
+
+## Passada de 2026-10-27, teste no ambiente de dev (research R37; [ADR-046](../../docs/adr/ADR-046-tipo-sugerido-ordena-no-scouting.md))
+
+- [X] T078 `document_types` citados e `suggested_types` na derivação e na fatia; léxico só com tipos citáveis
+  (`programa_educativo` fora, `guia` nos temas, "guia de"); ano relativo em `periods.py`; testes.
+- [X] T079 Prompt sem as palavras do mecanismo (FR-024); teste.
+
+## Passada de 2026-10-28: o pedido de enumeração (research R39; [ADR-048](../../docs/adr/ADR-048-arvore-de-unidades-e-enumeracao-no-scouting.md))
+
+- [X] T080 `Lexicon.unit_kinds` e `EnumerationRequest` em `context/derivation.py`: marcador de enumeração sem espécie de
+  documento → `enumeration: {unit_kind, terms}` na fatia e nos filtros; o `pack.py` compõe o índice uma vez para as
+  tools e a preparação e põe no léxico os tipos de unidade com nome próprio do build; testes da derivação e do pack.
+- [X] T081 O parágrafo da enumeração no prompt (FR-029): enumerar pela lista "lista de …, N de M", por inteiro e na
+  ordem dela, citando, sem descrever a unidade só pelo nome; teste.
+
+## Tipologia pela taxonomia ([ADR-049](../../docs/adr/ADR-049-taxonomia-e-a-tipologia-do-acervo-no-scouting.md))
+
+- [X] T082 Léxico com os tipos da taxonomia (13 citáveis; `guia` vira `manual`), os órgãos (11) e as abrangências (5);
+  a derivação publica `bodies`/`scopes` só com tipo citado ou pedido de lista e `suggested_bodies` sem eles; espécies da
+  lista de documentos pelos ids de tipo. `test_derivation.py`, `test_lexicon.py`, `tests/rag/test_vocabulary.py`
+  (contra a `taxonomia.yaml`) (FR-030).

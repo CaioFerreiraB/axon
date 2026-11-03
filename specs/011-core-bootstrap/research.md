@@ -887,3 +887,31 @@ variável.
 
 **Alternatives considered**: um teto único para imagem de tool e do usuário (o ADR os separa: a da tool vem de um
 servidor que o operador escolheu; a do usuário, de qualquer cliente).
+
+## R57 — O endereço dos scripts dos gráficos ([ADR-052](../../docs/adr/ADR-052-graficos-na-conversa.md), item 6; FR-030)
+
+**Decision**:
+- `Settings.charts_script_base_url`, lido de `AXON_CHARTS_SCRIPT_BASE_URL` e conferido pela mesma regra do
+  `AXON_PUBLIC_URL` (`_check_public_url`, agora com o nome da variável na mensagem).
+- A propriedade `charts_base_url` devolve o próprio endereço ou, na falta dele, o `public_url`.
+- O `create_app` recebe `charts_base_url=settings.charts_base_url`.
+- A `PlatformHealth` ganha `charts: bool | None`, e o item `charts` é sempre `ok`, com o detalhe
+  `CHARTS_WITHOUT_URL` quando falta o endereço.
+- Prova ponta a ponta sem rede em `tests/bootstrap/integration/test_platform_charts.py`:
+  1. uma tool MCP programada devolve a série em JSON;
+  2. o controller programado chama `demo.serie` e depois `generic.chart`, do `axon-generic` carregado pelo entry point;
+  3. a resposta em streaming traz a tabela, um `embeds` cujas páginas carregam os scripts que a própria app serve, e
+     `x_axon.charts`;
+  4. a geração recebe o aviso dos gráficos, e o resultado da tool que volta ao controller leva só a marca.
+
+**Rationale**:
+- **O endereço público basta na instalação comum.** Com a console, o `AXON_PUBLIC_URL` é o domínio dela, e o nginx
+  repassa `/static/` ao core (013). A variável própria cobre o caso em que os scripts são servidos de outro host.
+- **O aviso não degrada a saúde.** O ADR pede um aviso não crítico, mas a 008 trata como `degraded` qualquer item com
+  `ok: false`, inclusive os não críticos, e o `axon health` sai com 1. Uma instalação sem Open WebUI não deve ficar
+  degradada por isso. O teste da CLI pegou o problema na primeira versão.
+
+**Alternatives considered**:
+- Exigir o endereço sempre: quebraria as instalações só de API.
+- O item `charts` com `ok: false` não crítico: degrada a saúde, como visto acima.
+- Montar o endereço a partir do `Host` do pedido: atrás do proxy, o core vê o endereço interno.

@@ -8,6 +8,18 @@ from __future__ import annotations
 from axon_ai_contracts._freeze import JSONValue
 from axon_ai_contracts._version import __version__
 from axon_ai_contracts.attachments import ATTACHMENT_MIME_TYPES, Attachment
+from axon_ai_contracts.charts import (
+    CHART_KINDS,
+    CHART_MAX_POINTS,
+    CHART_MAX_SERIES,
+    CHART_X_TYPES,
+    Chart,
+    ChartKind,
+    ChartPoint,
+    ChartSeries,
+    ChartXType,
+    UnitPosition,
+)
 from axon_ai_contracts.compat import (
     BumpKind,
     ChangeKind,
@@ -63,6 +75,10 @@ from axon_ai_contracts.view import Citation, Message, TurnView
 
 __all__ = [
     "ATTACHMENT_MIME_TYPES",
+    "CHART_KINDS",
+    "CHART_MAX_POINTS",
+    "CHART_MAX_SERIES",
+    "CHART_X_TYPES",
     "RETRIEVAL_FILTERS_KEY",
     "RETRIEVAL_TOOL_PARAMETERS",
     "AgentPack",
@@ -71,6 +87,11 @@ __all__ = [
     "Attachment",
     "BumpKind",
     "ChangeKind",
+    "Chart",
+    "ChartKind",
+    "ChartPoint",
+    "ChartSeries",
+    "ChartXType",
     "ChatChunk",
     "ChatMessage",
     "ChatResponse",
@@ -108,6 +129,7 @@ __all__ = [
     "ToolResult",
     "ToolSpec",
     "TurnView",
+    "UnitPosition",
     "ValidationResult",
     "ValidatorContext",
     "Version",

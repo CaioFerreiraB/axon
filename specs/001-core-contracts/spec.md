@@ -56,6 +56,14 @@
 - Q: O `ChatMessage` dos contratos passa a aceitar partes de imagem? → A: Não. Mudar o tipo de `content` é breaking pelo diff de superfície (FR-020) e levaria a série a `0.3.0`, contra a consequência do ADR-044 ("o contrato 001 muda de forma aditiva"); nenhum pack usa `ChatMessage` nem `LLMProvider`. A mensagem com partes é tipo da 006 (decisão do mantenedor, 2026-10-22; 006 research). `ChatMessage` e `LLMProvider` não mudam.
 - Q: Que versão sai? → A: `0.2.2` (aditivo; FR-016). Pack que devolve imagem pelas próprias tools ou lê os anexos das mensagens pede `axon-ai-contracts>=0.2.2,<0.3`; os demais não mudam.
 
+### Session 2026-10-28
+
+- Q: Como um gráfico atravessa os contratos ([ADR-052](../../docs/adr/ADR-052-graficos-na-conversa.md))? → A: Como dados, nunca como HTML nem especificação de biblioteca: o value object `Chart` (tipo, título, subtítulo, tipo do eixo x, rótulos, unidade e posição dela, séries de `ChartPoint(x, y)`), num campo próprio, `ToolResult.charts` (tupla, default vazia). Quem desenha é a API.
+- Q: O que a construção confere? → A: Tipos das listas fechadas (`CHART_KINDS`, `CHART_X_TYPES`, `prefix`/`suffix`); textos limpos (sem quebra de linha, controles nem `[`/`]`, que fechariam a marca do gráfico; título até 120, nomes até 60, unidade até 12); `y` número finito; `x` número no eixo quantitativo, data ISO no temporal e texto no nominal, sem repetição numa série (salvo dispersão); séries com nomes distintos, até `CHART_MAX_SERIES` = 8 (as oito cores validadas) e até `CHART_MAX_POINTS` = 500 pontos somando todas; pizza e rosca com uma série, x nominal, valores não negativos e soma positiva.
+- Q: De onde vem o `id`? → A: Do conteúdo, como o do `Attachment`: `chart-` mais os 12 primeiros hexadecimais do SHA-256 da forma canônica (JSON com chaves ordenadas; `2` e `2.0` são o mesmo gráfico).
+- Q: Que versão sai? → A: `0.2.4` (aditivo; FR-016). Pack que devolve gráfico pelas próprias tools pede `axon-ai-contracts>=0.2.4,<0.3`; os demais não mudam.
+- Q: Aumentar a lista de tipos de gráfico quebra a compatibilidade ([ADR-053](../../docs/adr/ADR-053-listas-do-grafico-crescem-sem-quebrar.md), 2026-10-29)? → A: Não. `CHART_KINDS`, `CHART_X_TYPES`, `ChartKind` e `ChartXType` são comparados como conjuntos, como o `ISSUE_CODES`: o pack só produz `Chart`. O `waterfall` entra em `0.2.5`: uma série, x nominal, cada `y` é a variação de uma etapa, e o total é de quem desenha.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Autor de pack constrói e testa um pack sem o core (Priority: P1)
@@ -208,6 +216,10 @@ A plataforma passa a se chamar Axon (ADR-037). Um autor de pack declara a depend
 - **FR-027**: A suíte de conformidade DEVE, quando o pack tem `prepare`, chamá-lo duas vezes seguidas no mesmo diretório (temporário ou o informado pelo autor) e reportar exceção, retorno diferente de `None` e hook assíncrono; os hooks seguintes da suíte DEVEM receber o mesmo `data_dir`.
 - **FR-028**: Os contratos DEVEM oferecer o value object `Attachment` — `id`, `mime`, `data: bytes`, `alt: str | None` — e a constante `ATTACHMENT_MIME_TYPES` (`image/png`, `image/jpeg`, `image/webp`, `image/gif`). O `id` DEVE ser calculado na construção, `img-` mais os 12 primeiros hexadecimais do SHA-256 de `data`; tipo fora da lista ou `data` vazio DEVE levantar `ValueError`; o `alt` DEVE sair limpo (sem quebras de linha nem `[`, `]`, `(`, `)`, no máximo 120 caracteres, vazio vira `None`) ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 1).
 - **FR-029**: `ToolResult` DEVE ganhar `attachments: tuple[Attachment, ...]`, com default vazio, e `Message` a chave opcional (`NotRequired`) `attachments`; `content` continua texto. `ChatMessage` e `LLMProvider` NÃO mudam. Versão `0.2.2`.
+- **FR-030**: `Citation` DEVE ganhar a chave opcional `url` (`str | None`): o endereço do original para o usuário abrir, montado pelo pack — a página ou o trecho fazem parte dele; o core só o repassa ([ADR-051](../../docs/adr/ADR-051-link-da-citacao-e-fontes-no-open-webui.md)). Versão `0.2.3`.
+- **FR-031**: Os contratos DEVEM oferecer o value object `Chart` — `kind` (`line`, `area`, `bar`, `stacked_bar`, `scatter`, `pie`, `donut`), `title`, `series: tuple[ChartSeries, ...]`, `x_type` (`temporal`, `quantitative`, `nominal`; default `nominal`), `subtitle`, `x_label`, `y_label`, `unit` e `unit_position` (`prefix`/`suffix`) — com `ChartSeries(name, points)` e `ChartPoint(x, y)`, validados na construção como na Session 2026-10-28, e as constantes `CHART_KINDS`, `CHART_X_TYPES`, `CHART_MAX_SERIES` (8) e `CHART_MAX_POINTS` (500). O `id` DEVE ser calculado do conteúdo (`chart-` + 12 hexadecimais do SHA-256 da forma canônica) ([ADR-052](../../docs/adr/ADR-052-graficos-na-conversa.md), item 1).
+- **FR-032**: `ToolResult` DEVE ganhar `charts: tuple[Chart, ...]`, com default vazio; item que não é `Chart` DEVE levantar `TypeError`. Versão `0.2.4`.
+- **FR-033**: O `Chart` DEVE aceitar o tipo `waterfall` (uma série, x nominal; cada `y` é a variação de uma etapa, em ordem; o total final não vem no `Chart`), e o diff de superfície DEVE comparar `CHART_KINDS`, `CHART_X_TYPES`, `ChartKind` e `ChartXType` membro a membro — membro novo aditivo, removido breaking ([ADR-053](../../docs/adr/ADR-053-listas-do-grafico-crescem-sem-quebrar.md)). Versão `0.2.5`.
 
 ### Key Entities
 
@@ -215,8 +227,9 @@ A plataforma passa a se chamar Axon (ADR-037). Um autor de pack declara a depend
 - **Pack Manifest**: versão, flow preferido, dependências de fatia, esquema de configuração, coleções exigidas.
 - **Pack Context**: dados de carga do pack — nome, configuração validada e, desde 0.2.1, o diretório de dados (`data_dir`, FR-026); sem serviços (FR-019).
 - **Validator Context**: contexto próprio dos validators; nunca expõe modelos (FR-008, FR-019).
-- **Tool Spec** / **Tool Result**: capacidade invocável e seu resultado não-confiável; desde 0.2.2, o resultado carrega anexos (FR-029).
+- **Tool Spec** / **Tool Result**: capacidade invocável e seu resultado não-confiável; desde 0.2.2, o resultado carrega anexos (FR-029) e, desde 0.2.4, gráficos (FR-032).
 - **Attachment**: imagem com id derivado do conteúdo, tipo da lista fechada e `alt` limpo (FR-028, ADR-044).
+- **Chart**: gráfico em dados — séries de pontos num esquema fechado —, com id derivado do conteúdo; a API o desenha (FR-031, ADR-052).
 - **Chunk**: trecho recuperado com proveniência e score.
 - **Retriever** / **Reranker** / **Answer Validator** / **Validation Result**: capacidades de recuperação, ordenação e checagem.
 - **Named Retriever**: retriever declarado pelo pack com nome local, descrição e coleções consultadas; origem da tool `retrieval` e da checagem de coleções do grant.

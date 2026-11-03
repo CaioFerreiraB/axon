@@ -1,3 +1,6 @@
 # .graphifyignore
 axon-scouting/
 axon-deploy/
+
+# Biblioteca de terceiros vendorizada (ECharts, ADR-052): minificada, sem relação com a arquitetura.
+axon-ai/packages/core/src/axon_ai/http/adapters/static/echarts/

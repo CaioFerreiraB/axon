@@ -32,9 +32,29 @@ class MetadataReranker:                                      # rag/retrieval/rer
 | US3 — data passada | período 2023 com `include_superseded` → a 2023, com `status="substituido"` |
 | US4 — desempate | dois candidatos empatados na fusão: o vigente e específico do ramo fica acima do geral; no máximo `top_k` |
 | US5 — filtros de contexto | `branch="pioneiro"` → pioneiro e gerais; `document_types=["por"]` → só POR |
+| ADR-049 — órgão e abrangência | `bodies=["conselho_de_administracao_nacional"]` → só documentos do CAN; `scopes=["regional"]` → só regionais; `suggested_bodies` não restringe e põe o órgão à frente no empate |
 | FR-004 | todo `Chunk` com proveniência completa e `score` em `[0, 1]` |
 | FR-007 | índice inexistente → `IndexUnavailable`, nunca `[]` |
 | FR-009 | `topics` não mudam o resultado |
 | R3 | filtros `None`, sem datas ou com chave desconhecida → `InvalidFilters` |
 | R5 | `rerank` com chunks sem metadados (como o kit da 001): no máximo `top_k`, todos da entrada, sem exceção |
 | R6 | sem `top_k` → `default_limit`; `top_k` acima de `max_limit` → `max_limit` |
+
+## A tool `list_units` e a entrega por unidade ([ADR-048](../../../docs/adr/ADR-048-arvore-de-unidades-e-enumeracao-no-scouting.md))
+
+```python
+class UnitsRetriever:                                        # rag/retrieval/units.py — implementa Retriever (001)
+    async def search(self, query: str, *, top_k: int | None = None,
+                     filters: Mapping[str, JSONValue] | None = None) -> list[Chunk]:
+        """Sem `enumeration` nos filtros → []. Com `unit_kind` → uma ficha por documento (`<doc_key>#unidades/<tipo>`)
+        com as unidades de `DocumentOutline.units`; sem `unit_kind` → até 3 trechos `shape="list"` e até 2 sumários
+        (`outline`), com os filtros da busca. `enumeration` malformado → `InvalidFilters("enumeration", …)`."""
+```
+
+| Regra | Verificação |
+|---|---|
+| US8 — tipo declarado | `unit_kind="especialidade"`, `branch="pioneiro"` → a ficha do guia Sênior/Pioneiro com as 32, eixo e página de cada uma; nenhuma ficha do Lobinho/Escoteiro |
+| US8 — sem tipo | a pergunta dos órgãos nacionais → o Art. 12 do Estatuto entre os trechos `list` |
+| ordem | fichas do acervo, depois `list_units`, depois os trechos; no máximo `top_k` no total |
+| FR-016 | três candidatos de corpo idêntico → um, com os títulos dos outros nos metadados |
+| FR-017 | dois irmãos entregues → juntos, na ordem do documento, com o caminho; acima do teto, o de pior posição sai |

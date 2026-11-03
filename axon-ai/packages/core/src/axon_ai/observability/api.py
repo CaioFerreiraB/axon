@@ -15,7 +15,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Final, Literal, Protocol
 
-from axon_ai_contracts import Attachment, JSONValue
+from axon_ai_contracts import Attachment, Chart, JSONValue
 
 
 class TraceQueryUnavailable(RuntimeError):
@@ -153,6 +153,31 @@ def attachment_info(attachment: Attachment) -> AttachmentInfo:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class ChartInfo:
+    """O que o trace guarda de um gráfico: id, tipo e tamanho, nunca os dados nem os textos (ADR-052)."""
+
+    id: str
+    kind: str
+    series: int
+    points: int
+
+    def __post_init__(self) -> None:
+        _require_text("id", self.id)
+        _require_text("kind", self.kind)
+        _require_non_negative("series", self.series)
+        _require_non_negative("points", self.points)
+
+
+def chart_info(chart: Chart) -> ChartInfo:
+    return ChartInfo(
+        id=chart.id,
+        kind=chart.kind,
+        series=len(chart.series),
+        points=sum(len(item.points) for item in chart.series),
+    )
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ToolCall:
     """Uma chamada de tool pelo gateway (004 FR-014). Sem argumentos nem conteúdo: o trace não guarda dado de usuário;
     a auditoria guarda os de escrita. `kind` é `None` quando a tool não existe no catálogo."""
@@ -166,6 +191,8 @@ class ToolCall:
     truncated: bool = False
     attachments: tuple[AttachmentInfo, ...] = ()
     """As imagens do resultado (ADR-044); `size_bytes` continua sendo o do texto."""
+    charts: tuple[ChartInfo, ...] = ()
+    """Os gráficos do resultado (ADR-052), só o resumo."""
 
     def __post_init__(self) -> None:
         _require_text("request_id", self.request_id)

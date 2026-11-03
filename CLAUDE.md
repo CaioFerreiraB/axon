@@ -305,6 +305,68 @@ validado sem o core contra `corpus/corpus.yaml` e o léxico (`tests/eval/test_go
 o gerador simulado do perfil `test`. O workflow `eval.yml` (filtro de caminhos: corpus, `rag/`, `prompts/`,
 `context/`, `eval/`, `pack.py`, dependências) ingere o corpus num Qdrant de serviço com o e5 em cache e roda `axon-ai
 eval run` contra a base; a integração (`tests/integration/test_eval.py`) chama o comando `axon` em subprocesso. 
+**Revisão do RAG do scouting (2026-10-27)** — `docs/revisao-rag-scouting-2026-10.md`: diagnóstico com evidências e a
+ordem das correções (102 ingestão → ADR do pack + 101/103 Filhotes e facetas → 103 reranker que lê a pergunta → core
+só se medido → 101 prompt). O corpus tem 593 documentos e os PDFs ficam **fora do git** (`.gitignore` do pack; os
+originais só na máquina de quem ingere, com URL e sha256 em `corpus/fontes.yaml`). Feito: a 105 US6 —
+`scouting:fact_recall` (fatos de `extra.facts` no texto dos trechos entregues; o `pack.py` injeta a leitura do artefato,
+só com `store: memory`), `eval/regression.yaml` com `eval/regression-baseline.json` (0,52) e o CI que confere o artefato
+contra o catálogo (`tests/rag/ingestion/test_artifact_catalog.py`) em vez de reingerir. Toda correção do RAG mostra o
+`fact_recall` antes e depois. Feita também a 102 US6 (texto indexado fiel à página): o `PdfiumParser` entrega, além do
+texto bruto (o original), a ordem de leitura pela geometria das linhas (`domain/layout.py`: sem duplicatas, de cima
+para baixo numa página de uma coluna) — o POR desenha o título de cada regra depois do corpo da página —, a limpeza
+tira blocos corridos de várias linhas e o U+FFFE do PDFium, nenhum trecho fica só com título, e as janelas são
+`estrutural-v2;janela=250-450`; o artefato (15.504 trechos, só e5) tem invariantes em
+`tests/rag/ingestion/test_artifact_quality.py`, e o `fact_recall` foi a 0,75. E o ADR-045: `filhotes` é ramo (léxico,
+`BRANCHES`, catálogo); a derivação publica `branches` (dois ramos ou mais, ou "cada ramo"/"os 5 ramos" → os cinco) em
+vez de `branch`, e o `ScoutingRetriever` faz uma busca por ramo, intercaladas com `facet_rank`/`facet_order` nos
+metadados, que o `MetadataReranker` respeita — `fact_recall` 0,81. O reranker que lê a pergunta foi medido e **não**
+adotado (103 R14): dois cross-encoders em ONNX empatam ou ganham 0,01 por segundos e GB a cada pergunta, e tirar o
+corte do gateway piora; com `AXON_RAG_PASSAGES=10` o v1 vai a 0,86. O que falta é recuperação dentro da faceta e o POR
+geral (faixas etárias). O prompt (101 R36) trata cobertura parcial, o conceito perguntado e a resposta por ramo, e a
+105 tem `scouting:absence_claim_rate` (não determinística) e `eval/assistants-openrouter.yaml` para a rodada manual com
+modelo real: com o `glm-5.3-flash` e juiz `gpt-4.1-mini`, fidelidade 0,95 → 1,00 e a troca de conceito some (105 R17).
+Os fatos de faixa etária aceitam a redação da Regra 013 (105 R18): `fact_recall` da linha de base 0,90. Depois do
+teste do mantenedor no dev (17 perguntas; relatório "RAG do scouting por dentro"), o ADR-046: só o tipo de documento
+**citado** filtra; o sugerido por tema vai em `suggested_types` e só desempata a ordem (o tema "especialidades" filtrava
+por `programa_educativo`, que nenhum documento tem, e nenhum tema incluía `guia`); o prompt fala de "documentos
+consultados", nunca de "trechos"; e "último ano"/"este ano" viram período. O conjunto de regressão tem 28 itens (8 das
+perguntas do dev, grupos `lista` e `pessoa`). Com o modelo real, 10/20/30 trechos entregues dão `fact_recall` 0,90/0,98/0,99
+(105 R20): a instalação passa a 20 candidatos, 20 trechos e `AXON_TOOL_MAX_RESPONSE_BYTES=65536`, e a regressão da CI
+roda nessas quantidades. E o ADR-047, a **lista de documentos**: a derivação publica `catalog: {kind, terms}` quando a
+pergunta pede uma enumeração ("quais são as políticas…"); o índice expõe o seam *Catálogo de documentos*
+(`DocumentCatalog.catalog(filters)`, a vigência da busca, nos três adapters); a tool `scouting.list_documents` devolve
+uma ficha por documento cujo título casa (`<doc_key>#acervo`, "ficha do acervo, N de M", até 15), que o
+`MetadataReranker` põe antes dos trechos; o core não muda. Depois, o conjunto do **acervo** (`eval/acervo.yaml`, 105
+R22): 43 perguntas escritas lendo 21 PDFs, com fatos conferidos no texto e metade de **controle** (só se mede), na CI
+com 20 trechos; e a hierarquia dos títulos na ingestão (`estrutural-v3`, 102 R32: subtítulo recorrente sob o título
+anterior, item numerado que recomeça não é título, a sobra da capa não corta a frase do artigo), reindexada (13.973
+trechos). Linhas de base: acervo 0,882, regressão 1,0. A fusão k=60 subiu só o desenvolvimento e não entrou. E o ADR-048, a **árvore de unidades** (implementado: `estrutural-v4`, 14.706 trechos com 349 `list` e 311 sumários `outline`; itens de pauta e perguntas do FAQ; a rota de enumeração da 101/103; a entrega dos irmãos juntos e o parágrafo do prompt): o corpus segue a taxonomia do mantenedor (`corpus/taxonomia.yaml`, pastas `<categoria>/<subcategoria>/<nível>/`, a região como subpasta, OCR espelhado sob `ocr/`; reorganizado em 2026-10-27, com `corpus.yaml`, `fontes.yaml` e o `source_file` do artefato atualizados), e `corpus/estrutura.yaml` dá a forma de cada documento — o tipo semântico da pasta escolhe o perfil (`artigos`, `ata`, `regras`, `especialidades`, `progressao`…), com exceções para os guias, e as fontes da árvore são marcadores, sumário, bookmarks e rodapé corrido (hoje descartados), com `shape` e ramos por unidade; a enumeração ("quais são as especialidades") sai pela tool `list_units`, e não pela busca, onde a lista perde da prosa — só tipos com nome próprio, em até 3 documentos; senão, 2 trechos `list` e 1 sumário, e nada numa pergunta por ramo (102 R33–R34, 101 R39, 103 R17, 105 R23). Acervo 0,882 → 0,910. Depois, o ADR-049 (**a taxonomia é a única
+tipologia**): o `type` saiu do `corpus.yaml` (entrada com ele é recusada) e o tipo é o `tipo` da pasta na taxonomia, como
+id (`taxonomy_id`: "P.O.R." → `por`, "Ata" → `ata`); o seam do índice tem `document_type: str`, `bodies` (categoria e
+subcategoria) e `scope` (nível, senão jurisdição), com os filtros `bodies`/`scopes` nos três adapters; a taxonomia é
+obrigatória na ingestão; a derivação cita 13 tipos, 11 órgãos e 5 abrangências, e órgão e abrangência só filtram com tipo
+citado ou pedido de lista (senão `suggested_bodies`, desempate); a lista de documentos escolhe pelo tipo e pela
+classificação. E o ADR-050 (**leitura fiel**, `estrutural-v5`): colunas de texto lidas uma a uma (`leitura-v2`; o erro do
+Prêmio Walter Dohme × Aldo Chioratto no relatório 2023), títulos pela tipografia (tamanho efetivo pela matriz, família,
+negrito; `tipografia-v1`; o destaque no meio do parágrafo não é título), seções pequenas juntas à mãe ou à irmã sem
+engolir unidade com nome, teto de 512 tokens do e5 em todo trecho (`domain/ceiling.py`, `E5TokenCounter`; partes "Art. N
+(parte i de n)" com o caput e as páginas de cada parte), transcrição de digitalizado em `corpus/ocr/<caminho>.txt`
+(`TranscriptionParser`; `scripts/ocr.py` com o Tesseract local e o prompt de revisão pelo Codex em
+`scripts/ocr-codex-prompt.md`; nada de API paga), filtro de ruído de OCR pelo vocabulário dos nascidos digitais, e as
+unidades `under` (13 cargos, competências com `trim`), `sources` por exceção e reuniões sem ordinal. Entraram 46
+documentos (39 atas da Assembleia Regional de SP de 1994 a 2026, 6 do Fórum Regional Pioneiro, pasta nova
+`programa-educativo/comissao-regional-pioneira/regional`, e o Manual de Reconhecimentos e Condecorações): 639
+documentos, 15.607 trechos, nenhum truncado. `fact_recall`: regressão 0,991 → 0,977, acervo 0,910 → 0,892 (a Regra 178
+e o marco simbólico acertavam por trechos que o e5 truncava; 105 R24), linhas de base regravadas. A ingestão pode
+codificar na GPU: `scripts/gpu-venv.sh` monta `.cache/gpu-venv` com o `onnxruntime-gpu`, e
+`AXON_SCOUTING_EMBEDDING_DEVICE=cuda` faz a reindexação em ~3 min (RTX 5060: 251 trechos/s contra ~10 na CPU; 102 R40).
+Pendente: a revisão das 91 transcrições pelo Codex e a troca das 57 cópias OCR em PDF pelos `.txt`. O ambiente de dev local (`axon-scouting/.cache/dev/
+dev.sh`, fora do git: Postgres e Open WebUI em contêiner, `axon serve` do venv do pack, trace em `.cache/dev/trace/`)
+serve para testar antes de publicar. A chave do
+OpenRouter da instalação está em `~/Documents/cfblabs-management/stacks/axon/env` (materializada do cofre); use-a só no
+ambiente do processo, nunca em arquivo.
+
 **A Fase 7 do roadmap está completa.** Da 008 (US6, US8), a API pronta para o Open WebUI: admissão
 (`domain/admission.py`, puro; `ExecutionSlots` no `service.py`, vagas e fila FIFO em memória, por processo) entre a
 resolução do grant e o motor — vaga livre executa, vagas cheias com fila livre esperam (em streaming, o aviso de fila sai
@@ -511,6 +573,55 @@ A 011 lê `AXON_TOOL_MAX_ATTACHMENT_BYTES`, `AXON_MAX_REQUEST_BYTES`, `AXON_MAX_
 `AXON_MAX_INPUT_IMAGES`; a prova sem rede é `tests/bootstrap/integration/test_platform_images.py`. Os packs veem os
 anexos pela Turn View. O core está em `0.7.0rc7` (tag `v0.7.0-rc7`, com a nota de que a plataforma mostra as imagens das tools, 005 R52; contratos `0.2.2` na tag `contracts-v0.2.2`;
 a `v0.7.0-rc5` foi a republicação multi-arch da rc4).
+
+Referências com link no Open WebUI (ADR-051): os contratos `0.2.3` têm `Citation.url` (o endereço do original para o
+usuário abrir, montado pelo pack; o core só o repassa, e só `http(s)`). A 008 lê o cabeçalho `x-axon-citations`
+(`none` padrão | `sources`, outro valor → 400): em streaming, depois do último texto e antes do chunk final, cada
+citação sai como evento `source` do Open WebUI na chave `event` (`http/domain/sources.py`, puro: id = `chunk_id`, nome =
+`Documento — seção, p. N`, `url`, `document` com a proveniência, `metadata.page` = página − 1), e o `[n]` vira um chip
+que abre o modal da fonte, com o nome ligado ao PDF, mais a lista colapsável "N Fontes". Nunca `embed_url`: o painel
+lateral do Open WebUI é um iframe com `sandbox`, e o Chrome não mostra PDF nele (verificado no dev). No pack,
+`IndexedChunk.source_url` vem do registro do documento (reescrito por `with_document` no reaproveitamento), vai aos
+metadados do `Chunk` (`source_url`, também nas fichas de unidades), e o `citation_integrity` monta `url` =
+`source_url#page=N`; o artefato foi regravado só com o link (mesmos 15.607 trechos e vetores; `fact_recall` igual). A
+instalação (`axon-deploy/template`, `axon-cfblabs`) e o dev mandam `x-axon-citations: sources`, e o `check-webui.py` do
+`axon-cfblabs` confere as fontes gravadas. O core está em `0.7.0rc8` (tag `v0.7.0-rc8`, contratos `0.2.3` na tag
+`contracts-v0.2.3`), e o pack `scouting` em `0.8.0`, pela mesma tag.
+
+Gráficos na conversa (ADR-052): os contratos `0.2.4` têm `Chart` (com `ChartSeries` e `ChartPoint`) e
+`ToolResult.charts`. O esquema é fechado: tipos `line|area|bar|stacked_bar|scatter|pie|donut`, eixo
+`temporal|quantitative|nominal`, até 8 séries e 500 pontos, `id` do conteúdo (`chart-` + 12 hex).
+- **Caminho do gráfico.** O gráfico segue pelo canal lateral das imagens. A 004 o tira da cerca e deixa a marca
+  `[gráfico <id> mostrado ao usuário: <título>]`, com o resumo no `tool_call`. A 005 emite `ChartEvent` e
+  `FinalEvent.charts`, e o modelo nunca recebe os dados de volta (`CHARTS_INSTRUCTION` na geração).
+- **API.** Só a 008 escreve HTML (`http/domain/charts.py`):
+  - a tabela em `<details>` sempre no texto (é o histórico do modelo) e o `Chart` em `x_axon.charts`;
+  - com `x-axon-charts: embeds`, em streaming, um evento `embeds` do Open WebUI com uma página por gráfico;
+  - a página não tem script inline: a especificação vai em JSON escapado, e o ECharts 6.1.0 vendorizado, o locale
+    pt-BR e o desenhista `axon-chart.js` vêm de `/static/echarts/6.1.0/…` e `/static/charts/<impressão>/…`, rotas
+    públicas, imutáveis e com `integrity`;
+  - o tema segue o `prefers-color-scheme` (sem `color-scheme`, que daria fundo opaco no Open WebUI), com as 8 cores de
+    série do DESIGN.md.
+- **Montagem e console.** A 011 lê `AXON_CHARTS_SCRIPT_BASE_URL` (senão `AXON_PUBLIC_URL`; sem os dois, só a tabela e
+  o aviso no item informativo `charts` da saúde). O nginx da console repassa `/static/`.
+- **A tool.** `generic.chart` (`axon-generic` 0.3.0, `contract_version` 0.2.4) recebe os dados, infere o eixo
+  temporal de datas ISO e devolve erro legível ao controller.
+- **Provas.** Ponta a ponta sem rede em `tests/bootstrap/integration/test_platform_charts.py`. Verificado no dev com o
+  Open WebUI e o glm-5.3-flash. O teste achou um defeito da 012, corrigido: no `persistent`, a CSP das páginas ficava
+  sem as origens dos clientes, e o Chrome bloqueava o login por senha (012 R27).
+- **Limite do loop.** Em produção, o loop do `geral` acabava (3 iterações padrão) antes do gráfico, buscando dados
+  num MCP paginado. A geração depois do loop passou a receber `NO_TOOLS_INSTRUCTION` e, no corte pelo limite,
+  `LIMIT_INSTRUCTION` (005 R54); o `geral` do `axon-cfblabs` declara `max_iterations: 8`.
+- **Passos em texto.** Mesmo com o aviso, numa conversa longa a geração escrevia a chamada de ferramenta como texto:
+  ela passou a receber os passos do loop em texto (`Resultado da ferramenta …`), e só o passo sintético do
+  `rag_first` segue no formato nativo (005 R55).
+- **Waterfall.** Entrou nos contratos `0.2.5` (ADR-053), e aumentar `CHART_KINDS`/`ChartKind` passou a ser aditivo no
+  diff de superfície. A API calcula o total e desenha com `candlestick`. A tool é a do `axon-generic` 0.3.1.
+- **Gráfico pela geração.** Em produção, o controller paginava o Mango e o loop acabava antes do gráfico. Pelo
+  ADR-054, a geração pode escrever um bloco ` ```axon-chart {json} ```` na resposta. O motor o tira do texto em
+  streaming (`graph/domain/chart_blocks.py`), valida pelo `Chart` e o entrega como os gráficos de tool. O aviso com o
+  formato só entra em execução com tools.
+- **Versão.** O core está em `0.7.0rc12` (contratos `0.2.5`).
 
 O `axon-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =

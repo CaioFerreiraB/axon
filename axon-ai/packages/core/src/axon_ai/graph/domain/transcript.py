@@ -16,7 +16,10 @@ from typing import Final
 
 from axon_ai.capabilities.api import FENCE_INSTRUCTION, CatalogTool, FencedToolResult, ToolCall
 from axon_ai.graph.domain.actions import CONTROLLER_INSTRUCTION, catalog_text
+from axon_ai.graph.domain.budget import RESULT_HEADER
+from axon_ai.graph.domain.chart_blocks import CHART_BLOCK_INSTRUCTION
 from axon_ai.graph.domain.images import (
+    CHARTS_INSTRUCTION,
     IMAGES_CAPABILITY,
     IMAGES_INSTRUCTION,
     VIEWED_NOTICE,
@@ -35,6 +38,20 @@ DATE_INSTRUCTION: Final = (
     "sem ano e outros períodos relativos."
 )
 """Sem ela, o modelo chuta o ano pela data de corte do treino e pede a período errado (R50)."""
+
+NO_TOOLS_INSTRUCTION: Final = (
+    "Nesta etapa você só escreve a resposta ao usuário, em texto: as ferramentas já foram usadas e não estão mais "
+    "disponíveis. Nunca escreva chamadas de ferramenta, JSON de ação nem marcações como <tool_call>."
+)
+"""Na geração depois do loop: sem ela, um modelo que ainda queria agir escreve a chamada como texto — o filtro de
+marcação a corta, e a resposta fica vazia (R54)."""
+
+LIMIT_INSTRUCTION: Final = (
+    "O limite de passos desta resposta foi atingido antes de terminar o que o usuário pediu. Responda com o que os "
+    "resultados das ferramentas já trazem e diga com clareza o que ficou faltando — por exemplo, um gráfico ou uma "
+    "consulta que não chegou a ser feita —, sugerindo pedir de novo de forma mais direta."
+)
+"""Na geração quando o loop foi cortado pelo limite de iterações (R54). Sem domínio (princípio I)."""
 
 _WEEKDAYS: Final = ("segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo")
 
@@ -138,6 +155,26 @@ def _transcript(steps: Sequence[Step], *, notices: bool) -> list[ModelMessage]:
     return messages
 
 
+def _generation_transcript(steps: Sequence[Step]) -> list[ModelMessage]:
+    """Os passos do loop como texto, um resultado por mensagem; o passo sintético do `rag_first` segue no formato
+    nativo (R55).
+
+    No formato nativo — `assistant` com `tool_calls` e a mensagem `tool` —, a geração vê uma conversa de chamadas de
+    ferramenta e, sem ferramentas, continua o padrão escrevendo a chamada como texto (o glm-5.3-flash em produção, com o
+    aviso de que elas acabaram e tudo). Em texto, ela lê os resultados e responde.
+    """
+    messages: list[ModelMessage] = []
+    for step in steps:
+        if not isinstance(step, ToolStep):
+            continue
+        if step.synthetic:
+            messages.extend(_transcript((step,), notices=False))
+            continue
+        header = f"{RESULT_HEADER} {step.call.name}, chamada com {_arguments(step.call)}:"
+        messages.append({"role": "user", "content": f"{header}\n{step.result.text}"})
+    return messages
+
+
 def controller_messages(
     tools: Sequence[CatalogTool],
     messages: Sequence[Message],
@@ -180,6 +217,7 @@ def generation_messages(
     send_own: bool = False,
     shown: Sequence[Attachment] = (),
     tools: bool = False,
+    truncated: bool = False,
 ) -> list[ModelMessage]:
     """Prompts de pack, a data de referência (no `agentic`), a cerca (se houver resultado) e o aviso das imagens que o
     usuário vê (se uma tool devolveu imagem; sem imagem, mas com tools na execução — `tools` —, a nota de que a
@@ -198,4 +236,11 @@ def generation_messages(
         system.append({"role": "system", "content": IMAGES_INSTRUCTION})
     elif tools:
         system.append({"role": "system", "content": IMAGES_CAPABILITY})
-    return [*system, *_request(messages, send_own=send_own, shown=shown), *_transcript(steps, notices=False)]
+    if any(step.result.charts for step in executed):
+        system.append({"role": "system", "content": CHARTS_INSTRUCTION})
+    if tools:
+        system.append({"role": "system", "content": NO_TOOLS_INSTRUCTION})
+        system.append({"role": "system", "content": CHART_BLOCK_INSTRUCTION})
+    if truncated:
+        system.append({"role": "system", "content": LIMIT_INSTRUCTION})
+    return [*system, *_request(messages, send_own=send_own, shown=shown), *_generation_transcript(steps)]

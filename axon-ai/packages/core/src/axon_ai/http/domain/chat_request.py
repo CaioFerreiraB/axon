@@ -9,11 +9,13 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from dataclasses import field as confidential_field
 from typing import Any, Final, Literal
 
 from axon_ai.assistants.api import WIDENING_FIELDS
 from axon_ai.http.domain.errors import InvalidRequest
 from axon_ai.http.domain.images import ImageLimits, read_messages
+from axon_ai.mcp.api import DelegatedAuthorization
 from axon_ai_contracts import Message
 
 CAPABILITY_FIELDS: Final = tuple(sorted(WIDENING_FIELDS))
@@ -33,10 +35,18 @@ STORE_HEADER: Final = "x-axon-store"
 PROGRESS_HEADER: Final = "x-axon-progress"
 """Como o progresso aparece em streaming (FR-005a): `reasoning` (padrão) ou `status`, a timeline do Open WebUI."""
 
+CITATIONS_HEADER: Final = "x-axon-citations"
+"""As citações também como fontes do Open WebUI (FR-005b, ADR-051): `none` (padrão) ou `sources`."""
+
+CHARTS_HEADER: Final = "x-axon-charts"
+"""Os gráficos também como `embeds` do Open WebUI (FR-005c, ADR-052): `none` (padrão) ou `embeds`."""
+
 LEGACY_HEADERS: Final = {"x-ai-core-store": STORE_HEADER, "x-ai-core-progress": PROGRESS_HEADER}
 """Os nomes de antes do renome (ADR-037) e os novos: o antigo é recusado citando o novo, nunca ignorado (FR-030)."""
 
 type ProgressMode = Literal["reasoning", "status"]
+type CitationsMode = Literal["none", "sources"]
+type ChartsMode = Literal["none", "embeds"]
 
 
 class ChatRequestInvalid(InvalidRequest):
@@ -47,6 +57,7 @@ class ChatRequestInvalid(InvalidRequest):
 class ChatRequest:
     """O que a API extrai do corpo e entrega ao serviço."""
 
+    mcp_delegation: DelegatedAuthorization | None = confidential_field(default=None, repr=False)
     model: str
     messages: tuple[Message, ...]
     stream: bool
@@ -55,6 +66,10 @@ class ChatRequest:
     """`False` no pedido efêmero (FR-023): nenhuma conversa é criada nem gravada."""
     progress: ProgressMode = "reasoning"
     """`status` mostra o progresso como timeline de status do Open WebUI (FR-005a)."""
+    citations: CitationsMode = "none"
+    """`sources` manda, em streaming, cada citação como fonte do Open WebUI (FR-005b, ADR-051)."""
+    charts: ChartsMode = "none"
+    """`embeds` manda, em streaming, os gráficos como `embeds` do Open WebUI (FR-005c, ADR-052)."""
 
 
 def parse(
@@ -62,10 +77,12 @@ def parse(
     *,
     store_header: str | None = None,
     progress_header: str | None = None,
+    citations_header: str | None = None,
+    charts_header: str | None = None,
     limits: ImageLimits | None = None,
 ) -> ChatRequest:
-    """Valida o corpo no formato OpenAI (e os cabeçalhos `x-axon-store` e `x-axon-progress`) e devolve só o que a
-    execução usa."""
+    """Valida o corpo no formato OpenAI (e os cabeçalhos `x-axon-store`, `x-axon-progress`, `x-axon-citations` e
+    `x-axon-charts`) e devolve só o que a execução usa."""
     reject_forbidden(body)
 
     model = body.get("model")
@@ -80,6 +97,8 @@ def parse(
         conversation_id=conversation_id,
         store=parse_store(store_header, conversation_id),
         progress=parse_progress(progress_header),
+        citations=parse_citations(citations_header),
+        charts=parse_charts(charts_header),
     )
 
 
@@ -107,6 +126,40 @@ def parse_progress(value: str | None) -> ProgressMode:
     raise ChatRequestInvalid(
         f"cabeçalho '{PROGRESS_HEADER}' aceita só 'reasoning' ou 'status': {value!r}",
         field=PROGRESS_HEADER,
+        code="invalid_header",
+    )
+
+
+def parse_citations(value: str | None) -> CitationsMode:
+    """O cabeçalho `x-axon-citations` (FR-005b, ADR-051): ausente ou `none` deixa as citações só em `x_axon`;
+    `sources` as manda também como fontes do Open WebUI. Outro valor é recusado, como no `x-axon-progress`."""
+    if value is None:
+        return "none"
+    normalized = value.strip().lower()
+    if normalized == "none":
+        return "none"
+    if normalized == "sources":
+        return "sources"
+    raise ChatRequestInvalid(
+        f"cabeçalho '{CITATIONS_HEADER}' aceita só 'none' ou 'sources': {value!r}",
+        field=CITATIONS_HEADER,
+        code="invalid_header",
+    )
+
+
+def parse_charts(value: str | None) -> ChartsMode:
+    """O cabeçalho `x-axon-charts` (FR-005c, ADR-052): ausente ou `none` deixa os gráficos na tabela e em `x_axon`;
+    `embeds` os manda também como `embeds` do Open WebUI. Outro valor é recusado, como no `x-axon-citations`."""
+    if value is None:
+        return "none"
+    normalized = value.strip().lower()
+    if normalized == "none":
+        return "none"
+    if normalized == "embeds":
+        return "embeds"
+    raise ChatRequestInvalid(
+        f"cabeçalho '{CHARTS_HEADER}' aceita só 'none' ou 'embeds': {value!r}",
+        field=CHARTS_HEADER,
         code="invalid_header",
     )
 

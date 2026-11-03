@@ -96,8 +96,14 @@ class _Http:
         )
         public = urlsplit(service.config.public_url)
         self.public_origin = f"{public.scheme}://{public.netloc}"
-        origins = " ".join(origin for origin in redirect_origins(tuple(service.clients.values())))
-        self.csp = (
+
+    @property
+    def csp(self) -> str:
+        """Calculada a cada página, dos clientes atuais: no perfil `persistent`, o serviço de runtime só carrega o
+        `identity.yaml` quando o pool abre, depois de o router existir — uma CSP fixa na construção ficava sem as
+        origens, e o Chrome bloqueava o retorno do login por senha ao cliente (`form-action`; research R27)."""
+        origins = " ".join(origin for origin in redirect_origins(tuple(self.service.clients.values())))
+        return (
             "default-src 'none'; style-src 'self'; font-src 'self'; img-src 'self' data:; "
             + f"form-action 'self' {origins}".rstrip()
             + "; frame-ancestors 'none'; base-uri 'none'"

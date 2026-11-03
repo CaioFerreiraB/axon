@@ -220,6 +220,7 @@ reordenados, cada um vindo de `documents` (verificado pela conformidade: `rerank
 | `status` | `str \| None` | não |
 | `section` | `str \| None` | não |
 | `page` | `int \| None` | não |
+| `url` | `str \| None` | não — desde 0.2.3: o endereço do original para o usuário abrir, montado pelo pack (FR-030, ADR-051) |
 
 ## Validação de resposta
 

@@ -33,7 +33,11 @@ import typing_extensions
 
 PACKAGE = "axon_ai_contracts"
 EXCLUDED = frozenset({"__version__"})
-SET_CONSTANTS = frozenset({"ISSUE_CODES"})
+SET_CONSTANTS = frozenset({"ISSUE_CODES", "CHART_KINDS", "CHART_X_TYPES"})
+"""Conjuntos comparados item a item: código novo é aditivo, removido é breaking. As listas do gráfico entram pelo
+ADR-053: o pack só produz `Chart`, quem o lê é o core."""
+WIDENING_ALIASES = frozenset({"ChartKind", "ChartXType"})
+"""Aliases `Literal` comparados membro a membro, pela mesma regra (ADR-053)."""
 _QUALIFIER_RE = re.compile(r"^(?:typing_extensions\.|typing\.)?(Required|NotRequired|ReadOnly)\[(.*)\]$", re.S)
 _BUMP_ORDER = {"none": 0, "patch": 1, "minor": 2, "major": 3}
 
@@ -176,7 +180,9 @@ def _fields(cls: type) -> dict[str, Any]:
 def describe(obj: object, *, name: str = "", defaults: type | None = None) -> dict[str, Any]:
     """Descrição canônica de um símbolo público (compatibility.md §9)."""
     info: dict[str, Any] = {"deprecated_since": getattr(obj, "__contract_deprecated_since__", None)}
-    if isinstance(obj, typing.TypeAliasType):
+    if isinstance(obj, typing.TypeAliasType) and name in WIDENING_ALIASES:
+        info.update(kind="type_alias", value=sorted(str(item) for item in typing.get_args(obj.__value__)))
+    elif isinstance(obj, typing.TypeAliasType):
         info.update(kind="type_alias", value=_type_repr(obj.__value__))
     elif typing_extensions.is_typeddict(obj):
         info.update(kind="typeddict", total=bool(getattr(obj, "__total__", True)), keys=_typeddict_keys(obj))  # type: ignore[arg-type]
@@ -366,7 +372,7 @@ def _compare_symbol(symbol: str, name: str, old: dict[str, Any], new: dict[str, 
         changes.extend(_compare_keys(symbol, old["keys"], new["keys"]))
     elif kind == "function":
         changes.extend(_compare_callable(symbol, old, new))
-    elif kind == "constant" and name in SET_CONSTANTS:
+    elif (kind == "constant" and name in SET_CONSTANTS) or (kind == "type_alias" and name in WIDENING_ALIASES):
         before, after = set(old["value"]), set(new["value"])
         changes.extend(Change("breaking", f"{symbol}:{code}", "código removido") for code in sorted(before - after))
         changes.extend(Change("additive", f"{symbol}:{code}", "código novo") for code in sorted(after - before))

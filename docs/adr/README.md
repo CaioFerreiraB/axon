@@ -49,6 +49,16 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 | [042](ADR-042-instalacao-por-camadas.md) | Instalação por camadas: imagens base da plataforma e um repositório por instalação (substitui o 022) | Aceita | 002, 011 |
 | [043](ADR-043-indice-do-scouting-gerado-no-desenvolvimento.md) | O índice do scouting é gerado no desenvolvimento e distribuído com o pack, com vetores de mais de um modelo | Aceita | 102, 103, 101, 105 |
 | [044](ADR-044-imagens-na-conversa.md) | Imagens na conversa: as que as tools devolvem e as que o usuário envia | Aceita | 001, 002, 003, 004, 005, 006, 007, 008, 009, 011, 013 |
+| [045](ADR-045-filhotes-e-consulta-multifaceta-no-scouting.md) | Ramo Filhotes e pergunta sobre vários ramos no scouting | Aceita | 101, 102, 103, 105 |
+| [046](ADR-046-tipo-sugerido-ordena-no-scouting.md) | No scouting, o tipo de documento sugerido pelo tema ordena; só o citado filtra | Aceita | 101, 103, 105 |
+| [047](ADR-047-lista-de-documentos-do-acervo-no-scouting.md) | No scouting, a pergunta que pede uma lista de documentos recebe uma ficha por documento do acervo | Aceita | 101, 102, 103, 105 |
+| [048](ADR-048-arvore-de-unidades-e-enumeracao-no-scouting.md) | No scouting, cada documento vira uma árvore de unidades tipadas, e a pergunta de enumeração é respondida pela estrutura | Aceita | 101, 102, 103, 105 |
+| [049](ADR-049-taxonomia-e-a-tipologia-do-acervo-no-scouting.md) | No scouting, a taxonomia do acervo é a única tipologia: o `type` sai do catálogo, e tipo, órgão e abrangência vêm da pasta | Aceita | 101, 102, 103, 105 |
+| [050](ADR-050-leitura-fiel-e-trecho-que-cabe-no-embedder-no-scouting.md) | No scouting, a ingestão lê colunas e títulos pela tipografia, todo trecho cabe no embedder e o OCR vira transcrição revisável | Aceita | 102, 105 |
+| [051](ADR-051-link-da-citacao-e-fontes-no-open-webui.md) | A citação leva o link do original, e a API manda as fontes no dialeto do Open WebUI atrás de `x-axon-citations` | Aceita | 001, 008, 102, 104 |
+| [052](ADR-052-graficos-na-conversa.md) | Gráficos na conversa: a tool entrega dados, a API desenha o ECharts no `embeds` do Open WebUI atrás de `x-axon-charts` | Aceita | 001, 004, 005, 008, 010, 011, 013 |
+| [053](ADR-053-listas-do-grafico-crescem-sem-quebrar.md) | As listas fechadas do gráfico crescem sem quebrar, e o waterfall entra | Aceita | 001, 008, 010 |
+| [054](ADR-054-a-geracao-declara-graficos-em-json.md) | A geração declara gráficos em JSON na resposta | Aceita | 005 |
 
 ## Modelo para ADR novo
 
@@ -64,3 +74,5 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 ## Alternativas rejeitadas
 ## Consequências
 ```
+
+- [ADR-055 — Autenticação MCP delegada](ADR-055-autenticacao-mcp-delegada.md): identidade confidencial por execução; seams 004/005/007/008.

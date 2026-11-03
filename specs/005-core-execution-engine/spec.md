@@ -53,6 +53,12 @@
 - Q: Quando uma imagem da resposta anterior vai à geração (item 8)? → A: Só se a pergunta for sobre ela, e só se a geração declara `vision`. As candidatas são as imagens da última mensagem do assistente. No `agentic` (e no loop do `rag_first` que escalou), o formato da ação ganha `{"action": "view_image", "id": "<id>"}`, o sistema do controller lista só os ids, a escolha conta como iteração e a mesma imagem pedida de novo segue a regra da ação repetida (FR-006b). No `chat` e no `rag_first` que vai à geração (coberto ou sem trechos), com `controller` declarado, uma etapa nova, `image_gate`, chama o controller uma vez com saída `{"view": [...]}`; falha ou saída fora do formato segue sem imagem, com `notice`. Sem `controller`, todas as candidatas vão. Sem candidata, os dois flows são os de antes — nem o `controller` é resolvido no `chat`.
 - Q: Como a imagem escolhida chega à geração, e quanto custa no teto? → A: Na última mensagem do usuário enviada à geração, como parte `image_url`, precedida da marca `[imagem <id> mostrada ao usuário]`. No teto de contexto (FR-011), cada imagem enviada conta um custo fixo de 1.000 tokens (provisório, a calibrar com o provider) e não é tirada pela regra de omissão.
 
+### Session 2026-10-28
+
+- Q: Como o gráfico que uma tool devolve chega ao usuário ([ADR-052](../../docs/adr/ADR-052-graficos-na-conversa.md))? → A: Como a imagem: um `ChartEvent(chart, tool)` logo depois do `StepFinished` da tool (depois das imagens dela), uma vez por `id` na execução, e os mesmos em `FinalEvent.charts`. O modelo não recebe os dados, só a marca que a 004 põe no resultado cercado.
+- Q: O modelo sabe que o gráfico foi mostrado? → A: Sim, por duas frases fixas do core, sem domínio: o `CONTROLLER_INSTRUCTION` passa a falar de "imagens e gráficos" que as ferramentas devolvem, e a geração do turno em que uma tool devolveu gráfico recebe `CHARTS_INSTRUCTION` — o gráfico aparece para o usuário, interativo e com a tabela; não refazê-lo em texto, tabela, código ou imagem; comentar o que mostra.
+- Q: O que a geração sabe quando o loop termina, e em especial quando ele é cortado pelo limite (produção, 2026-10-29)? → A: Toda geração depois do loop (`agentic`, ou `rag_first` que escalou) recebe a frase fixa `NO_TOOLS_INSTRUCTION`: as ferramentas acabaram, escreva só texto, nunca chamadas nem `<tool_call>`. No corte pelo limite (`IterationLimit`), recebe também `LIMIT_INSTRUCTION`: responda com o que os resultados trazem e diga o que ficou faltando, como um gráfico que não chegou a ser feito. Sem elas, o glm-5.3-flash escrevia a chamada como texto; o filtro de marcação a cortava, e a resposta ficava vazia.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Conversa direta com resposta em streaming (Priority: P1)
@@ -170,6 +176,7 @@ Quando o catálogo inclui a rotina de um pack, o controller pode invocá-la como
 - **FR-005**: No flow `agentic`, o controller DEVE emitir exatamente uma ação estruturada por iteração, sob restrição de formato de saída.
 - **FR-006**: Toda execução DEVE ter contador de iterações e respeitar o limite do grant; ao atingi-lo, DEVE seguir para a geração e registrar o truncamento. Sem limite declarado no grant, o limite é **3** — constante do motor, não configurável pelo operador.
 - **FR-006a**: No flow `agentic`, falha da chamada ao modelo do `controller` depois do primeiro evento NÃO DEVE encerrar a execução nem ser repetida: o motor DEVE seguir para a geração com o que acumulou e registrar o erro, nomeando provider e modelo.
+- **FR-006b**: A geração depois do loop DEVE receber o aviso fixo de que não há mais ferramentas e de que não deve escrever chamadas; quando o loop foi cortado pelo limite de iterações, DEVE receber também o aviso de responder com o que há e dizer o que ficou faltando. O `chat` não recebe nenhum dos dois.
 - **FR-006b**: No loop, uma ação de tool com o mesmo nome e os mesmos argumentos de uma tool já executada na execução NÃO DEVE ser executada de novo: o motor DEVE seguir para a geração e registrar `RepeatedAction` (`notice`).
 - **FR-006c**: O controller e a geração do loop DEVEM receber, no texto de sistema, a data de referência da execução no fuso da instalação (011). O `chat` não a recebe.
 - **FR-007**: No flow `rag_first`, o portão de cobertura DEVE ser determinístico: melhor score abaixo de limiar configurável ou nenhum resultado após filtros → escalar; caso contrário → gerar. Limiar, número de candidatos pedidos aos retrievers e número de trechos levados à geração DEVEM ser configuração do operador (`AXON_RAG_*`), com defaults 20 candidatos, 5 trechos e sem limiar — sem limiar, só a ausência de resultado escala (clarificação de 2026-10-09).
@@ -193,6 +200,8 @@ Quando o catálogo inclui a rotina de um pack, o controller pode invocá-la como
 - **FR-021**: Uma imagem da última mensagem do assistente DEVE ir à geração só quando a pergunta for sobre ela e o papel `generation` declarar `vision`: pela ação `view_image` do controller no loop (conta como iteração; repetida, segue o FR-006b), pela etapa `image_gate` no `chat` e no `rag_first` que vai à geração quando o Assistant declara `controller` (falha segue sem imagem, com `notice`), e sem decisão — todas — quando não há `controller` (item 8).
 - **FR-022**: O `controller` DEVE ser papel opcional também no `chat`, resolvido só quando a etapa `image_gate` vai rodar; a etapa DEVE publicar progresso e desfecho (`ImageGateOutcome`), e a decisão DEVE ir ao trace como `controller_decision` com a ação `view_image` (ADR-017, ADR-019, ADR-028).
 - **FR-023**: O teto de contexto (FR-011) DEVE estimar cada imagem enviada ao modelo por um custo fixo.
+- **FR-024**: Os gráficos que as tools devolvem (`FencedToolResult.charts`, 004) DEVEM ir ao consumidor como `ChartEvent`, depois do desfecho da tool e das imagens dela, uma vez por `id` na execução, e em `FinalEvent.charts`; NÃO DEVEM ir ao modelo. A geração do turno em que houve gráfico DEVE receber o aviso fixo de que ele aparece para o usuário ([ADR-052](../../docs/adr/ADR-052-graficos-na-conversa.md), item 2).
+- **FR-024a**: Numa execução com tools, a geração DEVE receber o aviso fixo do bloco ` ```axon-chart ` e PODE declarar gráficos em JSON nesse bloco; o motor DEVE tirar o bloco do texto em streaming, validá-lo pelo `Chart` do contrato e entregá-lo como os gráficos de tool (`ChartEvent`, `FinalEvent.charts`), até 4 por resposta e sem repetir; bloco inválido DEVE sair do texto e virar registro `ChartBlockInvalid` (`notice`) ([ADR-054](../../docs/adr/ADR-054-a-geracao-declara-graficos-em-json.md)).
 
 ### Key Entities
 
@@ -220,3 +229,8 @@ Quando o catálogo inclui a rotina de um pack, o controller pode invocá-la como
 - Na composição de vários packs em `rag_first`, a recuperação consulta os retrievers de todos os packs do grant e une os resultados por score; se isso se mostrar inadequado, a regra muda aqui sem afetar packs.
 - Defaults do hardware alvo: limite de iterações 3 quando o Assistant não declara outro (FR-006) e catálogo mínimo em contexto.
 - O limiar do portão de cobertura é calibrado na Fase 6 (spec 105), não aqui; até lá o default é não ter limiar, e o operador pode configurar um provisório.
+
+
+## Incremento: delegação MCP por execução (2026-10-29)
+
+Regido por [ADR-055](../../docs/adr/ADR-055-autenticacao-mcp-delegada.md). Protocolo 1: um MCP delegado por grant, identidade confidencial por execução, sem cache compartilhado e sem alteração da ACL. Contrato: [delegação](../007-core-mcp-integration/contracts/delegation.md). Casos D01 isolamento concorrente; D02 falha fechada; D03 metadados e superfície privada; D04 segredo ausente de persistência/trace; D05 regressão estática.

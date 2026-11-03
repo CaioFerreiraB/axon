@@ -416,3 +416,22 @@ T072 → T073.
   a caixa "Enxerga imagens" e o selo "Visão"; resumo, histórico e lista lendo as duas formas (R28)
 - [X] T075 [P] Testes: Vitest (marcar e enviar; ler o objeto e mostrar o selo) e e2e (`assistant-models.spec.ts`: 400
   `vision_unsupported` antes, 200 depois de salvar)
+
+---
+
+## Passada de 2026-10-28: o repasse dos scripts dos gráficos ([ADR-052](../../docs/adr/ADR-052-graficos-na-conversa.md))
+
+**Goal**: com a console, o `AXON_PUBLIC_URL` é o domínio dela; o iframe do Open WebUI carrega os scripts dos gráficos
+desse domínio, então o nginx repassa `/static/` ao core, como os outros prefixos.
+
+- [X] `deploy/nginx.conf.template`: `location /static/` com `proxy_pass` ao core, sem cabeçalho próprio (os do core:
+  cache imutável, CORS, `nosniff`); `contracts/serving.md` com o prefixo
+- [X] `e2e/serving.spec.ts`: o locale do ECharts pelo nginx, 200, imutável, com CORS e sem a CSP da SPA — 5 passed com
+  o nginx da instalação (`e2e/serve_nginx.sh`) e a plataforma do e2e
+
+## Correção de 2026-10-30: MCP delegado na console (ADR-055)
+
+- [X] T076 Reproduzir lista mista rejeitada e cobrir detalhes, edição sem downgrade e aba do Assistant.
+- [X] T077 Aceitar o contrato delegado e distinguir verificação por execução nos dois consumidores de saúde.
+- [X] T078 Validar typecheck, lint, Vitest e e2e contra API real: 153 testes de unidade e 5 e2e MCP passaram;
+  publicação segue a versão 0.7.0rc15.

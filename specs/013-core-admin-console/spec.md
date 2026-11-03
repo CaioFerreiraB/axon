@@ -209,6 +209,12 @@ vínculos com o Google, e cria e apaga grupos.
 
 ### User Story 7 - Servidores MCP globais (Priority: P3)
 
+Regressão ADR-055: a lista aceita `auth.type: delegated` junto aos modos existentes. A console indica
+"Por execução" para a conectividade delegada, sem sondagem administrativa sem credencial; a configuração
+inválida continua visível como indisponível. Os detalhes explicam a autorização temporária, e editar um
+registro delegado preserva esse modo sem solicitar nem enviar credencial estática. A aba MCP do Assistant
+mostra as tools configuradas na política, deixando claro que a descoberta ocorre na execução.
+
 O admin lista os servidores MCP globais com estado e tools, cadastra, edita e remove os registrados pela API. Os que
 vêm do arquivo do operador aparecem somente leitura.
 
