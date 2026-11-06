@@ -657,7 +657,8 @@ grupo de cada vez: `PUT`/`DELETE /admin/v1/users/{u}/groups/{g}` e `axon groups 
 `TEST_USERS_API_KEY` (só `users`). A prova é `tests/bootstrap/integration/test_platform_user_admin_scopes.py`: no
 `persistent`, nenhuma linha dos seis schemas cita a conta apagada. A console escolhe os escopos ao criar a chave (sem
 `admin`), apaga a conta confirmando pelo nome e mostra o relatório, e os grupos da ficha valem na hora. Fica fora o que já
-saiu do processo (log, trace em arquivo, Langfuse).
+saiu do processo (log, trace em arquivo, Langfuse). O core está em `0.7.0rc17` (tag `v0.7.0-rc17`, contratos
+`0.2.5`, sem mudança).
 
 O `axon-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
