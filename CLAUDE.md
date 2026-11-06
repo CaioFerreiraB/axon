@@ -587,6 +587,9 @@ metadados do `Chunk` (`source_url`, também nas fichas de unidades), e o `citati
 instalação (`axon-deploy/template`, `axon-cfblabs`) e o dev mandam `x-axon-citations: sources`, e o `check-webui.py` do
 `axon-cfblabs` confere as fontes gravadas. O core está em `0.7.0rc8` (tag `v0.7.0-rc8`, contratos `0.2.3` na tag
 `contracts-v0.2.3`), e o pack `scouting` em `0.8.0`, pela mesma tag.
+Em 2026-11-06, o `scouting` 0.8.1 trouxe só dados: três documentos do GE Professora Inah de Mello (lei de
+utilidade pública, estatuto e política; pastas novas `legislacao/utilidade-publica/local` e `…/politicas/local`, tipo
+`Lei`), com 642 documentos e 15.685 trechos e `fact_recall` igual.
 
 Gráficos na conversa (ADR-052): os contratos `0.2.4` têm `Chart` (com `ChartSeries` e `ChartPoint`) e
 `ToolResult.charts`. O esquema é fechado: tipos `line|area|bar|stacked_bar|scatter|pie|donut`, eixo
