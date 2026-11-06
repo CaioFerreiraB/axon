@@ -296,3 +296,12 @@ Regras: elegível = `not failed and output_tokens > 0`; estimada = elegível com
 `ecologits_version text`, `impact_warnings text[]`, e 22 `double precision`: `energy_kwh_{min,max}`,
 `gwp_kgco2eq_{min,max}`, `adpe_kgsbeq_{min,max}`, `pe_mj_{min,max}`, `wcf_l_{min,max}`,
 `{gwp,adpe,pe}_{usage,embodied}_{min,max}`. Índice parcial `model_calls_unestimated` (R47).
+
+## Pseudônimo nos autores (incremento 9.7, US10)
+
+- **ObservabilityErasureReport** (`api.py`): `prices: int` (preços cujo `created_by` era o subject) e
+  `destination_settings: int` (0 ou 1: a linha única dos ajustes, se o subject foi o último autor).
+- `erase_subject(subject, *, pseudonym)`: `subject` casa `(user|svc):\S+` e `pseudonym` casa `deleted:[0-9a-f]{16}`
+  (`domain/erasure.py`); senão `InvalidField` com `field` igual ao nome do parâmetro. Muda só o autor; a `version` e o
+  `updated_at` dos ajustes ficam.
+

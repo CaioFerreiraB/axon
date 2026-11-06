@@ -35,3 +35,22 @@ Conformidade: `tests/http/contract/test_conversation_routes.py` (US7 cen. 1, 2, 
 cliente nunca entram numa execução com id — SC-005), `tests/http/integration/test_conversation_restart.py` (cen. 3:
 serviço novo sobre o mesmo armazenamento, também contra Postgres), `tests/http/unit/test_conversation_expiry.py` (cen.
 7 e SC-007, com relógio fixo).
+
+
+## Apagamento das conversas de um subject (incremento 9.7, US14; research R71)
+
+Seam Python em `http/api.py`, consumido só pela 011:
+
+```python
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ConversationErasureReport:
+    conversations: int = 0
+    attachments: int = 0
+
+class ConversationErasure(Protocol):
+    async def erase_subject(self, subject: str) -> ConversationErasureReport: ...
+```
+
+Apaga todas as conversas do dono, com as mensagens e as imagens (cascata); idempotente; subject fora de `user:…`/`svc:…`
+→ `RequestRejected(field="subject")` sem tocar dados. Conformidade: `contract/test_conversation_erasure.py` (memória ×
+Postgres; SC-014 pela varredura do schema `http`).

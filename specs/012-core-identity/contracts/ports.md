@@ -22,3 +22,12 @@ contra ele e contra o real.
 Import-linter: `identity.api`, `domain`, `ports` e `service` não importam `jwt`, `cryptography`, `argon2`, `httpx`,
 `psycopg`, `psycopg_pool`, `yaml`, `fastapi`, `starlette`; outros módulos importam só `identity.api`; o adapter HTTP
 importa `fastapi` como o da 008.
+
+## Fase 9, incremento 9.7 (2026-11-04; research R29, R30, R32)
+
+| Porta | Mudança | Conformidade |
+|---|---|---|
+| `SubjectDataEraser` (nova) | `name: str`; `erase(subject, *, actor, pseudonym) -> ErasedData(counts, warnings)`; idempotente; exceção = falha | adapters de teste nas suítes; os reais são da 011 |
+| `AccountStore` | `delete(account_id) -> bool` (associações e conta); `replace_actor(old, new) -> int`; `add_member(account_id, group, *, at, actor) -> bool` e `remove_member(...) -> bool` (só mudando: versão + 1, autor, instante); `deletion_pseudonym` na ida e volta | `test_account_store.py` (memória × Postgres) |
+| `GrantStore` | `erase_account(account_id) -> Mapping[str, int]` (`sessions`, `refresh_tokens`, `codes`, `pending`) | `test_grant_store.py` |
+| `IdentitySettingsStore` | `replace_actor(old, new) -> int` | `test_settings_store.py` |

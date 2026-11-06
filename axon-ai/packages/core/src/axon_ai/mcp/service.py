@@ -11,13 +11,14 @@ from collections.abc import Mapping, Sequence
 from datetime import timedelta
 from typing import Final
 
-from axon_ai.assistants.api import ExecutionGrant, Principal
+from axon_ai.assistants.api import SUBJECT_PATTERN, ExecutionGrant, Principal
 from axon_ai.mcp.api import (
     DEFAULT_MAX_ATTACHMENT_BYTES,
     DelegatedAuthorization,
     Discovery,
     McpConflict,
     McpDelegation,
+    McpErasureReport,
     McpNotFound,
     McpRejected,
     McpServer,
@@ -178,6 +179,15 @@ class McpService:
             for server in visible
             if usable(server)
         ]
+
+    # --- McpSubjectErasure (incremento 9.7, FR-018, FR-019) ---------------------------------------------------------
+
+    async def erase_subject(self, subject: str) -> McpErasureReport:
+        if not SUBJECT_PATTERN.fullmatch(subject):
+            raise McpRejected(f"subject precisa ser 'user:<id>' ou 'svc:<id>': {subject!r}", field="subject")
+        servers = await self._store.erase_owner(subject)
+        self._cache.forget_owner(subject)
+        return McpErasureReport(servers=servers)
 
     # --- McpRegistry: saúde (FR-011, R14) --------------------------------------------------------------------------
 

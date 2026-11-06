@@ -157,6 +157,12 @@ agregador como adapter dessa porta ao montar a app — assim a 008 não importa 
 | `ConfigSource` | secundária | arquivos montados (`packs.yaml`, `assistants.yaml`; Fase 9: `identity.yaml`) + variáveis de ambiente (Fase 9: `AXON_PUBLIC_URL`, `AXON_IDENTITY_*`, `AXON_MASTER_KEY`, `AXON_GOOGLE_*`, `AXON_BOOTSTRAP_ADMIN_*`, `AXON_TRUSTED_PROXIES`, `AXON_COOKIE_SECURE`, `AXON_LANGFUSE_*`, `AXON_USAGE_*`) | configuração em memória |
 | Pontos de entrada (`axon-ai`, `serve`) | primária (processo) | CLI | teste ponta a ponta no perfil `test` |
 
+### Apagadores (incremento 9.7, ADR-058 item 3)
+
+A porta `SubjectDataEraser` da 012 é cumprida por cinco `ModuleEraser` de `bootstrap/erasure.py`, na ordem 003 → 007 →
+008 → 004 → 009, montados na hora do apagamento sobre os serviços da plataforma (servidor) ou os da sessão de
+armazenamento (linha de comando) — research R58, R59.
+
 ## Fronteira verificada
 
 ```toml

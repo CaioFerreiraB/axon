@@ -220,9 +220,10 @@ Campos rejeitados por ampliar: `packs`, `mcp_servers`, `provider` fora da allowl
 | `Authenticator` | primária (seam) | `service.py` | suíte de conformidade (os dois esquemas, credencial inválida) |
 | `GrantResolver` | primária (seam) | `service.py` | suíte adversarial: 404-não-403, ampliação rejeitada |
 | `AssistantDirectory` | primária (seam) | `service.py` | listagem filtrada por ACL |
+| `SubjectErasure` | primária (seam, 2026-11-04, [ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md)) | `service.py` (`SubjectEraser`, sobre `ApiKeyStore`, `UserAssistantStore` e `SystemOverrideStore`) | memória e Postgres: contagens, idempotência, `allow` vazio indisponível, conflito de versão |
 | `SystemAssistantAdmin` | primária (seam, Fase 9) | `service.py` | suíte adversarial: fora da allowlist, escrita em público, seção não permitida, sobreposição inativa, conflito de versão |
-| `AssistantStore` | secundária | YAML (sistema); memória → Postgres (usuário, Fase 2) — dividida em `AssistantConfigSource` e `UserAssistantStore` ([research R15](research.md)) | em memória + conformidade contra Postgres |
-| `ApiKeyStore` | secundária | ~~configuração do operador (Fase 2); armazenamento a decidir no plano~~ — memória → Postgres, só o hash (clarificação de 2026-09-30, [research R7, R8](research.md), [ADR-015](../../docs/adr/ADR-015-persistencia-postgres-por-modulo.md)); troca atômica do hash na rotação (ADR-040) | em memória + conformidade contra Postgres |
+| `AssistantStore` | secundária | YAML (sistema); memória → Postgres (usuário, Fase 2) — dividida em `AssistantConfigSource` e `UserAssistantStore` ([research R15](research.md)); apagamento por dono (ADR-058) | em memória + conformidade contra Postgres |
+| `ApiKeyStore` | secundária | ~~configuração do operador (Fase 2); armazenamento a decidir no plano~~ — memória → Postgres, só o hash (clarificação de 2026-09-30, [research R7, R8](research.md), [ADR-015](../../docs/adr/ADR-015-persistencia-postgres-por-modulo.md)); troca atômica do hash na rotação (ADR-040); escopos por chave e apagamento por subject ([ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md), ADR-058) | em memória + conformidade contra Postgres |
 | `OidcVerifier` | secundária | JWKS do provedor OIDC; Fase 9: fonte de chaves plugável — HTTP ou em processo (012, pela 011), audiência por superfície | verificador de teste com chaves locais |
 | `SystemOverrideStore` | secundária (Fase 9) | memória → Postgres | em memória + conformidade contra Postgres |
 | `RateCounterStore` | secundária | memória | em memória |

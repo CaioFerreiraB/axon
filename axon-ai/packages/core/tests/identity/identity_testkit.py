@@ -77,6 +77,8 @@ def account(
     password_hash: str | None = "fast-v1$x",
     google_sub: str | None = None,
     version: int = 1,
+    updated_by: str = "cli",
+    deletion_pseudonym: str | None = None,
 ) -> AccountRecord:
     return AccountRecord(
         account=Account(
@@ -91,11 +93,13 @@ def account(
             google_linked=google_sub is not None,
             created_at=T0,
             updated_at=T0,
-            updated_by="cli",
+            updated_by=updated_by,
             version=version,
+            deleting=deletion_pseudonym is not None,
         ),
         password_hash=password_hash,
         google_sub=google_sub,
+        deletion_pseudonym=deletion_pseudonym,
     )
 
 
@@ -147,6 +151,7 @@ def harness(
     bootstrap: BootstrapAdmin | None = None,
     public_url: str = ISSUER,
     stores: Any = None,
+    erasers: Any = (),
 ) -> Harness:
     """Serviço com as portas em memória; `stores` (do conftest) troca os quatro armazenamentos, como o Postgres."""
     clock = FixedClock(T0)
@@ -184,6 +189,7 @@ def harness(
         clock=clock,
         tokens=parts.tokens,
         google=parts.google if google else None,
+        erasers=erasers,
     )
     return parts
 

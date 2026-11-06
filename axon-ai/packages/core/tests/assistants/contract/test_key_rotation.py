@@ -45,7 +45,7 @@ async def test_segredo_antigo_morre_e_o_novo_autentica_com_o_mesmo_principal() -
 
 async def test_chave_de_admin_rotacionada_vale_na_administracao() -> None:
     service = access_service()
-    admin = await service.issue_as_operator(subject="user:caio", groups=["operadores"])
+    admin = await service.issue_as_operator(subject="user:caio", groups=["operadores"], scopes=["inference", "admin"])
     rotated = await service.rotate(actor=CAIO_KEY, key_id=admin.info.key_id)
 
     assert await service.authenticate(surface="admin", credential=admin.plaintext) is None
@@ -103,7 +103,7 @@ async def test_duas_chaves_do_mesmo_sistema_sao_independentes() -> None:
 
 async def test_rotacionar_a_propria_chave_conclui_e_a_seguinte_e_recusada() -> None:
     service = access_service()
-    propria = await service.issue_as_operator(subject="user:caio", groups=["operadores"])
+    propria = await service.issue_as_operator(subject="user:caio", groups=["operadores"], scopes=["inference", "admin"])
     actor = await service.authenticate(surface="admin", credential=propria.plaintext)
     assert actor is not None
 

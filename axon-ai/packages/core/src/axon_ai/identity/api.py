@@ -13,6 +13,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
+from types import MappingProxyType
 from typing import Final, Literal, Protocol
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -89,6 +90,8 @@ class Account:
     updated_by: str | None = None
     last_login_at: datetime | None = None
     version: int = 1
+    deleting: bool = False
+    """Em apagamento (ADR-058): inativa, sem grupos, nome ainda preso; só o `delete` repetido a conclui."""
 
     def __post_init__(self) -> None:
         if not self.id:
@@ -102,6 +105,8 @@ class Account:
             raise ValueError("conta só Google não tem senha temporária")
         if self.version < 1:
             raise ValueError("versão começa em 1")
+        if self.deleting and (self.active or self.groups):
+            raise ValueError("conta em apagamento é inativa e sem grupos")
 
     @property
     def subject(self) -> str:
@@ -184,6 +189,37 @@ class LoginSettingsView:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class ModuleErasure:
+    """O que um apagador de outro módulo devolveu (ADR-058): nome, contagens e avisos, ou que falhou. A identidade não
+    interpreta nada disso (FR-032)."""
+
+    name: str
+    counts: Mapping[str, int] = MappingProxyType({})
+    warnings: tuple[str, ...] = ()
+    failed: bool = False
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "counts", MappingProxyType(dict(self.counts)))
+        object.__setattr__(self, "warnings", tuple(self.warnings))
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DeletionReport:
+    """O relatório do apagamento de uma conta. Nunca traz o pseudônimo (ADR-059): quem apaga não religa a trilha."""
+
+    username: str
+    complete: bool
+    identity: Mapping[str, int] = MappingProxyType({})
+    """O que a própria identidade apagou ou trocou: `sessions`, `refresh_tokens`, `codes`, `pending`, `authored`,
+    `account`. Vazio quando incompleto."""
+    modules: tuple[ModuleErasure, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "identity", MappingProxyType(dict(self.identity)))
+        object.__setattr__(self, "modules", tuple(self.modules))
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class Page[T]:
     """Uma página de resultados; `next_cursor` ausente = acabou."""
 
@@ -231,6 +267,23 @@ class GoogleNotConfigured(IdentityError):
     """Ligar o login Google sem cliente Google na instalação (FR-009)."""
 
 
+class DeletionIncomplete(IdentityError):
+    """Algum apagador falhou (FR-029): a conta fica em apagamento, e `report` diz o que saiu e o que faltou. Repetir o
+    apagamento retoma."""
+
+    def __init__(self, message: str, *, report: DeletionReport) -> None:
+        super().__init__(message)
+        self.report = report
+
+
+class ActorNotAllowed(IdentityError):
+    """Ator que não administra tocando o grupo de administração ou uma conta dele (ADR-057, item 4; FR-034)."""
+
+    def __init__(self, message: str, *, field: str) -> None:
+        super().__init__(message)
+        self.field = field
+
+
 class InstallationDefined(IdentityError):
     """Ajuste definido pela instalação: a administração só o lê (ADR-033)."""
 
@@ -245,7 +298,12 @@ class InstallationDefined(IdentityError):
 
 
 class AccountAdmin(Protocol):
-    """Contas e grupos — consumido pela 008 (superfície de administração) e pela linha de comando."""
+    """Contas e grupos — consumido pela 008 (superfície de administração) e pela linha de comando.
+
+    As escritas recebem `actor_can_admin`: `False` quando quem chama não administra (a chave com escopo `users`,
+    ADR-057), e então tudo o que toca o grupo de administração ou uma conta dele é `ActorNotAllowed`. Ausente, vale
+    como antes (FR-035).
+    """
 
     async def accounts(
         self, *, query: str | None = None, active: bool | None = True, limit: int = 50, cursor: str | None = None
@@ -253,25 +311,44 @@ class AccountAdmin(Protocol):
 
     async def account(self, username: str) -> Account: ...
 
-    async def create(self, draft: AccountDraft, *, actor: str) -> IssuedPassword | Account: ...
+    async def create(
+        self, draft: AccountDraft, *, actor: str, actor_can_admin: bool = True
+    ) -> IssuedPassword | Account: ...
 
-    async def update(self, username: str, patch: AccountPatch, *, actor: str, version: int) -> Account: ...
+    async def update(
+        self, username: str, patch: AccountPatch, *, actor: str, version: int, actor_can_admin: bool = True
+    ) -> Account: ...
 
-    async def reset_password(self, username: str, *, actor: str) -> IssuedPassword: ...
+    async def reset_password(self, username: str, *, actor: str, actor_can_admin: bool = True) -> IssuedPassword: ...
 
-    async def disable(self, username: str, *, actor: str) -> Account: ...
+    async def disable(self, username: str, *, actor: str, actor_can_admin: bool = True) -> Account: ...
 
-    async def enable(self, username: str, *, actor: str) -> Account: ...
+    async def enable(self, username: str, *, actor: str, actor_can_admin: bool = True) -> Account: ...
 
-    async def unlink_google(self, username: str, *, actor: str) -> Account: ...
+    async def unlink_google(self, username: str, *, actor: str, actor_can_admin: bool = True) -> Account: ...
+
+    async def delete(self, username: str, *, actor: str, actor_can_admin: bool = True) -> DeletionReport:
+        """Apaga a conta em cascata (ADR-058). Falha de um apagador: `DeletionIncomplete`, e a conta fica em apagamento;
+        repetir retoma. Própria conta: `InvalidField("username")`; último admin: `ProtectedGroup`."""
+        ...
+
+    async def add_group(self, username: str, group: str, *, actor: str, actor_can_admin: bool = True) -> Account:
+        """Põe a conta no grupo, sem versão; repetir não muda nada (FR-033)."""
+        ...
+
+    async def remove_group(self, username: str, group: str, *, actor: str, actor_can_admin: bool = True) -> Account:
+        """Tira a conta do grupo, sem versão; repetir não muda nada (FR-033)."""
+        ...
 
     async def groups(self) -> tuple[Group, ...]: ...
 
     async def create_group(self, name: str, *, actor: str) -> Group: ...
 
-    async def delete_group(self, name: str, *, actor: str) -> None: ...
+    async def delete_group(self, name: str, *, actor: str, actor_can_admin: bool = True) -> None: ...
 
-    async def set_members(self, name: str, usernames: frozenset[str], *, actor: str) -> Group: ...
+    async def set_members(
+        self, name: str, usernames: frozenset[str], *, actor: str, actor_can_admin: bool = True
+    ) -> Group: ...
 
 
 class LoginSettings(Protocol):

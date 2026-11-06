@@ -1,3 +1,5 @@
+import { deletionReportSchema, type DeletionReport } from "./schemas";
+
 /** O envelope de erro da API (contracts/admin-api.md, "Erros"): a console mostra `message` junto ao campo `param`. */
 
 export class ApiError extends Error {
@@ -5,12 +7,18 @@ export class ApiError extends Error {
   readonly code: string;
   readonly param: string | null;
   readonly currentVersion: number | null;
+  /** O corpo JSON da resposta de erro, para extensões como o `report` do apagamento incompleto (013 R33). */
+  readonly body: unknown;
 
   constructor(
     status: number,
     code: string,
     message: string,
-    { param = null, currentVersion = null }: { param?: string | null; currentVersion?: number | null } = {},
+    {
+      param = null,
+      currentVersion = null,
+      body = null,
+    }: { param?: string | null; currentVersion?: number | null; body?: unknown } = {},
   ) {
     super(message);
     this.name = "ApiError";
@@ -18,6 +26,12 @@ export class ApiError extends Error {
     this.code = code;
     this.param = param;
     this.currentVersion = currentVersion;
+    this.body = body;
+  }
+
+  /** O apagamento da conta não terminou (503 `deletion_incomplete`): repetir retoma (008 FR-049). */
+  get isDeletionIncomplete(): boolean {
+    return this.status === 503 && this.code === "deletion_incomplete";
   }
 
   /** Recusa de validação de um campo (422): aparece junto ao campo, com o motivo da API (FR-001). */
@@ -45,4 +59,13 @@ export function fieldError(error: unknown, field: string): string | undefined {
     return undefined;
   }
   return error.param === field || error.param.startsWith(`${field}.`) ? error.message : undefined;
+}
+
+/** O relatório parcial do 503 `deletion_incomplete`, se a resposta o traz no formato do contrato. */
+export function deletionReportOf(error: unknown): DeletionReport | null {
+  if (!isApiError(error) || !error.isDeletionIncomplete || typeof error.body !== "object" || error.body === null) {
+    return null;
+  }
+  const parsed = deletionReportSchema.safeParse((error.body as Record<string, unknown>).report);
+  return parsed.success ? parsed.data : null;
 }

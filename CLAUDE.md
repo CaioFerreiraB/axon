@@ -638,6 +638,27 @@ pelo mockup aprovado no Penpot ("axon mockup"). O `DailyChart` aceita baldes (r�
 `features/impact/grain.ts`). Valores reais são pequenos: o `gpt-4.1-mini` com 500 tokens dá 0,03–0,10 g CO₂e. O core está em `0.7.0rc16` (tag
 `v0.7.0-rc16`, contratos `0.2.5`).
 
+Usuários pela API e escopos de chave (incremento 9.7, ADR-057, ADR-058, ADR-059): toda chave de API tem escopos —
+`inference`, `users`, `admin` (`Principal.scopes`; `None` no OIDC, que segue pelo grupo) —, e com chave administrar exige o
+grupo **e** o escopo `admin`, que só a CLI concede (`axon keys create --scope`; migração `006` da 003: as chaves com o
+grupo de administração viraram `{inference, admin}`, as demais `{inference}`). A 008 declara o escopo de cada rota de
+`/private/v1` e `/admin/v1` (`http/domain/scopes.py`; `@scoped(...)` na privada e `route(..., scopes=)` na
+administração, padrão `admin`; uma suíte falha em rota sem declaração): sem o escopo, 404 de rota inexistente. A chave
+`users` gerencia contas e grupos sem o grupo de administração e lê tudo; escrever no grupo de administração ou numa conta
+dele é 403 `actor_not_allowed` — a 008 passa `actor_can_admin` à 012, que aplica a regra. Uma conta pode ser **apagada**
+(`DELETE /admin/v1/users/{u}`, `axon users delete`): a 012 a põe em apagamento (sem login, sem grupos, com um pseudônimo
+`deleted:<16 hex>` guardado) e chama a porta `SubjectDataEraser`, que a 011 monta em `bootstrap/erasure.py` com cinco
+apagadores, na ordem 003 → 007 → 008 → 004 → 009 — Assistants `~`, chaves e entradas de `allow` (003), servidores `~`
+(007), conversas e imagens (008, o primeiro seam Python dela, `http/api.py`) — e troca pelo pseudônimo o que fica: autores
+e histórico das sobreposições (003), o Principal da auditoria (004), os autores de preços e ajustes (009) e o
+`updated_by` de outras contas (012). Um apagador que falha deixa a conta em apagamento (`deleting` na visão) e dá 503
+`deletion_incomplete` com o relatório parcial; repetir retoma. As referências do `assistants.yaml` saem como aviso. Um
+grupo de cada vez: `PUT`/`DELETE /admin/v1/users/{u}/groups/{g}` e `axon groups add|remove`. O perfil `test` exporta
+`TEST_USERS_API_KEY` (só `users`). A prova é `tests/bootstrap/integration/test_platform_user_admin_scopes.py`: no
+`persistent`, nenhuma linha dos seis schemas cita a conta apagada. A console escolhe os escopos ao criar a chave (sem
+`admin`), apaga a conta confirmando pelo nome e mostra o relatório, e os grupos da ficha valem na hora. Fica fora o que já
+saiu do processo (log, trace em arquivo, Langfuse).
+
 O `axon-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
 true }`, suíte de conformidade nos próprios testes e zero import do core (import-linter, nas duas direções). Ele é

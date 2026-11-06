@@ -173,3 +173,57 @@ async def test_keys_rotate_de_inexistente_ou_revogada_sai_com_um() -> None:
     out, err = io.StringIO(), io.StringIO()
     assert await keys_rotate_command(service, key_id=issued.info.key_id, persistent=True, out=out, err=err) == 1
     assert "revogada" in err.getvalue() and out.getvalue() == ""
+
+
+# --- escopos (US14, R49) ---------------------------------------------------------------------------------------------
+
+
+@pytest.mark.us14
+async def test_keys_create_com_scope_mostra_os_escopos() -> None:
+    service = access_service()
+    out, err = io.StringIO(), io.StringIO()
+    code = await keys_create_command(
+        service,
+        subject="svc:provisionamento",
+        groups=[],
+        label="cadastro",
+        scopes=["users"],
+        persistent=True,
+        out=out,
+        err=err,
+    )
+    assert code == 0 and err.getvalue() == ""
+    assert out.getvalue().splitlines()[1] == "subject: svc:provisionamento  groups: -  scopes: users"
+    principal = await service.authenticate(surface="admin", credential=out.getvalue().splitlines()[-1])
+    assert principal is not None and principal.scopes == frozenset({"users"})
+
+
+@pytest.mark.us14
+async def test_keys_create_sem_scope_sai_com_inference() -> None:
+    out = io.StringIO()
+    code = await keys_create_command(
+        access_service(), subject="svc:robo", groups=[], label=None, persistent=True, out=out, err=io.StringIO()
+    )
+    assert code == 0 and "scopes: inference" in out.getvalue()
+
+
+@pytest.mark.us14
+async def test_keys_create_com_admin_sem_o_grupo_sai_com_um_nomeando_scopes() -> None:
+    out, err = io.StringIO(), io.StringIO()
+    code = await keys_create_command(
+        access_service(), subject="svc:x", groups=[], label=None, scopes=["admin"], persistent=True, out=out, err=err
+    )
+    assert code == 1 and "scopes" in err.getvalue() and out.getvalue() == ""
+
+
+@pytest.mark.us14
+async def test_keys_list_e_rotate_mostram_os_escopos() -> None:
+    service = access_service()
+    issued = await service.issue_as_operator(subject="svc:ops", groups=["operadores"], scopes=["inference", "admin"])
+    lista = io.StringIO()
+    await keys_list_command(service, persistent=True, out=lista, err=io.StringIO())
+    assert "admin,inference" in lista.getvalue()
+
+    out = io.StringIO()
+    await keys_rotate_command(service, key_id=issued.info.key_id, persistent=True, out=out, err=io.StringIO())
+    assert "scopes: admin, inference" in out.getvalue()

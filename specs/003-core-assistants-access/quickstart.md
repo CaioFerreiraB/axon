@@ -212,3 +212,35 @@ uv run axon keys list                                               # rotacionad
 ```
 
 **Esperado**: a chave antiga recebe 401 em `/private/v1/health`; a nova, 200.
+
+## Fase 9, incremento 9.7 (2026-11-04): US14 e US15 — escopos da chave e Subject Erasure
+
+A partir de `axon-ai/`, com `XDG_DATA_HOME=$HOME/.local/share`. Decisões em [research.md](research.md) R46–R55;
+formas em [data-model.md](data-model.md) e [contracts/assistants-api.md](contracts/assistants-api.md).
+
+```bash
+uv run pytest packages/core/tests -m "us14 or us15" -v
+AXON_TEST_POSTGRES_DSN=postgresql://postgres:pg@localhost:55432/postgres \
+  uv run pytest packages/core/tests/assistants -q        # escopos e erase no Postgres; migração 006 sobre dados
+uv run pytest && uv run mypy && uv run ruff check packages && uv run lint-imports   # nada regride (008, 011)
+```
+
+**Esperado**: verde.
+- **US14.** Chave sem escopo sai `{inference}`. `users`/`admin` sem `inference` não resolve nem lista Assistant. Chave
+  com o grupo de administração sem `admin` não administra, e o OIDC do grupo continua admin. `admin` é recusado pela
+  administração e, na CLI, sem o grupo. A rotação preserva os escopos. A migração dá `{inference}` às chaves e
+  `{inference, admin}` às do grupo de administração, e a `TEST_API_KEY` continua administrando as suítes da 008.
+- **US15.** Apagar `user:ana` conta os Assistants, as chaves e as entradas de sobreposição e avisa do YAML. A chave dela
+  é não autenticada na chamada seguinte, e a sobreposição só com `user:ana` deixa o Assistant indisponível com
+  `override.auth`. Repetir dá zero.
+
+À mão, no perfil `persistent` (Postgres em `AXON_DATABASE_URL`), sobre um banco com chaves anteriores:
+
+```bash
+uv run axon keys list                                                  # escopos preenchidos pela migração
+uv run axon keys create --subject svc:provisionamento --scope users    # scopes: users
+uv run axon keys create --subject svc:x --scope admin                  # código 1, nomeando scopes
+```
+
+**Esperado**: a chave `users` recebe 404 em `/private/v1/chat/completions` (a 003 não resolve Assistant para ela) e 200
+em `/private/v1/health`. As rotas de contas com ela são da passada da 008.

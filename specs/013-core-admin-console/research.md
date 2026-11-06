@@ -406,3 +406,79 @@ para uma estrutura própria na leitura (cada tela leria um formato diferente do 
   resposta" e "Emissões por mil tokens gerados" (o mockup dizia "gCO₂e por…", que contradiz um valor em mg). Em Uso e
   custo, `StatStrip` recebe `impact` e mostra a quinta célula (`styles.five`; 2 colunas abaixo de 1100 px), com o
   link `/meio-ambiente?periodo=personalizado&de=…&ate=…`; o impacto que falha ou está desligado só muda a célula.
+
+
+## Incremento 9.7: escopos de chave, apagar conta e um grupo de cada vez (2026-11-05; US12)
+
+## R31 — Os escopos no diálogo e na lista de chaves (FR-037, FR-038)
+
+**Decision**: o diálogo de nova chave ganha um `fieldset` "Escopos" com duas caixas — "Uso de inferência" (`inference`,
+marcada) e "Gerenciar usuários e grupos" (`users`) —; sem nenhuma, o botão de criar fica desabilitado e a legenda diz
+"escolha ao menos um escopo"; a recusa da API (`param: "scopes"`) aparece no `fieldset`. Os rótulos ficam no módulo de
+textos (`i18n`): `scopeLabel(scope)`, com `admin` → "Administração". A lista ganha a coluna "Escopos"; `admin` traz a nota
+"só pela linha de comando" (texto visível, não só dica). O diálogo da chave em claro mostra os escopos. `apiKeySchema`
+ganha `scopes: z.array(z.enum(["inference", "users", "admin"]))`.
+
+**Rationale** (ADR-057 itens 1 e 3; 008 FR-051): a console só oferece o que a administração concede; o `admin` aparece na
+lista porque a chave existe, emitida pela CLI.
+
+**Alternatives considered**: um seletor único (os dois escopos combinam); esconder chaves `admin` (a lista é de todas as
+chaves, FR da US9).
+
+## R32 — "Apagar conta": a confirmação pelo nome (FR-039)
+
+**Decision**: o menu de ações da linha ganha "Apagar conta" por último, separado e com o tom de perigo, para toda conta
+menos a do próprio admin (comparada pelo `username` de `GET /me`). O diálogo `DeleteAccountDialog` explica, em duas
+listas curtas, o que é apagado (conta, sessões, chaves, Assistants e servidores MCP pessoais, conversas) e o que fica sem
+identificar a pessoa (auditoria, preços e ajustes, com o autor trocado), e pede o nome de usuário num campo; o botão
+"Apagar" só habilita quando o texto é igual ao `username` (sem espaços nas pontas). A mutação `useDeleteUser` chama
+`DELETE /users/{u}` e invalida pessoas e grupos.
+
+**Rationale** (FR-039; o padrão de ação destrutiva irreversível do DESIGN.md: confirmação explícita, não um clique):
+apagar não se desfaz e o nome fica livre.
+
+**Alternatives considered**: confirmar só com um botão (como desativar, que se desfaz); digitar "APAGAR" (o nome evita
+apagar a pessoa errada).
+
+## R33 — O relatório, completo e parcial (FR-040)
+
+**Decision**: `deletionReportSchema` (zod) com `username`, `complete`, `identity` e `modules[]`. O diálogo mostra uma lista
+por parte da plataforma com nome e contagens em português (`i18n`: `assistants` → "Assistants e chaves", `mcp` →
+"Servidores MCP", `conversations` → "Conversas", `audit` → "Auditoria de tools", `observability` → "Preços e ajustes";
+contagens por campo, com o nome cru como reserva para campo novo) e os avisos. O `ApiError` passa a guardar o corpo do
+erro (`body: unknown`), e `deletionReportOf(error)` lê o `report` do 503 `deletion_incomplete`; o parcial marca a parte
+que falhou e oferece "Tentar de novo", que repete a mutação. O pseudônimo não existe na resposta (008), e a console não o
+monta.
+
+**Rationale** (008 R68; clarificação Q1 da 008): o relatório parcial está no corpo do 503; descartá-lo esconderia o que
+faltou.
+
+**Alternatives considered**: mostrar só "falhou, tente de novo" (perde o que já foi apagado); repetir sozinha (a falha pode
+não ser passageira).
+
+## R34 — A conta em apagamento (clarificação 2026-11-05, Q1)
+
+**Decision**: `accountSchema` ganha `deleting: z.boolean().default(false)` (a API anterior, sem o campo, continua válida).
+Com `deleting`, a linha mostra o selo "Em apagamento" no lugar do estado, e o menu tem uma só ação, "Concluir apagamento",
+que abre o diálogo direto no passo de apagar — sem pedir o nome de novo, porque o apagamento já foi confirmado — e mostra
+o relatório. Depende do toque na 008 (`deleting` em `account_json`; 008 R72).
+
+## R35 — Os grupos da ficha valem na hora (FR-041; clarificação Q2)
+
+**Decision**: a ficha de edição perde o `fieldset` de grupos do formulário; o "Salvar" manda só `name` e `email` com a
+versão. Ao lado, o componente `GroupToggles`: uma caixa por grupo, que a cada mudança chama `useAddGroup` ou
+`useRemoveGroup` (`PUT`/`DELETE /users/{u}/groups/{g}`), fica `aria-busy` durante a chamada, volta ao estado anterior e
+mostra o motivo junto da caixa se a API recusa (409 `protected_group`, 404), e invalida pessoas e grupos no sucesso. O
+grupo de administração aparece como os outros, com a recusa vinda da API.
+
+**Rationale**: a rota de um grupo de cada vez não sobrescreve a mudança de outro ator nem depende de versão; o
+formulário com versão segue para o que é de fato edição de texto.
+
+## R36 — Testes
+
+**Decision**: Vitest + MSW: escopos no diálogo (padrão, nenhum, recusa), coluna da lista, "Apagar conta" ausente na
+própria conta, botão desabilitado até o nome, relatório completo, 503 com o parcial e "Tentar de novo", selo e "Concluir
+apagamento" com `deleting`, grupos na hora (sucesso, recusa voltando a caixa). Playwright sobre a plataforma em memória
+(`serve_platform.py`): criar uma chave só com `users` e ver a coluna; cadastrar uma pessoa, apagá-la digitando o nome, ver
+o relatório e a lista sem ela; pôr e tirar um grupo; axe nos três diálogos nos dois temas e o teclado (SC-012). O 503 fica
+só no MSW: a plataforma de teste não tem apagador que falha.

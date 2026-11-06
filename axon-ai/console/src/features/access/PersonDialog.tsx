@@ -13,6 +13,7 @@ import { Field, TextInput } from "../../ui/Field";
 import { Notice } from "../../ui/Notice";
 import { Toggle } from "../../ui/Toggle";
 import styles from "./Access.module.css";
+import { GroupToggles } from "./GroupToggles";
 
 function firstName(name: string): string {
   return name.trim().split(/\s+/)[0] ?? name;
@@ -218,7 +219,8 @@ export function EditPersonDialog({
   groups: Group[];
 }) {
   const update = useUpdateUser();
-  const [draft, setDraft] = useState({ name: account.name, email: account.email, groups: [...account.groups] });
+  // Os grupos não vão no "Salvar": valem um a um, na hora (`GroupToggles`; 013 R35).
+  const [draft, setDraft] = useState({ name: account.name, email: account.email });
   const submit = (event: FormEvent) => {
     event.preventDefault();
     update.mutate(
@@ -227,14 +229,13 @@ export function EditPersonDialog({
         version: account.version,
         ...(draft.name !== account.name ? { name: draft.name } : {}),
         ...(draft.email !== account.email ? { email: draft.email } : {}),
-        ...(draft.groups.slice().sort().join() !== [...account.groups].sort().join() ? { groups: draft.groups } : {}),
       },
       { onSuccess: onClose },
     );
   };
   const error = (field: string) => fieldError(update.error, field);
   const general =
-    update.error && !(isApiError(update.error) && ["name", "email", "groups"].includes(update.error.param ?? ""))
+    update.error && !(isApiError(update.error) && ["name", "email"].includes(update.error.param ?? ""))
       ? update.error
       : null;
   return (
@@ -246,12 +247,7 @@ export function EditPersonDialog({
         <Field label="E-mail" error={error("email")}>
           <TextInput type="email" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} />
         </Field>
-        <GroupPicker groups={groups} value={draft.groups} onChange={(value) => setDraft({ ...draft, groups: value })} />
-        {error("groups") ? (
-          <p className={styles.stateNote} role="alert">
-            {error("groups")}
-          </p>
-        ) : null}
+        <GroupToggles account={account} groups={groups} />
         {general ? (
           <Notice
             tone={isApiError(general) && general.isVersionConflict ? "warn" : "bad"}

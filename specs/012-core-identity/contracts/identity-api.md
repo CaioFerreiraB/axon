@@ -67,3 +67,24 @@ Endpoints em [oidc.md](oidc.md); páginas em [pages.md](pages.md).
 | `test_account_admin.py` | cadastro, unicidade com contas desativadas, senha temporária só uma vez, proteção do grupo de admin, versão, desativação revoga sessões |
 | `test_login_settings.py` | precedência instalação > runtime > padrão; não liga sem cliente Google |
 | `test_public_key_set.py` | `active` + `retiring`; rotação mantém a anterior; rotação forçada troca tudo |
+
+## Fase 9, incremento 9.7 (2026-11-04): apagar, um grupo de cada vez, o ator que não administra (ADR-057, ADR-058, ADR-059; research R28–R33)
+
+```python
+class AccountAdmin(Protocol):   # acréscimos
+    async def delete(self, username: str, *, actor: str, actor_can_admin: bool = True) -> DeletionReport: ...
+    async def add_group(self, username: str, group: str, *, actor: str, actor_can_admin: bool = True) -> Account: ...
+    async def remove_group(self, username: str, group: str, *, actor: str, actor_can_admin: bool = True) -> Account: ...
+    # create, update, reset_password, disable, enable, unlink_google, delete_group e set_members
+    # ganham `actor_can_admin: bool = True` (keyword); ausente = como antes (FR-035)
+```
+
+| Regra | Origem | Verificada por |
+|---|---|---|
+| `delete` grava "em apagamento" (inativa, sem grupos, pseudônimo), revoga sessões, roda todos os apagadores com o mesmo `pseudonym`, depois apaga sessões, renovações, códigos, pedidos, associações e a conta, e troca `updated_by` das outras contas e dos ajustes pelo pseudônimo | FR-028, FR-038 | `test_account_deletion.py` |
+| Algum apagador falha → `DeletionIncomplete(report)`; a conta fica em apagamento; `delete` de novo retoma com o mesmo pseudônimo | FR-029, US9 cen. 4–5 | `test_account_deletion.py` |
+| Em apagamento: login e renovação recusados; `enable`/`update`/`reset_password`/`add_group`/`remove_group` → `Conflict("username")`; `create` com o mesmo nome → `Conflict("username")`; fora de `accounts(active=True)` | FR-030 | `test_account_deletion.py` |
+| Própria conta → `InvalidField("username")`; último membro ativo do grupo de administração → `ProtectedGroup` — antes de qualquer mudança | FR-031 | `test_account_deletion.py` |
+| `DeletionReport` não contém o pseudônimo | ADR-059, R29 | `test_account_deletion.py` |
+| `add_group`/`remove_group` idempotentes, sem versão, comutam entre grupos; `GroupNotFound`/`AccountNotFound`; último admin → `ProtectedGroup` | FR-033, SC-011 | `test_group_membership.py` |
+| `actor_can_admin=False`: cada recusa da R31 → `ActorNotAllowed(field)`; leituras liberadas | FR-034, SC-010 | `test_actor_not_admin.py` |

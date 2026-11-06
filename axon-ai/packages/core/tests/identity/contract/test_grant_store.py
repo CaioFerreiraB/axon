@@ -8,6 +8,7 @@ import dataclasses
 from datetime import timedelta
 from typing import Any
 
+import pytest
 from identity_testkit import T0, account
 
 from axon_ai.identity.ports import AuthorizationCode, PendingAuthorization, RefreshToken, Session
@@ -177,3 +178,25 @@ async def test_expurgo(stores: Any) -> None:
     assert await grants.get_refresh("r-vencida") is None and await grants.get_refresh("r-viva") is not None
     assert await grants.consume_code("velho", at=now) is None
     assert await grants.consume_code("recente", at=now) is not None
+
+
+@pytest.mark.us9
+async def test_apagar_o_que_e_da_conta_e_so_dela(stores: Any) -> None:
+    grants = await _with_accounts(stores)
+    await grants.put_pending(_pending("p-ana", account_id="id-ana"))
+    await grants.put_pending(_pending("p-livre"))
+    await grants.create_session(_session("s1"))
+    await grants.create_session(_session("s2"))
+    await grants.create_session(_session("s-bia", account_id="id-bia"))
+    await grants.put_code(_code("k1"))
+    await grants.put_refresh(_refresh("r1"))
+    await grants.put_refresh(_refresh("r2", family_id="f2", session_id="s2"))
+    await grants.put_refresh(_refresh("r-bia", family_id="f3", session_id="s-bia", account_id="id-bia"))
+
+    contagens = await grants.erase_account("id-ana")
+
+    assert dict(contagens) == {"sessions": 2, "refresh_tokens": 2, "codes": 1, "pending": 1}
+    assert await grants.get_session("s1") is None and await grants.get_refresh("r1") is None
+    assert await grants.get_pending("p-ana") is None and await grants.get_pending("p-livre") is not None
+    assert await grants.get_session("s-bia") is not None and await grants.get_refresh("r-bia") is not None
+    assert dict(await grants.erase_account("id-ana")) == {"sessions": 0, "refresh_tokens": 0, "codes": 0, "pending": 0}

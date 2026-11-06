@@ -34,7 +34,7 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 | [027](ADR-027-metricas-de-dominio-pelo-contrato-de-pack.md) | Métricas de domínio pelo contrato de pack | Aceita | 001, 002, 009, 105 |
 | [028](ADR-028-o-motor-publica-o-desfecho-de-cada-etapa.md) | O motor publica o desfecho de cada etapa | Aceita | 005, 008, 009 |
 | [029](ADR-029-console-de-administracao-propria.md) | Console de administração própria | Aceita | 013, 008, 002 |
-| [030](ADR-030-a-plataforma-e-o-provedor-de-identidade.md) | A plataforma é o provedor de identidade | Aceita | 012, 003, 011, 002 |
+| [030](ADR-030-a-plataforma-e-o-provedor-de-identidade.md) | A plataforma é o provedor de identidade | Aceita (item 7 substituído pelo 058) | 012, 003, 011, 002 |
 | [031](ADR-031-superficie-de-administracao.md) | Superfície de administração: admin é o grupo, com token da plataforma ou chave | Aceita | 003, 008, 012, 013 |
 | [032](ADR-032-assistants-de-sistema-sobrepostos-em-runtime.md) | Assistants de sistema podem ser sobrepostos em runtime, se o YAML permitir | Aceita | 003, 008, 011, 013 |
 | [033](ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md) | Segredos configurados em runtime ficam cifrados com a chave mestra da instalação (refina o 020) | Aceita | 011, 009, 012 |
@@ -61,6 +61,9 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 | [054](ADR-054-a-geracao-declara-graficos-em-json.md) | A geração declara gráficos em JSON na resposta | Aceita | 005 |
 | [055](ADR-055-autenticacao-mcp-delegada.md) | Autenticação MCP delegada | Aceita | 004, 005, 007, 008 |
 | [056](ADR-056-impacto-ambiental-estimado-pelo-ecologits.md) | Impacto ambiental das chamadas de modelo, estimado pelo EcoLogits | Aceita | 009, 008, 011, 013 |
+| [057](ADR-057-escopos-da-chave-de-api.md) | A chave de API tem escopos: inferência, usuários e administração (refina o 031 e o 040) | Aceita | 003, 008, 012, 011, 013 |
+| [058](ADR-058-apagar-conta-em-cascata.md) | A administração apaga uma conta em cascata, e o nome volta a ficar livre (substitui o item 7 do 030) | Aceita (item 6 refinado pelo 059) | 012, 003, 007, 008, 011, 013 |
+| [059](ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md) | O que fica de uma conta apagada é pseudonimizado (refina o item 6 do 058) | Aceita | 012, 003, 004, 009, 011 |
 
 ## Modelo para ADR novo
 

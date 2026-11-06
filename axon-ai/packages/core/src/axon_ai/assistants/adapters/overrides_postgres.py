@@ -166,3 +166,29 @@ class PostgresSystemOverrideStore:
             )
             for row in rows
         ]
+
+    async def pseudonymize(self, subject: str, pseudonym: str) -> int:
+        """Numa transação: autor, ator e as entradas de `allow` do histórico, na ordem guardada (ADR-059; R56)."""
+        async with self._pool.connection() as connection, connection.transaction():
+            authors = await connection.execute(
+                "UPDATE assistants.system_overrides SET updated_by = %s WHERE updated_by = %s", (pseudonym, subject)
+            )
+            actors = await connection.execute(
+                "UPDATE assistants.system_override_history SET actor = %s WHERE actor = %s", (pseudonym, subject)
+            )
+            cursor = await connection.execute(
+                "SELECT COALESCE(sum((SELECT count(*) FROM jsonb_array_elements_text(payload -> 'allow') AS e(v) "
+                "WHERE e.v = %s)), 0) FROM assistants.system_override_history "
+                "WHERE section = 'auth' AND payload -> 'allow' ? %s",
+                (subject, subject),
+            )
+            row = await cursor.fetchone()
+            entries = int(row[0]) if row else 0
+            await connection.execute(
+                "UPDATE assistants.system_override_history SET payload = jsonb_set(payload, '{allow}', "
+                "(SELECT jsonb_agg(CASE WHEN t.e = to_jsonb(%s::text) THEN to_jsonb(%s::text) ELSE t.e END "
+                "ORDER BY t.n) FROM jsonb_array_elements(payload -> 'allow') WITH ORDINALITY AS t(e, n))) "
+                "WHERE section = 'auth' AND payload -> 'allow' ? %s",
+                (subject, pseudonym, subject),
+            )
+            return authors.rowcount + actors.rowcount + entries

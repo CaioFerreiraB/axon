@@ -41,3 +41,26 @@ inválido (data fora do ISO 8601, limite fora de 1–1 000).
 
 Conformidade: `contract/test_audit_log.py` (memória e Postgres: abrir, fechar, ficar `started`, filtros, ordem, limite),
 `contract/test_audit_write.py` (a ordem acima) e `contract/test_audit_query.py` (o comando, por função).
+
+## Pseudônimo (incremento 9.7, US7; ADR-059; research R16)
+
+```python
+class AuditLog(Protocol):
+    async def pseudonymize(self, subject: str, pseudonym: str) -> int: ...   # registros cujo principal mudou
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class AuditErasureReport:
+    audit_records: int = 0
+
+class AuditErasure(Protocol):                                                 # api.py; consumido pela 011
+    async def erase_subject(self, subject: str, *, pseudonym: str) -> AuditErasureReport: ...
+```
+
+| Regra | Origem | Verificada por |
+|---|---|---|
+| Só `principal` muda, em todos os registros do subject; nenhum é apagado | FR-019 | `test_audit_log.py` (memória × Postgres), `test_audit_erasure.py` |
+| Idempotente: repetir devolve 0; outros Principals intactos | FR-019 | idem |
+| Subject ou pseudônimo fora do formato → `RequestRejected` nomeando o campo, sem tocar a auditoria | FR-020 | `test_audit_erasure.py` |
+| Registro `started` pseudonimizado ainda fecha pelo id | US7 cen. 4 | `test_audit_log.py` |
+| Nenhuma linha do schema `capabilities` com o subject no `principal`; total de registros igual | SC-006 | `test_audit_erasure.py` (Postgres) |
+

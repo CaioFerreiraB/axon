@@ -4,7 +4,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useApi } from "../ApiProvider";
-import { apiKeyListSchema, apiKeySchema, issuedKeySchema, type IssuedKey } from "../schemas";
+import { apiKeyListSchema, apiKeySchema, issuedKeySchema, type IssuedKey, type Scope } from "../schemas";
 import { keys } from "./keys";
 
 const keyPath = (keyId: string) => `/keys/${encodeURIComponent(keyId)}`;
@@ -26,7 +26,7 @@ function useKeyWrite<Vars, Result>(write: (vars: Vars) => Promise<Result>, { kee
 export function useCreateKey() {
   const api = useApi();
   return useKeyWrite(
-    (draft: { subject: string; label?: string }): Promise<IssuedKey> =>
+    (draft: { subject: string; label?: string; scopes: Scope[] }): Promise<IssuedKey> =>
       api.send("POST", "/keys", draft, issuedKeySchema),
     { keepResult: false },
   );

@@ -45,6 +45,10 @@ class AuditLog(Protocol):
 
     async def query(self, filter: AuditFilter) -> Sequence[AuditRecord]: ...
 
+    async def pseudonymize(self, subject: str, pseudonym: str) -> int:
+        """Troca o `principal` dos registros do subject pelo pseudônimo, sem mudar mais nada; devolve quantos (R16)."""
+        ...
+
 
 class Clock(Protocol):
     """Tempo (ADR-013): instante para a auditoria e cronômetro para a latência. A 011 injeta o relógio único."""

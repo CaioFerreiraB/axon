@@ -44,7 +44,9 @@ def test_as_audiencias_padrao_sao_as_da_marca() -> None:
 
 
 async def test_cenario_1_a_chave_emitida_tem_o_prefixo_axn(env: Env) -> None:
-    issued = await env.service.issue_as_operator(subject="user:caio", groups=["operadores"])
+    issued = await env.service.issue_as_operator(
+        subject="user:caio", groups=["operadores"], scopes=["inference", "admin"]
+    )
     assert re.fullmatch(r"axn_[0-9a-f]{16}_\S+", issued.plaintext)
     for surface in (PRIVATE_SURFACE, ADMIN_SURFACE):
         principal = await env.authenticate(surface, issued.plaintext)

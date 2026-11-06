@@ -269,3 +269,27 @@ quebraria); uma coluna `charts` na auditoria (migração sem caso de uso); o gr�
 ## Delegação por execução (ADR-055)
 
 `ToolContext.mcp_delegation` propaga credencial confidencial ao cliente MCP restrito. Nenhuma credencial em prompts, argumentos, resultados ou eventos. Contrato em [delegation.md](../007-core-mcp-integration/contracts/delegation.md).
+
+
+## Incremento 9.7: pseudônimo na auditoria (2026-11-04; US7)
+
+## R16 — `erase_subject(subject, *, pseudonym)` só troca o Principal (ADR-059; FR-019, FR-020)
+
+**Decision**: seam `AuditErasure` no `api.py`, que o `CapabilityService` cumpre:
+`erase_subject(subject: str, *, pseudonym: str) -> AuditErasureReport(audit_records: int)`. O subject é validado pelo
+`SUBJECT_PATTERN` e o pseudônimo pelo `PSEUDONYM_PATTERN`, os dois do `api.py` da 003 (que a 004 já consome), senão
+`RequestRejected(field="subject"|"pseudonym")` antes de qualquer I/O. A porta `AuditLog` ganha
+`pseudonymize(subject, pseudonym) -> int`: `UPDATE capabilities.audit SET principal = %s WHERE principal = %s`, numa
+instrução. O nome segue o seam das outras specs (`erase_subject`) porque é o mesmo papel na composição da 011, mesmo que
+aqui nada seja apagado. Sem `actor`: a auditoria não registra quem altera. Sem migração. O `finish` de um registro
+pseudonimizado ainda aberto continua funcionando, porque fecha pelo id, sem olhar o Principal.
+
+**Rationale** (ADR-059 itens 1–3: "a 004 e a 009 ganham esse seam, só com a troca"; o pseudônimo é o mesmo em todos os
+módulos): a trilha de segurança fica inteira e continua ligando as ações daquela conta. A cláusula "só inserção e o
+fechamento do próprio registro" do `001_audit.sql` ganha uma terceira exceção, a troca do Principal pelo pseudônimo.
+
+**Alternatives considered**: apagar os registros (destruiria a trilha; recusado pelo ADR-059); trocar também texto
+dentro de `arguments` e `result` (é conteúdo da tool, não citação da conta; varrer JSON e texto livre atrás de um nome
+daria falsos positivos e alteraria o que a trilha prova — fica sob a retenção da auditoria, como o ADR-058 item 6
+previa para o registro em si); um `actor` no seam (a auditoria não tem coluna para isso).
+

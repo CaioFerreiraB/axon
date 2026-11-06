@@ -6,6 +6,7 @@ privada, só selada (FR-016, ADR-033). `ports.py` os reexporta para os adapters.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -24,8 +25,14 @@ class AccountRecord:
     account: Account
     password_hash: str | None = None
     google_sub: str | None = None
+    deletion_pseudonym: str | None = None
+    """Presente só em apagamento (ADR-059): o mesmo em todas as tentativas; nunca sai do módulo."""
 
     def __post_init__(self) -> None:
+        if self.account.deleting != (self.deletion_pseudonym is not None):
+            raise ValueError("deleting precisa refletir a presença do pseudônimo")
+        if self.deletion_pseudonym is not None and not re.fullmatch(r"deleted:[0-9a-f]{16}", self.deletion_pseudonym):
+            raise ValueError("pseudônimo fora do formato deleted:<16 hex>")
         if self.account.has_password != (self.password_hash is not None):
             raise ValueError("has_password precisa refletir a presença do hash")
         if self.account.google_linked != (self.google_sub is not None):

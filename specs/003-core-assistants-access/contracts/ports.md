@@ -102,3 +102,13 @@ ela, os casos do adapter real são pulados com motivo explícito, como o Ollama 
 | `OidcVerifier` | `verify(token, *, audience: str)` | `JwksOidcVerifier(issuer, source: JwksSource, algorithms)` (o relógio e o cache ficam na fonte HTTP); `StaticOidcVerifier` passa a conferir a audiência | `test_oidc_verifier.py`: audiência errada → `None`; as duas fontes |
 | `JwksSource` (nova, interna ao adapter OIDC) | `async jwks(*, kid) -> Mapping \| None` | `HttpJwksSource` (o caminho atual, com cache e R24), `CallableJwksSource(fn)` (o `jwks()` da 012) | mesma suíte |
 | `SystemOverrideStore` (nova) | `get`, `all`, `put`, `delete`, `history` | memória → Postgres (`003_system_overrides.sql`) | `test_override_store.py` |
+
+## Fase 9 (2026-11-04): escopos e apagamento por subject (research R50, R52)
+
+| Porta | Mudança | Adapters | Conformidade |
+|---|---|---|---|
+| `ApiKeyStore` | `ApiKeyRecord.info.scopes` na ida e volta; `rotate` não os muda; `erase_subject(subject) -> int` apaga ativas e revogadas e devolve quantas (zero na repetição) | memória; Postgres (coluna `scopes`, `006_api_key_scopes.sql` + preenchimento no `migrate(admin_group=…)`) | `test_api_key_store.py` |
+| `UserAssistantStore` | `erase_owner(owner) -> int` apaga todos os do dono e devolve quantos (zero na repetição); os de outros donos ficam | memória; Postgres | `test_user_assistant_store.py` |
+| `SystemOverrideStore` | sem mudança: o apagamento usa `all` e `put(expected_version=…)` | — | — |
+| `SystemOverrideStore` (ajuste, ADR-059) | `pseudonymize(subject, pseudonym) -> int`: `updated_by` das sobreposições, `actor` do histórico e o subject em `payload.allow` das versões `auth` do histórico, numa transação; zero na repetição | memória; Postgres | `test_override_store.py` |
+

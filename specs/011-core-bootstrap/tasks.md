@@ -699,3 +699,84 @@ paralelo com T077.
 - [X] T095 [US8] `axon-ai/packages/core/src/axon_ai/bootstrap/cli.py`: `usage impact-backfill [--limit N]` (R55);
   `tests/bootstrap/contract/test_cli_commands.py` com o caminho novo; marca `us8` com `011 US8`
 - [X] T096 Suíte do workspace, `mypy`, `ruff`, `lint-imports` verdes
+
+
+## Passada de 2026-11-05: US9 — apagamento em cascata montado e escopos na linha de comando (incremento 9.7; [ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md), [ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md), [ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md); research R58–R62)
+
+**Goal**: a plataforma montada apaga uma conta nos cinco módulos e na 012, pela API e pela linha de comando; a raiz tem
+`users delete` e `groups add|remove`; o perfil `test` exporta `TEST_USERS_API_KEY`.
+
+**Independent Test**: `uv run pytest packages/core/tests/bootstrap -k us9` (com `AXON_TEST_POSTGRES_DSN`, também o
+roteiro no `persistent` e a varredura de todos os schemas).
+
+### Setup
+
+- [X] T097 [P] Marca `us9` estendida com "011 US9 — apagamento em cascata montado e escopos na linha de comando" em
+  `axon-ai/pyproject.toml`
+
+### Testes primeiro
+
+- [X] T098 [P] [US9] `axon-ai/packages/core/tests/bootstrap/unit/test_erasure.py`: `subject_erasers` devolve os cinco na
+  ordem `assistants`, `mcp`, `conversations`, `audit`, `observability`; cada um traduz o relatório em contagens pelos
+  campos inteiros; as referências da 003 viram um aviso que nomeia os Assistants (e nenhum aviso sem referência); a
+  fábrica só é chamada no primeiro `erase` (R59); com seams simulados que registram os argumentos, o ator e o pseudônimo
+  chegam à 003, o pseudônimo à 004 e à 009, e só o subject à 007 e à 008; a exceção de um seam sobe sem ser engolida
+  (a 012 marca o módulo como falho e retoma — 012 `test_account_deletion.py` — e a 008 a traduz no 503 —
+  `test_admin_accounts_delete.py`; achado U1)
+- [X] T099 [P] [US9] `axon-ai/packages/core/tests/bootstrap/contract/test_cli_commands.py`: casos `us9` — `users delete
+  ana --yes` imprime os cinco módulos e sai com 0; sem `--yes` e nome errado, 1 sem apagar; `groups add equipe ana` e
+  `groups remove equipe ana` (idempotentes, 0); grupo inexistente → 1; `keys create --subject svc:prov --scope users`
+  e `keys list` com os escopos; `axon --help` lista os comandos novos. O incompleto pela CLI (saída 1 com o relatório
+  parcial) é do comando da 012 e já está em `tests/identity/integration/test_identity_cli.py` (achado C3)
+- [X] T100 [P] [US9] `axon-ai/packages/core/tests/bootstrap/integration/test_platform_user_admin_scopes.py` (SC-009;
+  R62): no perfil `test` com a identidade e controller e transporte MCP programados — `TEST_USERS_API_KEY` cria `ana` e
+  a põe em `equipe`; o admin semeado a põe no grupo de administração; `ana` entra pelo login, cria `~x` e `~drive`,
+  conversa com imagem, executa uma tool de escrita (registro de auditoria), fica no `allow` de uma sobreposição de
+  `auth`, lança um preço e muda a captura; o admin semeado apaga `ana` → 200 com os cinco módulos e as contagens
+  esperadas; uma `ana` nova não vê Assistant, servidor, conversa nem chave. O mesmo roteiro no `persistent`
+  (`AXON_TEST_POSTGRES_DSN`), com a varredura de `user:ana` em toda coluna de texto, JSON ou lista dos seis schemas e
+  de `ana` como valor inteiro; e, no `persistent`, `axon users delete` pela `main(argv)` sobre uma segunda conta com os
+  mesmos dados apaga também nos outros módulos, pela sessão de armazenamento (achado C1). Antes de ser apagada, `ana`
+  (já admin) altera o nome de outra conta, para o `updated_by` da 012 entrar na prova (achado C2). A falha de um
+  apagador não é forçada aqui: os apagadores não são porta trocável (achado U1) — ver T098
+
+### Implementação
+
+- [X] T101 [US9] `axon-ai/packages/core/src/axon_ai/bootstrap/erasure.py` (R58, R59): `ModuleEraser` e
+  `subject_erasers(parts, session)` — no servidor (`session is parts`), `parts["assistants"]`, `parts["mcp"]` e o
+  `CapabilityService` da plataforma; na linha de comando, `session_assistants`, `mcp_service(parts, store=…)`,
+  `capabilities_service(parts, audit=…)`; `ConversationService` e `SubjectPseudonymizer` sobre as portas da sessão
+- [X] T102 [US9] `axon-ai/packages/core/src/axon_ai/bootstrap/identity.py`: `identity_service(parts, *, session)` passa
+  `erasers=subject_erasers(parts, session)` (o `CapabilityService` da plataforma já está em `parts["capabilities"]`)
+- [X] T103 [US9] `axon-ai/packages/core/src/axon_ai/bootstrap/profiles.py` (R61): `TEST_USERS_API_KEY` semeada e
+  exportada; `_seeded_keys` aceita escopos por chave
+- [X] T104 [US9] `axon-ai/packages/core/src/axon_ai/bootstrap/cli.py` (R60): `users delete USUÁRIO [--yes]` com
+  `_boot(..., until=STAGE_ASSISTANTS)` e a 012 da sessão com os apagadores; `groups add GRUPO USUÁRIO` e `groups remove
+  GRUPO USUÁRIO` pelo `_identity_command`. Rodar T098–T100 e ver passar
+
+### Polish
+
+- [X] T105 [P] FR-036: `specs/011-core-bootstrap/quickstart.md` (emissão da Fase 2 com `--scope admin --scope
+  inference`) e `contracts/cli.md` (linha de `keys create` com `--scope`)
+- [X] T106 Verificação a partir de `axon-ai/`: suíte da 011 e workspace com Postgres, `mypy`, `ruff`, `lint-imports`;
+  `specs/README.md` (linha da 011 e da porta Subject Data Eraser), `docs/roadmap.md` e `graphify update .`
+
+**Dependências**: T097 primeiro; T098–T100 antes de T101–T104; T101 → T102 → T104; T103 independente; T105 a qualquer
+momento; T106 por último. Depois desta passada, a 013 (US12) usa `TEST_USERS_API_KEY` no e2e.
+
+**Paralelo**: T098, T099, T100, T103 e T105 em arquivos diferentes. **MVP**: a passada inteira — sem T101–T102 nenhum
+apagamento sai da 012.
+
+**Execução (2026-11-05)**: T097–T106 feitas. Notas:
+- `bootstrap/erasure.py` importa `session_assistants`, `mcp_service` e `capabilities_service` da `wiring` dentro das
+  fábricas: a `wiring` importa `identity`, que importa `erasure`, e o import no topo fecharia o ciclo.
+- A prova (`test_platform_user_admin_scopes.py`) troca o `identity_secrets` do `persistent` pelo do `test` (o admin
+  semeado) e escreve um `identity.yaml` com os clientes do `test`, obrigatório no `persistent`. Antes de apagar, confere
+  que a varredura acha `ana` nos seis schemas — só depois, que não acha em nenhum.
+- A conta nova entra trocando a senha temporária no formulário da 012 (`/oauth2/password`), como uma pessoa faria.
+- O `users delete` passa `prompt=lambda text: input(text)` ao comando da 012, para a confirmação ser substituível nos
+  testes.
+- `test_os_comandos_vem_de_uma_lista_de_registro` (US4) passou a listar os três comandos novos (FR-034).
+- Suíte da 011 contra o Postgres: 329 passaram; workspace com Postgres: 4167 passaram, 12 pulados; mypy, ruff e
+  import-linter (71 contratos) limpos.
+

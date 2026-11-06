@@ -63,6 +63,14 @@ class InMemoryAuditLog:
         matching.sort(key=lambda record: (record.started_at, int(record.id)), reverse=True)
         return matching[: filter.limit]
 
+    async def pseudonymize(self, subject: str, pseudonym: str) -> int:
+        changed = 0
+        for index, record in enumerate(self._records):
+            if record.principal == subject:
+                self._records[index] = dataclasses.replace(record, principal=pseudonym)
+                changed += 1
+        return changed
+
 
 def _matches(record: AuditRecord, filter: AuditFilter) -> bool:
     return (

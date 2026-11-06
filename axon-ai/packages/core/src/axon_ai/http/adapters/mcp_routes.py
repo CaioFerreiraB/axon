@@ -11,9 +11,10 @@ from typing import Any
 from fastapi import APIRouter, Request, Response
 
 from axon_ai.assistants.api import PRIVATE_SURFACE, PUBLIC_SURFACE, NotFound, Principal
-from axon_ai.http.adapters.auth import authenticated
+from axon_ai.http.adapters.auth import authenticated, scoped
 from axon_ai.http.adapters.chat import json_body
 from axon_ai.http.domain.mcp_body import USER_PREFIX, draft_from_json, health_json, server_json, summary_json
+from axon_ai.http.domain.scopes import ADMIN
 from axon_ai.http.ports import AdminGate
 from axon_ai.mcp.api import McpRegistry
 
@@ -88,34 +89,40 @@ def global_mcp_router(*, surface: str = PRIVATE_SURFACE) -> APIRouter:
         return principal
 
     @router.get("/mcp")
+    @scoped(ADMIN)
     async def listing(request: Request) -> Any:
         await admin(request)
         return {"data": [server_json(s) for s in await _registry(request).globals()]}
 
     @router.post("/mcp", status_code=201)
+    @scoped(ADMIN)
     async def create(request: Request) -> Any:
         await admin(request)
         draft = draft_from_json(await json_body(request), scope="global")
         return server_json(await _registry(request).create_global(draft))
 
     @router.get("/mcp/{alias}")
+    @scoped(ADMIN)
     async def read(request: Request, alias: str) -> Any:
         await admin(request)
         return server_json(await _registry(request).get_global(alias))
 
     @router.put("/mcp/{alias}")
+    @scoped(ADMIN)
     async def update(request: Request, alias: str) -> Any:
         await admin(request)
         draft = draft_from_json(await json_body(request), scope="global", alias=alias)
         return server_json(await _registry(request).update_global(alias, draft))
 
     @router.delete("/mcp/{alias}", status_code=204)
+    @scoped(ADMIN)
     async def remove(request: Request, alias: str) -> Response:
         await admin(request)
         await _registry(request).delete_global(alias)
         return Response(status_code=204)
 
     @router.get("/mcp/{alias}/health")
+    @scoped(ADMIN)
     async def health(request: Request, alias: str) -> Any:
         await admin(request)
         registry = _registry(request)

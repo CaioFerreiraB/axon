@@ -119,6 +119,11 @@ class McpServerStore(Protocol):
         """`False` se não existe."""
         ...
 
+    async def erase_owner(self, owner: str) -> int:
+        """Apaga todos os registros do dono numa operação e devolve quantos (0 ao repetir). O dono é sempre um subject:
+        os globais (`owner=None`) nunca entram (research R18)."""
+        ...
+
 
 class McpConfigSource(Protocol):
     """O arquivo do operador, lido uma vez no boot."""
@@ -156,6 +161,10 @@ class DiscoveryCache(Protocol):
         ...
 
     def put(self, key: CacheKey, value: CachedDiscovery, *, ttl: timedelta) -> None: ...
+
+    def forget_owner(self, owner: str) -> None:
+        """Descarta as entradas com `CacheKey.owner == owner`, vencidas ou não (research R19)."""
+        ...
 
 
 class Clock(Protocol):

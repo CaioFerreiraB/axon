@@ -983,3 +983,256 @@ T115; T116 em paralelo com a T114.
 - [X] T120 `SystemAssistantView.yaml_vision`/`effective_vision`, para a administração mostrar `vision` (008 R60)
 - [X] T119 [P] Testes: objeto por papel, malformados, grant, modelo pedido, impressão digital antiga, sobreposição ida e
   volta, rascunho de usuário, `controller` declarado no `chat`
+
+---
+
+## Passada de 2026-11-04: escopos da chave e Subject Erasure — US14, US15 ([ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md), [ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md); research R46–R55)
+
+**Goal**: a chave de API tem escopos `inference`, `users` e `admin`. Com chave, administrar exige o escopo `admin` e o
+grupo de administração, e resolver ou listar Assistants exige `inference`. A emissão valida os escopos, a rotação os
+preserva, e a migração 006 preenche as chaves existentes sem perda de acesso. O seam Subject Erasure apaga as chaves e os
+Assistants de usuário de um subject e o tira das sobreposições de `auth`, sem nunca ampliar o acesso.
+
+**Independent Test**: [quickstart.md, "Fase 9, incremento 9.7"](quickstart.md) — `-m "us14 or us15"`, a suíte de
+`assistants/` com `AXON_TEST_POSTGRES_DSN` e a suíte completa sem regressão na 008 e na 011.
+
+### Setup
+
+- [X] T121 `axon-ai/pyproject.toml`: marcas `"us14: 003 US14 — escopos da chave de API"` e `"us15: 003 US15 — Subject
+  Erasure (apagar os dados de um subject)"` na lista de `markers`
+
+### US14 — Tests (antes das T126–T133)
+
+- [X] T122 [P] [US14] `axon-ai/packages/core/tests/assistants/unit/test_scopes.py` (novo, marca `us14`; R46, R47, R49):
+  - **`Principal`.** `oidc` com escopos → `ValueError`; `api_key` sem escopos → `frozenset({"inference"})`; vazio ou
+    fora de `("inference", "users", "admin")` → `ValueError`.
+  - **`is_admin`.** Grupo + `admin` → `True`; grupo sem `admin` → `False`; `admin` sem grupo → `False`; `oidc` com o
+    grupo → `True`.
+  - **`can_infer`.** `oidc` → `True`; `{users}` → `False`; `{inference, users}` → `True`.
+  - **`key_scopes`.** Cada linha da tabela "Emissão" do [data-model.md](data-model.md); toda recusa é
+    `RequestRejected(field="scopes")`, nomeando o escopo desconhecido.
+- [X] T123 [P] [US14] `axon-ai/packages/core/tests/assistants/contract/test_key_scopes.py` (novo, marca `us14`):
+  - **Os nove cenários da US14.** Default `{inference}` e listagem com escopos (cen. 1); `{users}` e `{admin}` recebem
+    `AssistantNotFound` em `resolve` e `NotFound` em `get`/`create`/`update`/`delete`, com `discover`/`mine` vazios (cen.
+    2). Chave com grupo sem `admin` recebe `NotFound` em `keys`/`issue`/`revoke`/`rotate` e em
+    `system_assistants`/`override_*` (cen. 3); com os dois, é admin, e o OIDC do grupo é admin (cen. 4). Na CLI, `admin`
+    sem grupo é recusado e com o grupo sai (cen. 5); na administração, `inference`+`users` sai e `admin` é recusado (cen.
+    6). Vazio e desconhecido são recusados (cen. 7), e `rotate` preserva os escopos (cen. 8).
+  - **Ordem das recusas.** Na administração, o grupo de administração recusado com `field="groups"` vem antes de
+    `scopes`.
+  - **Autenticação.** O Principal autenticado traz os escopos guardados.
+  - **Casos de borda.** Chave só `users` dona de Assistants de usuário: não os alcança, e outra chave do mesmo subject
+    com `inference` os alcança. Chave com `inference` e o grupo de administração, sem `admin`: resolve o que a ACL
+    concede (inclusive `allow: [group:<admin>]`) e recebe `NotFound` em toda operação de administração.
+- [X] T124 [P] [US14] `axon-ai/packages/core/tests/assistants/contract/test_api_key_store.py` (memória × Postgres):
+  `scopes` na ida e volta de `add`/`get`/`list`; `rotate` mantém `scopes`
+- [X] T125 [P] [US14] `axon-ai/packages/core/tests/assistants/integration/`:
+  - `test_postgres_migrations.py` (R50): banco na versão 005 com três chaves — sem grupo, com `operadores` (o grupo de
+    administração) e com `equipe`. `migrate(admin_group="operadores")` dá `{inference}`, `{inference, admin}` e
+    `{inference}`; com `admin_group=None`, todas ficam `{inference}`. Depois, inserir `scopes` NULL falha (`NOT NULL`) e
+    `{}` ou `{root}` falham (`CHECK`). Depois da migração, cada chave autentica pelo `AccessService` sobre o Postgres
+    com o mesmo acesso de antes: a do grupo de administração continua `is_admin`, e todas continuam `can_infer`
+    (SC-011).
+  - `test_cli.py`: `keys create --scope users` imprime `scopes: users`, e `--scope admin` sem `--group <admin>` sai com 1
+    nomeando `scopes`; `keys list` e `keys rotate` mostram os escopos.
+
+### US14 — Implementation
+
+- [X] T126 [US14] `axon-ai/packages/core/src/axon_ai/assistants/api.py` (R46, R49):
+  - **Tipos.** `type Scope = Literal["inference", "users", "admin"]`, `SCOPES: Final[tuple[Scope, ...]]` e
+    `DEFAULT_SCOPES: Final[frozenset[Scope]] = frozenset({"inference"})`.
+  - **`Principal.scopes`.** `frozenset[Scope] | None = None`, com a validação de `__post_init__` descrita na T122:
+    `oidc` com escopos → `ValueError`; `api_key` sem escopos → `DEFAULT_SCOPES`; vazio ou desconhecido → `ValueError`.
+  - **`ApiKeyInfo.scopes`.** `frozenset[Scope] = DEFAULT_SCOPES`: "não vazio, dentro de `SCOPES`", senão `ValueError`.
+  - **`ApiKeyAdmin.issue`.** Ganha `scopes: Collection[str] | None = None`, com a docstring das recusas.
+- [X] T127 [US14] `axon-ai/packages/core/src/axon_ai/assistants/domain/access.py` (R47): `is_admin` passa a exigir
+  `p.scopes is None or "admin" in p.scopes`; nova `can_infer(principal) -> bool`
+- [X] T128 [US14] `axon-ai/packages/core/src/axon_ai/assistants/domain/keys.py` (R49): `key_scopes(scopes, *, groups,
+  admin_group, by_operator) -> frozenset[Scope]` com a tabela do data-model; `RequestRejected(field="scopes")` com
+  mensagens em pt-BR ("o escopo admin exige o grupo de administração", "o escopo admin só é concedido pela linha de
+  comando", "escopo desconhecido: <x>", "ao menos um escopo")
+- [X] T129 [US14] `axon-ai/packages/core/src/axon_ai/assistants/adapters/sql/006_api_key_scopes.sql`: `ALTER TABLE
+  assistants.api_keys ADD COLUMN scopes text[] CHECK (scopes <@ '{inference,users,admin}' AND cardinality(scopes) > 0)`
+  (anulável aqui; o `NOT NULL` vem do passo da T130)
+- [X] T130 [US14] `axon-ai/packages/core/src/axon_ai/assistants/adapters/postgres_schema.py` (R50):
+  - **Assinatura.** `migrate(pool, *, now, admin_group: str | None = None)`.
+  - **Passos por versão.** `_AFTER: Final = {6: _backfill_scopes}`, executado na mesma transação logo depois do arquivo
+    e só quando a versão é aplicada nesta chamada.
+  - **`_backfill_scopes`.** `UPDATE … SET scopes = CASE WHEN %s = ANY(groups) THEN '{inference,admin}' ELSE
+    '{inference}' END WHERE scopes IS NULL` (com `admin_group` `None`, todas `{inference}`), seguido de `ALTER COLUMN
+    scopes SET NOT NULL`.
+- [X] T131 [US14] Adapters de chave (`adapters/memory.py`, `adapters/api_keys_postgres.py`): `scopes` em `_COLUMNS`, no
+  `INSERT` e em `_record` (texto → `frozenset`); `rotate` não toca `scopes`
+- [X] T132 [US14] `axon-ai/packages/core/src/axon_ai/assistants/service.py` (R48, R49):
+  - **`AccessService.authenticate`.** Monta o `Principal` com `scopes=record.info.scopes`.
+  - **`issue`.** `_require_admin` → grupo de administração (`field="groups"`, como hoje) → `key_scopes(...,
+    by_operator=False)`.
+  - **`issue_as_operator`.** Ganha `scopes` e chama `key_scopes(..., by_operator=True)` depois de validar os grupos.
+  - **`AssistantsService`.** Sem `can_infer`: `resolve` levanta `not_found(selection.assistant)` antes de `_find`;
+    `discover` e `mine` devolvem `[]`; `get`, `update` e `delete` levantam `not_found(name)`; `create` levanta
+    `not_found(USER_PREFIX + draft.name)`. Nada consome orçamento.
+- [X] T133 [US14] `axon-ai/packages/core/src/axon_ai/assistants/adapters/cli.py`: `--scope` repetível em `keys create`
+  (choices `inference|users|admin`), repassado a `issue_as_operator`; linha `subject: …  groups: …  scopes: …` em
+  `create`/`rotate` e coluna de escopos em `list`; `RequestRejected` → código 1 com a mensagem
+- [X] T134 [US14] Toques fora do módulo (R50, R51; ADR-057 item 7):
+  - `bootstrap/wiring.py`: `_migrate` passa `admin_group=parts["assistants_config"].admin_group` a
+    `assistants_schema.migrate`.
+  - `bootstrap/profiles.py`: `_seeded_keys`/`_record` recebem os escopos, pela regra da migração — com o grupo de
+    administração, `{inference, admin}`. `TEST_API_KEY` → `{inference, admin}`; `AXON_DEV_API_KEY` → `{inference, admin}`
+    com `admin_group`, senão `{inference}`.
+  - Kits de teste com escopos explícitos nas chaves de admin: `tests/http/http_testkit.py` (`ApiKeyInfo` semeadas com
+    grupo de administração) e `tests/bootstrap/integration/test_persistent_profile.py` (`issue_as_operator(…,
+    groups=["admin"], scopes=["inference", "admin"])`).
+  - Kits e testes da própria 003 que administram com chave montada em processo: `tests/assistants/assistants_testkit.py`
+    (`CAIO_KEY` e todo Principal `api_key` com o grupo de administração ganham `scopes=frozenset({"inference",
+    "admin"})`), e as emissões com o grupo de administração em `tests/assistants/**` cuja chave depois administra
+    passam `scopes=["inference", "admin"]`. Rodar `uv run pytest packages/core/tests/assistants` antes da US15 e nenhum
+    teste anterior pode falhar.
+
+### US15 — Tests (antes das T137–T140)
+
+- [X] T135 [P] [US15] `axon-ai/packages/core/tests/assistants/contract/test_user_assistant_store.py` e
+  `test_api_key_store.py` (memória × Postgres; R52): `erase_owner(owner)` apaga só os do dono e devolve quantos (zero
+  na repetição); `erase_subject(subject)` apaga ativas e revogadas do subject e devolve quantas (zero na repetição),
+  sem tocar as de outro subject
+- [X] T136 [P] [US15] `axon-ai/packages/core/tests/assistants/contract/test_subject_erasure.py` (novo, marca `us15`; R52–R54):
+  - **Cenário independente da US15.** `user:ana` com 2 Assistants de usuário, 1 chave ativa e 1 revogada, no `allow` de
+    uma sobreposição de `auth` e no `allow` do YAML de `interno`. O relatório é `user_assistants=2`, `api_keys=2`,
+    `override_entries=1` e `config_references=("interno",)`.
+  - **Efeitos.** A chave é não autenticada, e `get`/`mine` não acham os Assistants.
+  - **Sobreposição.** Versão + 1 sem `user:ana`, `updated_by` = ator, histórico `saved`, impressão digital igual.
+  - **`allow` que fica vazio.** Gravado, e `resolve` levanta `AssistantUnavailable` com `override.auth`.
+  - **Sobreposição inativa.** Também limpa, e continua inativa.
+  - **Cache.** A resolução logo depois do apagamento já vê a versão nova (`forget`).
+  - **Conflito de versão.** Uma porta que levanta `Conflict` na 1ª e na 2ª gravação conclui na 3ª; sempre `Conflict`
+    → `Conflict`.
+  - **Repetição e validação.** Repetir dá zeros e as mesmas `config_references`; subject malformado →
+    `RequestRejected(field="subject")`.
+  - **Sistema.** Apagar `svc:robo` apaga as chaves e as entradas de sobreposição dele; `user_assistants=0`.
+  - **Memória e Postgres.** O mesmo caso com o Postgres quando `AXON_TEST_POSTGRES_DSN` está definido (SC-012).
+
+### US15 — Implementation
+
+- [X] T137 [US15] `axon-ai/packages/core/src/axon_ai/assistants/api.py` (R52): `ErasureReport` (`user_assistants: int =
+  0`, `api_keys: int = 0`, `override_entries: int = 0`, `config_references: tuple[str, ...] = ()`, frozen, kw_only) e
+  `SubjectErasure(Protocol)` com `async def erase_subject(self, subject: str, *, actor: str) -> ErasureReport`
+- [X] T138 [US15] `axon-ai/packages/core/src/axon_ai/assistants/ports.py` e adapters (`memory.py`,
+  `api_keys_postgres.py`, `assistants_postgres.py`): `ApiKeyStore.erase_subject(subject) -> int` e
+  `UserAssistantStore.erase_owner(owner) -> int` (um `DELETE … WHERE` cada, `rowcount`)
+- [X] T139 [US15] `axon-ai/packages/core/src/axon_ai/assistants/service.py` (R52–R54):
+  - **`AssistantsService.forget(names)`.** Tira do cache da configuração efetiva os Assistants dados.
+  - **`SubjectEraser`.** Construtor `(*, keys, users, overrides: SystemOverrideStore | None, config: AssistantsConfig,
+    assistants: AssistantsService, clock)`.
+  - **`erase_subject`.** Valida `SUBJECT_PATTERN` e segue a ordem chaves → Assistants de usuário → sobreposições de
+    `auth` → referências do YAML.
+  - **Sobreposições.** Para cada `auth` (ativa ou inativa) cujo `allow` tem o subject exato: `put` com `allow` sem
+    ele, mesma `fingerprint`, `updated_by=actor`, `updated_at=clock.now()` e `expected_version` = a lida. Em `Conflict`,
+    relê e tenta de novo até 3 vezes; esgotado, propaga.
+  - **Fim.** `forget` dos tocados; `config_references` com os Assistants do YAML cujo `allow` contém o subject, em
+    ordem alfabética.
+- [X] T140 [US15] `axon-ai/packages/core/src/axon_ai/assistants/api.py` e `service.py`: conferir que o `allow` vazio
+  gravado pelo apagamento passa pelo `read_payload`/`apply_auth` existentes até `override.auth` (R53); sem mudança
+  esperada em `domain/overrides.py` — se o teste da T136 mostrar o contrário, corrigir lá
+
+### Integration e verificação
+
+- [X] T141 Suítes (a partir de `axon-ai/`, `XDG_DATA_HOME=$HOME/.local/share`): `uv run pytest && uv run mypy && uv run
+  ruff check packages && uv run lint-imports`; `assistants/` contra Postgres 17 em contêiner temporário
+  (`AXON_TEST_POSTGRES_DSN`), inclusive a migração 006 sobre dados; nenhuma regressão na 008 e na 011 (SC-011)
+- [X] T142 Quickstart "Fase 9, incremento 9.7" à mão no `persistent`, sobre um banco com chaves anteriores: `keys list`
+  com os escopos preenchidos, `keys create --scope users`, `--scope admin` sem o grupo recusado; a chave `users` recebe
+  404 em `/private/v1/chat/completions` e 200 em `/private/v1/health`
+- [X] T143 [P] `specs/README.md` (linha da 003: "US14 e US15 implementadas") e `docs/roadmap.md` (andamento do
+  incremento 9.7: 003 feita); `graphify update .` na raiz. Pendência para a passada da 011: os exemplos `axon keys
+  create --group <admin>` sem `--scope admin` em `specs/011-core-bootstrap/quickstart.md` e `contracts/cli.md` já não
+  dão chave de administração
+
+### Dependencies (US14, US15)
+
+Primeiro T121. Depois a US14 inteira e, por fim, a US15:
+
+- **US14.** T122 ∥ T123 ∥ T124 ∥ T125 (veem falhar) → T126 → T127 → T128 → T129 → T130 → T131 → T132 → T133 → T134.
+- **US15.** T135 ∥ T136 (veem falhar) → T137 → T138 → T139 → T140.
+
+As duas US tocam `api.py`, `service.py` e os adapters de chave: em sequência, para não editar os mesmos arquivos em
+paralelo. A US15 depende da US14 só nesses arquivos, não no comportamento. No fim, T141 → T142, com a T143 em paralelo
+com a T141.
+
+**MVP**: a US14 sozinha já entrega as chaves com escopo e o seam que as passadas da 008, da 011 e da 013 consomem. A
+US15 é pré-requisito só da passada da 012 (apagamento em cascata).
+
+### Notas da execução (US14, US15)
+
+- **Falhas esperadas.** T122–T125 e T135–T136 falharam antes da implementação, porque `DEFAULT_SCOPES` e
+  `ErasureReport` ainda não existiam.
+- **Testes da 003 que administram.** Como a análise previu (C1), cinco testes da 003 emitiam chave com o grupo de
+  administração e depois administravam. Ganharam `scopes=["inference", "admin"]`, e o `CAIO_KEY` do kit também. Fora
+  da 003, só os dois kits previstos (008 e 011).
+- **Fora do módulo.**
+  - O `--scope` do `axon keys create` é registrado em `bootstrap/cli.py` (011), onde mora o `argparse`, com `choices`
+    de `SCOPES`.
+  - O `keys_create_command` da 003 recebe os escopos. Em `RequestRejected`, imprime `erro: <campo>: <mensagem>`, e a
+    recusa nomeia `scopes`.
+- **Migração.** `migrate(admin_group=…)` roda o passo de preenchimento da 006 na mesma transação do arquivo
+  (`_AFTER`). Nas migrações anteriores, os testes que esperavam `(…, 5)` passaram a `(…, 6)`.
+- **Retentativa.** `SubjectEraser` tenta 3 vezes no total (`ERASE_ATTEMPTS`). Com o `allow` vazio, o `resolve` dá
+  `AssistantNotFound`: a ACL não admite ninguém, e a indisponibilidade (`override.auth`) aparece no `status` da visão e
+  na validação. Nada mudou em `domain/overrides.py` (T140).
+- **Suítes.**
+  - Workspace com Postgres 17 em contêiner temporário: 3964 passed, 11 skipped. Sem Postgres: 3737 passed.
+  - Só `assistants/` contra o Postgres: 611 passed, inclusive a 006 sobre dados.
+  - mypy limpo (285 arquivos), ruff limpo, import-linter 70 kept.
+- **À mão, no `persistent`.** Banco com o schema até a 005 e duas chaves antigas.
+  - Migração e listagem: `keys list` mostra `admin,inference` na do grupo `operadores` e `inference` na outra.
+  - Emissão: `keys create --scope users` sai `scopes: users`; `--scope admin` sem o grupo sai com 1 e
+    `erro: scopes: …`.
+  - API: a chave `users` recebe 404 em `/private/v1/chat/completions`, lista vazia em `/models` e 200 em `/health`. A
+    antiga do grupo continua 200 em `/private/v1/packs`, e a comum, 404.
+
+---
+
+## Ajuste da passada de 2026-11-04: o pseudônimo no Subject Erasure (US15; [ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md); research R56, R57)
+
+**Goal**: o Subject Erasure recebe o pseudônimo e troca por ele toda citação do subject que fica no módulo (FR-048,
+SC-012 revisto).
+
+**Independent Test**: `contract/test_subject_erasure.py` e `contract/test_override_store.py`, com e sem
+`AXON_TEST_POSTGRES_DSN`.
+
+- [X] T144 [P] [US15] `axon-ai/packages/core/tests/assistants/contract/test_override_store.py` (memória × Postgres):
+  `pseudonymize` troca `updated_by`, `actor` do histórico e o subject em `payload.allow` das versões `auth` do histórico;
+  não toca outros subjects, seções `models`/`mcp` nem `group:…`; devolve o total; zero na repetição
+- [X] T145 [P] [US15] `axon-ai/packages/core/tests/assistants/contract/test_subject_erasure.py`:
+  - **Assinatura.** `pseudonym=` em todas as chamadas.
+  - **Cenário 8.** `user:ana` grava uma sobreposição (fica como autora e no histórico) e é citada em versões antigas:
+    depois do apagamento, autora, ator e entradas passam ao pseudônimo e `authored` conta.
+  - **Recusa.** Pseudônimo malformado → `RequestRejected(field="pseudonym")`.
+  - **Postgres.** Busca do subject em todas as colunas `text`/`jsonb` do schema `assistants` vazia.
+- [X] T146 [US15] `axon-ai/packages/core/src/axon_ai/assistants/api.py`:
+  - `PSEUDONYM_PATTERN` (`^deleted:[0-9a-f]{16}$`);
+  - `ErasureReport.authored: int = 0`;
+  - `SubjectErasure.erase_subject(self, subject: str, *, actor: str, pseudonym: str)`.
+- [X] T147 [US15] `ports.py` (`SystemOverrideStore.pseudonymize`), `adapters/memory.py` e
+  `adapters/overrides_postgres.py`: a troca numa transação; no Postgres, `jsonb_agg` sobre `payload->'allow'` das linhas
+  `section = 'auth'` que contêm o subject
+- [X] T148 [US15] `service.py` (`SubjectEraser.erase_subject`): valida o pseudônimo junto com o subject. Chama
+  `pseudonymize` depois da regravação de R53 e soma em `authored`. Sem armazenamento de sobreposições, `authored=0`.
+- [X] T149 Suítes: `uv run pytest packages/core/tests/assistants` com e sem Postgres (contêiner próprio,
+  `axon-003b-pg`), `uv run mypy`, `uv run ruff check packages`, `uv run lint-imports`; `graphify update .`
+
+### Dependencies (ajuste)
+
+T144 ∥ T145 (veem falhar) → T146 → T147 → T148 → T149.
+
+### Notas da execução (ajuste)
+
+- **Falhas esperadas.** T144 e T145 falharam antes da implementação (15 casos).
+- **Contagem de citações.** Uma citação no histórico conta uma vez por entrada de `allow` e uma vez pelo `actor`. No
+  cenário principal, `authored=1`: a versão antiga, gravada por outro admin, citava `user:ana` no `allow`.
+- **A busca no schema** percorre todas as colunas `text`, `jsonb` e de array das tabelas de `assistants`. Ela roda só
+  no Postgres (em memória, o caso é pulado, por isso o skip a mais na suíte).
+- **Suítes.**
+  - `assistants/` contra o Postgres 17 em contêiner próprio (`axon-003b-pg`, parado ao fim): 618 passed, 1 skipped.
+  - Workspace com Postgres: 4033 passed, 12 skipped.
+  - mypy, ruff e import-linter (70 kept) limpos.
+

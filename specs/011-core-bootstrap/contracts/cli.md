@@ -4,7 +4,7 @@
 axon serve [--profile P]
 axon packs list | check | prepare            # 002 (prepare: ADR-041)
 axon assistants validate                     # 003
-axon keys create --subject S [--group G]... [--label L] | list | revoke KEY_ID   # 003
+axon keys create --subject S [--group G]... [--scope inference|users|admin]... [--label L] | list | revoke KEY_ID   # 003
 axon health                                  # 011
 ```
 
@@ -80,3 +80,21 @@ axon --version        # axon-ai 0.7.0rc1
 
 Conformidade (`tests/bootstrap/contract/test_cli_commands.py`): `--version`, a recusa num subcomando e `prog` `axon` na
 ajuda.
+
+
+## Fase 9, incremento 9.7 (2026-11-05): apagar conta, um grupo de cada vez e escopos (US9; research R60)
+
+```text
+axon users delete USUÁRIO [--yes]          # 012, com os apagadores da 011; sobe até `assistants`
+axon groups add GRUPO USUÁRIO              # 012
+axon groups remove GRUPO USUÁRIO           # 012
+axon keys create --subject S [--group G]... [--scope inference|users|admin]... [--label L]   # 003
+```
+
+| Comando | Saída e código |
+|---|---|
+| `users delete` | sem `--yes`, pede o nome; o relatório por módulo; 0 completo; 1 incompleto (relatório parcial), própria conta, último admin ou inexistente |
+| `groups add\|remove` | a conta com os grupos; 0; 1 com conta ou grupo inexistente |
+| `keys create` | sem `--scope`, `{inference}`; chave de administração: `--group <admin> --scope admin` (e `--scope inference`, se também conversa) |
+
+Conformidade: `tests/bootstrap/contract/test_cli_commands.py`.

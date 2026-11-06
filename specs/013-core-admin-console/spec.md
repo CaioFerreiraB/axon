@@ -11,7 +11,8 @@ e senha ou Google; modelos e MCPs de cada Assistant, sobrepondo o `assistants.ya
 dashboard de requisições, tokens e custo por modelo e por dia; Langfuse; ajustes de login; instalação com ou sem a
 interface. ADR-029, ADR-031, ADR-032, ADR-033, ADR-034. Fase 9, incremento 9.5 (2026-10-20): identidade Axon —
 ADR-037, ADR-038, ADR-039. Fase 9 (2026-10-21): chaves de API e acesso dos Assistants de sistema pela console — ADR-040. Fase 9, incremento 9.6
-(2026-11-03): página Meio ambiente e emissões em Uso e custo — ADR-056.
+(2026-11-03): página Meio ambiente e emissões em Uso e custo — ADR-056. Fase 9, incremento 9.7 (2026-11-05): escopos na
+emissão e na lista de chaves, apagar conta e um grupo de cada vez — ADR-057, ADR-058, ADR-059.
 
 ## Module Boundary *(mandatory)*
 
@@ -69,6 +70,11 @@ ADR-037, ADR-038, ADR-039. Fase 9 (2026-10-21): chaves de API e acesso dos Assis
 - Q: Que filtros a página tem? → A: Período (30 dias, 90 dias, 12 meses, ano atual ou personalizado com De e Até, numa caixa flutuante com Cancelar e Aplicar), agregação (Dia, Semana, Mês, Trimestre, Semestre) e origem (produção ou avaliação), na linha abaixo do título; padrão 30 dias por dia.
 - Q: Como a página mostra os números sem "verde ecológico"? → A: Como o resto da console (DESIGN.md): faixa de números sem ícone, séries só em `serie-1` (uso) e `serie-2` (fabricação), verde, âmbar e vermelho só como estado. O selo "Aproximado" usa o tom de aviso com bolinha, como "Sem preço". A tabela por modelo não leva amostras de cor, porque os gráficos são por fase, não por modelo.
 - Q: Como mostrar valores tão pequenos (gramas por resposta, frações de árvore)? → A: Com prefixo de unidade em pt-BR — `mg`/`g`/`kg CO₂e`, `Wh`/`kWh`, `mL`/`L`, `kJ`/`MJ`, `µg`/`mg`/`g Sb eq` — e árvores abaixo de 0,01 como "menos de 0,01"; o número principal da faixa leva a unidade menor que o valor.
+
+### Session 2026-11-05
+
+- Q: Como a console mostra uma conta com apagamento incompleto depois de fechado o diálogo? → A: A 008 acrescenta `deleting: true` à visão da conta (aditivo; a 012 já tem o estado), e a console mostra o selo "Em apagamento" com uma só ação, "Concluir apagamento", que repete o `DELETE`; as outras ações somem. O toque na 008 entra na passada dela, no mesmo incremento.
+- Q: Na ficha de edição, os grupos valem na hora ou no "Salvar"? → A: Na hora: os grupos saem do formulário e viram caixas que valem a cada clique (`PUT`/`DELETE` de um grupo, sem versão, com a recusa ao lado do grupo); nome e e-mail seguem no "Salvar", com a versão da conta.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -372,6 +378,48 @@ custo, a célula Emissões com o mesmo período.
 
 ---
 
+### User Story 12 - Escopos de chave, apagar uma conta e um grupo de cada vez (Priority: P2)
+
+O admin escolhe os escopos ao criar a chave de um sistema — uso de inferência, gerenciar usuários e grupos, ou os dois —
+e vê os escopos de cada chave na lista. Apaga a conta de uma pessoa confirmando pelo nome dela, e vê o que foi apagado em
+cada parte da plataforma; se uma parte falha, vê o que faltou e tenta de novo. Põe e tira uma pessoa de um grupo sem
+reescrever a lista de grupos dela ([ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md),
+[ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md), [ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md); 008 US13).
+
+**Why this priority**: Sem a tela, a chave de provisionamento e o apagamento de contas só existem por chamada direta à
+API ou pela linha de comando; a console não tem lógica própria (ADR-029).
+
+**Independent Test**: Criar uma chave `provisionamento` só com "Gerenciar usuários e grupos" e ver o escopo na lista;
+apagar a conta de `ana` digitando o nome e ver o relatório; pôr `bia` em `equipe` e tirá-la, conferindo que os outros
+grupos dela não mudaram.
+
+**Acceptance Scenarios**:
+
+1. **Given** o diálogo de nova chave, **When** o admin o abre, **Then** vê os escopos "Uso de inferência" (marcado) e
+   "Gerenciar usuários e grupos", sem a administração; **When** desmarca todos, **Then** a criação fica bloqueada com o
+   motivo; **When** cria com só "Gerenciar usuários e grupos", **Then** a chave sai com esse escopo e o diálogo da chave
+   em claro o mostra.
+2. **Given** chaves com escopos diferentes, inclusive uma de administração emitida pela linha de comando, **When** o admin
+   vê a lista, **Then** cada linha mostra os escopos dela em português, e a de administração diz que esse escopo só se
+   concede pela linha de comando.
+3. **Given** a conta de outra pessoa, **When** o admin escolhe "Apagar conta", **Then** um diálogo explica o que será
+   apagado e o que fica sem identificar a pessoa, e o botão de apagar só se habilita com o nome de usuário digitado
+   exatamente; a própria conta não oferece a ação.
+4. **Given** o nome confirmado, **When** o admin apaga, **Then** vê o relatório — o que cada parte da plataforma apagou e
+   os avisos (como referências na configuração) —, nunca o pseudônimo, e a pessoa some da lista.
+5. **Given** uma parte da plataforma que falha no apagamento, **When** o admin apaga, **Then** vê o relatório parcial, com a
+   parte que falhou marcada e o botão "Tentar de novo"; **When** tenta de novo e tudo responde, **Then** vê o relatório
+   completo.
+   **Given** o diálogo fechado com o apagamento incompleto, **When** o admin volta à lista, **Then** a conta aparece com
+   o selo "Em apagamento" e só a ação "Concluir apagamento", que repete o apagamento.
+6. **Given** a ficha de edição de uma pessoa, **When** o admin marca ou desmarca um grupo, **Then** a mudança vale na hora
+   para aquele grupo só — os outros grupos da pessoa, inclusive os que outro admin acabou de mudar, ficam como estão —;
+   a recusa da plataforma (último admin, grupo inexistente) aparece no grupo, com o motivo.
+7. **Given** o último admin ativo, **When** alguém tenta apagá-lo, **Then** a recusa da API aparece no diálogo, com o
+   motivo, e nada muda.
+
+---
+
 ### Edge Cases
 
 - Dois admins editam o mesmo Assistant: quem salva por último recebe aviso de que houve mudança, pode recarregar e não
@@ -486,6 +534,24 @@ custo, a célula Emissões com o mesmo período.
 - **FR-034**: A página DEVE mostrar a faixa de resumo (Emissões com faixa, variação e aviso de estimativa parcial; Energia; Água; Árvores para compensar com o fator), a faixa de intensidade (por resposta, por mil tokens gerados, cobertura), um gráfico por métrica com uso (`serie-1`) e fabricação (`serie-2`) empilhados onde existem as duas fases, dica por mouse e teclado com média, faixa e chamadas, e tabela equivalente para leitor de tela; a tabela por modelo ou Assistant com o modelo do EcoLogits e o selo "Aproximado"; e a nota de método com a versão do EcoLogits e o fator da árvore. Sem ícone nem cor decorativa (DESIGN.md).
 - **FR-035**: Os eixos e as dicas DEVEM usar o formato do grão, e os valores DEVEM ter prefixo de unidade em pt-BR (`mg`/`g`/`kg CO₂e`, `Wh`/`kWh`, `mL`/`L`, `kJ`/`MJ`, `µg`/`mg`/`g Sb eq`), com árvores abaixo de 0,01 como "menos de 0,01".
 - **FR-036**: A faixa de Uso e custo DEVE ganhar a célula "Emissões" — total de CO₂e e árvores do mesmo período, com o link "Meio ambiente" —, em 5 colunas, e 2 abaixo de 1100 px; sem impacto (estimativa desligada ou erro só do impacto), a célula diz isso sem afetar as outras.
+- **FR-037**: O diálogo de nova chave DEVE oferecer os escopos "Uso de inferência" (`inference`, marcado por padrão) e
+  "Gerenciar usuários e grupos" (`users`), ao menos um, e NÃO DEVE oferecer a administração (só a linha de comando a
+  concede, ADR-057 item 3); a escolha vai em `scopes` na emissão, e o diálogo da chave em claro mostra os escopos.
+- **FR-038**: A lista de chaves DEVE mostrar os escopos de cada chave em português; o escopo `admin` aparece como
+  "Administração", com a explicação de que só se concede pela linha de comando.
+- **FR-039**: A lista de pessoas DEVE oferecer "Apagar conta" para toda conta menos a do próprio admin, com um diálogo que
+  explica o que é apagado e o que fica pseudonimizado (ADR-059) e só habilita o apagamento com o nome de usuário digitado
+  exatamente.
+- **FR-040**: Depois do apagamento, a console DEVE mostrar o relatório — por parte da plataforma, as contagens com nomes em
+  português e os avisos —, nunca o pseudônimo; com o 503 `deletion_incomplete`, DEVE mostrar o relatório parcial com a
+  parte que falhou e "Tentar de novo", que repete o `DELETE`. Uma conta com `deleting: true` na visão da 008 DEVE
+  aparecer com o selo "Em apagamento" e só a ação "Concluir apagamento" (clarificação de 2026-11-05).
+- **FR-041**: Na ficha de edição, marcar ou desmarcar um grupo DEVE chamar a rota de um grupo de cada vez (`PUT`/`DELETE
+  /admin/v1/users/{u}/groups/{g}`) na hora, sem reescrever a lista inteira; a recusa aparece junto do grupo, com o
+  motivo da API. Os grupos ficam fora do formulário: o "Salvar" da ficha leva só nome e e-mail, com a versão da conta
+  (clarificação de 2026-11-05).
+- **FR-042**: Os diálogos novos DEVEM seguir as regras de acessibilidade da console (foco, teclado, rótulos, contraste nos
+  dois temas).
 
 ### Key Entities
 
@@ -518,6 +584,9 @@ custo, a célula Emissões com o mesmo período.
 - **SC-009**: Em teste, a chave em claro aparece só no diálogo da criação ou da rotação: depois de fechado, ela não está em nenhum texto da tela, na memória de dados da API nem no registro do navegador; criar uma chave e dar acesso a um sistema leva menos de 2 minutos sem tocar no `assistants.yaml`.
 - **SC-010**: Zero violações automáticas de WCAG 2.2 AA na tela de chaves, no diálogo da chave e na aba de acesso, nos dois temas, operáveis só pelo teclado.
 - **SC-011**: Zero violações automáticas de WCAG 2.2 AA na página Meio ambiente — com dados, vazia, com erro e com o período personalizado aberto —, nos dois temas e em 1440 e 768 px, operável só pelo teclado; os números da página batem 100% com o relatório da API.
+- **SC-012**: Zero violações automáticas de WCAG 2.2 AA no diálogo de nova chave com os escopos, no de apagar conta
+  (confirmação, relatório completo e parcial) e na ficha de edição com os grupos, nos dois temas, operáveis só pelo
+  teclado; o e2e apaga uma conta e ela some da lista, e o pseudônimo não aparece em nenhuma tela.
 
 ## Assumptions
 

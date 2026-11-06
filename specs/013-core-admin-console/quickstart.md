@@ -87,3 +87,16 @@ npx playwright test e2e/impact.spec.ts e2e/a11y.spec.ts
 
 Esperado: `/meio-ambiente` com as faixas, os cinco gráficos, a tabela com "Aproximado" no GLM e a nota de método, sem
 violação do axe nos dois temas e no tablet; em `/uso`, a célula Emissões leva à página com o mesmo período.
+
+
+## Fase 9, incremento 9.7 (2026-11-05): US12 — escopos, apagar conta e grupos
+
+```bash
+cd axon-ai/console && source ~/.nvm/nvm.sh && nvm use
+npm run typecheck && npm run lint && npm test -- access keys
+npx playwright install chromium && npx playwright test e2e/access.spec.ts e2e/keys.spec.ts e2e/a11y.spec.ts
+```
+
+Esperado: o diálogo de chave com os dois escopos; a lista com a coluna "Escopos"; apagar uma conta pede o nome e mostra o
+relatório, e a conta some; o 503 (MSW) mostra o parcial e "Tentar de novo"; os grupos da ficha valem na hora; zero
+violações do axe nos três diálogos, nos dois temas (SC-012).

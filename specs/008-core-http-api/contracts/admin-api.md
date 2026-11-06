@@ -185,3 +185,40 @@ CLI o concede). O seletor de `allow` da console usa `GET /keys` e `GET /groups`:
 Para cada rota: admin por token da console e por chave → sucesso; não admin → `404` idêntico ao de rota inexistente;
 token do chat → `401`; nenhuma resposta com valor de segredo (varredura); `409`/`422` com `param`; `Cache-Control:
 no-store`.
+
+
+## Incremento 9.7 (2026-11-05): escopos, contas por chave e apagar conta (US13; ADR-057, ADR-058; research R66–R70)
+
+**Quem entra.** Token da console: só o grupo de administração, como antes. Chave: nas rotas de contas, grupos e `me`
+(`/users*`, `/groups*`, `GET /me`), o escopo `users` **ou** a administração (grupo e escopo `admin`); em todas as demais,
+só a administração. Sem isso → `404` de rota inexistente, antes de qualquer seam. A chave `users` lê tudo, inclusive as
+contas e o grupo de administração; só as escritas neles são recusadas (clarificação Q2).
+
+**Erros novos**
+
+| Status | `code` | Quando |
+|---|---|---|
+| 403 | `actor_not_allowed` | ator sem administração escrevendo no grupo de administração ou numa conta dele (`param` = `username`, `groups`, `group`, `name` ou `members`) |
+| 503 | `deletion_incomplete` | algum módulo falhou no apagamento da conta; `Retry-After: 5` e o relatório parcial em `report` (ao lado de `error`) |
+
+**Rotas novas**
+
+| Rota | Corpo | Resposta |
+|---|---|---|
+| `DELETE /users/{username}` | — | `200` relatório (data-model, "Relatório do apagamento"); própria conta → `422` `param: "username"`; último admin → `409 protected_group`; inexistente → `404`; incompleto → `503 deletion_incomplete` |
+| `PUT /users/{username}/groups/{group}` | nenhum (corpo não vazio → `422`) | `200` `Account` já no grupo; repetir devolve o mesmo |
+| `DELETE /users/{username}/groups/{group}` | nenhum | `200` `Account` fora do grupo; repetir devolve o mesmo |
+
+Conta ou grupo inexistente → `404`.
+
+**Campos novos**: `GET /me` → `"scopes": ["users"]` (chave) ou `null` (console); `POST /keys` aceita `"scopes":
+["inference", "users"]` (ausente → `["inference"]`; `admin`, desconhecido ou vazio → `422` `param: "scopes"`); toda
+visão de chave traz `"scopes"`.
+
+Conformidade: `tests/http/contract/test_admin_scopes.py` (quem entra, cen. 1, 2, 5 e 9), `test_admin_accounts_delete.py`
+(cen. 6–8) e `test_admin_scopes_adversarial.py` (SC-013: cada escrita que toca o grupo de administração com uma chave
+`users` → 403 sem mudança; cada outra rota de `/admin/v1` → 404).
+
+
+**Incremento 9.7, toque de 2026-11-05 (FR-054, R72)**: `Account` ganha `deleting` (`false`; `true` depois de um
+apagamento incompleto, até que um `DELETE` o conclua).

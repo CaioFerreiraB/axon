@@ -82,3 +82,10 @@ Todos os itens continuam passando. FR-024 → US9 cen. 1 e 3; FR-025 → cen. 1,
 FR-027 → cen. 4, 5 e 6; FR-028 → US10 cen. 1, 2, 7 e 8; FR-029 → cen. 1; FR-030 → cen. 3 a 6; FR-031 → cen. 8 e a
 lista de Assistants. Nenhuma marca de clarificação; o nome da aba, o lugar da tela de chaves e o que a escolha de
 entradas oferece além de sistemas e grupos ficam para o `/speckit-clarify`.
+
+### Iteração de 2026-11-05 — US12 (incremento 9.7; ADR-057, ADR-058, ADR-059)
+
+Todos os itens continuam passando. FR-037 → cen. 1; FR-038 → cen. 2; FR-039 → cen. 3; FR-040 → cen. 4, 5 e 7; FR-041 →
+cen. 6; FR-042 → SC-012. Rotas e códigos aparecem porque o contrato da 008 é o que a console consome. Nenhuma marca de
+clarificação. Clarificação de 2026-11-05: duas perguntas — `deleting` na visão da conta (toque aditivo na 008) com o selo
+"Em apagamento"; os grupos da ficha valem na hora, um a um. Todos os itens continuam passando.

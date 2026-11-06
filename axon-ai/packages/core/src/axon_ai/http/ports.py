@@ -102,6 +102,11 @@ class ConversationStore(Protocol):
         """Expiração: apaga as conversas com última atividade anterior a `before` e devolve quantas."""
         ...
 
+    async def erase_owner(self, owner: str) -> tuple[int, int]:
+        """Apaga todas as conversas do dono, com as mensagens e as imagens, numa operação; devolve `(conversas,
+        imagens)` — `(0, 0)` ao repetir (incremento 9.7, R71)."""
+        ...
+
 
 class HealthProvider(Protocol):
     async def health(self) -> HealthReport: ...

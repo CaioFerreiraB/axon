@@ -69,3 +69,29 @@ AXON_PROFILE=memory AXON_IDENTITY_ENABLED=true AXON_PUBLIC_URL=http://localhost:
 Abrir `/oauth2/authorize?…` de um cliente (por exemplo, pela console) e conferir o lockup Axon e o favicon na aba; com
 `AXON_DISPLAY_NAME="Instituto Exemplo"`, o nome no lugar principal e "com Axon" no rodapé. Capturas em 390 e 1440 px, claro
 e escuro (R26).
+
+## Fase 9, incremento 9.7 (2026-11-04): US9–US11 — apagar conta, um grupo de cada vez, o ator que não administra
+
+A partir de `axon-ai/`, com `XDG_DATA_HOME=$HOME/.local/share`. Decisões em [research.md](research.md) R28–R34; formas em
+[data-model.md](data-model.md) e [contracts/identity-api.md](contracts/identity-api.md).
+
+```bash
+uv run pytest packages/core/tests/identity -q
+AXON_TEST_POSTGRES_DSN=postgresql://postgres:pg@localhost:55432/postgres \
+  uv run pytest packages/core/tests/identity -q       # conformidade das portas e a migração 005 sobre dados
+uv run pytest && uv run mypy && uv run ruff check packages && uv run lint-imports
+```
+
+**Esperado**: verde.
+- **US9.**
+  - Com dois apagadores de teste, apagar `ana` devolve o relatório com as contagens dos dois e da identidade, sem o
+    pseudônimo.
+  - A renovação dela é recusada, e `ana` pode ser cadastrada de novo, sem nada da anterior.
+  - Os autores de mudanças feitas por `user:ana` passam a `deleted:<16 hex>`, o mesmo valor que os apagadores receberam.
+  - Com um apagador que falha uma vez: `DeletionIncomplete`, a conta em apagamento e o nome preso. A segunda tentativa
+    conclui com o mesmo pseudônimo.
+- **US10.** Pôr `ana` em `equipe` e em `vendas` ao mesmo tempo deixa os dois; repetir não muda a versão.
+- **US11.** Com `actor_can_admin=False`, toda recusa da R31 sai com `ActorNotAllowed` e o campo.
+
+O comando `axon users delete` e os `axon groups add|remove` ficam disponíveis na passada da 011, que os registra e liga
+os apagadores. A prova ponta a ponta (008 + 011) busca o nome apagado em todos os schemas.

@@ -150,12 +150,21 @@ class PriceStore(Protocol):
         """Um preço por (provider, modelo, vigência): repetir a vigência substitui."""
         ...
 
+    async def pseudonymize(self, subject: str, pseudonym: str) -> int:
+        """Troca `created_by` do subject pelo pseudônimo, sem mudar mais nada; devolve quantos (R53)."""
+        ...
+
 
 class DestinationSettingsStore(Protocol):
     async def get(self) -> DestinationSettings: ...
 
     async def put(self, settings: DestinationSettings, *, expected_version: int) -> bool:
         """`False` se a versão guardada não é `expected_version`."""
+        ...
+
+    async def pseudonymize(self, subject: str, pseudonym: str) -> int:
+        """Troca `updated_by` do subject pelo pseudônimo **sem** mudar `version` nem `updated_at`; devolve 0 ou 1
+        (R53)."""
         ...
 
 

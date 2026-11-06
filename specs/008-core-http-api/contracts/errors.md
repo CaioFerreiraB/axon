@@ -59,3 +59,9 @@ das recusas de 404, 400, 424 e 429 e antes de qualquer chamada de modelo.
 
 O 413 vem antes de decodificar o JSON; o `vision_unsupported`, depois do grant e antes de qualquer chamada de modelo.
 Imagens das mensagens anteriores nunca geram erro.
+
+
+## Incremento 9.7 (2026-11-05)
+
+Na administração: `403 actor_not_allowed` (`type: "permission_error"`, `param` = campo) e `503 deletion_incomplete`
+(`type: "server_error"`, `Retry-After: 5`, `report` ao lado de `error`) — [admin-api.md](admin-api.md), "Incremento 9.7".

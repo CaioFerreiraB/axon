@@ -21,13 +21,14 @@ from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from axon_ai.assistants.api import ADMIN_SURFACE, Conflict, NotFound, OverrideSection, Principal
-from axon_ai.http.adapters.auth import authenticated
+from axon_ai.http.adapters.auth import SCOPES_ATTRIBUTE, authenticated
 from axon_ai.http.adapters.chat import REQUEST_ID_HEADER, json_body
 from axon_ai.http.adapters.errors import ApiError, respond
 from axon_ai.http.domain import admin_accounts, admin_assistants, admin_impact, admin_observability, admin_usage
 from axon_ai.http.domain.admin_common import only
 from axon_ai.http.domain.errors import admin_error_for, key_revoked
 from axon_ai.http.domain.private import health_json, issue_request, key_json
+from axon_ai.http.domain.scopes import ACCOUNTS, ADMIN, admin_access
 from axon_ai.http.ports import AdminGate, AdminSeams, Clock, HealthProvider, InstanceBranding, RequestIds
 from axon_ai.identity.api import AccountAdmin, AccountNotFound, IssuedPassword, LoginSettings
 from axon_ai.llm.api import ModelPolicy
@@ -66,13 +67,24 @@ class AdminHeaders:
         await self._app(scope, receive, stamped)
 
 
-async def _admin(request: Request) -> Principal:
+async def _admin(request: Request, route_scopes: frozenset[str]) -> Principal:
     principal = await authenticated(request, ADMIN_SURFACE)
-    gate: AdminGate = request.app.state.admin
-    if not gate.is_admin(principal):
-        # Quem não administra não fica sabendo que a rota existe — o 404 de recurso inexistente (FR-024).
+    if not admin_access(principal.scopes, route_scopes, administers=_administers(request, principal)):
+        # Quem não alcança a rota não fica sabendo que ela existe — o 404 de recurso inexistente (FR-024, FR-047).
         raise NotFound("recurso não encontrado")
     return principal
+
+
+def _administers(request: Request, principal: Principal) -> bool:
+    """A regra de administração da 003 (grupo e, com chave, o escopo `admin`) — o `actor_can_admin` da 012 (R67)."""
+    gate: AdminGate = request.app.state.admin
+    return gate.is_admin(principal)
+
+
+async def _no_body(request: Request) -> None:
+    """Rota sem corpo: um corpo com campos é recusado nomeando o primeiro (como a rotação de chave)."""
+    if await request.body():
+        only(await json_body(request), ())
 
 
 def _not_found() -> JSONResponse:
@@ -84,8 +96,11 @@ def _not_found() -> JSONResponse:
 def admin_router(seams: AdminSeams, instance: InstanceBranding) -> APIRouter:
     router = APIRouter()
 
-    def route(method: str, path: str, *, status: int = 200) -> Callable[[Handler], Handler]:
-        """Uma rota de administração: autentica, exige o grupo e traduz os erros pela tabela da superfície (R46).
+    def route(
+        method: str, path: str, *, status: int = 200, scopes: frozenset[str] = ADMIN
+    ) -> Callable[[Handler], Handler]:
+        """Uma rota de administração: autentica, confere quem entra pelos escopos da rota (padrão `admin`: rota nova
+        nasce fechada; R66, R67) e traduz os erros pela tabela da superfície (R46).
 
         O FastAPI lê a assinatura do endpoint; ela é montada só com a requisição e os parâmetros do caminho — o
         `Principal` é argumento do handler, não da requisição."""
@@ -93,7 +108,7 @@ def admin_router(seams: AdminSeams, instance: InstanceBranding) -> APIRouter:
         def decorate(handler: Handler) -> Handler:
             async def endpoint(request: Request, **params: str) -> Response:
                 try:
-                    principal = await _admin(request)
+                    principal = await _admin(request, scopes)
                     content = await handler(request, principal, **params)
                 except ApiError as error:
                     return respond(error.response)
@@ -114,6 +129,7 @@ def admin_router(seams: AdminSeams, instance: InstanceBranding) -> APIRouter:
                 for name in _PATH_PARAM.findall(path)
             ]
             endpoint.__signature__ = inspect.Signature(parameters)  # type: ignore[attr-defined]
+            setattr(endpoint, SCOPES_ATTRIBUTE, scopes)
             endpoint.__name__ = handler.__name__
             endpoint.__doc__ = handler.__doc__
             router.add_api_route(path, endpoint, methods=[method], status_code=status)
@@ -136,7 +152,7 @@ def admin_router(seams: AdminSeams, instance: InstanceBranding) -> APIRouter:
 
     # --- sessão ---------------------------------------------------------------------------------------------------
 
-    @route("GET", "/me")
+    @route("GET", "/me", scopes=ACCOUNTS)
     async def me(request: Request, principal: Principal) -> Any:
         """Quem está na sessão e a marca da instalação (R48)."""
         username = principal.subject.split(":", 1)[-1]
@@ -152,6 +168,7 @@ def admin_router(seams: AdminSeams, instance: InstanceBranding) -> APIRouter:
             "name": name,
             "groups": sorted(principal.groups),
             "scheme": principal.scheme,
+            "scopes": sorted(principal.scopes) if principal.scopes is not None else None,
             "instance": {"name": instance.name, "logo_url": instance.logo_url, "custom": instance.custom},
         }
 
@@ -279,62 +296,109 @@ def admin_router(seams: AdminSeams, instance: InstanceBranding) -> APIRouter:
 
     # --- contas, grupos e login (012) -----------------------------------------------------------------------------
 
-    @route("GET", "/users")
+    @route("GET", "/users", scopes=ACCOUNTS)
     async def users(request: Request, principal: Principal) -> Any:
         params = admin_accounts.users_params(dict(request.query_params))
         return admin_accounts.page_json(await accounts().accounts(**params))
 
-    @route("POST", "/users", status=201)
+    @route("POST", "/users", status=201, scopes=ACCOUNTS)
     async def create_user(request: Request, principal: Principal) -> Any:
         draft = admin_accounts.draft_body(await json_body(request))
-        created = await accounts().create(draft, actor=principal.subject)
+        created = await accounts().create(
+            draft, actor=principal.subject, actor_can_admin=_administers(request, principal)
+        )
         if isinstance(created, IssuedPassword):
             return admin_accounts.issued_json(created)
         return {"account": admin_accounts.account_json(created)}  # só Google: sem senha (FR-002 da 012)
 
-    @route("GET", "/users/{username}")
+    @route("GET", "/users/{username}", scopes=ACCOUNTS)
     async def user(request: Request, principal: Principal, username: str) -> Any:
         return admin_accounts.account_json(await accounts().account(username))
 
-    @route("PATCH", "/users/{username}")
+    @route("PATCH", "/users/{username}", scopes=ACCOUNTS)
     async def update_user(request: Request, principal: Principal, username: str) -> Any:
         patch, version = admin_accounts.patch_body(await json_body(request))
-        updated = await accounts().update(username, patch, actor=principal.subject, version=version)
+        updated = await accounts().update(
+            username, patch, actor=principal.subject, version=version, actor_can_admin=_administers(request, principal)
+        )
         return admin_accounts.account_json(updated)
 
-    @route("POST", "/users/{username}/password")
+    @route("POST", "/users/{username}/password", scopes=ACCOUNTS)
     async def reset_password(request: Request, principal: Principal, username: str) -> Any:
-        return admin_accounts.issued_json(await accounts().reset_password(username, actor=principal.subject))
+        return admin_accounts.issued_json(
+            await accounts().reset_password(
+                username, actor=principal.subject, actor_can_admin=_administers(request, principal)
+            )
+        )
 
-    @route("POST", "/users/{username}/disable")
+    @route("POST", "/users/{username}/disable", scopes=ACCOUNTS)
     async def disable(request: Request, principal: Principal, username: str) -> Any:
-        return admin_accounts.account_json(await accounts().disable(username, actor=principal.subject))
+        return admin_accounts.account_json(
+            await accounts().disable(
+                username, actor=principal.subject, actor_can_admin=_administers(request, principal)
+            )
+        )
 
-    @route("POST", "/users/{username}/enable")
+    @route("POST", "/users/{username}/enable", scopes=ACCOUNTS)
     async def enable(request: Request, principal: Principal, username: str) -> Any:
-        return admin_accounts.account_json(await accounts().enable(username, actor=principal.subject))
+        return admin_accounts.account_json(
+            await accounts().enable(username, actor=principal.subject, actor_can_admin=_administers(request, principal))
+        )
 
-    @route("DELETE", "/users/{username}/google")
+    @route("DELETE", "/users/{username}/google", scopes=ACCOUNTS)
     async def unlink_google(request: Request, principal: Principal, username: str) -> Any:
-        return admin_accounts.account_json(await accounts().unlink_google(username, actor=principal.subject))
+        return admin_accounts.account_json(
+            await accounts().unlink_google(
+                username, actor=principal.subject, actor_can_admin=_administers(request, principal)
+            )
+        )
 
-    @route("GET", "/groups")
+    @route("DELETE", "/users/{username}", scopes=ACCOUNTS)
+    async def delete_user(request: Request, principal: Principal, username: str) -> Any:
+        """Apaga a conta em cascata (ADR-058; FR-049). Incompleto: 503 com o relatório parcial (R68)."""
+        report = await accounts().delete(
+            username, actor=principal.subject, actor_can_admin=_administers(request, principal)
+        )
+        return admin_accounts.deletion_json(report)
+
+    @route("PUT", "/users/{username}/groups/{group}", scopes=ACCOUNTS)
+    async def add_group(request: Request, principal: Principal, username: str, group: str) -> Any:
+        """Um grupo de cada vez, sem corpo nem versão (012 FR-033; FR-050)."""
+        await _no_body(request)
+        account = await accounts().add_group(
+            username, group, actor=principal.subject, actor_can_admin=_administers(request, principal)
+        )
+        return admin_accounts.account_json(account)
+
+    @route("DELETE", "/users/{username}/groups/{group}", scopes=ACCOUNTS)
+    async def remove_group(request: Request, principal: Principal, username: str, group: str) -> Any:
+        await _no_body(request)
+        account = await accounts().remove_group(
+            username, group, actor=principal.subject, actor_can_admin=_administers(request, principal)
+        )
+        return admin_accounts.account_json(account)
+
+    @route("GET", "/groups", scopes=ACCOUNTS)
     async def groups(request: Request, principal: Principal) -> Any:
         return {"data": [admin_accounts.group_json(group) for group in await accounts().groups()]}
 
-    @route("POST", "/groups", status=201)
+    @route("POST", "/groups", status=201, scopes=ACCOUNTS)
     async def create_group(request: Request, principal: Principal) -> Any:
         name = admin_accounts.group_body(await json_body(request))
         return admin_accounts.group_json(await accounts().create_group(name, actor=principal.subject))
 
-    @route("DELETE", "/groups/{name}", status=204)
+    @route("DELETE", "/groups/{name}", status=204, scopes=ACCOUNTS)
     async def delete_group(request: Request, principal: Principal, name: str) -> Any:
-        await accounts().delete_group(name, actor=principal.subject)
+        await accounts().delete_group(name, actor=principal.subject, actor_can_admin=_administers(request, principal))
 
-    @route("PUT", "/groups/{name}/members")
+    @route("PUT", "/groups/{name}/members", scopes=ACCOUNTS)
     async def set_members(request: Request, principal: Principal, name: str) -> Any:
         members = admin_accounts.members_body(await json_body(request))
-        return admin_accounts.group_json(await accounts().set_members(name, members, actor=principal.subject))
+        return admin_accounts.group_json(
+            await accounts().set_members(
+                name, members, actor=principal.subject, actor_can_admin=_administers(request, principal)
+            )
+        )
 
     @route("GET", "/login-settings")
     async def login_settings(request: Request, principal: Principal) -> Any:
@@ -353,8 +417,10 @@ def admin_router(seams: AdminSeams, instance: InstanceBranding) -> APIRouter:
 
     @route("POST", "/keys", status=201)
     async def issue_key(request: Request, principal: Principal) -> Any:
-        subject, key_groups, label = issue_request(await json_body(request))
-        issued = await request.app.state.keys.issue(actor=principal, subject=subject, groups=key_groups, label=label)
+        subject, key_groups, label, key_scopes = issue_request(await json_body(request))
+        issued = await request.app.state.keys.issue(
+            actor=principal, subject=subject, groups=key_groups, label=label, scopes=key_scopes
+        )
         return key_json(issued.info) | {"key": issued.plaintext}
 
     @route("DELETE", "/keys/{key_id}")

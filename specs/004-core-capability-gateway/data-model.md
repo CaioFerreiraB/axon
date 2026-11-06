@@ -94,3 +94,12 @@ esquema já conferido. É o que a sessão usa para despachar; nunca sai do módu
 | Dois itens com o mesmo nome no catálogo | `CatalogConflict` na montagem, nomeando o nome |
 | MCP falha na descoberta | alias em `unavailable`; `ExecutionError(stage="catalog")` no trace |
 | Esquema de tool inválido | a tool sai do catálogo; motivo no trace |
+
+## Pseudônimo na auditoria (incremento 9.7, US7)
+
+- **AuditErasureReport** (`api.py`): `audit_records: int` — registros cujo Principal passou a ser o pseudônimo (0 ao
+  repetir).
+- `erase_subject(subject, *, pseudonym)`: `subject` casa `SUBJECT_PATTERN` e `pseudonym` casa `PSEUDONYM_PATTERN`
+  (`deleted:[0-9a-f]{16}`), os dois da 003; senão `RequestRejected` com `field` igual ao nome do parâmetro. Muda só
+  `principal`; os demais campos, inclusive `status` de registro aberto, ficam.
+

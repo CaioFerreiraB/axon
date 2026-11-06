@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+from collections.abc import Collection
 from dataclasses import dataclass
-from typing import Final
+from typing import Final, cast
 
-from axon_ai.assistants.api import KEY_ID_PATTERN, ApiKeyInfo
+from axon_ai.assistants.api import DEFAULT_SCOPES, KEY_ID_PATTERN, SCOPES, ApiKeyInfo, RequestRejected, Scope
 
 KEY_PREFIX: Final = "axn_"
 KEY_ID_BYTES: Final = 8
@@ -48,3 +49,24 @@ def hash_key(text: str) -> bytes:
 def matches(text: str, key_hash: bytes) -> bool:
     """Comparação em tempo constante: o tempo de resposta não revela quantos bytes do hash coincidem."""
     return hmac.compare_digest(hash_key(text), key_hash)
+
+
+def key_scopes(
+    scopes: Collection[str] | None, *, groups: Collection[str], admin_group: str | None, by_operator: bool
+) -> frozenset[Scope]:
+    """Os escopos de uma chave nova (ADR-057; research R49). Sem escolha, `{inference}`; `admin` só pela linha de
+    comando e só com o grupo de administração entre os grupos da chave. Recusa com `RequestRejected(field="scopes")`."""
+    if scopes is None:
+        return DEFAULT_SCOPES
+    names = frozenset(scope.strip() for scope in scopes)
+    if not names:
+        raise RequestRejected("ao menos um escopo: inference, users ou admin", field="scopes")
+    unknown = sorted(names - set(SCOPES))
+    if unknown:
+        raise RequestRejected(f"escopo desconhecido: {', '.join(unknown)}", field="scopes")
+    if "admin" in names:
+        if not by_operator:
+            raise RequestRejected("o escopo admin só é concedido pela linha de comando", field="scopes")
+        if admin_group is None or admin_group not in groups:
+            raise RequestRejected("o escopo admin exige o grupo de administração na chave", field="scopes")
+    return cast("frozenset[Scope]", names)

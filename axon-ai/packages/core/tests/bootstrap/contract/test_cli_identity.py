@@ -91,3 +91,63 @@ def test_persistent_cria_lista_redefine_e_gira_chaves(persistente: None, monkeyp
 
     code, out, _ = _run(["identity", "keys", "rotate"])
     assert code == 0 and "chave nova" in out
+
+
+# --- incremento 9.7 (011 US9; research R60): apagar conta, um grupo de cada vez e escopos -----------------------------
+
+
+@pytest.mark.us9
+def test_us9_a_ajuda_lista_os_comandos_novos(capsys: Cap) -> None:
+    for grupo, comandos in (("users", ("delete",)), ("groups", ("add", "remove"))):
+        with pytest.raises(SystemExit) as saida:
+            cli.main([grupo, "--help"])
+        assert saida.value.code == 0
+        ajuda = capsys.readouterr().out
+        for comando in comandos:
+            assert comando in ajuda, (grupo, comando)
+
+
+@pytest.mark.us9
+def test_us9_keys_com_escopo_e_a_chave_de_provisionamento(ambiente: Path) -> None:
+    code, out, err = _run(["keys", "create", "--subject", "svc:prov", "--scope", "users"])
+    assert code == 0, err
+    assert "scopes: users" in out
+    code, out, _ = _run(["keys", "list"])
+    assert code == 0
+    linha = next(line for line in out.splitlines() if "svc:provisionamento-teste" in line)
+    assert "users" in linha and "inference" not in linha and "admin" not in linha, "FR-035: só `users`"
+
+
+@needs_pg
+@pytest.mark.us9
+def test_us9_persistent_grupo_de_cada_vez_e_apagar(persistente: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sys.stdin", io.StringIO("senha-forte-do-root\n"))
+    assert _run(["users", "create", "root", "--email", "r@x.org", "--group", "admin", "--password-stdin"])[0] == 0
+    monkeypatch.setattr("sys.stdin", io.StringIO("senha-forte-da-ana\n"))
+    assert _run(["users", "create", "ana", "--email", "ana@x.org", "--password-stdin"])[0] == 0
+    assert _run(["groups", "create", "equipe"])[0] == 0
+
+    for _ in range(2):
+        code, out, err = _run(["groups", "add", "equipe", "ana"])
+        assert code == 0 and "equipe" in out, err
+    for _ in range(2):
+        code, out, err = _run(["groups", "remove", "equipe", "ana"])
+        assert code == 0 and "equipe" not in out, err
+    assert _run(["groups", "add", "inexistente", "ana"])[0] == 1
+
+    monkeypatch.setattr("builtins.input", lambda _prompt: "outra")
+    code, _, err = _run(["users", "delete", "ana"])
+    assert code == 1 and "não confere" in err
+
+    code, out, err = _run(["users", "delete", "ana", "--yes"])
+    assert code == 0, err
+    linhas = out.splitlines()
+    assert linhas[0] == "apagada: ana"
+    assert [line.split(":")[0] for line in linhas[2:] if not line.startswith(" ")] == [
+        "assistants",
+        "mcp",
+        "conversations",
+        "audit",
+        "observability",
+    ]
+    assert _run(["users", "delete", "ninguem", "--yes"])[0] == 1

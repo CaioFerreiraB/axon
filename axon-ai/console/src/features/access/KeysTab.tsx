@@ -7,10 +7,12 @@ import { useSearchParams } from "react-router";
 
 import { fieldError, isApiError } from "../../api/errors";
 import { useApiKeys, useCreateKey, useRevokeKey, useRotateKey } from "../../api/hooks/apiKeys";
-import type { ApiKey, IssuedKey } from "../../api/schemas";
+import type { ApiKey, IssuedKey, Scope } from "../../api/schemas";
 import { formatInstant, formatInstantDay } from "../../i18n/format";
+import { GRANTABLE_SCOPES, SCOPE_TEXT } from "../../i18n/pt-BR";
 import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
+import { Checkbox } from "../../ui/Checkbox";
 import { Field, TextInput } from "../../ui/Field";
 import { Notice } from "../../ui/Notice";
 import { Panel } from "../../ui/Panel";
@@ -18,6 +20,7 @@ import { EmptyState, LoadError, Skeleton } from "../../ui/States";
 import { Table, tableStyles as t } from "../../ui/Table";
 import styles from "./Access.module.css";
 import { IssuedKeyDialog } from "./IssuedKeyDialog";
+import { ScopeList } from "./ScopeList";
 
 const SYSTEM_PREFIX = "svc:";
 
@@ -37,11 +40,14 @@ function CreateForm({ onIssued, onCancel }: { onIssued: (issued: IssuedKey) => v
   const create = useCreateKey();
   const [name, setName] = useState("");
   const [label, setLabel] = useState("");
+  // O padrão é a inferência; a administração não é oferecida (só a linha de comando a concede; 013 R31).
+  const [scopes, setScopes] = useState<Scope[]>(["inference"]);
+  const toggle = (scope: Scope, on: boolean) =>
+    setScopes((current) => GRANTABLE_SCOPES.filter((item) => (item === scope ? on : current.includes(item))));
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    const draft = label.trim()
-      ? { subject: `${SYSTEM_PREFIX}${name.trim()}`, label: label.trim() }
-      : { subject: `${SYSTEM_PREFIX}${name.trim()}` };
+    const subject = `${SYSTEM_PREFIX}${name.trim()}`;
+    const draft = label.trim() ? { subject, label: label.trim(), scopes } : { subject, scopes };
     create.mutate(draft, {
       onSuccess: (issued) => {
         create.reset();
@@ -50,7 +56,10 @@ function CreateForm({ onIssued, onCancel }: { onIssued: (issued: IssuedKey) => v
     });
   };
   const general =
-    isApiError(create.error) && !["subject", "label"].includes(create.error.param ?? "") ? create.error : null;
+    isApiError(create.error) && !["subject", "label", "scopes"].includes(create.error.param ?? "")
+      ? create.error
+      : null;
+  const scopesError = scopes.length === 0 ? "Escolha ao menos um escopo." : fieldError(create.error, "scopes");
   return (
     <Panel
       title="Nova chave"
@@ -73,6 +82,25 @@ function CreateForm({ onIssued, onCancel }: { onIssued: (issued: IssuedKey) => v
             <TextInput value={label} onChange={(event) => setLabel(event.target.value)} autoComplete="off" />
           </Field>
         </div>
+        <fieldset className={styles.fieldset} aria-describedby="escopos-ajuda">
+          <legend className={styles.legend}>Escopos</legend>
+          <p id="escopos-ajuda" className={styles.help}>
+            O que a chave pode fazer. A administração só se concede pela linha de comando.
+          </p>
+          {GRANTABLE_SCOPES.map((scope) => (
+            <Checkbox
+              key={scope}
+              label={SCOPE_TEXT[scope]}
+              checked={scopes.includes(scope)}
+              onChange={(event) => toggle(scope, event.target.checked)}
+            />
+          ))}
+          {scopesError ? (
+            <p className={styles.fieldError} role="alert">
+              {scopesError}
+            </p>
+          ) : null}
+        </fieldset>
         {general ? (
           <Notice tone="bad" title="A plataforma recusou" role="alert">
             {general.message}
@@ -82,7 +110,12 @@ function CreateForm({ onIssued, onCancel }: { onIssued: (issued: IssuedKey) => v
           <Button variant="ghost" onClick={onCancel}>
             Cancelar
           </Button>
-          <Button type="submit" variant="primary" busy={create.isPending} disabled={!name.trim()}>
+          <Button
+            type="submit"
+            variant="primary"
+            busy={create.isPending}
+            disabled={!name.trim() || scopes.length === 0}
+          >
             Gerar chave
           </Button>
         </div>
@@ -204,6 +237,7 @@ export default function KeysTab() {
               <th scope="col">Rótulo</th>
               <th scope="col">Identificador</th>
               <th scope="col">Grupos</th>
+              <th scope="col">Escopos</th>
               <th scope="col">Criada</th>
               <th scope="col">Rotacionada</th>
               <th scope="col">Estado</th>
@@ -221,6 +255,9 @@ export default function KeysTab() {
                 <td>{apiKey.label ?? "—"}</td>
                 <td className={t.mono}>{apiKey.key_id}</td>
                 <td>{apiKey.groups.join(", ") || "—"}</td>
+                <td>
+                  <ScopeList scopes={apiKey.scopes} />
+                </td>
                 <td style={{ whiteSpace: "nowrap" }}>{formatInstantDay(apiKey.created_at)}</td>
                 <td style={{ whiteSpace: "nowrap" }}>{apiKey.rotated_at ? formatInstant(apiKey.rotated_at) : "—"}</td>
                 <td>

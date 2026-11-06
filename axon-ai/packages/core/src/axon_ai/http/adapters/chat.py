@@ -14,7 +14,7 @@ from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from axon_ai.assistants.api import PRIVATE_SURFACE, Principal
-from axon_ai.http.adapters.auth import authenticated
+from axon_ai.http.adapters.auth import authenticated, scoped
 from axon_ai.http.adapters.errors import ApiError
 from axon_ai.http.adapters.sse import MEDIA_TYPE, event_stream
 from axon_ai.http.domain.chat_request import (
@@ -29,6 +29,7 @@ from axon_ai.http.domain.chat_request import (
 from axon_ai.http.domain.errors import EXTRA, InvalidRequest, RequestTooLarge, error_for
 from axon_ai.http.domain.images import ImageLimits
 from axon_ai.http.domain.native_request import parse_native
+from axon_ai.http.domain.scopes import INFERENCE
 from axon_ai.http.service import ChatService
 from axon_ai.mcp.api import DelegatedAuthorization, McpRegistry
 
@@ -41,6 +42,7 @@ def chat_router(*, surface: str) -> APIRouter:
     router = APIRouter()
 
     @router.post("/chat/completions")
+    @scoped(INFERENCE)
     async def chat_completions(request: Request, response: Response) -> Any:
         """Compat OpenAI: tolera campos que ignora, recusa os de ampliação."""
         principal = await authenticated(request, surface)
@@ -56,6 +58,7 @@ def chat_router(*, surface: str) -> APIRouter:
         return await _run(request, response, chat, principal, delegated_surface=surface == PRIVATE_SURFACE)
 
     @router.post("/chat")
+    @scoped(INFERENCE)
     async def chat_native(request: Request, response: Response) -> Any:
         """Requisição nativa: estrita, com a mesma resposta da compat (research R17)."""
         principal = await authenticated(request, surface)

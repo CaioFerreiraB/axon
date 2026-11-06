@@ -63,6 +63,21 @@ axn_3f9a1c2e7b604d18_Qp7…
 `keys create --subject svc:<nome>` exige `nome` no padrão dos nomes de Assistant (minúsculas, dígitos, `.`, `_`, `-`;
 até 64). A CLI é o único caminho que concede o grupo de administração a uma chave.
 
+## Fase 9 (2026-11-04): escopos (ADR-057; research R49)
+
+`axon keys create --subject <…> [--group <g>]... [--scope inference|users|admin]... [--label <texto>]` — `--scope` é
+repetível; sem ele, `inference`. `--scope admin` só com `--group <grupo de administração>`; sem o grupo, sai com código 1
+e a mensagem nomeando `scopes`. `create`, `rotate` e `list` mostram os escopos; os escopos não mudam na rotação.
+
+```text
+$ axon keys create --subject svc:provisionamento --scope users --label "cadastro"
+key_id: 5c1d0e9a3b7f2468
+subject: svc:provisionamento  groups: -  scopes: users
+axn_5c1d0e9a3b7f2468_Tm4…
+```
+
+O Subject Erasure não tem comando na 003 (FR-047): `axon users delete` é da 011, sobre a 012.
+
 ## Observações
 
 - No perfil em memória, cada processo tem o próprio armazenamento: chaves emitidas pela CLI só valem no perfil

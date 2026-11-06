@@ -52,3 +52,14 @@ e a preferência de tema. Os tipos espelham [admin-api.md](../008-core-http-api/
 
 Estado local da aba "Permissões": `{ schemes: Set<Scheme>, allow: string[] }`, o rascunho; a versão lida acompanha o
 salvar (FR-008). Entrada: `*`, `user:<nome>`, `svc:<nome>` ou `group:<nome>`, sem espaço.
+
+
+## Incremento 9.7 (2026-11-05): escopos, relatório do apagamento e conta em apagamento (research R31–R35)
+
+| Esquema (`zod`) | Campo novo | Nota |
+|---|---|---|
+| `apiKeySchema` | `scopes: ("inference" \| "users" \| "admin")[]` | em toda visão de chave e na emissão |
+| `accountSchema` | `deleting: boolean` (padrão `false`) | 008 R72 |
+| `deletionReportSchema` | `username`, `complete`, `identity: Record<string, number>`, `modules: {name, counts, warnings, failed}[]` | 200 do `DELETE` e `report` do 503 |
+
+`ApiError.body`: o corpo JSON da resposta de erro, para ler extensões como o `report`.

@@ -586,6 +586,30 @@ class ConnectionCheck:
     detail: str
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ObservabilityErasureReport:
+    """O que a troca pelo pseudônimo mudou na 009 (ADR-059; research R53). Repetida, vai a zero."""
+
+    prices: int = 0
+    """Preços cujo autor (`created_by`) era o subject."""
+    destination_settings: int = 0
+    """Os ajustes dos destinos, se o subject foi o último autor (0 ou 1)."""
+
+
+class ObservabilityErasure(Protocol):
+    """Troca o subject de uma conta apagada pelo pseudônimo no autor dos preços e dos ajustes de destino (ADR-059) —
+    consumido pela 011, que o liga ao apagamento de contas da 012. Nada é apagado; valores, vigência, instantes e a
+    versão dos ajustes ficam.
+
+    Não confere quem pede: a autorização é de quem chama (FR-031). Idempotente.
+    """
+
+    async def erase_subject(self, subject: str, *, pseudonym: str) -> ObservabilityErasureReport:
+        """`subject` fora de `user:…`/`svc:…` levanta `InvalidField(field="subject")`; `pseudonym` fora de
+        `deleted:<16 hex>`, `InvalidField(field="pseudonym")` — os dois antes de tocar os dados (FR-032)."""
+        ...
+
+
 class UsageReportSeam(Protocol):
     """Relatório de uso e custo — consumido pela 008 (superfície de administração)."""
 

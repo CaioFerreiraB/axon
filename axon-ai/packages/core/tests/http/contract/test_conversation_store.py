@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import pytest
+
 from axon_ai.http.ports import Conversation, StoredMessage
 
 T0 = datetime(2026, 9, 30, 12, tzinfo=UTC)
@@ -123,3 +125,30 @@ async def test_imagens_presas_a_mensagem_so_do_dono_e_em_cascata(conversation_st
     assert await conversation_store.attachment("user:ana", "conv_img", imagem.id) is None
     await conversation_store.delete_inactive(before=T0 + timedelta(days=1))
     assert await conversation_store.attachment("user:ana", "conv_velha", imagem.id) is None
+
+
+async def _com_imagem(store: Any, cid: str, owner: str, data: bytes) -> None:
+    from axon_ai.http.ports import StoredAttachment
+    from axon_ai_contracts import Attachment
+
+    imagem = Attachment(mime="image/png", data=b"\x89PNG" + data)
+    meta = StoredAttachment(id=imagem.id, mime="image/png", size_bytes=len(imagem.data))
+    await store.create(conversa(cid, owner=owner))
+    await store.append(owner, cid, [mensagem("assistant", "[imagem]", attachments=(meta,))], at=T0, files=(imagem,))
+
+
+@pytest.mark.us14
+async def test_erase_owner_apaga_todas_do_dono(conversation_store: Any) -> None:
+    """T146 (incremento 9.7, FR-053): conversas e imagens do dono, numa operação; outro dono intacto; repetir (0, 0)."""
+    await _com_imagem(conversation_store, "conv_a1", "user:ana", b"a" * 40)
+    await conversation_store.create(conversa("conv_a2"))
+    await conversation_store.append("user:ana", "conv_a2", (mensagem("user", "oi"),), at=T0)
+    await _com_imagem(conversation_store, "conv_b1", "user:bia", b"b" * 40)
+
+    assert await conversation_store.erase_owner("user:ana") == (2, 1)
+
+    assert (await conversation_store.list("user:ana", limit=10, cursor=None)).items == ()
+    assert await conversation_store.messages("user:ana", "conv_a1") is None
+    assert await conversation_store.get("user:bia", "conv_b1") is not None
+    assert len(await conversation_store.messages("user:bia", "conv_b1")) == 1
+    assert await conversation_store.erase_owner("user:ana") == (0, 0)

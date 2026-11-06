@@ -219,3 +219,24 @@ class Capabilities(Protocol):
 
 class AuditQuery(Protocol):
     async def records(self, filter: AuditFilter) -> Sequence[AuditRecord]: ...
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class AuditErasureReport:
+    """O que a troca pelo pseudônimo mudou na auditoria (ADR-059; research R16). Repetida, vai a zero."""
+
+    audit_records: int = 0
+    """Registros cujo Principal passou a ser o pseudônimo."""
+
+
+class AuditErasure(Protocol):
+    """Troca o Principal de uma conta apagada pelo pseudônimo nos registros de auditoria (ADR-059) — consumido pela 011,
+    que o liga ao apagamento de contas da 012. Nenhum registro é apagado: é a trilha de segurança.
+
+    Não confere quem pede: a autorização é de quem chama (FR-019). Idempotente.
+    """
+
+    async def erase_subject(self, subject: str, *, pseudonym: str) -> AuditErasureReport:
+        """`subject` fora de `user:…`/`svc:…` levanta `RequestRejected(field="subject")`; `pseudonym` fora de
+        `deleted:<16 hex>`, `RequestRejected(field="pseudonym")` — os dois antes de tocar a auditoria (FR-020)."""
+        ...

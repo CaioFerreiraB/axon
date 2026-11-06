@@ -329,6 +329,13 @@ class PostgresPriceStore:
             )
         return price
 
+    async def pseudonymize(self, subject: str, pseudonym: str) -> int:
+        async with self._pool.connection() as connection:
+            cursor = await connection.execute(
+                "UPDATE observability.prices SET created_by = %s WHERE created_by = %s", (pseudonym, subject)
+            )
+            return cursor.rowcount
+
 
 class PostgresDestinationSettingsStore:
     def __init__(self, pool: AsyncConnectionPool) -> None:
@@ -381,3 +388,11 @@ class PostgresDestinationSettingsStore:
                     (*values, expected_version),
                 )
         return cursor.rowcount == 1
+
+    async def pseudonymize(self, subject: str, pseudonym: str) -> int:
+        async with self._pool.connection() as connection:
+            cursor = await connection.execute(
+                "UPDATE observability.destination_settings SET updated_by = %s WHERE id = 1 AND updated_by = %s",
+                (pseudonym, subject),
+            )
+            return cursor.rowcount

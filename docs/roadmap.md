@@ -15,7 +15,7 @@ limitando `/speckit-tasks` e `/speckit-implement` às user stories da fase (ex.:
 | **6 — Avaliação** | **Antes de calibrar qualquer número do RAG** | 009 · US2, US3, US4 · 105 · US1–US5 |
 | **7 — Open WebUI** ✅ | Assistants aparecem como modelos | 008 · US6, US8 |
 | **8 — GraphRAG** | Retriever de grafo atrás do contrato existente | 106 (resolver a ontologia primeiro) |
-| **9 — Console e identidade própria** | Login da própria plataforma (senha e Google) no lugar do Keycloak e administração gráfica do que o deploy permitir: modelos e MCPs por Assistant, uso e custo, Langfuse, ajustes de login | 012 · todas · 013 · todas · 003 · US9, US10 · 009 · US5–US7 · 006 · toque `model_exchange` · 008 · US9 · 011 · US6 · 002 · US7 · identidade Axon (incremento 9.5): US "Identidade Axon" em 001, 011, 010, 002, 003, 009, 008, 012, 013 e 101 · chaves e permissões pela console (ADR-040): 003 · US12, US13 · 008 · US11 · 013 · US9, US10 · impacto ambiental (incremento 9.6, ADR-056): 009 · US9 · 008 · US12 · 011 · US8 · 013 · US11 |
+| **9 — Console e identidade própria** | Login da própria plataforma (senha e Google) no lugar do Keycloak e administração gráfica do que o deploy permitir: modelos e MCPs por Assistant, uso e custo, Langfuse, ajustes de login | 012 · todas · 013 · todas · 003 · US9, US10 · 009 · US5–US7 · 006 · toque `model_exchange` · 008 · US9 · 011 · US6 · 002 · US7 · identidade Axon (incremento 9.5): US "Identidade Axon" em 001, 011, 010, 002, 003, 009, 008, 012, 013 e 101 · chaves e permissões pela console (ADR-040): 003 · US12, US13 · 008 · US11 · 013 · US9, US10 · impacto ambiental (incremento 9.6, ADR-056): 009 · US9 · 008 · US12 · 011 · US8 · 013 · US11 · usuários pela API e escopos de chave (incremento 9.7, ADR-057, ADR-058): 003 · US14, US15 · 012 · US9–US11 · 007 · US7 · 004 e 009 (pseudônimo, ADR-059) · 008 · US13 · 011 · US9 · 013 · US12 |
 
 **Fase 1 concluída em 2026-09-21.** `ai-core serve` sobe a plataforma a partir de `packs.yaml` e `assistants.yaml`, e
 uma requisição no formato OpenAI atravessa API (008), motor (005), Pack Hooks (002) com o `ai-generic` (010) e Model
@@ -144,6 +144,15 @@ a versão. A 009 ganha o seam Impact Report (grãos dia, semana, mês, trimestre
 `impact` da saúde e `axon usage impact-backfill`; a 013, a página Meio ambiente e a célula Emissões em Uso e custo,
 pelo mockup aprovado no Penpot. Specs: 009 · US9 · 008 · US12 · 011 · US8 · 013 · US11. **Feito** (2026-11-03): suítes do core
 (com Postgres) e da console verdes, e2e com axe nos dois temas e no tablet; sem tag nova ainda.
+
+**Incremento 9.7, usuários pela API e escopos de chave (2026-11-04; ADR-057, ADR-058, ADR-059).** A chave de API ganha escopos
+`inference`, `users` e `admin`: com chave, administrar exige o grupo de administração e o escopo `admin`; o escopo
+`users` gere contas e grupos sem administrar, com as regras de não escalar da 012. A conta passa a poder ser apagada em
+cascata — cada módulo dono de dado do usuário publica o próprio apagamento (003, 007, 008), a 012 orquestra pela porta
+`SubjectDataEraser`, que a 011 monta — e o nome volta a ficar livre; o que fica (auditoria, históricos) cita a conta só por um pseudônimo (ADR-059); um grupo
+se atribui ou remove um por vez. Specs,
+nesta ordem: 003 · US14, US15 → 012 · US9–US11, 007 · US7, 004 e 009 (pseudônimo) e o ajuste da 003 → 008 · US13, US14 → 011 · US9 → 013 · US12. **Andamento**:
+003 feita (2026-11-04); 012 feita (2026-11-04); ajuste da 003 para o pseudônimo feito (2026-11-04); 007 feita (2026-11-04); 004 e 009 feitas (2026-11-04); 008 feita (2026-11-05: US13, US14); 011 feita (2026-11-05: US9, a prova ponta a ponta nos dois perfis); 013 feita (2026-11-05: US12, com o toque `deleting` na 008). **Incremento 9.7 implementado.**
 
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 

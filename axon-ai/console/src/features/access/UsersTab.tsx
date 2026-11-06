@@ -1,10 +1,12 @@
 /** Usuários (013 FR-013): busca, estado, cadastro com senha temporária, edição, redefinir senha, desativar e
- * reativar, desfazer vínculo Google. Toda recusa (último admin, e-mail em uso) vem da API. */
+ * reativar, desfazer vínculo Google e — incremento 9.7 (FR-039, FR-040) — apagar a conta. Toda recusa (último admin,
+ * e-mail em uso) vem da API. */
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 
 import { useGroups, useSetActive, useUnlinkGoogle, useUsers, type UsersParams } from "../../api/hooks/access";
+import { useMe } from "../../api/hooks/me";
 import type { Account } from "../../api/schemas";
 import { formatInstantDay, formatLastSeen, initials, plural } from "../../i18n/format";
 import { Badge } from "../../ui/Badge";
@@ -17,6 +19,7 @@ import { Segmented } from "../../ui/Segmented";
 import { EmptyState, LoadError, Skeleton } from "../../ui/States";
 import { Table, tableStyles as t } from "../../ui/Table";
 import styles from "./Access.module.css";
+import { DeleteAccountDialog } from "./DeleteAccountDialog";
 import { CreatePersonDialog, EditPersonDialog, ResetPasswordDialog } from "./PersonDialog";
 
 const STATES = [
@@ -25,14 +28,18 @@ const STATES = [
   { value: "all", label: "Todas" },
 ] as const;
 
-type Action = { kind: "edit" | "password"; account: Account } | null;
+type Action = { kind: "edit" | "password" | "delete"; account: Account } | null;
+type MenuAction = "edit" | "password" | "toggle" | "unlink" | "delete";
 
 function Menu({
   account,
+  own,
   onAction,
 }: {
   account: Account;
-  onAction: (kind: "edit" | "password" | "toggle" | "unlink") => void;
+  /** A conta do próprio admin: não se apaga (012 FR-030). */
+  own: boolean;
+  onAction: (kind: MenuAction) => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -44,7 +51,7 @@ function Menu({
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, [open]);
-  const pick = (kind: "edit" | "password" | "toggle" | "unlink") => {
+  const pick = (kind: MenuAction) => {
     setOpen(false);
     onAction(kind);
   };
@@ -59,7 +66,19 @@ function Menu({
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
       />
-      {open ? (
+      {open && account.deleting ? (
+        <div className={styles.menuList}>
+          {/* Em apagamento, a única ação é concluir (013 R34). */}
+          <button
+            type="button"
+            className={`${styles.menuItem} ${styles.danger}`}
+            autoFocus
+            onClick={() => pick("delete")}
+          >
+            Concluir apagamento
+          </button>
+        </div>
+      ) : open ? (
         <div className={styles.menuList}>
           <button type="button" className={styles.menuItem} autoFocus onClick={() => pick("edit")}>
             Editar
@@ -79,6 +98,11 @@ function Menu({
           >
             {account.active ? "Desativar conta" : "Reativar conta"}
           </button>
+          {own ? null : (
+            <button type="button" className={`${styles.menuItem} ${styles.danger}`} onClick={() => pick("delete")}>
+              Apagar conta
+            </button>
+          )}
         </div>
       ) : null}
     </div>
@@ -86,6 +110,16 @@ function Menu({
 }
 
 function StateCell({ account }: { account: Account }) {
+  if (account.deleting) {
+    return (
+      <>
+        <Badge tone="bad" dot>
+          Em apagamento
+        </Badge>
+        <span className={styles.stateNote}>Um apagamento não terminou</span>
+      </>
+    );
+  }
   if (!account.active) {
     return (
       <>
@@ -127,6 +161,7 @@ export default function UsersTab() {
   });
   const everyone = useUsers({ state: "all" });
   const groups = useGroups();
+  const me = useMe();
   const setActive = useSetActive();
   const unlink = useUnlinkGoogle();
   const [action, setAction] = useState<Action>(null);
@@ -306,8 +341,9 @@ export default function UsersTab() {
                   <td className={t.chevron}>
                     <Menu
                       account={account}
+                      own={me.data?.username === account.username}
                       onAction={(kind) =>
-                        kind === "edit" || kind === "password"
+                        kind === "edit" || kind === "password" || kind === "delete"
                           ? setAction({ kind, account })
                           : setConfirm({ account, kind })
                       }
@@ -340,6 +376,9 @@ export default function UsersTab() {
       ) : null}
       {action?.kind === "password" ? (
         <ResetPasswordDialog account={action.account} onClose={() => setAction(null)} />
+      ) : null}
+      {action?.kind === "delete" ? (
+        <DeleteAccountDialog account={action.account} onClose={() => setAction(null)} />
       ) : null}
     </>
   );

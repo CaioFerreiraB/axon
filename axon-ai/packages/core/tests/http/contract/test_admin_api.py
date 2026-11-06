@@ -305,10 +305,12 @@ def test_me_traz_a_sessao_e_a_marca_da_instalacao(kit: Kit) -> None:
         "name": "Root da Silva",
         "groups": ["operadores"],
         "scheme": "oidc",
+        "scopes": None,  # incremento 9.7 (FR-052): o token da console não tem escopos
         "instance": {"name": "Instituto Exemplo", "logo_url": "/oauth2/assets/logo", "custom": True},
     }
     key = kit.call("GET", "/me", ADMIN_KEY).json()
     assert (key["subject"], key["scheme"], key["name"]) == ("user:caio", "api_key", "caio")
+    assert key["scopes"] == ["admin", "inference"]
 
 
 def test_sem_os_seams_a_superficie_nao_existe() -> None:

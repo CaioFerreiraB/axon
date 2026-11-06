@@ -136,3 +136,79 @@ async def test_definir_membros_so_mexe_em_quem_mudou(stores: Any) -> None:
     assert carla.groups == frozenset({"equipe"}) and carla.version == 2
     with pytest.raises(GroupNotFound):
         await store.set_members("fantasma", [], at=later, actor="cli")
+
+
+# --- US9 e US10: apagar, autores e um grupo de cada vez (research R30, R32) -------------------------------------------
+
+
+@pytest.mark.us9
+async def test_pseudonimo_na_ida_e_volta(stores: Any) -> None:
+    record = account("ana", active=False, deletion_pseudonym="deleted:0123456789abcdef")
+    await stores.accounts.insert(record)
+    lido = await stores.accounts.by_username("ana")
+    assert lido == record and lido.account.deleting
+    assert [r.account.username for r in await stores.accounts.list(query=None, active=True, limit=10, after=None)] == []
+
+
+@pytest.mark.us9
+async def test_apagar_tira_associacoes_e_conta_e_libera_o_nome(stores: Any) -> None:
+    store = stores.accounts
+    await store.add_group("equipe", at=T0)
+    await store.insert(account("ana", groups={"equipe"}))
+    await store.insert(account("bia", groups={"equipe"}))
+
+    assert await store.delete("id-ana") is True
+    assert await store.get("id-ana") is None and await store.by_username("ana") is None
+    assert (await store.groups())["equipe"] == 1
+    assert await store.delete("id-ana") is False
+    await store.insert(account("ana", account_id="id-ana-2"))
+    assert (await store.by_username("ana")).account.id == "id-ana-2"
+
+
+@pytest.mark.us9
+async def test_trocar_o_autor_so_onde_ele_aparece(stores: Any) -> None:
+    store = stores.accounts
+    await store.insert(account("ana", updated_by="user:caio"))
+    await store.insert(account("bia", updated_by="user:root"))
+
+    assert await store.replace_actor("user:caio", "deleted:0123456789abcdef") == 1
+    ana = await store.by_username("ana")
+    assert ana.account.updated_by == "deleted:0123456789abcdef" and ana.account.version == 1
+    assert (await store.by_username("bia")).account.updated_by == "user:root"
+    assert await store.replace_actor("user:caio", "deleted:0123456789abcdef") == 0
+
+
+@pytest.mark.us10
+async def test_um_grupo_de_cada_vez_e_idempotente_e_sobe_a_versao_so_mudando(stores: Any) -> None:
+    store = stores.accounts
+    await store.add_group("equipe", at=T0)
+    await store.insert(account("ana"))
+    later = T0 + timedelta(minutes=1)
+
+    assert await store.add_member("id-ana", "equipe", at=later, actor="svc:prov") is True
+    ana = (await store.get("id-ana")).account
+    assert ana.groups == frozenset({"equipe"}) and ana.version == 2
+    assert ana.updated_by == "svc:prov" and ana.updated_at == later
+    assert await store.add_member("id-ana", "equipe", at=later, actor="svc:prov") is False
+    assert (await store.get("id-ana")).account.version == 2
+
+    assert await store.remove_member("id-ana", "equipe", at=later, actor="svc:prov") is True
+    assert (await store.get("id-ana")).account.groups == frozenset()
+    assert await store.remove_member("id-ana", "equipe", at=later, actor="svc:prov") is False
+    assert (await store.get("id-ana")).account.version == 3
+    with pytest.raises(GroupNotFound):
+        await store.add_member("id-ana", "inexistente", at=later, actor="svc:prov")
+
+
+@pytest.mark.us10
+async def test_dois_grupos_ao_mesmo_tempo_nao_se_perdem(stores: Any) -> None:
+    import asyncio
+
+    store = stores.accounts
+    await store.add_group("equipe", at=T0)
+    await store.add_group("vendas", at=T0)
+    await store.insert(account("ana"))
+    await asyncio.gather(
+        store.add_member("id-ana", "equipe", at=T0, actor="a"), store.add_member("id-ana", "vendas", at=T0, actor="b")
+    )
+    assert (await store.get("id-ana")).account.groups == frozenset({"equipe", "vendas"})

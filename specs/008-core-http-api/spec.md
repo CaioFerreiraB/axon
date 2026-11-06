@@ -6,18 +6,18 @@
 
 **Status**: Draft
 
-**Input**: Tradução de arch-v1 §25 (API, duas superfícies, compat OpenAI e Open WebUI, streaming, requisição nativa), §28 (histórico de conversa), §31 Fase 7; ADR-002. Fase 9 (2026-10-13): superfície de administração para a console — ADR-029, ADR-031, ADR-032, ADR-033, ADR-034. Fase 9, incremento 9.5 (2026-10-20): identidade Axon — ADR-037, ADR-038. Fase 9 (2026-10-21): rotação de chaves e sobreposição de `auth` na administração — ADR-040. Fase 9, incremento 9.6 (2026-11-03): impacto ambiental na administração — ADR-056.
+**Input**: Tradução de arch-v1 §25 (API, duas superfícies, compat OpenAI e Open WebUI, streaming, requisição nativa), §28 (histórico de conversa), §31 Fase 7; ADR-002. Fase 9 (2026-10-13): superfície de administração para a console — ADR-029, ADR-031, ADR-032, ADR-033, ADR-034. Fase 9, incremento 9.5 (2026-10-20): identidade Axon — ADR-037, ADR-038. Fase 9 (2026-10-21): rotação de chaves e sobreposição de `auth` na administração — ADR-040. Fase 9, incremento 9.6 (2026-11-03): impacto ambiental na administração — ADR-056. Fase 9, incremento 9.7 (2026-11-05): escopos de chave, contas e grupos por chave sem administração, apagar conta e o apagamento das conversas de um subject — ADR-057, ADR-058, ADR-059.
 
 ## Module Boundary *(mandatory)*
 
 - **Módulo**: HTTP API — superfícies pública, privada e de administração, compatibilidade com o formato OpenAI, tradução de eventos do motor para SSE e histórico de conversa.
 - **Repositório / distribuição**: `axon-ai` → `axon_ai/http/` (antes `axon_ai/api/`; renomeado para não colidir com a convenção `api.py` do ADR-012).
-- **Consome (seams)**: autenticação, Principal, Execution Grant, Assistant Directory, API Key Admin e, na Fase 9, System Assistant Admin — 003, pelo `api.py` dela a partir da Fase 2 (na Fase 1, pelas formas que este módulo publicava como `Protocol`); Execution Engine (eventos) — 005; Pack Registry (introspecção) — 002; MCP Registry (CRUD e saúde) — 007, a partir da Fase 3; Model Router (verificação de saúde de modelo, "testar modelo") — 006, na Fase 9; Trace (identificador de requisição) e, na Fase 9, Usage Report, Price Book e Trace Destinations — 009, e, no incremento 9.6, Impact Report — 009; Account Admin e Login Settings — 012, na Fase 9.
-- **Expõe (seams)**: **API HTTP** — `/v1` (OIDC), `/private/v1` (chave de API) e `/admin/v1` (token da console ou chave de API, grupo de administração — Fase 9) — consumida por clientes externos (Open WebUI, console 013, scripts). É o adapter primário da plataforma; não expõe seam Python.
+- **Consome (seams)**: autenticação, Principal, Execution Grant, Assistant Directory, API Key Admin e, na Fase 9, System Assistant Admin — 003, pelo `api.py` dela a partir da Fase 2 (na Fase 1, pelas formas que este módulo publicava como `Protocol`); Execution Engine (eventos) — 005; Pack Registry (introspecção) — 002; MCP Registry (CRUD e saúde) — 007, a partir da Fase 3; Model Router (verificação de saúde de modelo, "testar modelo") — 006, na Fase 9; Trace (identificador de requisição) e, na Fase 9, Usage Report, Price Book e Trace Destinations — 009, e, no incremento 9.6, Impact Report — 009; Account Admin e Login Settings — 012, na Fase 9 (no incremento 9.7, com o apagamento de contas, um grupo de cada vez e `actor_can_admin`).
+- **Expõe (seams)**: **API HTTP** — `/v1` (OIDC), `/private/v1` (chave de API) e `/admin/v1` (token da console ou chave de API, grupo de administração — Fase 9) — consumida por clientes externos (Open WebUI, console 013, scripts). É o adapter primário da plataforma. Desde o incremento 9.7, expõe também o seu primeiro seam Python, em `http/api.py`: **apagamento das conversas de um subject** (`ConversationErasure`, US14) — consumido pela 011, que o liga ao apagamento de contas da 012 ([ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md)).
 - **Depende de infraestrutura (via portas)**: armazenamento das conversas; relógio (expiração de conversas); saúde agregada da plataforma (porta própria, implementada pela composition root, 011). O framework HTTP é o próprio adapter.
 - **Não conhece**: flows e seu estado, packs individuais, providers, políticas de tool.
 - **Substituição**: preservar os endpoints e o formato compatível com OpenAI; a camada HTTP pode ser reescrita sem afetar outros módulos.
-- **Insumo técnico**: [design.md](design.md); [ADR-002](../../docs/adr/ADR-002-assistant-fronteira-isolamento.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md), [ADR-029](../../docs/adr/ADR-029-console-de-administracao-propria.md), [ADR-031](../../docs/adr/ADR-031-superficie-de-administracao.md), [ADR-032](../../docs/adr/ADR-032-assistants-de-sistema-sobrepostos-em-runtime.md), [ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md), [ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md).
+- **Insumo técnico**: [design.md](design.md); [ADR-002](../../docs/adr/ADR-002-assistant-fronteira-isolamento.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md), [ADR-029](../../docs/adr/ADR-029-console-de-administracao-propria.md), [ADR-031](../../docs/adr/ADR-031-superficie-de-administracao.md), [ADR-032](../../docs/adr/ADR-032-assistants-de-sistema-sobrepostos-em-runtime.md), [ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md), [ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md), [ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md), [ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md), [ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md).
 
 ## Clarifications
 
@@ -91,6 +91,11 @@
 ### Session 2026-11-03
 
 - Q: Como a console lê o impacto ambiental? → A: Por `GET /admin/v1/impact`, ao lado de `/usage`, com os parâmetros `from`, `to`, `tz`, `grain` (`day`, `week`, `month`, `quarter`, `semester`), `by` (`model` ou `assistant`) e `origin` (os mesmos do uso), sobre o seam Impact Report da 009, sem regra própria ([ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md)). Os números vão como texto decimal, como no uso, e a resposta traz o método: versão do EcoLogits, fator e anos da árvore.
+
+### Session 2026-11-05
+
+- Q: Que resposta recebe um `DELETE /admin/v1/users/{u}` em que algum módulo falhou (a conta fica em apagamento e repetir retoma)? → A: 503 com o código `deletion_incomplete` no envelope de erro, o relatório parcial em `report` (o mesmo formato do 200, com `complete: false`) e `Retry-After: 5`. A falha é da plataforma e passageira, e repetir é seguro porque cada módulo é idempotente.
+- Q: Uma chave `users` sem administração pode ler as contas e o grupo de administração? → A: Sim, lê tudo como um admin — listas, conta e grupos, inclusive os de administração —; só as escritas que tocam o grupo de administração ou uma conta dele são recusadas com 403. Um filtro esconderia contas que existem (o provisionamento tentaria criá-las) e quebraria a contagem e o cursor; nenhuma dessas visões traz segredo.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -377,6 +382,79 @@ nomeia `grain`.
   campo aditivo `rotated_at` na listagem; a recusa do grupo de administração na emissão vale também nela, porque é regra
   da 003 para toda emissão com ator (003 FR-036).
 
+### User Story 13 - Contas e grupos por uma chave com escopo (Priority: P2)
+
+Um sistema de provisionamento recebe uma chave com o escopo `users`, sem o grupo de administração. Com ela, cria, altera,
+desativa e apaga contas, põe e tira uma conta de um grupo, cria grupos e define membros — e não alcança mais nada: nem
+preços, nem chaves, nem sobreposições, nem a inferência. Uma chave só de `inference` conversa e não administra nada. Um
+admin escolhe os escopos ao emitir uma chave e os vê na listagem ([ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md),
+[ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md)).
+
+**Why this priority**: É o pedido que abriu o incremento: provisionar contas pela API sem dar a administração inteira a
+quem provisiona. Sem o portão por escopo, o escopo da 003 não restringe nenhuma rota que a 008 serve.
+
+**Independent Test**: Um admin emite uma chave `users` para `svc:provisionamento`. Com ela: criar `ana`, pô-la em
+`equipe`, tirá-la e apagá-la funcionam; `GET /admin/v1/keys`, `GET /admin/v1/prices` e `POST /private/v1/chat/completions`
+respondem 404 de rota inexistente; pôr `ana` no grupo de administração responde 403 nomeando o grupo. Uma chave
+`inference` conversa e recebe 404 em `/admin/v1/users`.
+
+**Acceptance Scenarios**:
+
+1. **Given** uma chave só com `users`, **When** chama qualquer rota de `/admin/v1/users*`, `/admin/v1/groups*` ou
+   `GET /admin/v1/me`, **Then** a rota responde como para um admin, desde que não escreva no grupo de administração
+   nem numa conta dele — as leituras (listas, conta, grupos) mostram tudo, inclusive o que é de administração;
+   **When** chama qualquer outra rota de `/admin/v1` ou qualquer rota da privada que não seja `/health`, **Then** recebe
+   o 404 de rota inexistente, sem que nenhum seam seja chamado.
+2. **Given** uma chave só com `inference`, **When** conversa por `/private/v1/chat/completions`, `POST /private/v1/chat`,
+   lista `/private/v1/models` ou as próprias conversas, **Then** funciona como hoje; **When** chama qualquer rota de
+   `/admin/v1`, `/private/v1/packs`, `/private/v1/admin/keys*` ou `/private/v1/mcp*`, **Then** recebe 404.
+3. **Given** uma chave `users` sem administração, **When** cria, altera, redefine a senha, desativa, reativa, desfaz o
+   Google ou apaga uma conta que está no grupo de administração, ou põe ou tira alguém desse grupo ou define os membros
+   dele, **Then** recebe 403 que nomeia o campo (`username`, `groups`, `group`, `name` ou `members`) e nada muda; apagar o grupo de
+   administração continua 409 `protected_group` para qualquer ator (012 FR-011), também sem mudança.
+4. **Given** um admin, **When** emite uma chave por `POST /admin/v1/keys` com `scopes: ["users"]`, **Then** a chave nasce
+   com esse escopo e a resposta o mostra; **When** omite `scopes`, **Then** a chave nasce com `["inference"]`; **When**
+   pede `admin` ou um escopo desconhecido, **Then** recebe 422 que nomeia `scopes`. As listagens de chaves, nas duas
+   superfícies, mostram os escopos de cada uma.
+5. **Given** uma chave qualquer, **When** pede `GET /admin/v1/me` com um escopo que a alcança, **Then** a resposta traz
+   os escopos da chave; **Given** o token da console, **Then** `scopes` vem nulo.
+6. **Given** um admin ou uma chave `users`, **When** pede `DELETE /admin/v1/users/ana`, **Then** recebe 200 com o
+   relatório do apagamento — o que a identidade e cada módulo apagaram, e os avisos —, sem o pseudônimo; **When** pede a
+   própria conta, **Then** recebe 422 que nomeia `username`; **When** pede o último administrador ativo, **Then** recebe
+   409.
+7. **Given** um apagamento em que um módulo falhou, **When** o `DELETE` responde, **Then** recebe 503 com o código
+   `deletion_incomplete`, o relatório parcial (`complete: false`, o módulo que falhou marcado) e `Retry-After`; **When** o `DELETE` é repetido e todos os módulos respondem,
+   **Then** recebe 200 com o relatório completo.
+8. **Given** a conta `ana`, **When** um ator pede `PUT /admin/v1/users/ana/groups/equipe`, **Then** recebe 200 com a
+   conta já no grupo; repetir devolve o mesmo; **When** pede `DELETE` no mesmo caminho, **Then** recebe 200 com a conta
+   fora do grupo; repetir devolve o mesmo. Grupo inexistente → 404.
+9. **Given** uma chave com o grupo de administração e só o escopo `inference` (a que a migração não promoveu), **When**
+   chama `/admin/v1`, **Then** recebe 404 — o grupo sem o escopo não administra.
+
+---
+
+### User Story 14 - Apagar as conversas de um subject (Priority: P2)
+
+Quando uma conta é apagada, a plataforma apaga todas as conversas do usuário guardadas no servidor, com as mensagens e
+as imagens delas, para que nada do usuário fique e um usuário novo com o mesmo nome não as herde.
+
+**Why this priority**: As conversas são o maior volume de dado de um usuário; sem elas no apagamento, a 012 não cumpre o
+ADR-058.
+
+**Independent Test**: A tem duas conversas, uma com imagem, e B tem uma; o apagamento de A devolve 2 conversas e 1
+imagem; A não lista nada, a conversa de B continua, e repetir devolve zero.
+
+**Acceptance Scenarios**:
+
+1. **Given** duas conversas de A (uma com imagem) e uma de B, **When** as conversas de A são apagadas, **Then** o
+   relatório diz 2 conversas e 1 imagem, A não lista nenhuma conversa, os ids antigos respondem 404 e a conversa de B
+   não muda.
+2. **Given** o apagamento já feito, **When** é repetido, **Then** o relatório diz zero.
+3. **Given** um subject fora de `user:…`/`svc:…`, **When** o apagamento é pedido, **Then** é recusado nomeando
+   `subject`, sem tocar conversa nenhuma.
+
+---
+
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
@@ -431,6 +509,41 @@ nomeia `grain`.
 - **FR-043**: Na conversa guardada, as imagens DEVEM ficar em `http.attachments`, presas à mensagem (cascata e expiração da conversa), com a marca no texto; a leitura DEVE trazer os metadados por mensagem, e `GET /v1/conversations/{id}/attachments/{attachment_id}` os bytes, só ao dono (404 aos outros) (item 9).
 - **FR-044**: A sobreposição de `models` e o Assistant de usuário DEVEM aceitar e devolver `vision` por papel, na forma do YAML (item 10).
 - **FR-045**: A administração DEVE expor `GET /admin/v1/impact` sobre o seam Impact Report da 009, sem regra própria: parâmetros `from`, `to`, `tz`, `grain`, `by` e `origin`; números como texto decimal; o método (versão do EcoLogits, fator da árvore em kg CO₂e e anos) e `enabled`. Parâmetro inválido → 422 com `param`. As regras da superfície (FR-024, FR-039) valem ([ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md)).
+- **FR-046**: Toda rota de `/private/v1` e de `/admin/v1` DEVE declarar os escopos de chave que a alcançam, num mapa
+  puro: `inference` — chat completions, `POST /chat`, `/models`, conversas e anexos; `admin` — `/private/v1/packs`,
+  `/private/v1/admin/keys*`, `/private/v1/mcp*` (os servidores globais) e toda `/admin/v1` fora de contas e grupos;
+  `users` **ou** `admin` — `/admin/v1/users*`, `/admin/v1/groups*` e `GET /admin/v1/me`; qualquer chave —
+  `/private/v1/health`. Rota sem declaração DEVE falhar na suíte, não em produção ([ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md), itens 1 e 8).
+- **FR-047**: Chave sem nenhum dos escopos da rota DEVE receber o 404 de rota inexistente da superfície (o mesmo do
+  FR-024), antes de qualquer seam ser chamado. O Principal OIDC (sem escopos) continua regido só pelo grupo: `/v1` não
+  muda, e em `/admin/v1` só o grupo de administração entra. Nas rotas de contas e grupos, a chave com `users` entra sem o
+  grupo de administração e lê tudo, inclusive as contas e o grupo de administração (só as escritas neles são recusadas,
+  FR-048); nas demais de `/admin/v1`, administrar continua sendo a regra da 003 (grupo **e** escopo
+  `admin`, ADR-057 item 3).
+- **FR-048**: Nas escritas de contas e grupos, a 008 DEVE dizer à 012 se o ator administra (`actor_can_admin`, pela regra
+  de administração da 003), e a recusa da 012 por não escalar DEVE virar 403 no envelope de erro, com o código
+  `actor_not_allowed` e `param` igual ao campo que ela nomeia (ADR-057 itens 4 e 5).
+- **FR-049**: A administração DEVE expor `DELETE /admin/v1/users/{username}`, que apaga a conta pelo seam Account Admin
+  da 012 e devolve 200 com o relatório: o nome de usuário, se ficou completo, o que a identidade apagou e, por módulo,
+  nome, contagens, avisos e se falhou — nunca o pseudônimo (ADR-059). A própria conta → 422 com `param: "username"`; o
+  último administrador ativo → 409; conta inexistente → 404. Um apagamento incompleto DEVE responder 503 com o código
+  `deletion_incomplete`, o relatório parcial em `report` (`complete: false`) e `Retry-After: 5`; repetir o `DELETE`
+  retoma (ADR-058 item 4).
+- **FR-050**: A administração DEVE expor `PUT` e `DELETE` em `/admin/v1/users/{username}/groups/{group}`, sem corpo e
+  sem versão, que põem e tiram a conta do grupo e devolvem 200 com a conta; repetir devolve o mesmo (012 FR-033). Conta
+  ou grupo inexistente → 404.
+- **FR-051**: A emissão de chave, em `POST /admin/v1/keys` e `POST /private/v1/admin/keys`, DEVE aceitar `scopes` (lista;
+  ausente → `["inference"]`) e devolver a recusa da 003 (`admin`, escopo desconhecido, lista vazia) como 422 com
+  `param: "scopes"`. A visão da chave, nas duas superfícies, DEVE trazer `scopes` em ordem alfabética; a rotação os
+  preserva (ADR-057 item 6).
+- **FR-052**: `GET /admin/v1/me` DEVE trazer `scopes` — os da chave, em ordem alfabética, ou nulo para o token da
+  console.
+- **FR-053**: A 008 DEVE publicar em `http/api.py` o apagamento das conversas de um subject: todas as conversas do dono,
+  com as mensagens e as imagens, numa operação idempotente que devolve quantas conversas e quantas imagens apagou.
+  Subject fora de `user:…`/`svc:…` → recusa nomeando `subject`, sem tocar dados. Não confere quem pede: a autorização é
+  de quem chama (a 012, pela composição da 011). Sem pseudônimo: nada da conversa fica (ADR-058 item 2).
+- **FR-054**: A visão da conta na administração DEVE trazer `deleting` (`true` enquanto a conta está em apagamento, depois
+  de um apagamento incompleto), para a console mostrar o estado e oferecer concluir (013, clarificação de 2026-11-05).
 
 
 ### Key Entities
@@ -454,6 +567,12 @@ nomeia `grain`.
 - **SC-009**: Em teste, nenhum Principal fora do grupo de administração distingue uma rota de administração de uma inexistente, e nenhuma resposta de administração traz valor de segredo.
 - **SC-010**: Depois da passada da US10, zero ocorrências de `x-ai-core-store`, `x-ai-core-progress` e `x_ai_core` no código, nos testes e nos documentos vivos do workspace e das specs do core (fora do histórico do ADR-037, item 6, do contrato da instalação e dos testes e textos da recusa do FR-030), e 100% dos pedidos com um cabeçalho antigo são recusados antes de executar.
 - **SC-011**: Em teste, a chave em claro aparece só na resposta da emissão e na da rotação — nenhuma listagem, visão, erro ou registro a repete —, e o segredo anterior a uma rotação recebe 401 já na requisição seguinte; toda rota nova responde 404 a quem não administra.
+- **SC-012**: 100% das rotas de `/private/v1` e `/admin/v1` têm escopo declarado no mapa (a suíte enumera as rotas
+  montadas e falha numa sem declaração).
+- **SC-013**: Numa varredura adversarial com uma chave `users`, 100% das rotas de contas e grupos que tocam o grupo de
+  administração ou uma conta dele respondem 403 e nada muda; 100% das demais rotas de `/admin/v1` e das rotas da privada
+  (fora `/health`) respondem 404. Com uma chave `inference`, 100% das rotas de `/admin/v1` respondem 404.
+- **SC-014**: Depois do apagamento das conversas de um subject, 0 linhas do schema `http` citam o subject.
 
 ## Assumptions
 
@@ -467,6 +586,12 @@ nomeia `grain`.
 - Os traces (009) seguem a própria retenção, limitada e configurável; apagar uma conversa não apaga, na v1, os traces das requisições dela.
 - A aplicação HTTP é montada pela composition root (011), que injeta os seams consumidos.
 - US10 (ADR-037): até a passada da instalação, a conexão do Open WebUI da instalação de referência manda os cabeçalhos antigos, mas usa a imagem de uma tag antiga do core, que os aceita; as duas mudam juntas lá.
+- Incremento 9.7: o ADR-057 (item 1) põe no escopo `inference` o "`/private/v1/mcp` dos servidores do próprio
+  subject", mas essa rota não existe: na privada, `/mcp` serve só os servidores globais, que o mesmo ADR põe em `admin`
+  ("MCP global"). Os servidores do próprio usuário estão em `/v1/mcp`, que é OIDC e não tem escopo. A spec segue a
+  rota que existe; não há mudança de seam.
+- Incremento 9.7: um access token OIDC já emitido para a conta apagada vale até expirar (012, US6), e uma execução em
+  curso pode gravar uma conversa depois do apagamento das conversas; repetir o `DELETE` (idempotente) a apaga.
 - As interfaces são o Open WebUI (chat) e, opcional, a console de administração (013, Fase 9); nenhuma lógica de agente nem regra de negócio vive nelas (princípio XI, ADR-029).
 - O Open WebUI faz login no mesmo provedor OIDC que a 003 verifica e repassa o access token de cada usuário (`system_oauth`); o token precisa ter o emissor, a audiência e as claims de subject e grupos que a configuração da 003 lê. Desde a Fase 9, a instalação de referência (002) usa o provedor da própria plataforma (012, ADR-030) no lugar do Keycloak de desenvolvimento; um provedor externo continua possível.
 - Na instalação de referência, as tarefas auxiliares do Open WebUI (título, tags, sugestões de continuação, autocompletar) ficam desligadas; o operador que as religar sabe que cada uma é uma execução completa do Assistant e ocupa vaga da fila (FR-016).

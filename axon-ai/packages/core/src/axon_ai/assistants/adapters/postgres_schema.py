@@ -7,6 +7,7 @@ nenhum outro módulo a lê. Quem chama é a composition root, na etapa de adapte
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from pathlib import Path
 from typing import Final
@@ -23,8 +24,24 @@ class MigrationError(RuntimeError):
     """Migração que falhou: o boot para, nomeando o módulo e o arquivo."""
 
 
-async def migrate(pool: AsyncConnectionPool, *, now: datetime) -> tuple[int, ...]:
-    """Aplica as migrações pendentes e devolve as versões aplicadas nesta chamada."""
+async def _backfill_scopes(connection: psycopg.AsyncConnection, admin_group: str | None) -> None:
+    """006 (research R50): as chaves anteriores aos escopos ficam com o acesso de antes — `{inference}`, e as do grupo
+    de administração `{inference, admin}`. Sem grupo configurado, nenhuma administrava."""
+    await connection.execute(
+        f"UPDATE {SCHEMA}.api_keys SET scopes = CASE WHEN %s::text IS NOT NULL AND %s::text = ANY(groups) "
+        "THEN '{inference,admin}'::text[] ELSE '{inference}'::text[] END WHERE scopes IS NULL",
+        (admin_group, admin_group),
+    )
+    await connection.execute(f"ALTER TABLE {SCHEMA}.api_keys ALTER COLUMN scopes SET NOT NULL")
+
+
+_AFTER: Final[Mapping[int, Callable[[psycopg.AsyncConnection, str | None], Awaitable[None]]]] = {6: _backfill_scopes}
+"""Passos em Python que uma versão precisa e o SQL não sabe fazer, na mesma transação, logo depois do arquivo."""
+
+
+async def migrate(pool: AsyncConnectionPool, *, now: datetime, admin_group: str | None = None) -> tuple[int, ...]:
+    """Aplica as migrações pendentes e devolve as versões aplicadas nesta chamada. `admin_group` é o do
+    `assistants.yaml`, que o preenchimento dos escopos usa (006, research R50)."""
     files = sorted(MIGRATIONS.glob("[0-9][0-9][0-9]_*.sql"))
     applied: list[int] = []
     async with pool.connection() as connection, connection.transaction():
@@ -42,6 +59,8 @@ async def migrate(pool: AsyncConnectionPool, *, now: datetime) -> tuple[int, ...
                 continue
             try:
                 await connection.execute(path.read_text(encoding="utf-8").encode())
+                if version in _AFTER:
+                    await _AFTER[version](connection, admin_group)
             except psycopg.Error as error:
                 raise MigrationError(f"{SCHEMA}: a migração {path.name} falhou: {error}") from error
             await connection.execute(

@@ -13,7 +13,7 @@
 - **Módulo**: Capability Gateway — monta o catálogo de uma execução e executa tools com todas as proteções. Concentra aqui a lógica que a arch-v1 descrevia dentro dos nós `load_capabilities` e `execute_tool`, para que o grafo fique fino.
 - **Repositório / distribuição**: `axon-ai` → `axon_ai/capabilities/` (catálogo, despacho, fencing, política de escrita e auditoria; o antigo `axon_ai/security/` vira `domain/` deste módulo).
 - **Consome (seams)**: Contrato de pack (ToolSpec, ToolResult, Retriever) — 001; Pack Registry — 002; Execution Grant — 003; MCP Registry e cliente MCP restrito — 007; Trace Sink — 009.
-- **Expõe (seams)**: **Capability Catalog** (catálogo por execução, com namespace, já filtrado) e **Tool Gateway** (`execute(chamada) → resultado delimitado`) — consumidos por 005, servidos por uma sessão por execução; **consulta de auditoria** — consumida pelo comando `axon audit` que a 011 registra.
+- **Expõe (seams)**: **Capability Catalog** (catálogo por execução, com namespace, já filtrado) e **Tool Gateway** (`execute(chamada) → resultado delimitado`) — consumidos por 005, servidos por uma sessão por execução; **consulta de auditoria** — consumida pelo comando `axon audit` que a 011 registra; **pseudônimo na auditoria** (`AuditErasure`, US7) — consumido pela 011, que o liga ao apagamento de contas da 012 ([ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md)).
 - **Depende de infraestrutura (via portas)**: registro de auditoria persistente.
 - **Não conhece**: flows, prompts do controller, qual modelo decide a chamada, qualquer domínio.
 - **Substituição**: preservar a semântica "capacidade não declarada não existe" e a forma de Catalog/Gateway; políticas internas podem evoluir.
@@ -195,3 +195,44 @@ O catálogo entregue ao modelo de controle tem tamanho limitado por configuraç�
 ## Delegação por execução (ADR-055)
 
 `ToolContext.mcp_delegation` propaga credencial confidencial ao cliente MCP restrito. Nenhuma credencial em prompts, argumentos, resultados ou eventos. Contrato em [delegation.md](../007-core-mcp-integration/contracts/delegation.md).
+
+## Incremento 9.7: pseudônimo na auditoria (2026-11-04)
+
+Regido por [ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md) (itens 1 a 3). Sem perguntas
+de clarificação: o ADR decide que a auditoria fica (é a trilha de segurança) e que só a citação da conta muda.
+
+### User Story 7 - A auditoria de uma conta apagada não a identifica (Priority: P2)
+
+Quando uma conta é apagada, os registros de auditoria das tools de escrita que ela executou ficam, mas o Principal de
+cada um passa a ser o pseudônimo da conta (`deleted:<16 hex>`), o mesmo que os outros módulos usam. A trilha continua
+ligando as ações daquela conta entre si e com os históricos dos outros módulos, sem dizer quem ela era.
+
+**Why this priority**: sem ela, o nome do usuário apagado ficaria na auditoria para sempre (ADR-059 item 1).
+
+**Independent Test**: `-k us7` em `tests/capabilities/`: A tem três registros e B um; a troca de A devolve 3, a consulta
+por A não acha nada, a consulta pelo pseudônimo acha os três com o resto do registro igual, e B fica igual.
+
+**Acceptance Scenarios**:
+
+1. **Given** três registros de A (um ainda `started`) e um de B, **When** A é pseudonimizado, **Then** a contagem é 3, os
+   três têm o pseudônimo como Principal e o restante de cada registro (Assistant, tool, argumentos, resultado, status,
+   instantes, anexos) não muda; o de B não muda.
+2. **Given** a troca já feita, **When** é repetida com o mesmo pseudônimo, **Then** a contagem é 0.
+3. **Given** um subject fora de `user:…`/`svc:…` ou um pseudônimo fora de `deleted:<16 hex>`, **When** a troca é pedida,
+   **Then** é recusada nomeando o campo e nenhum registro muda.
+4. **Given** o registro `started` de A pseudonimizado, **When** a execução em curso o fecha, **Then** o fechamento grava
+   status e resultado e o Principal continua o pseudônimo.
+
+### Functional Requirements (incremento 9.7)
+
+- **FR-019**: A 004 DEVE oferecer a troca, em todos os registros de auditoria de um subject, do Principal pelo pseudônimo
+  dado, idempotente, devolvendo quantos registros mudou. Só o Principal muda; nenhum registro é apagado. Não confere
+  quem pede: a autorização é de quem chama (a 012, pela composição da 011).
+- **FR-020**: A troca DEVE recusar subject fora de `user:…`/`svc:…` e pseudônimo fora de `deleted:<16 hexadecimais>`,
+  nomeando o campo, antes de tocar a auditoria.
+
+### Success Criteria (incremento 9.7)
+
+- **SC-006**: Depois da troca, 0 linhas do schema `capabilities` têm o subject como Principal, e o número de registros
+  de auditoria é o mesmo de antes.
+

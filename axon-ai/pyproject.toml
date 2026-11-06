@@ -49,13 +49,15 @@ markers = [
     "us4: 007 US4 — MCPs de usuário; 006 US4 — saída estruturada no controller; 005 US4 — validação no rag_first; 009 US4 — benchmark de modelos",
     "us5: 007 US5 — política por servidor; 006 US5 — allowlist de modelo; 009 US5 — uso e custo",
     "us6: 007 US6 — proteções de rede; 003 US6 — Assistants de usuário; 009 US6 — destino Langfuse",
-    "us7: 009 US7 — captura opcional de prompt e resposta",
+    "us7: 009 US7 — captura opcional de prompt e resposta; 007 US7 — apagar os servidores de um dono; 004 US7 — pseudônimo na auditoria",
     "us8: 003 US8 — validação de Assistants; 009 US8 — identidade Axon (serviço e rótulo do selo); 012 US8 — identidade Axon (marca das páginas, cookie, realm e rótulos); 011 US8 — impacto ambiental na montagem",
-    "us9: 003 US9 — administração por grupo, com token da plataforma ou chave; 009 US9 — impacto ambiental (EcoLogits)",
-    "us10: 003 US10 — sobreposições de Assistants de sistema; 008 US10 — identidade Axon (cabeçalhos, extensão, OpenAPI e instance.custom)",
-    "us11: 003 US11 — identidade Axon (audiências e prefixo da chave); 008 US11 — chaves rotacionáveis e auth na administração",
+    "us9: 003 US9 — administração por grupo, com token da plataforma ou chave; 009 US9 — impacto ambiental (EcoLogits); 012 US9 — apagar conta em cascata; 011 US9 — apagamento em cascata montado e escopos na linha de comando",
+    "us10: 003 US10 — sobreposições de Assistants de sistema; 008 US10 — identidade Axon (cabeçalhos, extensão, OpenAPI e instance.custom); 012 US10 — um grupo de cada vez; 009 US10 — pseudônimo nos autores",
+    "us11: 003 US11 — identidade Axon (audiências e prefixo da chave); 008 US11 — chaves rotacionáveis e auth na administração; 012 US11 — ator que não administra",
     "us12: 003 US12 — rotação do segredo de chaves de API; 008 US12 — impacto ambiental na administração",
-    "us13: 003 US13 — sobreposição de auth de Assistants de sistema",
+    "us13: 003 US13 — sobreposição de auth de Assistants de sistema; 008 US13 — contas e grupos por chave com escopo",
+    "us14: 003 US14 — escopos da chave de API; 008 US14 — apagar as conversas de um subject",
+    "us15: 003 US15 — Subject Erasure (apagar os dados de um subject)",
 ]
 asyncio_default_fixture_loop_scope = "function"
 # estende os padrões do pytest; o pack de teste (fixtures/) roda no próprio ambiente limpo
@@ -281,6 +283,12 @@ forbidden_modules = [
     "axon_ai.observability.service",
     "axon_ai.observability.adapters",
 ]
+
+[[tool.importlinter.contracts]]
+name = "api.py da API não importa o resto do módulo"
+type = "forbidden"
+source_modules = ["axon_ai.http.api"]
+forbidden_modules = ["axon_ai.http.domain", "axon_ai.http.ports", "axon_ai.http.service", "axon_ai.http.adapters"]
 
 [[tool.importlinter.contracts]]
 name = "domain da API não importa portas, service nem adapters"

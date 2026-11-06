@@ -37,6 +37,27 @@ class McpRegistry(Protocol):
 | `check` ignora o cache e lista as tools anunciadas e as que faltam | R14 | `test_registry.py` |
 | Adicionar, alterar e desabilitar valem na execução seguinte, sem restart | FR-002, SC-003 | `test_discovery.py` |
 
+## `McpSubjectErasure` — apagar os servidores de um dono (incremento 9.7, US7)
+
+```python
+@dataclass(frozen=True, slots=True, kw_only=True)
+class McpErasureReport:
+    servers: int = 0                     # servidores de escopo user do subject apagados
+
+class McpSubjectErasure(Protocol):
+    async def erase_subject(self, subject: str) -> McpErasureReport: ...
+```
+
+| Regra | Origem | Verificada por |
+|---|---|---|
+| Apaga todos os servidores `~` do subject; devolve quantos | FR-018 | `test_mcp_subject_erasure.py` |
+| Não toca globais (arquivo ou armazenamento) nem servidores de outro dono | FR-018 | idem |
+| Idempotente: repetir devolve 0 | FR-018 | idem |
+| Subject fora de `user:…`/`svc:…` → `McpRejected(field="subject")`, sem I/O | FR-018 | idem |
+| A descoberta em cache dos servidores do subject é descartada; um dono novo com o mesmo nome vai ao servidor | FR-019 | idem |
+| Nenhuma linha do schema `mcp` cita o subject depois | SC-005 | idem (Postgres) |
+| Sem `actor`/`pseudonym`: a 007 não guarda autor; a 011 adapta à porta da 012 | R18 | — |
+
 ## `McpCatalog` — a forma de `McpDirectory` da 003
 
 ```python

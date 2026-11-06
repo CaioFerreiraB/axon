@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Any
 
+import pytest
 from assistants_testkit import T0, draft
 
 from axon_ai.assistants.ports import StoredUserAssistant
@@ -77,3 +78,15 @@ async def test_postgres_sobrevive_a_um_armazenamento_novo(migrated_pool: Any) ->
 
     await PostgresUserAssistantStore(migrated_pool).insert(_stored())
     assert await PostgresUserAssistantStore(migrated_pool).get("user:ana", "meu-rag") == _stored()
+
+
+@pytest.mark.us15
+async def test_erase_owner_apaga_so_os_do_dono(user_assistant_store: Any) -> None:
+    await user_assistant_store.insert(_stored("user:ana", "a"))
+    await user_assistant_store.insert(_stored("user:ana", "b"))
+    await user_assistant_store.insert(_stored("user:bia", "a"))
+
+    assert await user_assistant_store.erase_owner("user:ana") == 2
+    assert await user_assistant_store.list("user:ana") == []
+    assert [(r.owner, r.name) for r in await user_assistant_store.all()] == [("user:bia", "a")]
+    assert await user_assistant_store.erase_owner("user:ana") == 0

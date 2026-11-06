@@ -13,9 +13,21 @@ from axon_ai.assistants.domain.keys import ApiKeyRecord, hash_key
 
 
 def _record(
-    key_id: str, *, subject: str = "user:caio", at: Any = T0, groups: frozenset[str] = frozenset()
+    key_id: str,
+    *,
+    subject: str = "user:caio",
+    at: Any = T0,
+    groups: frozenset[str] = frozenset(),
+    scopes: frozenset[str] = frozenset({"inference"}),
 ) -> ApiKeyRecord:
-    info = ApiKeyInfo(key_id=key_id, subject=subject, groups=groups, label="notebook", created_at=at)
+    info = ApiKeyInfo(
+        key_id=key_id,
+        subject=subject,
+        groups=groups,
+        label="notebook",
+        created_at=at,
+        scopes=scopes,  # type: ignore[arg-type]
+    )
     return ApiKeyRecord(info=info, key_hash=hash_key(f"axn_{key_id}_segredo"))
 
 
@@ -113,3 +125,35 @@ async def test_lista_traz_o_instante_da_rotacao(api_key_store: Any) -> None:
 
     (listada,) = [r for r in await api_key_store.list() if r.info.key_id == "00000000000000c4"]
     assert listada.info.rotated_at == T0 + timedelta(minutes=3)
+
+
+# --- US14: escopos (research R49) ------------------------------------------------------------------------------------
+
+
+@pytest.mark.us14
+async def test_escopos_na_ida_e_volta_e_na_rotacao(api_key_store: Any) -> None:
+    record = _record("00000000000000f1", scopes=frozenset({"users", "inference"}))
+    await api_key_store.add(record)
+
+    assert (await api_key_store.get("00000000000000f1")).info.scopes == frozenset({"users", "inference"})
+    assert [r.info.scopes for r in await api_key_store.list()] == [frozenset({"users", "inference"})]
+    rotacionada = await api_key_store.rotate(
+        "00000000000000f1", key_hash=hash_key("axn_00000000000000f1_x"), at=T0 + timedelta(minutes=1)
+    )
+    assert rotacionada.info.scopes == frozenset({"users", "inference"})
+
+
+# --- US15: apagamento por subject (research R52) ---------------------------------------------------------------------
+
+
+@pytest.mark.us15
+async def test_erase_subject_apaga_ativas_e_revogadas_so_do_subject(api_key_store: Any) -> None:
+    await api_key_store.add(_record("00000000000000f2", subject="user:ana"))
+    await api_key_store.add(_record("00000000000000f3", subject="user:ana"))
+    await api_key_store.add(_record("00000000000000f4", subject="user:bia"))
+    await api_key_store.revoke("00000000000000f3", at=T0)
+
+    assert await api_key_store.erase_subject("user:ana") == 2
+    assert [r.info.key_id for r in await api_key_store.list()] == ["00000000000000f4"]
+    assert await api_key_store.get("00000000000000f2") is None
+    assert await api_key_store.erase_subject("user:ana") == 0

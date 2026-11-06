@@ -4,6 +4,7 @@ import { useApi } from "../ApiProvider";
 import {
   accountPageSchema,
   accountSchema,
+  deletionReportSchema,
   groupListSchema,
   groupSchema,
   issuedSchema,
@@ -58,7 +59,8 @@ export function useCreateUser() {
 export function useUpdateUser() {
   const api = useApi();
   return useAccountWrite(
-    ({ username, ...patch }: { username: string; email?: string; name?: string; groups?: string[]; version: number }) =>
+    // Os grupos não vão no `PATCH`: valem um a um, na hora (`useAddGroup`/`useRemoveGroup`; 013 R35).
+    ({ username, ...patch }: { username: string; email?: string; name?: string; version: number }) =>
       api.send("PATCH", userPath(username), patch, accountSchema),
   );
 }
@@ -84,6 +86,29 @@ export function useUnlinkGoogle() {
   const api = useApi();
   return useAccountWrite((username: string) =>
     api.send("DELETE", `${userPath(username)}/google`, undefined, accountSchema),
+  );
+}
+
+/** Apaga a conta em cascata (008 FR-049; 013 R32). O 503 `deletion_incomplete` traz o relatório parcial no erro. */
+export function useDeleteUser() {
+  const api = useApi();
+  return useAccountWrite((username: string) => api.send("DELETE", userPath(username), undefined, deletionReportSchema));
+}
+
+const memberPath = (username: string, group: string) => `${userPath(username)}/groups/${encodeURIComponent(group)}`;
+
+/** Um grupo de cada vez, sem versão (008 FR-050; 013 R35). */
+export function useAddGroup() {
+  const api = useApi();
+  return useAccountWrite(({ username, group }: { username: string; group: string }) =>
+    api.send("PUT", memberPath(username, group), undefined, accountSchema),
+  );
+}
+
+export function useRemoveGroup() {
+  const api = useApi();
+  return useAccountWrite(({ username, group }: { username: string; group: string }) =>
+    api.send("DELETE", memberPath(username, group), undefined, accountSchema),
   );
 }
 

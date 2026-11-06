@@ -22,6 +22,7 @@ from axon_ai.assistants.api import (
     RequestRejected,
 )
 from axon_ai.graph.api import ExecutionRequestInvalid
+from axon_ai.http.domain.admin_accounts import deletion_json
 from axon_ai.http.domain.admin_common import AdminInvalid
 from axon_ai.identity import api as identity
 from axon_ai.llm.api import ModelRoutingError
@@ -29,6 +30,8 @@ from axon_ai.mcp.api import McpConflict, UnknownServer
 from axon_ai.observability import api as observability
 
 EXTRA: Final = "x_axon"
+DELETION_RETRY_AFTER_S: Final = 5
+"""`Retry-After` do apagamento incompleto (FR-049)."""
 ASSISTANT_NOT_FOUND: Final = "assistant não encontrado"
 NOT_FOUND: Final = "recurso não encontrado"
 """Mensagens fixas do 404: o corpo é idêntico para inexistente e não autorizado — nem o nome pedido volta (SC-001)."""
@@ -83,6 +86,8 @@ class ErrorResponse:
     extra: Mapping[str, Any] = field(default_factory=dict)
     detail: Mapping[str, Any] = field(default_factory=dict)
     """Campos a mais dentro de `error` — `current_version` no conflito de versão da administração (R46)."""
+    top: Mapping[str, Any] = field(default_factory=dict)
+    """Campos ao lado de `error`, no objeto de cima — o `report` do apagamento incompleto (R68; achado I1)."""
 
     def body(self) -> dict[str, Any]:
         body: dict[str, Any] = {
@@ -96,6 +101,7 @@ class ErrorResponse:
         }
         if self.extra:
             body[EXTRA] = dict(self.extra)
+        body.update(self.top)
         return body
 
     def headers(self) -> dict[str, str]:
@@ -209,6 +215,21 @@ def admin_error_for(error: BaseException) -> ErrorResponse | None:
             return _conflict("installation_defined", message, param=error.field)
         case observability.MasterKeyMissing():
             return _conflict("master_key_missing", message, param="secret_key")
+        case identity.ActorNotAllowed():
+            # Ator sem administração escrevendo no grupo de administração: a rota existe para ele (ADR-057 item 5).
+            return ErrorResponse(
+                status=403, type="permission_error", code="actor_not_allowed", message=message, param=error.field
+            )
+        case identity.DeletionIncomplete():
+            # A falha é da plataforma e passageira; repetir retoma (clarificação Q1, R68).
+            return ErrorResponse(
+                status=503,
+                type="server_error",
+                code="deletion_incomplete",
+                message=message,
+                retry_after=DELETION_RETRY_AFTER_S,
+                top={"report": deletion_json(error.report)},
+            )
         case identity.ProtectedGroup():
             return _conflict("protected_group", message)
         case identity.GoogleNotConfigured():

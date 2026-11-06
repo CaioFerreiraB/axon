@@ -6,18 +6,19 @@
 
 **Status**: Draft
 
-**Input**: Tradução de arch-v1 §12 (Assistants), §15 (autenticação e autorização), §16 (cadeia de enforcement — elos 1, 2 e 7), §25 (requisição só restringe), §28 (assistants de usuário persistidos), Parte IX (multi-tenancy); ADR-002, ADR-008. Fase 9 (2026-10-13): superfície de administração e sobreposição de Assistants de sistema — ADR-030, ADR-031, ADR-032. Fase 9, incremento 9.5 (2026-10-20): identidade Axon — ADR-037. Fase 9 (2026-10-21): rotação do segredo de chaves de API e sobreposição da seção `auth` de Assistants de sistema — ADR-040.
+**Input**: Tradução de arch-v1 §12 (Assistants), §15 (autenticação e autorização), §16 (cadeia de enforcement — elos 1, 2 e 7), §25 (requisição só restringe), §28 (assistants de usuário persistidos), Parte IX (multi-tenancy); ADR-002, ADR-008. Fase 9 (2026-10-13): superfície de administração e sobreposição de Assistants de sistema — ADR-030, ADR-031, ADR-032. Fase 9, incremento 9.5 (2026-10-20): identidade Axon — ADR-037. Fase 9 (2026-10-21): rotação do segredo de chaves de API e sobreposição da seção `auth` de Assistants de sistema — ADR-040. Fase 9, incremento 9.7 (2026-11-04): escopos da chave de API e apagamento dos dados de um subject — ADR-057, ADR-058; o que fica, pseudonimizado — ADR-059.
 
 ## Module Boundary *(mandatory)*
 
 - **Módulo**: Assistants & Access — autentica o Principal, mantém o registro de Assistants e resolve, para cada requisição, o que a execução pode usar.
 - **Repositório / distribuição**: `axon-ai` → `axon_ai/assistants/` (inclui a autenticação; subcomandos `assistants validate` e `keys` em `adapters/cli.py`, registrados pela spec 011).
 - **Consome (seams)**: Pack Registry — 002 (validar packs referenciados); MCP Registry — 007 (validar aliases); nomes de flow e papéis de modelo exigidos por flow — 005 (validar flow e papéis, [ADR-019](../../docs/adr/ADR-019-papeis-por-flow-no-seam-execution-engine.md)); value objects da política de modelos — 006 (`ModelPolicy`, `ModelRef`, `ModelRole`: o grant carrega a política, [ADR-016](../../docs/adr/ADR-016-grant-carrega-politica-de-modelos.md)). Enquanto 007 e o índice de coleções não existem, a 003 declara a forma que exige desses catálogos e a composition root injeta catálogos vazios.
-- **Expõe (seams)**: **Principal** e **Execution Grant** — consumidos por 004, 005, 006, 007, 008; **Assistant Directory** (listagem filtrada por ACL e CRUD de assistants de usuário) — consumido por 008; **API Key Admin** (emissão, listagem, revogação e rotação do segredo de chaves de API — a rotação pelo [ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md)) — consumido por 008 (superfícies privada e de administração) e pela linha de comando; **System Assistant Admin** (configuração efetiva de Assistants de sistema e sobreposições das seções que o YAML permite — `models`, `mcp` e `auth` —, Fase 9, [ADR-032](../../docs/adr/ADR-032-assistants-de-sistema-sobrepostos-em-runtime.md), [ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md)) — consumido por 008 (superfície de administração).
+- **Expõe (seams)**: **Principal** e **Execution Grant** — consumidos por 004, 005, 006, 007, 008; **Assistant Directory** (listagem filtrada por ACL e CRUD de assistants de usuário) — consumido por 008; **API Key Admin** (emissão, listagem, revogação e rotação do segredo de chaves de API — a rotação pelo [ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md)) — consumido por 008 (superfícies privada e de administração) e pela linha de comando; **System Assistant Admin** (configuração efetiva de Assistants de sistema e sobreposições das seções que o YAML permite — `models`, `mcp` e `auth` —, Fase 9, [ADR-032](../../docs/adr/ADR-032-assistants-de-sistema-sobrepostos-em-runtime.md), [ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md)) — consumido por 008 (superfície de administração). Os escopos da chave (`inference`, `users`, `admin`) viajam no Principal ([ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md)); **Subject Erasure** (apagar o que a 003 guarda de um subject, [ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md)) — consumido pela composition root (011), que o liga ao apagamento de contas da 012.
 - **Depende de infraestrutura (via portas)**: armazenamento de Assistants de usuário e de sobreposições de Assistants de sistema, configuração de Assistants de sistema, verificação de identidade (chaves públicas do emissor OIDC — o provedor da plataforma, 012, injetado pela composition root, ou um externo — e chaves de API), contadores de taxa, relógio.
 - **Não conhece**: como flows executam, como tools executam, providers, o protocolo HTTP (a 008 adapta a requisição e chama a autenticação daqui), contas, senhas e login (são da 012; daqui só se verifica o token), qualquer domínio.
 - **Substituição**: preservar a forma do Execution Grant e a semântica "404, nunca 403"; o formato de configuração e o armazenamento podem mudar (são adapters).
-- **Insumo técnico**: [design.md](design.md); [ADR-002](../../docs/adr/ADR-002-assistant-fronteira-isolamento.md), [ADR-008](../../docs/adr/ADR-008-modelo-por-papel.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-015](../../docs/adr/ADR-015-persistencia-postgres-por-modulo.md), [ADR-016](../../docs/adr/ADR-016-grant-carrega-politica-de-modelos.md), [ADR-030](../../docs/adr/ADR-030-a-plataforma-e-o-provedor-de-identidade.md), [ADR-031](../../docs/adr/ADR-031-superficie-de-administracao.md), [ADR-032](../../docs/adr/ADR-032-assistants-de-sistema-sobrepostos-em-runtime.md), [ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md).
+- **Insumo técnico**: [design.md](design.md); [ADR-002](../../docs/adr/ADR-002-assistant-fronteira-isolamento.md), [ADR-008](../../docs/adr/ADR-008-modelo-por-papel.md), [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-015](../../docs/adr/ADR-015-persistencia-postgres-por-modulo.md), [ADR-016](../../docs/adr/ADR-016-grant-carrega-politica-de-modelos.md), [ADR-030](../../docs/adr/ADR-030-a-plataforma-e-o-provedor-de-identidade.md), [ADR-031](../../docs/adr/ADR-031-superficie-de-administracao.md), [ADR-032](../../docs/adr/ADR-032-assistants-de-sistema-sobrepostos-em-runtime.md), [ADR-040](../../docs/adr/ADR-040-rotacao-de-chaves-e-acesso-sobreponivel.md), [ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md), [ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md).
+- **Não conhece (acréscimo de 2026-11-04)**: quem chama o Subject Erasure nem por quê — a conta, o apagamento em cascata e as regras de não escalar do escopo `users` são da 012; o mapa de rota para escopo é da 008.
 
 ## Clarifications
 
@@ -58,6 +59,14 @@
 - Q: Um modelo pedido na requisição (US4) herda o `vision` do `generation` declarado? → A: Não: `vision` é do modelo declarado. Pedido outro modelo, o grant sai sem `vision` no `generation`.
 - Q: Assistant `chat` pode declarar `controller`? → A: Pode — o `controller` passa a ser papel opcional também no `chat` (ADR-019; 005), e é ele quem decide se uma imagem antiga vai à geração. A validação continua exigindo só os papéis obrigatórios do flow.
 - Q: E o Assistant de usuário? → A: O rascunho ganha `vision` (só papel de `models`); a 008 o lê do corpo.
+
+### Session 2026-11-04
+
+- Q: Quantos escopos a chave tem, e o grupo de administração continua valendo tudo? → A: Três, `inference`, `users` e `admin` ([ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md)). Com chave, administrar exige o grupo **e** o escopo `admin`; com OIDC, só o grupo. As chaves existentes migram sem perder acesso: `{inference}`, e as do grupo de administração `{inference, admin}`.
+- Q: A chave com o escopo `users` precisa estar no grupo de administração? → A: Não: o escopo basta para gerir contas e grupos, sob as regras de não escalar da 012. Para a 003, essa chave não é admin (não emite, lista, rotaciona nem revoga chaves; não sobrepõe Assistants).
+- Q: Apagar um usuário mexe nos dados da 003? → A: Sim, em cascata ([ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md)): os Assistants de usuário do dono, as chaves do subject e as entradas do subject no `allow` das sobreposições; as referências no `assistants.yaml` só saem como aviso.
+- Q: Quando o subject apagado era a única entrada do `allow` de uma sobreposição de `auth`, o que acontece com o Assistant? → A: A sobreposição fica gravada, numa versão nova sem entradas, e o Assistant fica indisponível com motivo `override.auth` até um admin corrigir ou descartar — nunca volta em silêncio ao `auth` do YAML, que pode ser mais amplo, e o apagamento não é recusado por isso.
+- Q: Depois do apagamento, o que a 003 ainda guarda que identifica o subject? → A: Nada ([ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md), decidido na clarificação da 012): o autor das sobreposições, o ator do histórico e o subject nas listas `allow` das versões antigas guardadas no histórico passam ao pseudônimo que a 012 gera e passa ao Subject Erasure.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -348,6 +357,83 @@ a receber 404. Mudar `auth` no YAML e recarregar; a sobreposição aparece inati
 
 ---
 
+### User Story 14 - A chave de API tem escopos (Priority: P1)
+
+Quem emite uma chave escolhe o que ela pode fazer: `inference` (conversar com os Assistants que a ACL concede), `users`
+(gerir contas e grupos, sem ser administrador) e `admin` (administrar a instalação). Um sistema de provisionamento recebe
+só `users`; um robô de atendimento, só `inference`; e a chave do operador, `admin`. Sem escolha, a chave sai com
+`inference`. Os escopos não mudam depois da emissão — nem na rotação —, e as chaves que já existem continuam podendo
+exatamente o que podiam ([ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md)).
+
+**Why this priority**: É o pedido do incremento: sem escopos, quem gerencia usuários pela API recebe a administração
+inteira e ainda conversa com qualquer Assistant que a ACL lhe conceda; e é pré-requisito das passadas da 012, 008, 011 e
+013.
+
+**Independent Test**: Emitir três chaves para o mesmo sistema — uma `inference`, uma `users` e, pela linha de comando com
+o grupo de administração, uma `admin`. A `inference` resolve um Assistant e não é admin; a `users` não resolve nenhum
+Assistant e não é admin; a `admin` é admin e não resolve Assistant. Rotacionar a `users` mantém os escopos. Uma chave
+emitida antes da passada continua resolvendo, e uma de admin anterior continua administrando.
+
+**Acceptance Scenarios**:
+
+1. **Given** uma emissão sem escopos declarados, **When** a chave é emitida, **Then** ela tem só `inference`, e a
+   listagem mostra os escopos.
+2. **Given** uma chave só com `users` ou só com `admin`, **When** ela pede para resolver ou listar Assistants, ou para
+   gerir Assistants de usuário, **Then** recebe o mesmo que um Assistant inexistente (404) e a listagem vem vazia.
+3. **Given** uma chave com o grupo de administração mas sem o escopo `admin`, **When** chega a uma operação de
+   administração, **Then** não é admin (o mesmo que recurso inexistente).
+4. **Given** uma chave com o escopo `admin` e o grupo de administração, **When** chega a uma operação de administração,
+   **Then** é admin; **Given** um token OIDC de membro do grupo de administração, **Then** continua admin, sem escopos.
+5. **Given** a linha de comando, **When** o operador emite com `admin` sem o grupo de administração, **Then** é recusado
+   nomeando `scopes`; **When** emite com os dois, **Then** a chave sai.
+6. **Given** a administração, **When** um admin emite com `inference` e `users`, **Then** a chave sai; **When** tenta
+   emitir com `admin`, **Then** é recusado nomeando `scopes`.
+7. **Given** um escopo desconhecido ou um conjunto vazio, **When** alguém emite, **Then** é recusado nomeando `scopes`.
+8. **Given** uma chave com escopos, **When** ela é rotacionada, **Then** a chave nova tem os mesmos escopos.
+9. **Given** uma instalação com chaves emitidas antes da passada, **When** a migração roda, **Then** cada chave ganha
+   `inference`, e as do grupo de administração ganham também `admin`, sem perder nenhuma chave nem acesso.
+
+---
+
+### User Story 15 - Apagar o que a 003 guarda de um subject (Priority: P2)
+
+Quando a administração apaga uma conta (012), a plataforma apaga em cascata o que cada módulo guarda dela
+([ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md)). Da 003 saem os Assistants de usuário do dono, as chaves
+de API do subject e as entradas do subject no `allow` das sobreposições de `auth`. O que a 003 não pode mudar — o subject
+citado no `assistants.yaml` do operador — sai como aviso, porque um usuário novo com o mesmo nome herdaria aquele acesso.
+Apagar de novo não faz nada e devolve o mesmo aviso.
+
+**Why this priority**: É a parte da 003 no apagamento em cascata; sem ela, a conta some mas o Assistant `~nome`, as
+chaves e o acesso concedido pela sobreposição continuam lá, prontos para quem reaproveitar o nome.
+
+**Independent Test**: Com `user:ana` dona de dois Assistants de usuário, com uma chave ativa, citada no `allow` de uma
+sobreposição de `auth` e no `allow` do YAML de outro Assistant, apagar o subject: o relatório conta 2 Assistants, 1
+chave e 1 entrada de sobreposição, e avisa do Assistant do YAML; a chave não autentica mais, os Assistants não existem e
+a sobreposição tem uma versão nova sem `user:ana`. Repetir: zero em tudo e o mesmo aviso.
+
+**Acceptance Scenarios**:
+
+1. **Given** um subject com Assistants de usuário, **When** é apagado, **Then** os Assistants deixam de existir e saem
+   da listagem de todos, e a contagem aparece no relatório.
+2. **Given** um subject com chaves ativas e revogadas, **When** é apagado, **Then** nenhuma delas aparece na listagem e
+   nenhuma autentica a partir da requisição seguinte.
+3. **Given** um subject citado no `allow` de sobreposições de `auth`, **When** é apagado, **Then** cada sobreposição
+   ganha uma versão nova sem a entrada, com autor e histórico, e o relatório conta as entradas.
+4. **Given** uma sobreposição cujo único item de `allow` era o subject, **When** é apagado, **Then** o Assistant não
+   fica aberto a ninguém novo: fica indisponível com motivo `override.auth` até um admin corrigir ou descartar.
+5. **Given** um subject citado no `allow` do `assistants.yaml`, **When** é apagado, **Then** o YAML não muda e o
+   relatório avisa, nomeando cada Assistant.
+6. **Given** um subject já apagado ou que nunca teve dado, **When** é apagado de novo, **Then** o relatório tem zero em
+   todas as contagens, sem erro.
+7. **Given** um subject com execuções em andamento, **When** é apagado, **Then** elas terminam, e a requisição seguinte
+   com uma chave dele é não autenticada (o token OIDC já emitido vale até expirar — a 003 só verifica o token; ADR-058,
+   item 8).
+8. **Given** um subject que gravou sobreposições e aparece em versões antigas guardadas no histórico, **When** é
+   apagado com um pseudônimo, **Then** o autor das sobreposições, o ator do histórico e cada citação dele nas listas
+   `allow` do histórico passam ao pseudônimo, e nenhuma linha do módulo cita mais o subject (ADR-059).
+
+---
+
 ### Edge Cases
 
 - Assistant de usuário com o mesmo nome de um Assistant de sistema: impossível por construção — nomes de usuário levam o prefixo `~`, que nome de sistema não pode usar (erro de configuração no boot). Dois usuários podem ter `~meu-rag`; cada um resolve e lista só o próprio.
@@ -372,6 +458,11 @@ a receber 404. Mudar `auth` no YAML e recarregar; a sobreposição aparece inati
 - Sobreposição de `auth` gravada enquanto há execuções em andamento de um Principal que deixa de ser permitido: as execuções terminam; a requisição seguinte dele recebe 404.
 - Entrada de `allow` que aponta para um sistema cuja última chave foi revogada, ou para um grupo apagado: continua na configuração efetiva sem conceder nada; o Assistant não fica indisponível por isso.
 - `visibility` não é sobreponível: um Assistant privado continua privado (e sem `*`) qualquer que seja a sobreposição de `auth`.
+- Chave só com `users` cujo subject é dono de Assistants de usuário: eles continuam guardados, mas a chave não os resolve nem os gere; outra chave do mesmo subject com `inference` os alcança.
+- Chave com `inference` e o grupo de administração, sem `admin`: conversa com o que a ACL concede (o grupo de administração ainda pode aparecer em `allow`), mas não administra.
+- Admin que rotaciona ou revoga uma chave `admin` pela administração: continua permitido (FR-036); rotacionar não muda escopos, então não amplia privilégio.
+- Subject apagado enquanto alguém grava uma sobreposição que o cita: uma gravação acontece antes da outra; se a sobreposição chega depois do apagamento, a entrada fica (a 003 não confere existência, FR-032) e não concede nada a ninguém até um usuário novo reaproveitar o nome — o aviso do relatório não a cobre.
+- Apagamento de um `svc:…`: o seam aceita qualquer subject; para sistema, apaga as chaves e as entradas de sobreposição (sistema não tem Assistants de usuário).
 
 ## Requirements *(mandatory)*
 
@@ -413,14 +504,32 @@ a receber 404. Mudar `auth` no YAML e recarregar; a sobreposição aparece inati
 - **FR-033**: A sobreposição de `auth` DEVE decidir só quem usa o Assistant nas superfícies pública e privada; a administração do Assistant continua restrita ao grupo de administração (FR-023), qualquer que seja a sobreposição.
 - **FR-034**: O seam System Assistant Admin DEVE expor, para todo Assistant de sistema, o `auth` do YAML e o efetivo — inclusive quando `auth` não está em `overrides`, para leitura — e, quando liberado, a operação de gravar e descartar a sobreposição de `auth`, com versão e histórico como as demais (FR-021, FR-022).
 - **FR-035**: O armazenamento persistente DEVE acompanhar as duas mudanças por migrações novas do próprio módulo — o instante da rotação nas chaves e `auth` entre as seções de sobreposição —, aplicáveis sobre uma instalação com dados, sem perder chaves nem sobreposições existentes.
-- **FR-036**: Pela administração, a emissão DEVE aceitar grupos comuns e DEVE recusar, nomeando `groups`, o grupo de administração; chave com o grupo de administração só é emitida pelo operador, na linha de comando. Rotação e revogação pela administração valem para qualquer chave ativa, inclusive as do grupo de administração. *(Provisória: revista quando houver gestão de acessos pela API.)*
+- **FR-036**: Pela administração, a emissão DEVE aceitar grupos comuns e DEVE recusar, nomeando `groups`, o grupo de administração; chave com o grupo de administração só é emitida pelo operador, na linha de comando. Rotação e revogação pela administração valem para qualquer chave ativa, inclusive as do grupo de administração. *(Revista em 2026-11-04 com os escopos, [ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md): mantida; o escopo `admin` segue a mesma regra, FR-040.)*
 - **FR-037**: Um papel em `models` DEVE aceitar `{model, vision}` além de `provider/modelo`; a definição, a sobreposição de `models`, o rascunho de Assistant de usuário e a `ModelPolicy` do grant DEVEM carregar `vision`, e um modelo pedido na requisição diferente do declarado NÃO DEVE herdá-lo ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 10).
+- **FR-038**: Toda chave de API DEVE ter um conjunto não vazio de escopos, fixado na emissão, de um conjunto fechado: `inference`, `users` e `admin` ([ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md)). Emissão sem escopos declarados DEVE sair com `{inference}`; escopo desconhecido ou conjunto vazio DEVE ser recusado nomeando `scopes`. A listagem e o Principal da chave DEVEM carregar os escopos; o Principal OIDC não tem escopos e continua regido só pelos grupos.
+- **FR-039**: Com chave, admin DEVE ser o Principal que tem o grupo de administração **e** o escopo `admin`; com OIDC, o que tem o grupo (FR-023). Chave sem o escopo `admin` NÃO DEVE ser admin em nenhuma operação desta spec — emissão, listagem, rotação e revogação de chaves e System Assistant Admin —, inclusive com o grupo de administração. *(Emenda a FR-023.)*
+- **FR-040**: O escopo `admin` DEVE ser aceito só em chave com o grupo de administração e só pela linha de comando; pela administração, DEVE ser recusado nomeando `scopes` (FR-036). `inference` e `users` PODEM ser concedidos pela linha de comando ou pela administração.
+- **FR-041**: Resolução, listagem e gestão de Assistants de usuário (Assistant Directory) DEVEM exigir, para Principal de chave, o escopo `inference`; sem ele, a resposta DEVE ser a de Assistant inexistente e a listagem DEVE vir vazia. O escopo `users` não concede nada nesta spec: ele vale nas operações de contas e grupos (012) que a 008 expõe.
+- **FR-042**: Os escopos de uma chave NÃO DEVEM mudar depois da emissão; a rotação (FR-028) DEVE preservá-los. Mudar escopos é emitir outra chave e revogar a anterior (FR-030).
+- **FR-043**: O armazenamento persistente DEVE ganhar os escopos por migração nova do próprio módulo, aplicável sobre uma instalação com dados: toda chave existente DEVE receber `{inference}`, e a que tem o grupo de administração, `{inference, admin}`; nenhuma chave e nenhum acesso existente se perdem.
+- **FR-044**: O módulo DEVE expor o seam **Subject Erasure**: apagar, dado um subject, o ator que o pede e o pseudônimo
+  (FR-048), os Assistants de usuário do dono, todas as chaves de API do subject (ativas e revogadas) e as entradas do subject no `allow` das sobreposições de `auth`, devolvendo um relatório com a contagem de cada tipo e os avisos ([ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md)). A operação DEVE ser idempotente: repetida, devolve zero nas contagens e os mesmos avisos, sem erro.
+- **FR-045**: A remoção de uma entrada de `allow` de uma sobreposição DEVE gravar uma versão nova da sobreposição, com o ator como autor e entrada no histórico (FR-021). Se a entrada era a única, a versão nova DEVE ficar com `allow` vazio — única exceção à FR-031, que vale para as gravações da administração —, a sobreposição NÃO DEVE ser descartada nem ampliar o acesso, e o Assistant DEVE ficar indisponível com motivo `override.auth` até um admin corrigir ou descartar (FR-020); o apagamento NÃO DEVE ser recusado por isso.
+- **FR-046**: Referências ao subject no `assistants.yaml` (entradas de `allow`) NÃO DEVEM ser alteradas; o relatório DEVE nomear cada Assistant que as tem, como aviso. Contadores de taxa do subject PODEM ser descartados.
+- **FR-048**: O Subject Erasure DEVE receber o pseudônimo da conta apagada (`deleted:<16 hexadecimais>`, gerado pela 012;
+  outro formato é recusado nomeando `pseudonym`) e trocar por ele cada citação do subject que fica no módulo: o autor
+  (`updated_by`) das sobreposições, o ator do histórico e o subject nas listas `allow` das versões guardadas no histórico
+  ([ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md)). O relatório DEVE contar essas trocas;
+  repetido, devolve zero.
+- **FR-047**: O Subject Erasure NÃO DEVE ser exposto por superfície HTTP nem pela linha de comando da 003: quem o chama é o apagamento de contas da 012, ligado pela composition root (011), que é quem decide a autorização.
 
 
 ### Key Entities
 
-- **Principal**: identificador (`user:…`, `svc:…`), esquema, grupos.
-- **API Key**: identificador público, hash, subject e grupos do dono, rótulo, estado (ativa ou revogada), instante de emissão, da última rotação e da revogação; a chave em claro não é armazenada. Um subject pode ter várias chaves ativas. "Sistema" não é entidade: é o subject `svc:…` de uma ou mais chaves.
+- **Principal**: identificador (`user:…`, `svc:…`), esquema, grupos e, só no esquema de chave, escopos.
+- **API Key**: identificador público, hash, subject e grupos do dono, escopos (imutáveis), rótulo, estado (ativa ou revogada), instante de emissão, da última rotação e da revogação; a chave em claro não é armazenada.
+- **Scope**: `inference` (resolver e usar Assistants), `users` (contas e grupos, na 012 pela 008), `admin` (administração; só com o grupo de administração, só pela linha de comando).
+- **Erasure Report**: subject, contagens de Assistants de usuário, chaves e entradas de sobreposição apagadas, e avisos (Assistants do YAML que citam o subject). Um subject pode ter várias chaves ativas. "Sistema" não é entidade: é o subject `svc:…` de uma ou mais chaves.
 - **Assistant**: configuração nomeada (ver FR-004); origem sistema ou usuário; dono (quando de usuário). Nome de usuário leva o prefixo `~` e é único por dono; nome de sistema é único na instalação e não começa com `~`. `visibility` define defaults de segurança (FR-012), não a listagem.
 - **Execution Grant**: configuração efetiva de uma execução — Assistant, Principal, flow, packs ordenados, aliases MCP, coleções, tools permitidas, tools de escrita, política de modelo por papel, limites.
 - **Rate Budget**: contador por (Principal, Assistant).
@@ -441,6 +550,8 @@ a receber 404. Mudar `auth` no YAML e recarregar; a sobreposição aparece inati
 - **SC-008**: Depois da passada da US11, zero ocorrências do prefixo `aic_` de chave e das audiências `ai-core`/`ai-core-admin` no código, nos testes, na configuração e nos documentos vivos do workspace e das specs do core (fora do histórico do ADR-037, item 6, do contrato da instalação, do `CLAUDE.md`, do cookie da 012, que muda na passada dela, e dos testes e textos que nomeiam o antigo de propósito), e as suítes do workspace e da console passam.
 - **SC-009**: Em teste, 100% das rotações deixam o segredo anterior não autenticado já na requisição seguinte, e nenhuma resposta, listagem ou registro, fora a da própria rotação, contém a chave em claro ou o hash.
 - **SC-010**: Uma sobreposição de `auth` vale na requisição seguinte, sem restart; suíte adversarial confirma que nenhuma sobreposição põe `*` num Assistant privado, deixa esquemas ou `allow` vazios, sobrepõe `auth` não liberado ou altera `visibility`.
+- **SC-011**: Em suíte adversarial, nenhuma chave sem o escopo `admin` é admin, nenhuma chave sem `inference` resolve ou lista um Assistant, e nenhuma emissão pela administração sai com `admin`; e, depois da migração, 100% das chaves existentes autenticam com o mesmo acesso de antes.
+- **SC-012**: Depois do apagamento de um subject, zero Assistants de usuário, chaves e entradas de sobreposição dele restam no armazenamento do módulo, em memória e no Postgres, e nenhuma linha do schema `assistants` cita o subject (ADR-059); a segunda execução devolve zero em todas as contagens.
 
 ## Assumptions
 
@@ -450,4 +561,6 @@ a receber 404. Mudar `auth` no YAML e recarregar; a sobreposição aparece inati
 - Sobreposições ficam em cache por processo, invalidado a cada gravação — a mesma premissa de processo único dos contadores de taxa.
 - A verificação de que o modelo solicitado existe no provider é feita pela spec 006; esta spec aplica a allowlist.
 - US12 e US13 (ADR-040): expiração de chaves, "último uso" e o subject no trace e no uso ficam para um ADR próprio; a rotação mantém o identificador estável para não fechar essas portas.
+- US14 (ADR-057): o mapa de rota para escopo nas superfícies é da 008; as regras de não escalar do escopo `users` (não tocar no grupo de administração nem em seus membros) são da 012. Escopos em token OIDC estão fora de escopo.
+- US15 (ADR-058): quem apaga a conta e decide a ordem da cascata é a 012; a auditoria de tools de escrita (004) e o uso (009) não são dados da 003 e ficam como estão.
 - US11 (ADR-037): a instalação continua presa a uma tag antiga do core, com os nomes antigos de ponta a ponta, até a passada dela; o pack de domínio, que usa a credencial de teste exportada, a recebe com o prefixo novo quando passar à tag nova (101).

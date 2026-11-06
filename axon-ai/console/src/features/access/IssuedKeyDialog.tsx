@@ -9,6 +9,7 @@ import { Button } from "../../ui/Button";
 import { Dialog } from "../../ui/Dialog";
 import { Field, fieldStyles } from "../../ui/Field";
 import styles from "./Access.module.css";
+import { ScopeList } from "./ScopeList";
 
 export function IssuedKeyDialog({
   issued,
@@ -66,6 +67,10 @@ export function IssuedKeyDialog({
             <dd>{issued.label ?? "—"}</dd>
             <dt>Identificador</dt>
             <dd className="mono">{issued.key_id}</dd>
+            <dt>Escopos</dt>
+            <dd>
+              <ScopeList scopes={issued.scopes} />
+            </dd>
             {issued.rotated_at ? (
               <>
                 <dt>Rotacionada</dt>

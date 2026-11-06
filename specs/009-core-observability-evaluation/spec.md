@@ -13,7 +13,7 @@
 - **Módulo**: Observability & Evaluation — trace estruturado de cada execução e harness genérico que roda conjuntos dourados fornecidos por packs.
 - **Repositório / distribuição**: `axon-ai` → `axon_ai/observability/` (Trace Sink e consulta de trace) e `axon_ai/eval/` (harness).
 - **Consome (seams)**: Execution Engine (eventos) — 005, pelo harness; `Chunk` — 001.
-- **Expõe (seams)**: **Trace Sink** (porta de emissão de dados de trace por requisição) — consumido por 004, 005 e 006; **Trace** (consulta por identificador de requisição) — consumido por 008 e pelo operador; **Eval Harness** com o **formato de conjunto dourado** — consumidos pelo CI e por packs (ex.: 105); **Usage Report** (uso e custo por dia, modelo e Assistant), **Price Book** (preços com vigência) e **Trace Destinations** (Langfuse, captura de conteúdo, estado dos destinos) — consumidos pela 008, superfície de administração (Fase 9); **Impact Report** (impacto ambiental estimado por período, grão, modelo e Assistant) — consumido pela 008 (incremento 9.6, ADR-056).
+- **Expõe (seams)**: **Trace Sink** (porta de emissão de dados de trace por requisição) — consumido por 004, 005 e 006; **Trace** (consulta por identificador de requisição) — consumido por 008 e pelo operador; **Eval Harness** com o **formato de conjunto dourado** — consumidos pelo CI e por packs (ex.: 105); **Usage Report** (uso e custo por dia, modelo e Assistant), **Price Book** (preços com vigência) e **Trace Destinations** (Langfuse, captura de conteúdo, estado dos destinos) — consumidos pela 008, superfície de administração (Fase 9); **Impact Report** (impacto ambiental estimado por período, grão, modelo e Assistant) — consumido pela 008 (incremento 9.6, ADR-056); **pseudônimo nos autores** (`ObservabilityErasure`, US10) — consumido pela 011, que o liga ao apagamento de contas da 012 (incremento 9.7, [ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md)).
 - **Depende de infraestrutura (via portas)**: backend de trace (exporter), destinos adicionais do trace (projeção de uso, Langfuse — rede), armazenamento de uso, preços e ajustes dos destinos, estimador de impacto ambiental (EcoLogits, só em `adapters/`), cifra com a chave mestra da instalação, segredos de instalação, relógio, armazenamento de linhas de base, juiz LLM (só offline).
 - **Não conhece**: domínio (métricas específicas de domínio são fornecidas pelo pack), flows internos (lê apenas eventos e dados de trace), quem emite dados de trace além do que chega pelo Trace Sink.
 - **Substituição**: preservar o Trace Sink, o formato do conjunto dourado, o formato de relatório e os seams de uso, preços e destinos; o backend de trace e os destinos podem ser trocados (são adapters).
@@ -350,3 +350,43 @@ consultar o relatório por mês e por modelo e conferir os totais com faixa, a c
 - O custo é estimativa: preços manuais, sem separar tokens de cache ou de raciocínio, e com os tokens que o provider informa.
 - Trace e harness estão em lados opostos do hexágono (porta secundária × adapter primário); dividi-los em duas specs é opcional e, se feito, segue "Como reescrever um módulo" em `specs/README.md`.
 - US8 (ADR-037): ambientes locais com o segredo do Langfuse gravado pela console regravam o segredo depois da passada; a instalação, presa a uma tag antiga até a passada dela, não é afetada até lá.
+
+## Incremento 9.7: pseudônimo nos autores (2026-11-04)
+
+Regido por [ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md) (itens 1 a 3). Sem perguntas
+de clarificação: o uso, o custo, o impacto e o trace em arquivo não citam o subject; os únicos registros da 009 que o
+citam são o autor de um preço e o último autor dos ajustes dos destinos.
+
+### User Story 10 - Os autores de preços e ajustes de uma conta apagada não a identificam (Priority: P2)
+
+Quando uma conta é apagada, os preços que ela cadastrou e os ajustes de destino que ela alterou por último ficam, mas o
+autor passa a ser o pseudônimo da conta (`deleted:<16 hex>`), o mesmo que os outros módulos usam.
+
+**Why this priority**: sem ela, o nome do usuário apagado ficaria na tabela de preços e nos ajustes (ADR-059 item 1).
+
+**Independent Test**: `-k us10` em `tests/observability/`: A cadastrou dois preços e alterou os ajustes, B cadastrou um
+preço; a troca de A devolve 2 preços e 1 ajuste, os valores não mudam, a versão dos ajustes não muda, e o de B fica.
+
+**Acceptance Scenarios**:
+
+1. **Given** dois preços de A, um de B e os ajustes alterados por último por A, **When** A é pseudonimizado, **Then** o
+   relatório diz 2 preços e 1 ajuste; os preços de A têm o pseudônimo como autor e os valores, a vigência e o instante
+   iguais; o de B não muda; os ajustes têm o pseudônimo como autor e a **mesma versão** (uma edição da console aberta
+   antes continua valendo).
+2. **Given** a troca já feita, **When** é repetida, **Then** o relatório diz 0 e 0.
+3. **Given** um subject fora de `user:…`/`svc:…` ou um pseudônimo fora de `deleted:<16 hex>`, **When** a troca é pedida,
+   **Then** é recusada nomeando o campo e nada muda.
+
+### Functional Requirements (incremento 9.7)
+
+- **FR-031**: A 009 DEVE oferecer a troca do subject pelo pseudônimo dado no autor dos preços e no autor dos ajustes de
+  destino, idempotente, devolvendo quantos de cada mudou. Só o autor muda: valores, vigência, instantes e a versão dos
+  ajustes ficam. Não confere quem pede: a autorização é de quem chama (a 012, pela composição da 011).
+- **FR-032**: A troca DEVE recusar subject fora de `user:…`/`svc:…` e pseudônimo fora de `deleted:<16 hexadecimais>`,
+  nomeando o campo, antes de tocar os dados.
+
+### Success Criteria (incremento 9.7)
+
+- **SC-012**: Depois da troca, 0 linhas do schema `observability` citam o subject (varredura das colunas de texto no
+  Postgres), e o número de preços é o mesmo de antes.
+

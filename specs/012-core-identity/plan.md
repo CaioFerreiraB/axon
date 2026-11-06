@@ -276,3 +276,98 @@ Nenhuma linha nova.
 
 Reavaliado com [contracts/pages.md](contracts/pages.md), [contracts/oidc.md](contracts/oidc.md),
 [data-model.md](data-model.md) e [quickstart.md](quickstart.md) ("Fase 9, incremento 9.5"): **PASS**.
+
+# Passada de 2026-11-04: apagar conta em cascata, um grupo de cada vez e o ator que não administra (US9–US11; [ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md), [ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md), [ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md))
+
+> As seções acima ficam como foram executadas. Este é o plano da US9, da US10 e da US11 (Fase 9, incremento 9.7).
+
+**Insumos lidos**: [spec.md](spec.md) (US9–US11, FR-001 revista, FR-028–FR-038, SC-009–SC-012, clarificações de
+2026-11-04), [design.md](design.md), ADR-012, ADR-015, ADR-030, ADR-057, ADR-058, ADR-059, constituição. Research:
+R28–R34. **Sem divergência** dos ADRs; do `design.md`, só o acréscimo da porta nova. O nome dos comandos (R33) difere
+do texto do ADR-058, por colisão com um comando existente — não é seam, sem ADR.
+
+## Summary (US9–US11)
+
+**US9**:
+- **Estado.** A conta ganha o estado "em apagamento" — inativa, sem grupos e com o pseudônimo `deleted:<16 hex>`
+  guardado na linha (R28).
+- **`AccountAdmin.delete`.** Grava esse estado, revoga as sessões e roda os apagadores da porta nova `SubjectDataEraser`,
+  todos, passando subject, ator e pseudônimo. Com alguma falha, levanta `DeletionIncomplete` com o relatório parcial;
+  sem falha, apaga o que é da identidade e troca os autores pelo pseudônimo (R29, R30).
+
+**US10**: `add_group`/`remove_group` sem versão, pela associação, comutando com mudanças em outros grupos (R32).
+
+**US11**: `actor_can_admin` nas escritas, com as recusas puras de `domain/accounts.py` e `ActorNotAllowed` (R31).
+
+A CLI ganha três comandos, registrados pela 011 na passada dela (R33).
+
+## Technical Context (US9–US11)
+
+- **Language/Version, dependências**: sem mudança.
+- **Storage**: `sql/005_account_deletion.sql` no schema `identity` (coluna `deletion_pseudonym`, com `CHECK` do formato).
+- **Testing**: três arquivos de contrato novos, um de unidade, um de migração; acréscimos na conformidade de
+  `AccountStore`, `GrantStore` e `IdentitySettingsStore` e na CLI (R34).
+- **Scale/Scope**: `api.py`, `ports.py`, `service.py`, `domain/accounts.py`, `domain/records.py`, adapters de memória e
+  Postgres, `postgres_schema.py` (só o arquivo novo), `cli.py`. Nada fora do módulo.
+- **Performance**: apagamento síncrono; cada apagador é um `DELETE` por tabela, e uma instalação pequena tem centenas
+  de conversas por pessoa — sem teto de tempo próprio (a clarificação o adiou para cá; não há medida que o peça).
+- Nenhum `NEEDS CLARIFICATION`.
+
+## Constitution Check (US9–US11)
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| I. Núcleo agnóstico de domínio | ✅ | Nada de domínio; os apagadores são opacos, com nome |
+| II. Módulos substituíveis por seams | ✅ | O seam Account Admin cresce de forma aditiva sob os ADR-057/058; a porta nova mantém a 012 sem importar ninguém; a 011 é quem liga (import-linter) |
+| VII. Falha fechada e explícita | ✅ | Falha de apagador vira erro com relatório e deixa a conta presa em apagamento, nunca meio apagada e livre; o não escalar recusa com campo |
+| XII. Simplicidade deliberada | ✅ | Sem fila nem barramento; idempotência no lugar de transação entre schemas (ADR-058) |
+| XIII. Portas e adapters | ✅ | Regras puras em `domain/accounts.py`; I/O em portas com conformidade; `SubjectDataEraser` existe por troca prevista (cada módulo) |
+
+**Module boundary gate**: `axon_ai/identity/**`, `tests/identity/**`, `axon-ai/pyproject.toml` (descrição das marcas),
+`specs/README.md` (já atualizado no specify) e `design.md`. Nada fora do módulo nesta passada: a montagem dos
+apagadores e o registro dos comandos são da 011; as rotas, da 008. **Ports & adapters gate**: uma porta nova
+(`SubjectDataEraser`), sete operações novas em portas existentes, todas com conformidade. **Resultado**: PASS.
+
+## Project Structure (US9–US11)
+
+```text
+axon-ai/
+├── pyproject.toml                                   # descrições de us9, us10, us11 com a 012
+└── packages/core/
+    ├── src/axon_ai/identity/
+    │   ├── api.py                                   # Account.deleting; ModuleErasure, DeletionReport; DeletionIncomplete,
+    │   │                                            #   ActorNotAllowed; AccountAdmin.delete/add_group/remove_group;
+    │   │                                            #   actor_can_admin nas escritas (R28, R29, R31, R32)
+    │   ├── ports.py                                 # ErasedData, SubjectDataEraser; AccountStore.delete/replace_actor/
+    │   │                                            #   add_member/remove_member; GrantStore.erase_account;
+    │   │                                            #   IdentitySettingsStore.replace_actor (R29, R30, R32)
+    │   ├── domain/accounts.py                       # escalation, pseudonym_of (R28, R31)
+    │   ├── domain/records.py                        # AccountRecord.deletion_pseudonym
+    │   ├── service.py                               # delete, add_group, remove_group, o não escalar (R29–R32)
+    │   └── adapters/
+    │       ├── memory.py, postgres.py               # operações novas
+    │       ├── cli.py                               # users_delete_command, groups_add/remove_member_command (R33)
+    │       └── sql/005_account_deletion.sql
+    └── tests/identity/
+        ├── unit/test_account_rules.py               # novo
+        ├── contract/{test_account_deletion,test_group_membership,test_actor_not_admin}.py   # novos
+        ├── contract/{test_account_store,test_grant_store,test_settings_store}.py
+        └── integration/{test_identity_migrations (novo),test_identity_cli}.py
+```
+
+## Seam Notes for Consumers (US9–US11)
+
+| Consumidor | O que precisa saber |
+|---|---|
+| 008 | **Apagar.** `delete(username, *, actor, actor_can_admin)` devolve `DeletionReport` (sem pseudônimo). `DeletionIncomplete.report` → falha retomável (sugestão: 503 com `Retry-After`, decisão da 008). Os demais erros: `ProtectedGroup` (último admin), `InvalidField("username")` (própria conta), `AccountNotFound`. **Um grupo.** `add_group`/`remove_group` → `Account`; erros `GroupNotFound` e `Conflict("username")` (conta em apagamento). **Não escalar.** `ActorNotAllowed(field)` → 403, e `actor_can_admin=False` quando a chave tem só `users` (ADR-057). `Account.deleting` na listagem (`active=None`) |
+| 011 | Montar `erasers` — 003, 007, 008, 004, 009, nessa ordem (ADR-059) — adaptando cada `erase_subject` à porta `SubjectDataEraser(name, erase(subject, *, actor, pseudonym))`; registrar `axon users delete`, `axon groups add\|remove`; a migração 005 entra pela lista do adapter |
+| 003, 004, 007, 008, 009 | O apagador recebe `pseudonym` e troca por ele as próprias citações do subject que ficam (ADR-059, item 3) |
+
+## Complexity Tracking (US9–US11)
+
+Nenhuma linha nova.
+
+## Constitution Check — pós-design (US9–US11)
+
+Reavaliado com [data-model.md](data-model.md), [contracts/](contracts/) e [quickstart.md](quickstart.md) ("Fase 9,
+incremento 9.7"): **PASS**.

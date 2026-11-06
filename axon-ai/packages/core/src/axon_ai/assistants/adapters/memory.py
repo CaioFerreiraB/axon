@@ -61,6 +61,12 @@ class InMemoryUserAssistantStore:
     async def delete(self, owner: str, name: str) -> bool:
         return self._records.pop((owner, name), None) is not None
 
+    async def erase_owner(self, owner: str) -> int:
+        erased = [key for key in self._records if key[0] == owner]
+        for key in erased:
+            del self._records[key]
+        return len(erased)
+
 
 class InMemoryApiKeyStore:
     """Chaves num dicionário por `key_id`. Cada processo tem o próprio: chave da CLI só vale no perfil persistente."""
@@ -98,6 +104,12 @@ class InMemoryApiKeyStore:
         rotated = ApiKeyRecord(info=dataclasses.replace(record.info, rotated_at=at), key_hash=key_hash)
         self._records[key_id] = rotated
         return rotated
+
+    async def erase_subject(self, subject: str) -> int:
+        erased = [key_id for key_id, record in self._records.items() if record.info.subject == subject]
+        for key_id in erased:
+            del self._records[key_id]
+        return len(erased)
 
 
 class StaticOidcVerifier:
@@ -223,3 +235,23 @@ class InMemorySystemOverrideStore:
 
     async def history(self, assistant: str) -> Sequence[OverrideHistoryRecord]:
         return [record for record in reversed(self._history) if record.assistant == assistant]
+
+    async def pseudonymize(self, subject: str, pseudonym: str) -> int:
+        changed = 0
+        for key, record in list(self._records.items()):
+            if record.updated_by == subject:
+                self._records[key] = dataclasses.replace(record, updated_by=pseudonym)
+                changed += 1
+        for index, entry in enumerate(self._history):
+            actor = entry.actor
+            if actor == subject:
+                actor = pseudonym
+                changed += 1
+            payload = entry.payload
+            if entry.section == "auth" and payload is not None:
+                allow = payload.get("allow")
+                if isinstance(allow, list) and subject in allow:
+                    changed += allow.count(subject)
+                    payload = {**payload, "allow": [pseudonym if item == subject else item for item in allow]}
+            self._history[index] = dataclasses.replace(entry, actor=actor, payload=payload)
+        return changed

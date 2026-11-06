@@ -207,3 +207,20 @@ Nenhuma entidade nova nem campo novo. Mudam só nomes e defaults:
   com algum `AI_CORE_*` (`LEGACY_PREFIX`), antes de construir a `Settings` (research R48).
 - **Pool** do `persistent`: nome `axon`.
 - **Credenciais do perfil `test`**: as mesmas, exportadas por `axon_ai.bootstrap.profiles`.
+
+
+## Incremento 9.7 (2026-11-05): apagadores e a chave de provisionamento (research R58–R62)
+
+### `ModuleEraser` (`bootstrap/erasure.py`) — cumpre `SubjectDataEraser` (012)
+
+| Campo | Tipo | Nota |
+|---|---|---|
+| `name` | `str` | `assistants`, `mcp`, `conversations`, `audit`, `observability` |
+| `build` | `Callable[[], seam]` | montado na primeira chamada (R59) |
+| `call` | `Callable[[seam, subject, actor, pseudonym], Awaitable[relatório]]` | adapta a assinatura de cada seam |
+
+`erase` devolve `ErasedData(counts={campo: int…}, warnings=(…))`; o aviso da 003 só aparece com referências.
+
+### `TEST_USERS_API_KEY` (`profiles.py`)
+
+`axn_7e57c0de00000002_provisionamento-de-teste` · `svc:provisionamento-teste` · sem grupos · `{users}`.

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import httpx
 import jwt
+import pytest
 from identity_testkit import (
     CONSOLE,
     CONSOLE_CALLBACK,
@@ -79,3 +80,21 @@ async def test_mudanca_de_grupo_vale_no_proximo_token(started: Harness, http: ht
     )
     access = jwt.decode(renewed.json()["access_token"], options={"verify_signature": False})
     assert access["groups"] == []
+
+
+@pytest.mark.us9
+async def test_conta_apagada_nao_renova_nem_entra(started: Harness, http: httpx.AsyncClient) -> None:
+    """T095 — a conta apagada (aqui sem apagadores, então concluída) e a em apagamento usam o caminho da inativa."""
+    await started.add_account("ana", groups={"equipe"})
+    tokens = await _tokens(http)
+    await started.service.delete("ana", actor="user:root")
+    renewed = await http.post(
+        "/oauth2/token",
+        data={"grant_type": "refresh_token", "refresh_token": tokens["refresh_token"], "client_id": CONSOLE.id},
+    )
+    assert renewed.json()["error"] == "invalid_grant"
+    page = await http.get("/oauth2/authorize", params=authorize_params(OPEN_WEBUI))
+    login = await http.post(
+        "/oauth2/login", data={**hidden_fields(page.text), "identifier": "ana", "password": PASSWORD}
+    )
+    assert login.status_code == 401

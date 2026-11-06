@@ -150,3 +150,9 @@ construídas. Remoto sem credencial fica registrado e explica a falta na saúde 
 chamada, sem derrubar o boot e sem tocar a rede (006 FR-011). Os nomes das credenciais e dos providers pertencem à 006;
 esta tabela não os repete. `llm_secrets` pode ser trocada por `overrides`, como qualquer porta que não seja de
 armazenamento.
+
+
+## Incremento 9.7 (2026-11-05): `TEST_USERS_API_KEY` (research R61)
+
+O perfil `test` semeia, além da `TEST_API_KEY` (grupo de administração, `{inference, admin}`), a `TEST_USERS_API_KEY`
+(`svc:provisionamento-teste`, sem grupos, `{users}`), exportada em `axon_ai.bootstrap.profiles`.

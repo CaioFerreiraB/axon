@@ -159,6 +159,12 @@ class InMemoryPriceStore:
         self._prices[(price.provider, price.model, price.effective_from)] = price
         return price
 
+    async def pseudonymize(self, subject: str, pseudonym: str) -> int:
+        keys = [key for key, price in self._prices.items() if price.created_by == subject]
+        for key in keys:
+            self._prices[key] = dataclasses.replace(self._prices[key], created_by=pseudonym)
+        return len(keys)
+
 
 class InMemoryDestinationSettingsStore:
     def __init__(self) -> None:
@@ -172,6 +178,12 @@ class InMemoryDestinationSettingsStore:
             return False
         self._settings = settings
         return True
+
+    async def pseudonymize(self, subject: str, pseudonym: str) -> int:
+        if self._settings.updated_by != subject:
+            return 0
+        self._settings = dataclasses.replace(self._settings, updated_by=pseudonym)
+        return 1
 
 
 class RecordingLangfuseTransport:

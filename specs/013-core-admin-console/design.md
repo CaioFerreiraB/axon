@@ -99,3 +99,9 @@ aplicação web:
 
 Regra: componentes de tela não chamam `fetch` nem o cliente OIDC diretamente; só os hooks de `src/api/` e de
 `src/auth/`.
+
+## Incremento 9.7 (2026-11-05)
+
+Sem porta nova: a console só fala com `/admin/v1` (`src/api/`). Os escopos, o apagamento e um grupo de cada vez são
+formatos do contrato da 008; a regra (quem concede, o que apaga, a recusa) é toda da plataforma ([research R31–R35](research.md)).
+
