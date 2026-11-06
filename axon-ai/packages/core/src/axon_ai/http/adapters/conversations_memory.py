@@ -81,6 +81,15 @@ class InMemoryConversationStore:
         del self._files[conversation_id]
         return True
 
+    async def erase_owner(self, owner: str) -> tuple[int, int]:
+        mine = [c.id for c in self._conversations.values() if c.owner == owner]
+        images = sum(len(self._files[conversation_id]) for conversation_id in mine)
+        for conversation_id in mine:
+            del self._conversations[conversation_id]
+            del self._messages[conversation_id]
+            del self._files[conversation_id]
+        return len(mine), images
+
     async def delete_inactive(self, *, before: datetime) -> int:
         expired = [c.id for c in self._conversations.values() if c.last_activity_at < before]
         for conversation_id in expired:

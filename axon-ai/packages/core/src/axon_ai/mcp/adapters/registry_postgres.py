@@ -118,3 +118,8 @@ class PostgresServerStore:
         async with self._pool.connection() as connection:
             cursor = await connection.execute(f"DELETE FROM mcp.servers WHERE {_OWNER} AND alias = %s", (owner, alias))
             return cursor.rowcount == 1
+
+    async def erase_owner(self, owner: str) -> int:
+        async with self._pool.connection() as connection:
+            cursor = await connection.execute("DELETE FROM mcp.servers WHERE owner = %s", (owner,))
+            return cursor.rowcount

@@ -679,3 +679,45 @@ XI ✅ (a API serve a console e a automação igualmente); XIII ✅ (formato pur
 
 **Seam Notes for Consumers (US12)**: 011 — passar `impact=ImpactService` em `AdminSeams`; 013 — ler o formato de
 [contracts/admin-api.md](contracts/admin-api.md), "Impacto ambiental".
+
+
+## Passada de 2026-11-05: escopos, contas e grupos por chave e o apagamento das conversas (US13, US14; [ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md), [ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md), [ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md))
+
+**Insumos lidos**: [spec.md](spec.md) (US13, US14, FR-046–FR-053, SC-012–SC-014, clarificações de 2026-11-05), ADR-057,
+ADR-058, ADR-059, as passadas da 003 (US14, US15: `Principal.scopes`, `issue(scopes=)`, `is_admin` com escopo) e da 012
+(US9–US11: `delete`, `add_group`, `remove_group`, `actor_can_admin`, `ActorNotAllowed`, `DeletionIncomplete`),
+`http/adapters/admin.py`, `private.py`, `chat.py`, `models.py`, `conversations.py`, `mcp_routes.py`,
+`http/domain/errors.py` e `private.py`. Research: R66–R71.
+
+**Summary**: um mapa de escopos declarado por rota e conferido pela suíte; o portão da administração passa a aceitar a
+chave `users` nas rotas de contas e grupos e a dizer à 012 se o ator administra; três rotas novas de contas; escopos na
+emissão, na visão da chave e em `me`; e o primeiro seam Python da 008, o apagamento das conversas de um subject.
+
+**Technical Context**: sem dependência nova. Uma porta muda (`ConversationStore.erase_owner`), sem migração (a cascata
+já existe). Um módulo puro novo (`domain/scopes.py`) e um `api.py` novo. Nenhum `NEEDS CLARIFICATION`.
+
+| Onde | O quê |
+|---|---|
+| `http/api.py` (novo) | `ConversationErasureReport`, `ConversationErasure` |
+| `http/domain/scopes.py` (novo) | conjuntos `INFERENCE`, `ACCOUNTS`, `ADMIN`, `ANY_KEY`; `key_reaches`; `admin_access` |
+| `http/domain/errors.py` | `ActorNotAllowed` → 403; `DeletionIncomplete` → 503 com `report` e `Retry-After` |
+| `http/domain/admin_accounts.py` | `deletion_json` |
+| `http/domain/private.py` | `issue_request` com `scopes`; `key_json` com `scopes` |
+| `http/adapters/admin.py` | `route(..., scopes=)`; `_admin` pela regra de R67; `actor_can_admin` nas escritas; três rotas; `me` com `scopes` |
+| `http/adapters/auth.py` | `require_scopes` e a marca `axon_scopes` nos endpoints |
+| `http/adapters/private.py`, `chat.py`, `models.py`, `conversations.py`, `mcp_routes.py` | `require_scopes` em cada rota |
+| `http/ports.py`, `adapters/conversations_memory.py`, `conversations_postgres.py` | `ConversationStore.erase_owner` |
+| `http/service.py` | `ConversationService.erase_subject` |
+| `axon-ai/pyproject.toml` | contrato do import-linter para `http.api`; marcas `us13`/`us14` estendidas |
+
+**Constitution Check (US13, US14)**: II ✅ (consome só os `api.py` da 003 e da 012; o seam novo é consumido só pela 011,
+e nenhum módulo importa a 008); IV ✅ (capacidade não declarada não existe: rota sem escopo falha na suíte, e o padrão
+do decorador é `admin`); VII ✅ (403 e 503 com o motivo e o relatório; 404 sem revelar a rota); XIII ✅ (regras em
+`domain/`, FastAPI só no adapter, porta com memória e Postgres). **Module boundary gate**: `axon_ai/http/**`,
+`tests/http/**` e o `pyproject.toml` (marcas e um contrato). **Resultado**: PASS.
+
+**Seam Notes for Consumers (US13, US14)**: 011 — ligar `ConversationService` (como `ConversationErasure`) à porta
+`SubjectDataEraser` da 012, entre a 007 e a 004, descartando `actor` e `pseudonym`; 013 — ler os formatos novos em
+[contracts/admin-api.md](contracts/admin-api.md) ("Incremento 9.7").
+
+**Constitution Check — pós-design**: igual; o design não acrescentou porta nem dependência além das listadas. PASS.

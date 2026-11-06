@@ -77,7 +77,9 @@ async def test_cenario_3_nao_admin_autentica_mas_nao_administra(env: Env) -> Non
 
 
 async def test_cenario_4_chave_de_admin_vale_na_administracao_e_na_privada(env: Env) -> None:
-    issued = await env.service.issue_as_operator(subject="user:caio", groups=["operadores"])
+    issued = await env.service.issue_as_operator(
+        subject="user:caio", groups=["operadores"], scopes=["inference", "admin"]
+    )
     for surface in (ADMIN_SURFACE, PRIVATE_SURFACE):
         principal = await env.authenticate(surface, issued.plaintext)
         assert principal is not None and principal.scheme == "api_key" and env.service.is_admin(principal)

@@ -8,6 +8,7 @@ regras puras também os leem.
 from __future__ import annotations
 
 from collections.abc import Collection, Mapping
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
@@ -112,6 +113,23 @@ class AccountStore(Protocol):
         """Membros exatamente estes; só as contas que mudaram sobem de versão. `GroupNotFound` se não existe."""
         ...
 
+    async def add_member(self, account_id: str, group: str, *, at: datetime, actor: str) -> bool:
+        """Põe a conta no grupo; só mudando, sobe a versão e grava autor e instante, na mesma operação (R32). `False` =
+        já estava. Grupo inexistente: `GroupNotFound`."""
+        ...
+
+    async def remove_member(self, account_id: str, group: str, *, at: datetime, actor: str) -> bool:
+        """Tira a conta do grupo; só mudando, sobe a versão (R32). `False` = não estava."""
+        ...
+
+    async def delete(self, account_id: str) -> bool:
+        """Apaga as associações e a conta, numa operação (R30). `False` = não existia."""
+        ...
+
+    async def replace_actor(self, old: str, new: str) -> int:
+        """Troca o autor `old` por `new` no `updated_by` das contas, sem mudar versão (ADR-059). Devolve quantas."""
+        ...
+
     async def active_members(self, name: str) -> frozenset[str]:
         """Ids das contas ativas no grupo."""
         ...
@@ -160,6 +178,11 @@ class GrantStore(Protocol):
 
     async def revoke_family(self, family_id: str) -> None: ...
 
+    async def erase_account(self, account_id: str) -> Mapping[str, int]:
+        """Apaga sessões (e a renovação delas), códigos e pedidos da conta (R30). Devolve `sessions`, `refresh_tokens`,
+        `codes`, `pending`; zero na repetição."""
+        ...
+
     async def purge(self, *, now: datetime, codes_before: datetime) -> int:
         """Apaga pedidos vencidos, códigos vencidos antes de `codes_before` (o reuso de um código recente ainda revoga a
         família), sessões vencidas ou revogadas e a renovação delas; devolve quantos registros saíram."""
@@ -181,6 +204,10 @@ class SigningKeyStore(Protocol):
 class IdentitySettingsStore(Protocol):
     async def get(self) -> IdentitySettings:
         """Sem gravação ainda: `IdentitySettings()` (versão 0)."""
+        ...
+
+    async def replace_actor(self, old: str, new: str) -> int:
+        """Troca o autor `old` por `new` nos ajustes, sem mudar versão (ADR-059). Devolve 0 ou 1."""
         ...
 
     async def put(self, settings: IdentitySettings, *, expected_version: int) -> bool:
@@ -267,6 +294,24 @@ class IdentitySecrets(Protocol):
     def bootstrap_admin(self) -> BootstrapAdmin | None:
         """`SecretsError` nomeando a variável quando o conjunto está incompleto ou o arquivo falta."""
         ...
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ErasedData:
+    """O que um apagador de outro módulo devolveu: contagens e avisos (ADR-058)."""
+
+    counts: Mapping[str, int]
+    warnings: tuple[str, ...] = ()
+
+
+class SubjectDataEraser(Protocol):
+    """Apaga, noutro módulo, o que é do subject e troca as citações que ficam pelo pseudônimo (ADR-058, ADR-059). A 011
+    monta a lista a partir dos seams dos outros módulos; a 012 só conhece o nome e o resultado. Idempotente; exceção =
+    falha."""
+
+    name: str
+
+    async def erase(self, subject: str, *, actor: str, pseudonym: str) -> ErasedData: ...
 
 
 class Clock(Protocol):

@@ -13,7 +13,7 @@
 - **Módulo**: MCP Integration — registro de servidores MCP (globais e de usuário), resolução server-side de endpoint e credencial, e cliente MCP com políticas de segurança e de rede.
 - **Repositório / distribuição**: `axon-ai` → `axon_ai/mcp/`.
 - **Consome (seams)**: contrato `MCPClient` e `ToolSpec` — 001; Principal e Execution Grant — 003.
-- **Expõe (seams)**: **MCP Registry** (CRUD por escopo, aliases, políticas) — consumido por 003 (validação de aliases) e 008 (endpoints); **cliente MCP restrito** a aliases autorizados — consumido por 004.
+- **Expõe (seams)**: **MCP Registry** (CRUD por escopo, aliases, políticas) — consumido por 003 (validação de aliases) e 008 (endpoints); **cliente MCP restrito** a aliases autorizados — consumido por 004; **apagamento por subject** (`McpSubjectErasure`, US7) — consumido pela 011, que o liga ao apagamento de contas da 012 ([ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md)).
 - **Depende de infraestrutura (via portas)**: armazenamento do registry, segredos (credenciais dos servidores), transporte MCP, resolução de nomes (DNS).
 - **Não conhece**: flows, packs, prompts, domínio.
 - **Substituição**: preservar o registry por alias e o cliente restrito; transporte e armazenamento podem mudar (são adapters).
@@ -188,3 +188,45 @@ O cliente bloqueia `localhost` e faixas de IP privadas para todo MCP (inclusive 
 ## Incremento: delegação MCP por execução (2026-10-29)
 
 Regido por [ADR-055](../../docs/adr/ADR-055-autenticacao-mcp-delegada.md). Protocolo 1: um MCP delegado por grant, identidade confidencial por execução, sem cache compartilhado e sem alteração da ACL. Contrato: [delegação](../007-core-mcp-integration/contracts/delegation.md). Casos D01 isolamento concorrente; D02 falha fechada; D03 metadados e superfície privada; D04 segredo ausente de persistência/trace; D05 regressão estática.
+
+## Incremento 9.7: apagar os servidores de um dono (2026-11-04)
+
+Regido por [ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md) (item 2) e
+[ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md). Sem perguntas de clarificação: os dois
+ADRs já decidem o comportamento, e a 007 não guarda autor nem ator de nada — o único dado de um usuário aqui são os
+servidores de escopo `user` dele.
+
+### User Story 7 - Apagar os servidores de um dono (Priority: P2)
+
+Quando uma conta é apagada, a plataforma apaga todos os servidores MCP de usuário dela, para que nada do usuário fique e
+para que um usuário novo com o mesmo nome não herde servidores, aliases nem descobertas.
+
+**Why this priority**: sem ela, o apagamento de contas da 012 deixaria os servidores `~` presos ao subject, e um nome
+reaproveitado os herdaria.
+
+**Independent Test**: `-k us7` em `tests/mcp/`: A tem dois servidores `~`, B tem um e há globais; o apagamento de A
+devolve 2, A não lista nada, B e os globais ficam iguais, e repetir devolve 0.
+
+**Acceptance Scenarios**:
+
+1. **Given** A com `~drive` e `~agenda`, B com `~drive` e dois globais, **When** os servidores de A são apagados,
+   **Then** a contagem é 2, A não lista nenhum servidor nem alias próprio, e os de B e os globais continuam iguais.
+2. **Given** o apagamento já feito, **When** é repetido, **Then** a contagem é 0 e nada muda.
+3. **Given** um subject fora de `user:…`/`svc:…` (vazio, por exemplo), **When** o apagamento é pedido, **Then** é
+   recusado nomeando `subject` e nenhum servidor — global ou de usuário — é tocado.
+4. **Given** a descoberta do `~drive` de A em cache, **When** os servidores de A são apagados e um A novo registra
+   `~drive` no mesmo endpoint, **Then** o registro é aceito (o alias ficou livre) e a primeira descoberta vai ao servidor,
+   sem reaproveitar o cache do anterior.
+
+### Functional Requirements (incremento 9.7)
+
+- **FR-018**: O registry DEVE oferecer o apagamento de todos os servidores de escopo `user` de um subject, idempotente,
+  devolvendo quantos apagou. Ele NÃO DEVE tocar servidores globais (do arquivo ou do armazenamento) nem servidores de
+  outro dono, e não confere quem pede: a autorização é de quem chama (a 012, pela composição da 011).
+- **FR-019**: O apagamento DEVE descartar a descoberta em cache dos servidores do subject, para que nada do usuário fique
+  em memória até o fim do tempo de vida.
+
+### Success Criteria (incremento 9.7)
+
+- **SC-005**: Depois do apagamento, 0 linhas do schema `mcp` citam o subject apagado (varredura de todas as colunas de
+  texto e JSON no Postgres).

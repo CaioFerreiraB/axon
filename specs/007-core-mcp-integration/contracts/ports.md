@@ -24,6 +24,7 @@ class McpServerStore(Protocol):
     async def insert(self, record: StoredServer) -> bool: ...                    # False se (owner, alias) existe
     async def replace(self, record: StoredServer) -> bool: ...                   # False se não existe
     async def delete(self, owner: str | None, alias: str) -> bool: ...
+    async def erase_owner(self, owner: str) -> int: ...                           # 9.7: todos do dono; nunca globais
 
 class McpConfigSource(Protocol):
     def load(self) -> McpConfig: ...      # McpConfigError em erro de arquivo; erro de entrada vai para a entrada
@@ -43,6 +44,7 @@ class SecretResolver(Protocol):
 class DiscoveryCache(Protocol):
     def get(self, key: CacheKey) -> CachedDiscovery | None: ...                  # None se ausente ou vencida
     def put(self, key: CacheKey, value: CachedDiscovery, *, ttl: timedelta) -> None: ...
+    def forget_owner(self, owner: str) -> None: ...                              # 9.7: descarta as entradas do dono
 ```
 
 `Target` (interno): escopo, transporte, endpoint ou comando/args/ambiente, e cabeçalhos ou variáveis **já com o
@@ -64,3 +66,5 @@ são uma exceção do módulo (`TransportFailure(reason)`) cuja mensagem nunca c
 | `DnsResolver` | IP literal devolve ele mesmo; nome inexistente devolve vazio, não exceção | `test_dns.py` |
 | `SecretResolver` | lê só `AXON_MCP_SECRET_<REF>`; referência fora da gramática devolve `None`; `AXON_DATABASE_URL` nunca é alcançável | `test_secrets.py` |
 | `DiscoveryCache` | entrada vence no TTL do relógio; chave com versão diferente não acerta | `test_cache.py` |
+| `McpServerStore` | `erase_owner(X)` apaga todos os de X e devolve quantos; não toca globais nem outros donos; repetir devolve 0 (9.7) | `test_store.py` (memória × Postgres) |
+| `DiscoveryCache` | `forget_owner(X)` descarta só as entradas com `CacheKey.owner == X` (9.7) | `test_mcp_subject_erasure.py` |

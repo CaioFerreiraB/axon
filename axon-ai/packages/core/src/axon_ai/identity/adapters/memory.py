@@ -137,6 +137,34 @@ class InMemoryAccountStore:
             elif record.account.id not in wanted and inside:
                 self._bump(record, groups=record.account.groups - {name}, at=at, actor=actor)
 
+    async def add_member(self, account_id: str, group: str, *, at: datetime, actor: str) -> bool:
+        if group not in self._groups:
+            raise GroupNotFound(f"o grupo {group!r} não existe")
+        record = self._accounts[account_id]
+        if group in record.account.groups:
+            return False
+        self._bump(record, groups=record.account.groups | {group}, at=at, actor=actor)
+        return True
+
+    async def remove_member(self, account_id: str, group: str, *, at: datetime, actor: str) -> bool:
+        record = self._accounts[account_id]
+        if group not in record.account.groups:
+            return False
+        self._bump(record, groups=record.account.groups - {group}, at=at, actor=actor)
+        return True
+
+    async def delete(self, account_id: str) -> bool:
+        return self._accounts.pop(account_id, None) is not None
+
+    async def replace_actor(self, old: str, new: str) -> int:
+        changed = 0
+        for record in list(self._accounts.values()):
+            if record.account.updated_by == old:
+                account = dataclasses.replace(record.account, updated_by=new)
+                self._accounts[account.id] = dataclasses.replace(record, account=account)
+                changed += 1
+        return changed
+
     async def active_members(self, name: str) -> frozenset[str]:
         return frozenset(
             record.account.id
@@ -249,6 +277,25 @@ class InMemoryGrantStore:
             if token.family_id == family_id:
                 self._refresh[token.hash] = dataclasses.replace(token, status="revoked")
 
+    async def erase_account(self, account_id: str) -> Mapping[str, int]:
+        sessions = {key for key, session in self._sessions.items() if session.account_id == account_id}
+        refresh = [
+            key
+            for key, token in self._refresh.items()
+            if token.session_id in sessions or token.account_id == account_id
+        ]
+        codes = [key for key, code in self._codes.items() if code.account_id == account_id]
+        pending = [key for key, item in self._pending.items() if item.account_id == account_id]
+        for key in sessions:
+            del self._sessions[key]
+        for key in refresh:
+            del self._refresh[key]
+        for key in codes:
+            del self._codes[key]
+        for key in pending:
+            del self._pending[key]
+        return {"sessions": len(sessions), "refresh_tokens": len(refresh), "codes": len(codes), "pending": len(pending)}
+
     async def purge(self, *, now: datetime, codes_before: datetime) -> int:
         removed = 0
         for key, pending in list(self._pending.items()):
@@ -306,6 +353,12 @@ class InMemoryIdentitySettingsStore:
 
     async def get(self) -> IdentitySettings:
         return self._settings
+
+    async def replace_actor(self, old: str, new: str) -> int:
+        if self._settings.updated_by != old:
+            return 0
+        self._settings = dataclasses.replace(self._settings, updated_by=new)
+        return 1
 
     async def put(self, settings: IdentitySettings, *, expected_version: int) -> bool:
         if self._settings.version != expected_version:

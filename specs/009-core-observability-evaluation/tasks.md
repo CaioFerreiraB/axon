@@ -735,3 +735,30 @@ memória × Postgres.
   lint-imports`, e a conformidade com `AXON_TEST_POSTGRES_DSN` (Postgres 17 em contêiner); `graphify update .` na raiz
 - [X] T100 Marcar a US9 como feita no `CLAUDE.md` (parágrafo da Fase 9) só depois das passadas da 008, 011 e 013
   (o incremento fecha junto)
+
+
+## Passada de 2026-11-04: US10 — pseudônimo nos autores (incremento 9.7; [ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md); research R53)
+
+**Goal**: `ObservabilityErasure.erase_subject(subject, *, pseudonym)` troca o autor dos preços e dos ajustes de destino
+pelo pseudônimo, sem mudar valores nem a versão dos ajustes; idempotente.
+
+**Independent Test**: `uv run pytest packages/core/tests/observability -k us10` (com `AXON_TEST_POSTGRES_DSN`, também
+o Postgres e a varredura do schema `observability`).
+
+- [X] T101 [P] [US10] Marca `us10` estendida com "009 US10 — pseudônimo nos autores" em `axon-ai/pyproject.toml`
+- [X] T102 [P] [US10] Conformidade de `pseudonymize` nas duas portas (memória × Postgres): só o autor muda, a versão dos
+  ajustes fica, outro autor intacto, repetir devolve 0
+- [X] T103 [P] [US10] `tests/observability/contract/test_observability_erasure.py`: cenários 1–3 pelo
+  `SubjectPseudonymizer`; formatos inválidos sem tocar os dados; no Postgres, SC-012
+- [X] T104 [US10] `ObservabilityErasureReport` e `ObservabilityErasure` em `api.py`; `domain/erasure.py`; portas em
+  `ports.py`; adapters em `adapters/memory.py` e `adapters/postgres.py`
+- [X] T105 [US10] `SubjectPseudonymizer` em `service.py`
+- [X] T106 [US10] Verificação: suíte da 009 com Postgres, mypy, ruff, lint-imports; `specs/README.md`, `docs/roadmap.md`
+
+**Dependências**: T101–T103 antes de T104–T105; T106 por último. A 011 (US9) monta o `SubjectPseudonymizer` com
+`price_store` e `destination_settings` e o liga à porta `SubjectDataEraser` da 012, descartando `actor`.
+
+
+**Execução (2026-11-04)**: T101–T106 feitas. `ObservabilityErasure` e `ObservabilityErasureReport` entraram na lista de
+nomes públicos de `unit/test_observability_api.py`. Suíte da 009 contra o Postgres: 338 passaram; workspace com
+Postgres: 4072 passaram, 12 pulados; mypy, ruff e import-linter (70 contratos) limpos — a 009 continua sem importar a 003.

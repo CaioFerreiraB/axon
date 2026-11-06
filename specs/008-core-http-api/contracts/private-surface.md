@@ -31,3 +31,16 @@ Conformidade (`tests/http/contract/test_private_routes.py`): pack em erro aparec
 A chave ganha `rotated_at` (`null` se nunca rotacionada). A rotação **não** existe nesta superfície (ADR-031, item 5;
 clarificação de 2026-10-21 da 008): fica em `/admin/v1`, que também aceita chave de API. A emissão pelo
 `/private/v1/admin/keys` recusa o grupo de administração (`422`, `param: "groups"`), como a da administração (003 FR-036).
+
+
+## Incremento 9.7 (2026-11-05): escopos (ADR-057; research R66, R70)
+
+| Rota | Escopo da chave |
+|---|---|
+| `POST /chat/completions`, `POST /chat`, `GET /models`, `/conversations*` | `inference` |
+| `GET /packs`, `/admin/keys*`, `/mcp*` (globais) | `admin` (e o grupo de administração, pela regra da 003) |
+| `GET /health` | qualquer |
+
+Sem o escopo → `404` de rota inexistente. A emissão aceita `scopes` (ausente → `["inference"]`; `admin` → `422` `param:
+"scopes"`, como na administração), e toda visão de chave traz `scopes`. O ADR-057 cita um "`/private/v1/mcp` do próprio
+subject" em `inference`: essa rota não existe — `/private/v1/mcp` é dos globais (spec, Assumptions).

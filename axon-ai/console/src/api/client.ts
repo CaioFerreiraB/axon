@@ -110,5 +110,6 @@ async function toError(response: Response): Promise<ApiError> {
   return new ApiError(response.status, code ?? "unknown", message, {
     param: param ?? null,
     currentVersion: current_version ?? null,
+    body: json,
   });
 }

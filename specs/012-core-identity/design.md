@@ -138,7 +138,7 @@ adapter. Expurgo periódico de pedidos pendentes, códigos, sessões e tokens ve
 
 | Porta | Tipo | Adapters por fase | Teste |
 |---|---|---|---|
-| `AccountAdmin` | primária (seam) | `service.py` | conformidade: cadastro, grupos, proteção do grupo de admin, desativação |
+| `AccountAdmin` | primária (seam) | `service.py` | conformidade: cadastro, grupos, proteção do grupo de admin, desativação; 2026-11-04: apagamento em cascata, um grupo de cada vez, ator que não administra ([ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md), [ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md)) |
 | `LoginSettings` | primária (seam) | `service.py` | precedência instalação > runtime; não liga sem cliente Google |
 | `PublicKeySet` | primária (seam) | `service.py` | chaves ativas e em retirada |
 | protocolo OIDC | primária (adapter HTTP) | `adapters/http.py` | RP de teste (authlib, só em dev) + suíte adversarial |
@@ -147,6 +147,7 @@ adapter. Expurgo periódico de pedidos pendentes, códigos, sessões e tokens ve
 | `SigningKeyStore` | secundária | memória → Postgres (Fase 9) | conformidade memória + Postgres |
 | `IdentitySettingsStore` | secundária | memória → Postgres (Fase 9) | conformidade memória + Postgres |
 | `LoginAttempts` | secundária | memória (processo único) | em memória, relógio fixo |
+| `SubjectDataEraser` | secundária (2026-11-04, ADR-058/059) | os seams de apagamento de 003, 007, 008, 004 e 009, adaptados e montados pela 011 | apagadores de teste nas suítes |
 | `PasswordHasher` | secundária | argon2id | hasher rápido de teste |
 | `TokenSigner` | secundária | RS256 | chave de teste |
 | `SecretCipher` | secundária | AES-GCM + HKDF | chave fixa de teste |

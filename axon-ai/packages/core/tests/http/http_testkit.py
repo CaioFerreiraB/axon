@@ -229,12 +229,19 @@ class Platform:
 
         self.clock = overrides.pop("assistants_clock", None) or MutableClock()
         keys = InMemoryApiKeyStore()
-        for plaintext, key_id, subject, groups in (
-            (ADMIN_KEY, "00000000000000a1", "user:caio", frozenset({"operadores"})),
-            (SVC_KEY, "00000000000000b2", "svc:ingestor", frozenset()),
-        ):
-            info = ApiKeyInfo(key_id=key_id, subject=subject, groups=groups, created_at=T0)
+        seeded = [
+            # A chave do grupo de administração tem também o escopo `admin` (003 research R51, ADR-057).
+            (ADMIN_KEY, "00000000000000a1", "user:caio", frozenset({"operadores"}), frozenset({"inference", "admin"})),
+            (SVC_KEY, "00000000000000b2", "svc:ingestor", frozenset(), frozenset({"inference"})),
+            *overrides.pop("extra_keys", ()),
+        ]
+        # `extra_keys`: (chave em claro, key_id, subject, grupos, escopos) — o incremento 9.7 semeia chaves por escopo.
+        for plaintext, key_id, subject, groups, scopes in seeded:
+            info = ApiKeyInfo(
+                key_id=key_id, subject=subject, groups=frozenset(groups), created_at=T0, scopes=frozenset(scopes)
+            )
             keys.seed(ApiKeyRecord(info=info, key_hash=hash_key(plaintext)))
+        self.keys = keys
         oidc = StaticOidcVerifier(
             {
                 ANA_TOKEN: claims("ana", ttl=3600),
@@ -243,7 +250,10 @@ class Platform:
                 **overrides.pop("oidc_tokens", {}),
             }
         )
-        self.access = access_service(keys=keys, oidc=oidc, clock=self.clock)
+        # O grupo de administração da 003 (`operadores` por padrão); o kit do incremento 9.7 usa o da 012 (`admin`).
+        self.access = access_service(
+            keys=keys, oidc=oidc, clock=self.clock, admin_group=overrides.pop("admin_group", "operadores")
+        )
         self.users = overrides.pop("users", None) or InMemoryUserAssistantStore()
         self.mcp = overrides.pop("mcp", None)
         """O registry da 007 (Fase 3): diretório de MCP da 003 e rotas de MCP da API, quando dado."""

@@ -1096,3 +1096,115 @@ Regido por [ADR-055](../../docs/adr/ADR-055-autenticacao-mcp-delegada.md). Proto
   texto. `enabled: false` → `method.ecologits_version`, `totals`, `previous_totals`, `buckets` e `rows` nulos ou vazios.
 - **Rationale**: o JSON do uso já usa texto decimal para dinheiro; o JavaScript da console perde precisão com floats
   longos e mostraria `3.2e-5` se recebesse número.
+
+
+## Incremento 9.7: escopos, contas e grupos por chave e o apagamento das conversas (2026-11-05; US13, US14)
+
+## R66 — O mapa de escopos: declarado por rota, conferido pela suíte (ADR-057 itens 1 e 8; FR-046)
+
+**Decision**: `http/domain/scopes.py` (puro) tem os conjuntos `INFERENCE = {inference}`, `ACCOUNTS = {users, admin}`,
+`ADMIN = {admin}` e `ANY_KEY = {inference, users, admin}`, e `key_reaches(scopes: frozenset | None, route: frozenset)
+-> bool`: `None` (OIDC) → `True`, porque o OIDC segue regido pelo grupo; senão, a interseção não é vazia. Cada rota
+declara o conjunto: na administração, pelo decorador `route(method, path, *, scopes=ADMIN)` (padrão `ADMIN`; as de
+contas, grupos e `me` passam `ACCOUNTS`); nos routers da privada, por `require_scopes(request, principal, INFERENCE)`
+logo depois de `authenticated`. Os dois marcam o endpoint montado com `endpoint.axon_scopes`, e a suíte
+`unit/test_route_scopes.py` percorre `app.routes` com os prefixos `/private/v1` e `/admin/v1` e falha numa rota sem a
+marca (SC-012). Nos routers montados nas duas superfícies (chat, modelos, conversas), a checagem não muda nada para o
+OIDC de `/v1`.
+
+**Rationale** (ADR-057 item 8: "declarado por rota no decorador da administração e no router da privada"; "rota nova sem
+escopo declarado falha no teste do mapa"): a declaração fica ao lado da rota, onde quem a escreve a vê; o padrão `ADMIN`
+do decorador faz uma rota nova da administração nascer fechada.
+
+**Alternatives considered**: um dicionário central (método, caminho) → escopos (fica longe da rota e diverge sem
+avisar); um middleware por prefixo (não distingue `/admin/v1/users` de `/admin/v1/prices` sem repetir o roteamento).
+
+## R67 — Quem entra numa rota da administração (FR-047, FR-048; clarificação 2026-11-05, Q2)
+
+**Decision**: regra pura `admin_access(principal_scopes, route, *, administers: bool) -> bool` em `domain/scopes.py`:
+OIDC (`None`) → `administers`; chave → (`users` está na rota **e** na chave) **ou** (`admin` está na rota **e**
+`administers`). `administers` é o `AdminGate.is_admin` de hoje (a regra da 003: grupo, e com chave também o escopo
+`admin`). Falhou, o `_admin` levanta o mesmo `NotFound` de hoje, antes do handler. As leituras de contas e grupos não
+filtram nada (Q2). Nas escritas, o handler passa `actor_can_admin=gate.is_admin(principal)` à 012.
+
+**Rationale** (ADR-057 itens 3 e 4): a chave `users` entra sem o grupo; o grupo sem o escopo não entra (US13 cen. 9);
+quem decide se o ator escala é a 012, com o booleano que só a 003 sabe calcular. Nas rotas da privada que exigem `admin`
+(`/packs`, `/admin/keys*`, `/mcp*` global), o `is_admin` de hoje já exige o escopo — o `require_scopes` só põe a marca
+e devolve o 404 antes do resto, sem regra nova.
+
+**Alternatives considered**: deixar a chave `users` com o grupo de administração ganhar `actor_can_admin` (o escopo
+`admin` é o que dá a administração; o grupo sozinho não, item 3); a 008 aplicar a regra de não escalar (a 012 é a dona
+das contas e já a tem, FR-034 dela).
+
+## R68 — Os erros novos da administração (FR-048, FR-049; clarificação 2026-11-05, Q1)
+
+**Decision**: na tabela `admin_error_for`: `identity.ActorNotAllowed` → 403, `type: "permission_error"`, `code:
+"actor_not_allowed"`, `param` = o campo da 012; `identity.DeletionIncomplete` → 503, `type: "server_error"`, `code:
+"deletion_incomplete"`, `retry_after=5` (cabeçalho `Retry-After`) e o relatório parcial em `report`, no nível de
+`error` — por um campo novo do `ErrorResponse`, `top: Mapping[str, Any]`, que `body()` funde no objeto de cima
+(o `extra` de hoje vai para dentro de `x_axon`, que é a extensão da plataforma, não o resultado; achado I1 do
+`/speckit-analyze`). A recusa de escopos da 003 já é `RequestRejected(field="scopes")` → 422 `invalid_field`
+`param: "scopes"`, pela linha existente. A própria conta (`identity.InvalidField("username")`) → 422 e o último admin
+(`ProtectedGroup`) → 409 `protected_group`, pelas linhas existentes.
+
+**Rationale**: 403 é o que o ADR-057 item 5 manda para a recusa numa rota que o escopo alcança; o 503 é a resposta do
+mantenedor (Q1), e o relatório no mesmo formato do 200 deixa o cliente mostrar o que faltou.
+
+**Alternatives considered**: `report` dentro de `error` (o relatório não é detalhe do erro, é o resultado parcial);
+`Retry-After` maior (o apagamento retoma do ponto em que parou; 5 s basta para uma falha passageira de banco).
+
+## R69 — Apagar uma conta e um grupo de cada vez pela administração (FR-049, FR-050)
+
+**Decision**: três rotas com `scopes=ACCOUNTS`: `DELETE /users/{username}` → `AccountAdmin.delete(username,
+actor=principal.subject, actor_can_admin=…)`, 200 com `deletion_json(report)`; `PUT` e `DELETE /users/{username}/groups/
+{group}` → `add_group`/`remove_group`, 200 com `account_json`; corpo não vazio → 422 (como a rotação de chave). O
+formato fica em `domain/admin_accounts.py`: `{"username", "complete", "identity": {…}, "modules": [{"name", "counts",
+"warnings", "failed"}]}` — o `DeletionReport` da 012 não traz o pseudônimo, então o formato também não. As escritas que
+já existem (`POST /users`, `PATCH`, senha, desativar, reativar, Google, `DELETE /groups/{name}`, `PUT members`)
+passam `actor_can_admin`; `POST /groups` não tem o parâmetro na 012 (criar um grupo não escala).
+
+**Rationale** (012 FR-033 e US9–US11; ADR-058): as rotas só traduzem o seam; o 200 com o relatório no `DELETE` é do
+FR-049 (o `DELETE /groups/{name}` de hoje é 204 porque não tem o que relatar).
+
+**Alternatives considered**: `204` no apagamento (perderia o relatório); `POST /users/{u}/groups` com o grupo no corpo
+(o `PUT`/`DELETE` no recurso é idempotente pela forma).
+
+## R70 — Escopos na emissão, na visão da chave e em `me` (FR-051, FR-052)
+
+**Decision**: `issue_request` (domínio, `private.py`) aceita `scopes` (lista de textos, opcional) e devolve-o à 003 em
+`issue(..., scopes=…)`; ausente → `None`, e a 003 aplica o padrão `{inference}`. A validação (vazio, desconhecido,
+`admin`) é da 003 (`domain/keys.py` dela); a 008 só confere que é lista de textos (`AdminInvalid(field="scopes")`).
+`key_json` ganha `"scopes": sorted(info.scopes)`, nas duas superfícies; `me` ganha `"scopes": sorted(...)` ou `null`.
+
+**Rationale**: a regra de quem concede o quê é da 003 (ADR-057 item 3); a 008 só a expõe.
+
+**Alternatives considered**: validar os nomes na 008 também (duas listas que divergem).
+
+## R71 — O primeiro seam Python da 008: o apagamento das conversas (ADR-058 item 2; FR-053; US14)
+
+**Decision**: `http/api.py` com `ConversationErasureReport(conversations: int, attachments: int)` e o Protocol
+`ConversationErasure.erase_subject(subject) -> ConversationErasureReport`, sem import do resto do módulo (contrato novo
+do import-linter: "api.py da API não importa o resto do módulo"). Quem o cumpre é o `ConversationService`
+(`service.py`): valida o subject pelo `SUBJECT_PATTERN` da 003 (`RequestRejected(field="subject")`) e chama a porta nova
+`ConversationStore.erase_owner(owner) -> tuple[int, int]`. No Postgres, numa transação: conta as imagens das conversas
+do dono e apaga as conversas (mensagens e imagens saem pela cascata que já existe); na memória, o mesmo. Sem pseudônimo:
+nada fica (as mensagens são o conteúdo do usuário). O contrato "nenhum módulo importa a API" continua valendo — só a 011
+importa `http.api`, e ela já está fora da lista.
+
+**Rationale** (ADR-058 item 2: "a 008 ganha o `http/api.py` só para ele"): mesma forma dos seams da 003 e da 007; a
+cascata já existente faz uma instrução bastar.
+
+**Alternatives considered**: apagar uma a uma por `delete(owner, id)` (N idas e um cursor de paginação para nada); um
+`erase_subject` no `ChatService` (o dono das conversas é o `ConversationService`).
+
+
+## R72 — `deleting` na visão da conta (FR-054; 013, clarificação de 2026-11-05)
+
+**Decision**: `account_json` acrescenta `"deleting": account.deleting` (o `Account` da 012 já tem o campo). Aditivo: quem
+não o lê continua igual.
+
+**Rationale**: sem ele, a conta com apagamento incompleto aparece como desativada e sem grupos, e a console não sabe
+oferecer "Concluir apagamento".
+
+**Alternatives considered**: a console deduzir o estado de "desativada e sem grupos" (falso positivo com conta só
+desativada).

@@ -7,8 +7,9 @@ from typing import Any
 from fastapi import APIRouter, Request
 
 from axon_ai.assistants.api import PRIVATE_SURFACE, AssistantDirectory
-from axon_ai.http.adapters.auth import authenticated
+from axon_ai.http.adapters.auth import authenticated, scoped
 from axon_ai.http.domain.models import model_list
+from axon_ai.http.domain.scopes import INFERENCE
 from axon_ai.http.ports import Clock
 from axon_ai.mcp.api import McpRegistry
 
@@ -17,6 +18,7 @@ def models_router(*, surface: str) -> APIRouter:
     router = APIRouter()
 
     @router.get("/models")
+    @scoped(INFERENCE)
     async def models(request: Request) -> Any:
         principal = await authenticated(request, surface)
         directory: AssistantDirectory = request.app.state.directory

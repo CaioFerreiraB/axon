@@ -314,3 +314,79 @@ da gravação. Impressão digital: SHA-256 do JSON canônico de `schemes` e `all
 |---|---|
 | `004_api_key_rotation.sql` | `api_keys.rotated_at timestamptz` (nulo nas chaves existentes) |
 | `005_auth_overrides.sql` | a restrição `CHECK` de `system_overrides.section` passa a aceitar `auth` |
+
+## Fase 9 (2026-11-04): escopos da chave e Subject Erasure (research R46–R54; ADR-057, ADR-058)
+
+### Vocabulário
+
+`type Scope = Literal["inference", "users", "admin"]`; `SCOPES = ("inference", "users", "admin")`;
+`DEFAULT_SCOPES = frozenset({"inference"})`.
+
+| Escopo | Na 003 | Fora da 003 (a 008 decide por rota) |
+|---|---|---|
+| `inference` | resolução e Assistant Directory (`can_infer`) | execução, `/models`, conversas, MCP do próprio subject |
+| `users` | nada | contas e grupos em `/admin/v1`, `GET /admin/v1/me` |
+| `admin` | `is_admin` (com o grupo de administração) | toda a administração; não inclui `inference` |
+
+### `Principal` — campo novo
+
+`scopes: frozenset[Scope] | None` (padrão `None`). `oidc` → sempre `None` (com escopos, `ValueError`); `api_key` →
+nunca `None` (sem escopos, `DEFAULT_SCOPES`); vazio ou fora de `SCOPES` → `ValueError`.
+
+| Regra (domínio) | Definição |
+|---|---|
+| `is_admin(p, g)` | `g is not None and g in p.groups and (p.scopes is None or "admin" in p.scopes)` |
+| `can_infer(p)` | `p.scopes is None or "inference" in p.scopes` |
+
+### `ApiKeyInfo` — campo novo
+
+`scopes: frozenset[Scope] = DEFAULT_SCOPES`, fixado na emissão, não vazio, dentro de `SCOPES`; a rotação não o muda.
+`admin ∈ scopes` implica o grupo de administração em `groups` **na emissão** (regra de `key_scopes`; o construtor não
+conhece o grupo).
+
+### Emissão — `key_scopes(scopes, *, groups, admin_group, by_operator)`
+
+| Entrada | Resultado |
+|---|---|
+| `None` | `{inference}` |
+| `[]` | `RequestRejected(field="scopes")` |
+| nome fora de `SCOPES` | `RequestRejected(field="scopes")`, nomeando o escopo |
+| `admin` sem o grupo de administração em `groups` | `RequestRejected(field="scopes")` |
+| `admin` com `by_operator=False` | `RequestRejected(field="scopes")` |
+| o resto | o conjunto, sem repetição |
+
+### `ErasureReport` (publicado)
+
+| Campo | Tipo | Conteúdo |
+|---|---|---|
+| `user_assistants` | `int` | Assistants de usuário do dono apagados |
+| `api_keys` | `int` | chaves do subject apagadas (ativas e revogadas) |
+| `override_entries` | `int` | entradas do subject removidas do `allow` de sobreposições de `auth` |
+| `config_references` | `tuple[str, ...]` | Assistants de sistema cujo `allow` no YAML cita o subject (aviso; ordem alfabética) |
+
+Repetido: as três contagens em zero; `config_references` igual.
+
+### Sobreposição de `auth` depois do apagamento
+
+```text
+allow = [user:ana, group:equipe]  ──erase(user:ana)──▶  allow = [group:equipe]   versão + 1, updated_by = ator
+allow = [user:ana]                ──erase(user:ana)──▶  allow = []               versão + 1 → indisponível (override.auth)
+```
+
+Impressão digital e estado (ativa/inativa) preservados; histórico `saved` com o ator.
+
+### Armazenamento (schema `assistants`)
+
+| Migração | Mudança |
+|---|---|
+| `006_api_key_scopes.sql` | `api_keys.scopes text[]` com `CHECK` do conjunto fechado e não vazio; preenchida pelo passo do `migrate` (`{inference}`; `{inference, admin}` com o grupo de administração da configuração) e depois `NOT NULL` |
+
+Os Assistants de usuário (`owner`) e as sobreposições não mudam de forma.
+
+### Ajuste (ADR-059; research R56)
+
+- `ErasureReport.authored: int = 0` — citações do subject trocadas pelo pseudônimo no módulo: autor das sobreposições,
+  ator do histórico e entradas de `allow` no histórico.
+- `PSEUDONYM_PATTERN = ^deleted:[0-9a-f]{16}$` (o mesmo da 012, repetido aqui: os módulos não se importam).
+- Porta `SystemOverrideStore.pseudonymize(subject, pseudonym) -> int` — numa transação; zero na repetição.
+

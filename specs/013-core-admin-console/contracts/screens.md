@@ -44,3 +44,17 @@ escolhido na console. Tokens do `DESIGN.md`, os mesmos das páginas da 012; o ho
 MCP com `auth.type: delegated` (ADR-055): ambas as telas aceitam o contrato, não fazem sondagem sem autorização
 por execução e mostram "Por execução" em configuração válida. Tools são as configuradas, ainda sem descoberta.
 Detalhes identificam a autorização temporária; editar outros campos preserva `auth: {type: delegated}`.
+
+
+## Incremento 9.7 (2026-11-05): Acesso — escopos, apagar conta e grupos (US12; research R31–R35)
+
+- **Chaves de API** — diálogo "Nova chave": `fieldset` "Escopos" ("Uso de inferência" marcado, "Gerenciar usuários e
+  grupos"), ao menos um; lista com a coluna "Escopos" (`admin` = "Administração — só pela linha de comando"); o diálogo da
+  chave em claro mostra os escopos.
+- **Pessoas** — menu da linha: "Apagar conta" por último, com tom de perigo, fora da própria conta. Diálogo: o que é
+  apagado, o que fica sem identificar, o nome de usuário para confirmar, "Apagar" desabilitado até o nome; depois, o
+  relatório por parte ("Assistants e chaves", "Servidores MCP", "Conversas", "Auditoria de tools", "Preços e ajustes") e
+  os avisos; parcial com a parte marcada "Falhou" e "Tentar de novo". Conta com `deleting`: selo "Em apagamento" e só
+  "Concluir apagamento".
+- **Ficha de edição** — nome e e-mail no "Salvar"; os grupos ao lado, em caixas que valem na hora, com o motivo da
+  recusa junto da caixa.

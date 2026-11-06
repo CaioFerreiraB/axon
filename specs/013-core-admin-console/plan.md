@@ -293,3 +293,40 @@ R30.
 **Constitution Check (US11)**: XI ✅ (só a API de administração); a regra de negócio fica na API (FR-001); acessível
 pelo teclado com tabela equivalente em cada gráfico (FR-017). **Module boundary gate**: `axon-ai/console/**`.
 **Resultado**: PASS.
+
+
+## Passada de 2026-11-05: escopos, apagar conta e um grupo de cada vez (US12; [ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md), [ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md), [ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md))
+
+**Insumos lidos**: [spec.md](spec.md) (US12, FR-037–FR-042, SC-012, clarificações de 2026-11-05), os três ADRs, a
+passada da 008 (US13: `scopes`, `DELETE /users/{u}`, `PUT`/`DELETE /users/{u}/groups/{g}`, 503 `deletion_incomplete`) e
+`console/src/api/` e `console/src/features/access/`. Research: R31–R36.
+
+**Summary**: escopos no diálogo e na lista de chaves; "Apagar conta" com confirmação pelo nome e o relatório (completo e
+parcial); o selo "Em apagamento" com "Concluir apagamento"; os grupos da ficha valendo na hora, um a um.
+
+**Pré-requisito fora da 013**: a 008 acrescenta `deleting` à visão da conta (`account_json`; 008 FR-054, R72, tarefas
+T152–T153) — toque aditivo, na passada da 008, antes desta.
+
+**Technical Context**: React 19 + TypeScript, TanStack Query, `zod`, Radix, CSS Modules (inalterado); sem dependência
+nova. Nenhum `NEEDS CLARIFICATION`.
+
+| Onde | O quê |
+|---|---|
+| `src/api/schemas.ts` | `apiKeySchema.scopes`, `accountSchema.deleting`, `deletionReportSchema` |
+| `src/api/errors.ts`, `client.ts` | `ApiError.body` (o corpo do erro); `deletionReportOf(error)` |
+| `src/api/hooks/apiKeys.ts` | `useCreateKey` com `scopes` |
+| `src/api/hooks/access.ts` | `useDeleteUser`, `useAddGroup`, `useRemoveGroup`; `useUpdateUser` sem `groups` |
+| `src/i18n/` | rótulos dos escopos, das partes e das contagens do relatório |
+| `src/features/access/KeysTab.tsx`, `IssuedKeyDialog.tsx` | escopos no diálogo, coluna "Escopos", escopos na chave emitida |
+| `src/features/access/UsersTab.tsx` | "Apagar conta" no menu (não na própria), selo e "Concluir apagamento" |
+| `src/features/access/DeleteAccountDialog.tsx` (novo) | confirmação, relatório completo e parcial, "Tentar de novo" |
+| `src/features/access/PersonDialog.tsx`, `GroupToggles.tsx` (novo) | grupos fora do formulário, um a um |
+| `tests/msw/`, `tests/access/` | handlers e testes (R36) |
+| `e2e/access.spec.ts`, `e2e/keys.spec.ts`, `e2e/a11y.spec.ts` | fluxos e axe (SC-012) |
+
+**Constitution Check (US12)**: II ✅ (só `/admin/v1`, pelo contrato da 008; `fetch` só em `src/api/`); XI ✅ (nenhuma
+regra na console: quem decide o que apagar, o escopo e a recusa é a plataforma); VII ✅ (o parcial mostra o que faltou;
+toda recusa com o motivo da API). **Module boundary gate**: `axon-ai/console/**` e os documentos da 013; o toque da 008
+fica na passada dela. **Resultado**: PASS.
+
+**Constitution Check — pós-design**: igual. PASS.

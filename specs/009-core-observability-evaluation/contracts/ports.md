@@ -63,8 +63,8 @@ descartes sobe.
 |---|---|---|---|---|
 | `TraceDestination` | `name`, `accepts_content`, `export(record)` (não bloqueia), `flush()` (async), `stats()` | `UsageDestination`, `LangfuseDestination` | destino gravador e destino que falha/trava | falha isolada; fila cheia descarta e conta; conteúdo só onde aceito |
 | `UsageStore` | `append(rows)`, `daily(query)`, `previous_total(query)`, `purge(before)` | Postgres `observability.model_calls`/`executions` | listas com a mesma agregação em Python | fuso, origem, agrupamentos |
-| `PriceStore` | `all()`, `add(price)`, `effective(provider, model, day)` | Postgres `observability.prices` | lista | vigência |
-| `DestinationSettingsStore` | `get()`, `put(settings, expected_version)` | Postgres `observability.destination_settings` | valor | versão |
+| `PriceStore` | `all()`, `add(price)`, `effective(provider, model, day)`, `pseudonymize(subject, pseudonym)` (9.7) | Postgres `observability.prices` | lista | vigência |
+| `DestinationSettingsStore` | `get()`, `put(settings, expected_version)`, `pseudonymize(subject, pseudonym)` (9.7: só `updated_by`, mesma versão) | Postgres `observability.destination_settings` | valor | versão |
 | `SecretCipher` | `seal`, `open` | AES-GCM + HKDF (`axon-ai/observability/v1`; era `ai-core/…`, ADR-037) | o real com chave fixa | ida e volta; chave errada |
 | `LangfuseTransport` | `send(spans)`, `check(host, public, secret)`, `shutdown()` | OTel SDK + OTLP/HTTP (serviço `axon`, R39) | coletor OTLP falso local; transporte que trava | lote; descarta sem bloquear; autenticação |
 

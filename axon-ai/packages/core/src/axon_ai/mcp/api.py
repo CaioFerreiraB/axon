@@ -254,6 +254,28 @@ class DelegatedAuthorization:
         raise TypeError("autorização delegada não pode ser serializada")
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class McpErasureReport:
+    """O que o apagamento de um subject tirou da 007 (ADR-058; research R18). Repetido, a contagem vai a zero."""
+
+    servers: int = 0
+    """Servidores de escopo `user` do subject apagados."""
+
+
+class McpSubjectErasure(Protocol):
+    """Apaga o que a 007 guarda de um subject (ADR-058, item 2) — consumido pela 011, que o liga ao apagamento de
+    contas da 012.
+
+    Não confere quem pede: a autorização é de quem chama (FR-018). Idempotente. Sem `actor` nem `pseudonym`: a 007 não
+    guarda autor nem ator, então não há citação a trocar (ADR-059; research R18).
+    """
+
+    async def erase_subject(self, subject: str) -> McpErasureReport:
+        """Apaga todos os servidores `~` do subject e a descoberta em cache deles; nunca toca globais nem outros donos.
+        `subject` fora de `user:…`/`svc:…` levanta `McpRejected(field="subject")` antes de qualquer I/O."""
+        ...
+
+
 class McpRegistry(Protocol):
     """CRUD por escopo. Globais: autoridade do operador — quem confere o grupo de administração é a borda (008)."""
 

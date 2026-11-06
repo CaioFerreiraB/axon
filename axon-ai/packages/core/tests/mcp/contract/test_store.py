@@ -67,3 +67,19 @@ async def test_list_por_dono_e_all(server_store: Any) -> None:
 async def test_o_mesmo_alias_em_donos_diferentes(server_store: Any) -> None:
     assert await server_store.insert(record("user:ana"))
     assert await server_store.insert(record("user:bia"))
+
+
+@pytest.mark.us7
+async def test_erase_owner_apaga_todos_do_dono_e_nada_mais(server_store: Any) -> None:
+    """T054 (incremento 9.7, FR-018): todos os do dono numa operação; outro dono e globais intactos; repetir dá 0."""
+    await server_store.insert(record())
+    await server_store.insert(record("user:ana"))
+    await server_store.insert(record("user:ana", alias="~agenda"))
+    await server_store.insert(record("user:bia"))
+
+    assert await server_store.erase_owner("user:ana") == 2
+    assert await server_store.list("user:ana") == []
+    assert [r.alias for r in await server_store.list(None)] == ["financeiro"]
+    assert [r.alias for r in await server_store.list("user:bia")] == ["~drive"]
+    assert await server_store.erase_owner("user:ana") == 0
+    assert len(await server_store.all()) == 2

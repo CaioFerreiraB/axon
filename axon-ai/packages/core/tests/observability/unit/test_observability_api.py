@@ -58,6 +58,8 @@ EXPECTED_NAMES = {
     "UsageDay",
     "UsageReport",
     "Price",
+    "ObservabilityErasureReport",
+    "ObservabilityErasure",
     "DestinationSettingsView",
     "DestinationHealth",
     "ConnectionCheck",

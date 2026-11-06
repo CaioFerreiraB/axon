@@ -906,3 +906,122 @@ Validação ADR-055: suítes MCP/gateway/motor/HTTP com Postgres temporário; te
   T130–T131 e ver passar
 - [X] T134 Rodar a partir de `axon-ai/`: `uv run pytest packages/core/tests/http && uv run mypy && uv run ruff check
   packages && uv run lint-imports`
+
+
+## Passada de 2026-11-05: US13, US14 — escopos, contas e grupos por chave e o apagamento das conversas (incremento 9.7; [ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md), [ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md), [ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md); research R66–R71)
+
+**Goal**: toda rota de `/private/v1` e `/admin/v1` com escopo declarado; a chave `users` gerencia contas e grupos sem a
+administração, sem escalar; três rotas de contas; escopos visíveis; e o apagamento das conversas de um subject como
+seam Python.
+
+**Independent Test**: `uv run pytest packages/core/tests/http -k "us13 or us14"` (com `AXON_TEST_POSTGRES_DSN`, também
+a conformidade e a varredura do schema `http`).
+
+### Setup
+
+- [X] T135 [P] Marcas estendidas em `axon-ai/pyproject.toml`: `us13` com "008 US13 — contas e grupos por chave com
+  escopo" e `us14` com "008 US14 — apagar as conversas de um subject"; contrato novo do import-linter "api.py da API não
+  importa o resto do módulo" (`axon_ai.http.api` proibido de `axon_ai.http.domain`, `ports`, `service`, `adapters`)
+
+### Testes primeiro (US13)
+
+- [X] T136 [P] [US13] `axon-ai/packages/core/tests/http/unit/test_scopes_domain.py`: `key_reaches` (OIDC sempre;
+  interseção) e `admin_access` nas combinações de R67 — OIDC admin/não admin; chave `users` em rota `ACCOUNTS` e `ADMIN`;
+  chave `admin` com e sem administração; chave com o grupo e só `inference` (cen. 9)
+- [X] T137 [P] [US13] `axon-ai/packages/core/tests/http/unit/test_route_scopes.py` (SC-012): monta o app do kit de
+  teste e percorre `app.routes` com prefixo `/private/v1` e `/admin/v1` (fora o fallback); toda rota tem `axon_scopes`,
+  e os conjuntos batem com a tabela do data-model (chat, `/chat`, `/models`, conversas → `INFERENCE`; `/packs`,
+  `/admin/keys*`, `/mcp*` → `ADMIN`; `/health` → `ANY_KEY`; `/admin/v1/users*`, `/groups*`, `/me` → `ACCOUNTS`; o resto
+  da administração → `ADMIN`)
+- [X] T138 [P] [US13] `axon-ai/packages/core/tests/http/contract/test_admin_scopes.py`: cen. 1, 2, 4, 5 e 9 — chave
+  `users` nas rotas de contas, grupos e `me` (e lê o grupo e uma conta de administração); 404 em `/keys`, `/prices`,
+  `/observability`, `/assistants` e na privada (`/chat/completions`, `/models`, `/conversations`, `/packs`) sem que o seam
+  simulado seja chamado; chave `inference` conversa e recebe 404 em `/admin/v1/users` e `/admin/v1/me`; emissão com
+  `scopes` (`["users"]`, ausente → `["inference"]`, `admin`/desconhecido/vazio → 422 `param: "scopes"`) nas duas
+  superfícies; `scopes` nas listagens e na resposta da rotação (preservados); `me` com `scopes` (chave) e `null` (console)
+- [X] T139 [P] [US13] `axon-ai/packages/core/tests/http/contract/test_admin_accounts_delete.py`: cen. 6–8 — `DELETE
+  /users/ana` 200 com o relatório sem pseudônimo (o JSON inteiro não contém `deleted:`); própria conta 422 `username`;
+  último admin 409 `protected_group`; inexistente 404; apagador em falha → 503 `deletion_incomplete`, `Retry-After: 5`,
+  `report.complete == false` e o módulo marcado; repetir → 200; `PUT`/`DELETE /users/ana/groups/equipe` 200 e
+  idempotentes; corpo não vazio → 422; grupo inexistente → 404
+- [X] T140 [P] [US13] `axon-ai/packages/core/tests/http/contract/test_admin_scopes_adversarial.py` (SC-013, análise C1
+  da 003): com uma chave `users` e uma conta `root` do grupo de administração, cada escrita de contas e grupos que toca o
+  grupo ou a conta — `POST /users` com o grupo, `PATCH` de `root` e com `groups` de admin, senha, desativar, reativar,
+  Google, `DELETE /users/root`, `PUT`/`DELETE /users/x/groups/<admin>`, `PUT /groups/<admin>/members`, `PUT /groups/equipe/members` tirando `root` (`param: "members"`), `DELETE
+  /groups/<admin>` — responde 403 `actor_not_allowed` com `param` e nada muda na identidade; cada outra rota de
+  `/admin/v1` responde 404; e, com uma chave `inference`, **todas** as rotas de `/admin/v1` (enumeradas das rotas
+  montadas) respondem 404 (achado C1)
+
+### Implementação (US13)
+
+- [X] T141 [US13] `axon-ai/packages/core/src/axon_ai/http/domain/scopes.py` (R66, R67): `INFERENCE`, `ACCOUNTS`,
+  `ADMIN`, `ANY_KEY`, `key_reaches`, `admin_access`
+- [X] T142 [US13] `axon-ai/packages/core/src/axon_ai/http/domain/errors.py` (R68): `identity.ActorNotAllowed` → 403
+  `permission_error`/`actor_not_allowed`/`param`; `identity.DeletionIncomplete` → 503 `server_error`/
+  `deletion_incomplete`, `retry_after=5`, `top={"report": deletion_json(report)}` — campo novo `ErrorResponse.top`, fundido por
+  `body()` no objeto de cima, ao lado de `error` (achado I1); `domain/admin_accounts.py`:
+  `deletion_json(report)` (R69)
+- [X] T143 [US13] `axon-ai/packages/core/src/axon_ai/http/domain/private.py` (R70): `issue_request` devolve também
+  `scopes` (lista de textos ou `None`; outro tipo → `AdminInvalid(field="scopes")`); `key_json` com `scopes` em ordem
+- [X] T144 [US13] `require_scopes(request, principal, scopes)` e a marca `axon_scopes` em
+  `axon-ai/packages/core/src/axon_ai/http/adapters/auth.py`; aplicar em `private.py`, `chat.py`, `models.py`,
+  `conversations.py` e `mcp_routes.py` (global) — 404 de rota inexistente antes de qualquer seam
+- [X] T145 [US13] `axon-ai/packages/core/src/axon_ai/http/adapters/admin.py`: `route(..., scopes=ADMIN)` com a marca;
+  `_admin` por `admin_access`; `scopes=ACCOUNTS` nas rotas de contas, grupos e `me`; `actor_can_admin` nas escritas da
+  012 (todas menos `create_group`); `DELETE /users/{username}`, `PUT`/`DELETE /users/{username}/groups/{group}`; `me` com
+  `scopes`; `issue_key` e o `issue` da privada passam `scopes`. Rodar T136–T140 e ver passar
+
+### US14 — apagamento das conversas
+
+- [X] T146 [P] [US14] `axon-ai/packages/core/tests/http/contract/test_conversation_store.py`: conformidade de
+  `erase_owner` (memória × Postgres) — conta conversas e imagens; outro dono intacto; repetir `(0, 0)`
+- [X] T147 [P] [US14] `axon-ai/packages/core/tests/http/contract/test_conversation_erasure.py`: cen. 1–3 pelo
+  `ConversationService` (como `ConversationErasure`); subject inválido sem tocar dados; no Postgres, nenhuma coluna de
+  texto/JSON/lista do schema `http` cita o subject (SC-014)
+- [X] T148 [US14] `axon-ai/packages/core/src/axon_ai/http/api.py` (novo; R71): `ConversationErasureReport`,
+  `ConversationErasure`
+- [X] T149 [US14] `ConversationStore.erase_owner` em `http/ports.py`; adapters em `adapters/conversations_memory.py` e
+  `adapters/conversations_postgres.py` (contagem das imagens e `DELETE` das conversas numa transação)
+- [X] T150 [US14] `ConversationService.erase_subject` em `http/service.py` (`SUBJECT_PATTERN` da 003 →
+  `RequestRejected(field="subject")`). Rodar T146–T147 e ver passar
+
+### Polish
+
+- [X] T151 Verificação a partir de `axon-ai/`: suíte da 008 e workspace com Postgres, `mypy`, `ruff`, `lint-imports`;
+  `specs/README.md` (linha da 008 e seams), `docs/roadmap.md` (andamento do 9.7) e `graphify update .`
+
+**Dependências**: T135 primeiro; testes (T136–T140, T146–T147) antes da implementação; T141 → T142 → T143 → T144 →
+T145; T148 → T149 → T150; US13 e US14 independentes entre si; T151 por último. A 011 (US9) liga o seam da US14 à porta
+`SubjectDataEraser` da 012 e prova o caminho ponta a ponta.
+
+**Paralelo**: T136–T140 juntos (arquivos diferentes); T146–T147 com eles. **MVP**: US13 (é o pedido do incremento); a
+US14 só tem consumidor na 011.
+
+**Execução (2026-11-05)**: T135–T151 feitas. Notas:
+- O escopo é declarado por `@scoped(…)` (`adapters/auth.py`), entre o `@router.<método>` e a função: marca o endpoint e
+  põe o conjunto na requisição, onde `authenticated` o aplica — a declaração e a regra são o mesmo objeto. Na
+  administração, pelo `route(…, scopes=)`, com padrão `ADMIN`.
+- A FastAPI 0.141 guarda o roteador incluído como `_IncludedRouter` (rotas em `effective_route_contexts`); o kit
+  `tests/http/scopes_kit.py` enumera as duas formas (`mounted_routes`).
+- `ErrorResponse.top` (achado I1) leva o `report` do 503 ao lado de `error`.
+- `issue_request` recusa `scopes` que não é lista com o `InvalidRequest` que a emissão já usa (não `AdminInvalid`); a
+  forma da resposta é a mesma (`param: "scopes"`).
+- `DELETE /groups/<admin>` com a chave `users` responde 409 `protected_group`, não 403: a 012 recusa apagar o grupo de
+  administração a qualquer ator, antes da regra do ator (FR-011 dela). Nada muda nos dois casos; o teste adversarial
+  confere o 409.
+- `Platform` do kit ganhou `extra_keys` e `admin_group`; `test_me_traz_a_sessao_e_a_marca_da_instalacao` (US9) passou
+  a esperar `scopes` (FR-052).
+- `erase_owner` no Postgres conta as imagens distintas por conversa, como a memória.
+- Suíte da 008 contra o Postgres: 677 passaram; workspace com Postgres: 4155 passaram, 12 pulados; mypy, ruff e
+  import-linter (71 contratos, um novo) limpos.
+
+
+## Toque de 2026-11-05: `deleting` na visão da conta (FR-054; R72; pedido pela 013, clarificação de 2026-11-05)
+
+- [X] T152 [P] [US13] `axon-ai/packages/core/tests/http/contract/test_admin_accounts_delete.py`: a conta em apagamento
+  (apagador em falha) traz `deleting: true` em `GET /admin/v1/users/{u}` e na lista; uma conta comum, `false`
+- [X] T153 [US13] `axon-ai/packages/core/src/axon_ai/http/domain/admin_accounts.py`: `account_json` com `deleting`;
+  `test_admin_api.py` e os testes de formato que comparam o corpo inteiro atualizados
+
+**Execução do toque (2026-11-05)**: T152–T153 feitas — o teste falhou antes e passou depois; suíte da 008: 666 passaram.
+

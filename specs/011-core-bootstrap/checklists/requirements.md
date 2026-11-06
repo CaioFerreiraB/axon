@@ -80,3 +80,11 @@
 - Escopo delimitado pela clarificação de 2026-10-20: os identificadores com comportamento de outros módulos ficam para
   as passadas deles, listados um a um; o SC-008 os exclui da contagem.
 - Iteração 1: todos os itens passam.
+
+### Iteração de 2026-11-05 — US9 (incremento 9.7; ADR-057, ADR-058, ADR-059)
+
+Todos os itens continuam passando. FR-032 → cen. 1 e 2; FR-033 → cen. 4; FR-034 → cen. 4 e 5; FR-035 → cen. 7;
+FR-036 → cen. 6; SC-009 → cen. 2. Nomes de porta, de comando e de variável aparecem porque a composição e a linha de
+comando são o objeto desta spec. Nenhuma marca de clarificação. No `/speckit-clarify` (2026-11-05), nenhuma pergunta: a
+forma dos avisos é detalhe do plano, e o Assistant `~x` sai (003) antes do servidor `~drive` (007) pela ordem do ADR-059,
+então nada fica apontando para o que já foi apagado.

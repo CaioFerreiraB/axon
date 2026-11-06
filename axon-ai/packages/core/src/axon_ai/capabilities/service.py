@@ -12,10 +12,11 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Final
 
-from axon_ai.assistants.api import ExecutionGrant
+from axon_ai.assistants.api import PSEUDONYM_PATTERN, SUBJECT_PATTERN, ExecutionGrant, RequestRejected
 from axon_ai.capabilities.api import (
     UNKNOWN_TOOL,
     AuditEntry,
+    AuditErasureReport,
     AuditFilter,
     AuditRecord,
     AuditStatus,
@@ -43,7 +44,7 @@ BLANK_NAME: Final = "(sem nome)"
 
 
 class CapabilityService:
-    """`Capabilities` e `AuditQuery` (axon_ai.capabilities.api)."""
+    """`Capabilities`, `AuditQuery` e `AuditErasure` (axon_ai.capabilities.api)."""
 
     def __init__(
         self,
@@ -107,6 +108,14 @@ class CapabilityService:
 
     async def records(self, filter: AuditFilter) -> Sequence[AuditRecord]:
         return await self._audit.query(filter)
+
+    async def erase_subject(self, subject: str, *, pseudonym: str) -> AuditErasureReport:
+        """`AuditErasure` (incremento 9.7, FR-019, FR-020; research R16)."""
+        if not SUBJECT_PATTERN.fullmatch(subject):
+            raise RequestRejected(f"subject precisa ser 'user:<id>' ou 'svc:<id>': {subject!r}", field="subject")
+        if not PSEUDONYM_PATTERN.fullmatch(pseudonym):
+            raise RequestRejected("pseudônimo fora do formato deleted:<16 hexadecimais>", field="pseudonym")
+        return AuditErasureReport(audit_records=await self._audit.pseudonymize(subject, pseudonym))
 
     def _emit_catalog_problem(self, context: ToolContext, kind: str, message: str) -> None:
         self._trace.emit(ExecutionError(request_id=context.request_id, stage="catalog", kind=kind, message=message))

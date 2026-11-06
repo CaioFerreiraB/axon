@@ -455,3 +455,81 @@ desse domínio, então o nginx repassa `/static/` ao core, como os outros prefix
   `e2e/serve_platform.py` estima o uso semeado com `ImpactService.backfill`
 - [X] T087 `npm run typecheck && npm run lint && npm test`; `npx playwright test` (impacto, a11y nos dois temas e no
   tablet, uso, teclado); capturas comparadas com o mockup aprovado
+
+
+## Passada de 2026-11-05: US12 — escopos, apagar conta e um grupo de cada vez (incremento 9.7; [ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md), [ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md), [ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md); research R31–R36)
+
+**Goal**: escopos na emissão e na lista de chaves; apagar uma conta pelo nome, com o relatório completo ou parcial; o
+selo "Em apagamento" com "Concluir apagamento"; os grupos da ficha valendo na hora.
+
+**Independent Test**: a partir de `axon-ai/console/`, `npm test -- access keys` e `npx playwright test e2e/access.spec.ts
+e2e/keys.spec.ts e2e/a11y.spec.ts`.
+
+**Pré-requisito**: as tarefas T152–T153 da 008 (`deleting` na visão da conta).
+
+### Fundação
+
+- [X] T088 [US12] `console/src/api/schemas.ts`: `apiKeySchema.scopes` (`z.array(z.enum(["inference", "users",
+  "admin"]))`), `accountSchema.deleting` (`z.boolean().default(false)`) e `deletionReportSchema` (data-model);
+  `console/src/api/errors.ts` e `client.ts`: `ApiError.body` (o corpo JSON do erro, opcional nas opções do construtor, como `param` — achado I1) e
+  `deletionReportOf(error)`
+- [X] T089 [US12] `console/src/api/hooks/apiKeys.ts`: `useCreateKey` envia `scopes`; `console/src/api/hooks/access.ts`:
+  `useDeleteUser`, `useAddGroup`, `useRemoveGroup` (invalidam pessoas e grupos) e `useUpdateUser` sem `groups`
+- [X] T090 [P] [US12] `console/src/i18n/pt-BR.ts`: rótulos dos escopos (`admin` → "Administração"), das partes do
+  relatório (`assistants` → "Assistants e chaves", `mcp` → "Servidores MCP", `conversations` → "Conversas", `audit` →
+  "Auditoria de tools", `observability` → "Preços e ajustes") e das contagens, com o nome cru como reserva
+- [X] T091 [P] [US12] `console/tests/msw/handlers.ts` e `fixtures.ts`: `scopes` nas chaves, `deleting` nas contas,
+  `DELETE /users/{u}` (200 com relatório; 503 `deletion_incomplete` com `report` quando a fixture pede), `PUT`/`DELETE
+  /users/{u}/groups/{g}` (200; 409 `protected_group`; 404)
+
+### Testes primeiro
+
+- [X] T092 [P] [US12] `console/tests/access/keys.test.tsx`: escopos no diálogo (padrão `inference`, nenhum bloqueia,
+  `users` sozinho), recusa `param: "scopes"` no `fieldset`, coluna "Escopos" com `admin` e a nota, escopos no diálogo da
+  chave em claro
+- [X] T093 [P] [US12] `console/tests/access/access.test.tsx`: "Apagar conta" ausente na própria conta; botão desabilitado
+  até o nome exato; relatório completo sem `deleted:`; 503 com o parcial, a parte "Falhou" e "Tentar de novo" que conclui;
+  conta com `deleting` com o selo e só "Concluir apagamento"; 409 do último admin com o motivo; grupos da ficha valendo na
+  hora (sucesso; recusa volta a caixa e mostra o motivo; o clique manda só `PUT /users/bia/groups/equipe`, nenhum `PATCH`
+  com a lista — achado C1); o "Salvar" sem `groups`
+
+### Implementação
+
+- [X] T094 [US12] `console/src/features/access/KeysTab.tsx` e `IssuedKeyDialog.tsx` (R31): `fieldset` de escopos,
+  coluna "Escopos", escopos na chave emitida
+- [X] T095 [US12] `console/src/features/access/DeleteAccountDialog.tsx` (novo; R32, R33, R34): confirmação pelo nome,
+  relatório completo e parcial, "Tentar de novo", modo "Concluir apagamento" — a explicação curta e um botão "Concluir",
+  sem o nome, que só então envia (achado A1)
+- [X] T096 [US12] `console/src/features/access/UsersTab.tsx` (R32, R34): "Apagar conta" no menu (último, tom de perigo,
+  fora da própria conta), selo "Em apagamento" e o menu só com "Concluir apagamento"
+- [X] T097 [US12] `console/src/features/access/GroupToggles.tsx` (novo) e `PersonDialog.tsx` (R35): grupos fora do
+  formulário, uma caixa por grupo com `aria-busy`, recusa ao lado e a caixa de volta; "Salvar" com nome e e-mail. Rodar
+  T092–T093 e ver passar
+
+### e2e e polish
+
+- [X] T098 [P] [US12] `console/e2e/keys.spec.ts` e `e2e/access.spec.ts`: criar uma chave só com "Gerenciar usuários e
+  grupos" e ver a coluna; cadastrar uma pessoa, apagá-la digitando o nome, ver o relatório e a lista sem ela, sem
+  `deleted:` na página; pôr e tirar um grupo pela ficha
+- [X] T099 [P] [US12] `console/e2e/a11y.spec.ts` (SC-012): axe no diálogo de chave com os escopos, no de apagar
+  (confirmação e relatório) e na ficha com os grupos, nos dois temas; o fluxo de apagar só pelo teclado
+- [X] T100 Verificação a partir de `axon-ai/console/`: `npm run typecheck && npm run lint && npm test` e `npm run e2e`;
+  `specs/README.md` (linha da 013), `docs/roadmap.md` e `graphify update .`
+
+**Dependências**: T152–T153 da 008 antes de tudo; T088 → T089; T090 e T091 em paralelo com T089; T092–T093 antes de
+T094–T097; T098–T099 depois da implementação; T100 por último.
+
+**Paralelo**: T090, T091, T092 e T093; T098 e T099. **MVP**: a passada inteira (cada parte é pequena; o apagamento
+— T095, T096 — é o centro).
+
+**Execução (2026-11-05)**: T088–T100 feitas, depois de T152–T153 da 008. Notas:
+- A ordem foi fundação → implementação → testes novos: o código precisava existir para a tipagem das fixtures fechar.
+  Os testes novos (13 no Vitest, 3 no e2e, 3 no axe) foram escritos depois, contra o comportamento da spec.
+- O e2e achou dois defeitos, corrigidos: a caixa de grupo só mudava depois da resposta (agora muda na hora e volta se a
+  plataforma recusa, R35); e o relatório tinha um segundo botão "Fechar", além do X do diálogo (agora "Concluir" no
+  completo e "Deixar para depois" no parcial).
+- `ScopeList` ficou num arquivo próprio para não criar ciclo entre `KeysTab` e `IssuedKeyDialog`.
+- Testes existentes atualizados pelo contrato novo: a fixture `issued()` e o corpo esperado da emissão em
+  `keys.test.tsx` (`scopes`), e as fixtures do MSW (`scopes`, `deleting`, a conta `bia`).
+- Console: tipagem e lint limpos; Vitest 170 passaram; Playwright 65 passaram (com o axe nos dois temas e no tablet).
+

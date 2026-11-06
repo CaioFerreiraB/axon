@@ -250,3 +250,58 @@
   resize: none;
   word-break: break-all;
 }
+
+/* incremento 9.7: escopos e o apagamento (013 R31–R35) */
+.help {
+  margin: 0 0 8px;
+  color: var(--texto-secundario);
+  font-size: var(--tamanho-13);
+}
+.fieldError {
+  margin: 8px 0 0;
+  color: var(--estado-erro-texto);
+  font-size: var(--tamanho-13);
+}
+.scopeList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.scopeNote {
+  color: var(--texto-secundario);
+}
+.report {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.reportPart {
+  padding: 12px 14px;
+  border-radius: var(--raio-painel);
+  background: var(--fundo-sutil);
+  font-size: var(--tamanho-13);
+}
+.reportTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: 500;
+}
+.reportCounts {
+  margin: 4px 0 0;
+  color: var(--texto-secundario);
+}
+.explain {
+  margin: 0;
+  padding-left: 20px;
+  font-size: var(--tamanho-13);
+}
+.groupToggle {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

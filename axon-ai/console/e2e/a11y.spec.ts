@@ -81,3 +81,46 @@ test("o diálogo da chave criada", async ({ page }) => {
   await expectAccessible(page, "diálogo da chave");
   await page.getByRole("button", { name: "Concluir" }).click();
 });
+
+// --- incremento 9.7 (SC-012) ------------------------------------------------------------------------------------------
+
+test("a nova chave com os escopos", async ({ page }) => {
+  await login(page, "/acesso/chaves?criar=1");
+  await page.getByRole("checkbox", { name: "Uso de inferência" }).waitFor();
+  await expectAccessible(page, "nova chave com os escopos");
+});
+
+test("apagar uma conta: confirmação e relatório, só pelo teclado", async ({ page }) => {
+  const username = `ada${Date.now().toString(36)}`;
+  await login(page, "/acesso/usuarios?cadastrar=1");
+  const create = page.getByRole("dialog", { name: "Cadastrar pessoa" });
+  await create.getByLabel("Nome").fill("Ada Reis");
+  await create.getByLabel("Usuário").fill(username);
+  await create.getByLabel("E-mail").fill(`${username}@exemplo.org`);
+  await create.getByRole("button", { name: "Cadastrar" }).click();
+  await page.getByRole("dialog", { name: "Ada Reis foi cadastrado" }).getByRole("button", { name: "Concluir" }).click();
+
+  await page.getByRole("button", { name: "Ações de Ada Reis" }).focus();
+  await page.keyboard.press("Enter");
+  await page.getByRole("button", { name: "Apagar conta" }).focus();
+  await page.keyboard.press("Enter");
+  const dialog = page.getByRole("dialog", { name: "Apagar a conta de Ada Reis?" });
+  await dialog.waitFor();
+  await expectAccessible(page, "confirmação do apagamento");
+  await dialog.getByLabel(/Digite o nome de usuário/).focus();
+  await page.keyboard.type(username);
+  await page.keyboard.press("Enter");
+  await page.getByRole("dialog", { name: `A conta ${username} foi apagada` }).waitFor();
+  await expectAccessible(page, "relatório do apagamento");
+});
+
+test("a ficha com os grupos na hora", async ({ page }) => {
+  await login(page, "/acesso/usuarios");
+  await page
+    .getByRole("button", { name: /^Ações de / })
+    .first()
+    .click();
+  await page.getByRole("button", { name: "Editar" }).click();
+  await page.getByRole("dialog").getByText("Cada grupo vale na hora, sem precisar salvar.").waitFor();
+  await expectAccessible(page, "ficha com os grupos");
+});

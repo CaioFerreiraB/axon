@@ -366,3 +366,156 @@ passava pelo formulário, e o `check-webui.py` usa um cliente HTTP, que não apl
 
 **Alternatives considered**: recalcular a CSP no `start()` do serviço (acoplaria o serviço ao adapter HTTP); carregar
 os clientes antes de montar o router no `persistent` (o serviço de runtime só existe com o pool aberto, 011 R14).
+
+# Passada de 2026-11-04: apagar conta em cascata, um grupo de cada vez e o ator que não administra ([ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md), [ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md), [ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md); US9–US11)
+
+> As decisões dos três ADRs são pré-aprovadas e entram como *Decision / Rationale (ADR) / Alternatives*. O que eles
+> deixam em aberto — forma no código, armazenamento, concorrência, nome dos comandos — é decidido abaixo.
+
+## R28 — O estado "em apagamento" e o pseudônimo
+
+**Decision**: `AccountRecord.deletion_pseudonym: str | None` (fora do seam) e `Account.deleting: bool` (publicado,
+derivado: há pseudônimo). Entrar em apagamento é um `replace` com versão: `active=False`, `groups=∅`, o pseudônimo, autor
+e instante — o login e a renovação já recusam conta inativa, então nenhum caminho novo é preciso para "não entra". O
+pseudônimo é `deleted:` + 16 hexadecimais tirados de `TokenGenerator.uuid()` (função pura `pseudonym_of(uuid)` em
+`domain/accounts.py`), gerado uma vez e reaproveitado na retomada. `accounts(active=True)` não lista conta em apagamento
+(ela é inativa); `active=None` a lista com `deleting=True`. Migração `005_account_deletion.sql`: `ADD COLUMN
+deletion_pseudonym text CHECK (deletion_pseudonym ~ '^deleted:[0-9a-f]{16}$')`.
+
+**Rationale** (ADR-058, item 4; ADR-059, item 2; FR-030, FR-038): o estado vive na própria linha, o que mantém o nome
+preso pelo índice único até o fim; reaproveitar o `active=False` herda todas as recusas já testadas.
+
+**Alternatives considered**: tabela de apagamentos pendentes (dois lugares para o mesmo estado); um enum `state`
+substituindo `active` (migração e mudança de seam maiores, sem ganho).
+
+## R29 — A operação `delete` e a porta `SubjectDataEraser`
+
+**Decision**: em `ports.py`:
+
+```python
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ErasedData:
+    counts: Mapping[str, int]
+    warnings: tuple[str, ...] = ()
+
+class SubjectDataEraser(Protocol):
+    name: str
+    async def erase(self, subject: str, *, actor: str, pseudonym: str) -> ErasedData: ...
+```
+
+`IdentityService(..., erasers: Sequence[SubjectDataEraser] = ())`. `AccountAdmin.delete(username, *, actor,
+actor_can_admin=True) -> DeletionReport`:
+1. lê a conta (`AccountNotFound`);
+2. se ainda não está em apagamento, confere nesta ordem: a própria conta do ator (`actor == account.subject` →
+   `InvalidField(field="username")`), o não escalar (R31) e o último admin (`_guard_admin(active=False)`); depois gera o
+   pseudônimo e grava o estado (R28) e revoga as sessões (`revoke_account_sessions`);
+3. roda **todos** os apagadores, na ordem dada, cada um num `try` — uma falha não impede os seguintes (mais progresso
+   por tentativa; todos são idempotentes);
+4. se algum falhou, levanta `DeletionIncomplete(report)` sem tocar o que é da identidade;
+5. senão, apaga o que é da identidade (R30) e devolve o relatório.
+
+O relatório não traz o pseudônimo: quem apaga não deve poder religar a trilha à pessoa (ADR-059, item 1).
+
+**Rationale** (ADR-058, itens 3 e 4; FR-028, FR-029, FR-031, FR-032; clarificação de 2026-11-04 — erro com relatório
+parcial): a porta mantém a 012 sem importar 003/004/007/008/009, só a 011 os conhece; o erro carregando o relatório deixa
+a 008 responder falha retomável e a CLI sair com 1.
+
+**Alternatives considered**: parar no primeiro apagador que falha (menos progresso por tentativa, mesma garantia);
+devolver o pseudônimo no relatório (permitiria religar); `subject` como entrada da porta em vez do nome (o `Account.subject`
+já existe e é o que os outros módulos guardam).
+
+## R30 — O que a identidade apaga e pseudonimiza
+
+**Decision**: quatro operações novas de porta, com conformidade memória × Postgres:
+- `GrantStore.erase_account(account_id) -> Mapping[str, int]` — sessões (a renovação cai em cascata), códigos e pedidos
+  pendentes, numa transação; devolve `sessions`, `refresh_tokens`, `codes`, `pending`;
+- `AccountStore.delete(account_id) -> bool` — associações e a linha, numa transação;
+- `AccountStore.replace_actor(old, new) -> int` e `IdentitySettingsStore.replace_actor(old, new) -> int` — `updated_by`
+  das outras contas e dos ajustes de login.
+
+Ordem: `erase_account` → `replace_actor` (contas e ajustes) → `LoginAttempts.reset([username])` → `delete`. Contagens da
+identidade no relatório: `sessions`, `refresh_tokens`, `codes`, `pending`, `authored` (citações trocadas), `account` (1).
+
+Os grupos não guardam autor: o autor de uma mudança de membros (`set_members`, `add_member`, `remove_member`) é gravado
+no `updated_by` das contas tocadas, que o `replace_actor` cobre.
+
+**Rationale** (FR-028, FR-038; ADR-059): a linha da conta sai por último, então uma falha no meio deixa a conta em
+apagamento e a retomada repete operações idempotentes. Os grupos não guardam autor; o log de processo fica com o operador.
+
+**Alternatives considered**: `ON DELETE CASCADE` nas FKs de sessões e associações (migração destrutiva sobre dados, e a
+memória teria outra semântica).
+
+## R31 — O ator que não administra (ADR-057, item 4)
+
+**Decision**: parâmetro `actor_can_admin: bool = True` em toda escrita do `AccountAdmin` (FR-035: ausente = como hoje).
+Regras puras em `domain/accounts.py` — `escalation(...) -> str | None`, que devolve o campo recusado ou `None`:
+- `create`: o grupo de administração em `draft.groups` → `groups`;
+- `update`, `reset_password`, `disable`, `enable`, `unlink_google`, `delete`: conta alvo no grupo de administração →
+  `username`; `update` que põe ou tira o grupo de administração → `groups`;
+- `add_group`/`remove_group`: o grupo é o de administração → `group`; a conta alvo está nele → `username`;
+- `set_members`: o grupo é o de administração → `name`; algum membro que entra ou sai está no grupo de administração →
+  `members`;
+- `delete_group` do grupo de administração já é `ProtectedGroup` para todos.
+
+Recusa: `ActorNotAllowed(IdentityError)` com `field`, que a 008 traduz em 403 (ADR-057, item 5). Conta em apagamento
+não está em grupo nenhum; a recusa de começar o apagamento já olhou os grupos antes.
+
+**Rationale** (ADR-057, item 4; FR-034, FR-035; SC-010): uma regra pura por operação é testável de forma adversarial sem
+armazenamento; o booleano mantém a 012 sem escopos nem chaves. O padrão `True` existe para não quebrar a CLI e as rotas de hoje,
+que só admins alcançam; por isso a passada da 008 DEVE ter um teste adversarial em que a chave `users` recebe
+`ActorNotAllowed` em toda rota de contas e grupos que toca o grupo de administração — um consumidor que esqueça o
+parâmetro seria falha aberta.
+
+**Alternatives considered**: receber o `Principal` da 003 (a 012 importaria a 003, contra o ADR-030); conferir na 008
+(a regra é do domínio de contas, e a CLI ou outro consumidor ficaria sem ela).
+
+## R32 — Um grupo de cada vez, sem versão
+
+**Decision**: `AccountAdmin.add_group(username, group, *, actor, actor_can_admin=True) -> Account` e `remove_group(...)`.
+Duas operações de porta: `AccountStore.add_member(account_id, group, *, at, actor) -> bool` e `remove_member(...) ->
+bool` — `INSERT … ON CONFLICT DO NOTHING` / `DELETE`, e só quando mudou algo, na mesma transação, `version + 1`,
+`updated_at` e `updated_by` da conta. Sem mudança, a versão fica (idempotente, FR-033). Grupo inexistente →
+`GroupNotFound`; conta inexistente → `AccountNotFound`; conta em apagamento → `Conflict(field="username")`. Tirar do grupo
+de administração passa por `_guard_admin` (FR-011), com a mesma janela de corrida de `set_members` e `update` hoje (ler
+os membros ativos e depois gravar).
+
+**Rationale** (ADR-058, item 9; FR-033; SC-011): a associação é uma linha; inseri-la ou apagá-la comuta com outra
+associação da mesma conta. Subir a versão faz um `PATCH` concorrente com versão velha receber `Conflict`, em vez de
+desfazer o grupo.
+
+**Alternatives considered**: ler e regravar a lista inteira com versão e retentativa (o mesmo conflito, com mais
+idas e voltas); não subir a versão (um `PATCH` de grupos com versão velha apagaria a mudança).
+
+## R33 — Linha de comando
+
+**Decision**: no `adapters/cli.py` da 012: `users_delete_command` (sem `--yes`, pede o nome digitado de novo; com
+`--yes`, não pergunta; imprime o relatório por módulo; `DeletionIncomplete` → código 1 com o relatório parcial) e
+`groups_add_member_command`/`groups_remove_member_command`. A 011 os registra como `axon users delete <usuário>
+[--yes]` e `axon groups add|remove <grupo> <usuário>` — na passada dela, quando os apagadores estiverem ligados (sem
+eles, apagar pela CLI deixaria os dados dos outros módulos).
+
+**Rationale** (ADR-058, Consequências; US9 cen. 8): `axon users groups <usuário> --set …` já existe e define a lista
+inteira; `users groups add` colidiria com o posicional. `groups add|remove` fica no grupo de comandos do grupo. É nome
+de comando, não seam: sem ADR.
+
+**Alternatives considered**: `axon users groups add|remove` (colide); `axon users add-group` (nome menos regular que os
+subcomandos de `groups`).
+
+## R34 — Testes
+
+**Decision**: marcas `us9`, `us10` e `us11`, que já existem no workspace e são compartilhadas entre specs (`us10: 003
+US10 …; 008 US10 …`): a descrição de cada uma ganha a parte da 012. Arquivos:
+- `unit/test_account_rules.py`: `escalation`, `pseudonym_of`;
+- `contract/test_account_deletion.py` (US9): os oito cenários com dois apagadores de teste, falha e retomada,
+  pseudônimo passado igual nas duas tentativas, autores trocados, nome livre, relatório sem pseudônimo, memória ×
+  Postgres;
+- `contract/test_group_membership.py` (US10): idempotência, inexistentes, último admin, concorrência (`asyncio.gather` de
+  dois grupos), conta em apagamento;
+- `contract/test_actor_not_admin.py` (US11): cada recusa da R31 e as leituras liberadas;
+- conformidade das portas: `test_account_store.py`, `test_grant_store.py`, `test_settings_store.py`;
+- `integration/test_identity_migrations.py` (novo): a 005 sobre contas existentes, com `AXON_TEST_POSTGRES_DSN`;
+- `integration/test_identity_cli.py`: os três comandos (chamados como funções; o registro é da 011).
+
+**Rationale**: SC-009 a SC-011 adversariais e em memória × Postgres, como as passadas anteriores.
+
+**Alternatives considered**: marcas próprias da 012 (fugiria da convenção do workspace; a seleção fina é por arquivo).

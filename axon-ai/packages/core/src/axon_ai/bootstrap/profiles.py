@@ -27,7 +27,7 @@ from axon_ai.assistants.adapters.memory import (
     StaticOidcVerifier,
 )
 from axon_ai.assistants.adapters.oidc import HttpJwksSource, JwksOidcVerifier
-from axon_ai.assistants.api import ApiKeyInfo
+from axon_ai.assistants.api import ApiKeyInfo, Scope
 from axon_ai.assistants.domain.access import OidcAudiences
 from axon_ai.assistants.domain.keys import KEY_PREFIX, ApiKeyRecord, hash_key, parse_key
 from axon_ai.bootstrap import observability as observability_parts
@@ -148,6 +148,11 @@ TEST_OIDC_TOKEN: Final = "token-oidc-de-teste"
 TEST_API_KEY: Final = "axn_7e57c0de00000001_chave-de-teste"
 """Credencial da superfície privada (`/private/v1`): `Authorization: Bearer <TEST_API_KEY>`. Com a identidade ligada, o
 admin semeado entra com `TEST_ADMIN_USERNAME` e `TEST_ADMIN_PASSWORD`, reexportados aqui (R39)."""
+TEST_USERS_API_KEY: Final = "axn_7e57c0de00000002_provisionamento-de-teste"
+"""Chave de provisionamento (incremento 9.7, FR-035; research R61): `svc:provisionamento-teste`, sem grupos, só o escopo
+`users` — gerencia contas e grupos em `/admin/v1` e não alcança mais nada."""
+TEST_USERS_SUBJECT: Final = "svc:provisionamento-teste"
+TEST_USERS_SCOPES: Final[frozenset[Scope]] = frozenset({"users"})
 
 DEV_SUBJECT: Final = "user:dev"
 """Dono da chave de desenvolvimento do perfil `memory` (`AXON_DEV_API_KEY`)."""
@@ -249,21 +254,44 @@ def _oidc(settings: Settings, parts: Mapping[str, Any]) -> Any:
     return JwksOidcVerifier(issuer=settings.oidc_issuer, source=source)
 
 
-def _seeded_keys(*keys: tuple[str, str, Collection[str], str]) -> Callable[[Settings, Mapping[str, Any]], Any]:
+type SeededKey = tuple[str, str, Collection[str], str] | tuple[str, str, Collection[str], str, Collection[Scope]]
+"""(chave em claro, subject, grupos, rótulo[, escopos]) — sem escopos, a regra da migração (R61)."""
+
+
+def _seeded_keys(*keys: SeededKey) -> Callable[[Settings, Mapping[str, Any]], Any]:
     def build(_settings: Settings, parts: Mapping[str, Any]) -> Any:
         store = InMemoryApiKeyStore()
-        for plaintext, subject, groups, label in keys:
-            store.seed(_record(plaintext, subject=subject, groups=groups, label=label, at=parts["clock"].now()))
+        for key in keys:
+            plaintext, subject, groups, label = key[:4]
+            scopes = frozenset(key[4]) if len(key) == 5 else None
+            record = _record(
+                plaintext, subject=subject, groups=groups, label=label, at=parts["clock"].now(), scopes=scopes
+            )
+            store.seed(record)
         return store
 
     return build
 
 
-def _record(plaintext: str, *, subject: str, groups: Collection[str], label: str, at: datetime) -> ApiKeyRecord:
+def _record(
+    plaintext: str,
+    *,
+    subject: str,
+    groups: Collection[str],
+    label: str,
+    at: datetime,
+    scopes: frozenset[Scope] | None = None,
+) -> ApiKeyRecord:
+    """A chave semeada segue a regra da migração dos escopos (003 research R51): com grupo — o de administração, nos
+    dois perfis que semeiam —, `{inference, admin}`; sem grupo, `{inference}`."""
     key_id = parse_key(plaintext)
     if key_id is None:  # pragma: no cover — a configuração já recusou (settings.py)
         raise ConfigurationError(f"chave semeada fora do formato {KEY_PREFIX}<16 hex>_<…>")
-    info = ApiKeyInfo(key_id=key_id, subject=subject, groups=frozenset(groups), label=label, created_at=at)
+    if scopes is None:
+        scopes = frozenset({"inference", "admin"}) if groups else frozenset({"inference"})
+    info = ApiKeyInfo(
+        key_id=key_id, subject=subject, groups=frozenset(groups), label=label, created_at=at, scopes=scopes
+    )
     return ApiKeyRecord(info=info, key_hash=hash_key(plaintext))
 
 
@@ -400,7 +428,10 @@ def _test_profile() -> Profile:
             "request_ids": lambda _s, _p: SequentialRequestIds(),
             "conversation_ids": lambda _s, _p: SequentialRequestIds(prefix="t"),
             "database": lambda _s, _p: None,
-            "api_keys": _seeded_keys((TEST_API_KEY, TEST_SUBJECT, (TEST_ADMIN_GROUP,), "teste")),
+            "api_keys": _seeded_keys(
+                (TEST_API_KEY, TEST_SUBJECT, (TEST_ADMIN_GROUP,), "teste"),
+                (TEST_USERS_API_KEY, TEST_USERS_SUBJECT, (), "provisionamento", TEST_USERS_SCOPES),
+            ),
             "oidc": lambda s, _p: StaticOidcVerifier({TEST_OIDC_TOKEN: _test_claims(s)}),
             "user_assistants": lambda _s, _p: InMemoryUserAssistantStore(),
             "conversations": lambda _s, _p: InMemoryConversationStore(),

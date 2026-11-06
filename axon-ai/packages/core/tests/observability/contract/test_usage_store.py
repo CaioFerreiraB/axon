@@ -162,3 +162,50 @@ async def test_ajustes_dos_destinos_com_versao(stores: Stores) -> None:
         and stored.version == 1
         and stored.langfuse_host == "https://lf.exemplo.org"
     )
+
+
+PSEUDO = "deleted:0123456789abcdef"
+
+
+def _preco(model: str, autor: str) -> Price:
+    return Price(
+        provider="ollama",
+        model=model,
+        usd_per_mtok_in=Decimal("1.5"),
+        usd_per_mtok_out=Decimal("2"),
+        effective_from=date(2026, 1, 1),
+        created_by=autor,
+        created_at=AT,
+    )
+
+
+@pytest.mark.us10
+async def test_pseudonymize_troca_so_o_autor_dos_precos(stores: Stores) -> None:
+    """T102 (incremento 9.7, FR-031)."""
+    for model, autor in (("a", "user:ana"), ("b", "user:ana"), ("c", "user:bia")):
+        await stores.prices.add(_preco(model, autor))
+
+    assert await stores.prices.pseudonymize("user:ana", PSEUDO) == 2
+    assert [(p.model, p.created_by) for p in await stores.prices.all()] == [
+        ("a", PSEUDO),
+        ("b", PSEUDO),
+        ("c", "user:bia"),
+    ]
+    assert [p for p in await stores.prices.all() if p.model == "a"] == [_preco("a", PSEUDO)]
+    assert await stores.prices.pseudonymize("user:ana", PSEUDO) == 0
+
+
+@pytest.mark.us10
+async def test_pseudonymize_troca_so_o_autor_dos_ajustes_sem_mudar_a_versao(stores: Stores) -> None:
+    """T102 (incremento 9.7, FR-031): a versão é o controle de concorrência da console e fica."""
+    from axon_ai.observability.ports import DestinationSettings
+
+    assert await stores.settings.pseudonymize("user:ana", PSEUDO) == 0, "sem ajustes gravados"
+    gravado = DestinationSettings(capture_content=True, version=1, updated_by="user:ana", updated_at=AT)
+    await stores.settings.put(gravado, expected_version=0)
+
+    assert await stores.settings.pseudonymize("user:bia", PSEUDO) == 0
+    assert await stores.settings.pseudonymize("user:ana", PSEUDO) == 1
+    depois = await stores.settings.get()
+    assert (depois.updated_by, depois.version, depois.updated_at, depois.capture_content) == (PSEUDO, 1, AT, True)
+    assert await stores.settings.pseudonymize("user:ana", PSEUDO) == 0

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from types import MappingProxyType
@@ -22,8 +22,11 @@ from axon_ai.identity.api import (
     AccountDraft,
     AccountNotFound,
     AccountPatch,
+    ActorNotAllowed,
     AuthMethod,
     Conflict,
+    DeletionIncomplete,
+    DeletionReport,
     GoogleNotConfigured,
     Group,
     GroupNotFound,
@@ -31,6 +34,7 @@ from axon_ai.identity.api import (
     InvalidField,
     IssuedPassword,
     LoginSettingsView,
+    ModuleErasure,
     Page,
     ProtectedGroup,
 )
@@ -38,8 +42,14 @@ from axon_ai.identity.domain import keys as key_rules
 from axon_ai.identity.domain.accounts import (
     PROTECTED_DELETE,
     PROTECTED_LAST_ADMIN,
+    escalation_create,
+    escalation_groups,
+    escalation_members,
+    escalation_membership,
+    escalation_target,
     leaves_admin_group_empty,
     missing_groups,
+    pseudonym_of,
 )
 from axon_ai.identity.domain.attempts import attempt_keys
 from axon_ai.identity.domain.authorize import AuthorizationRequest, NoRedirect, RedirectError, read_authorization
@@ -86,6 +96,7 @@ from axon_ai.identity.ports import (
     Session,
     SigningKey,
     SigningKeyStore,
+    SubjectDataEraser,
     TokenGenerator,
     TokenSigner,
     UpstreamError,
@@ -166,6 +177,7 @@ class IdentityService:
         clock: Clock,
         tokens: TokenGenerator,
         google: UpstreamOidc | None = None,
+        erasers: Sequence[SubjectDataEraser] = (),
     ) -> None:
         self._config = config
         self._accounts = accounts
@@ -181,6 +193,7 @@ class IdentityService:
         self._clock = clock
         self._tokens = tokens
         self._google = google
+        self._erasers = tuple(erasers)
         self._clients: dict[str, Client] = {}
         self._client_secrets: dict[str, str | None] = {}
         self._google_client: GoogleClient | None = None
@@ -962,8 +975,11 @@ class IdentityService:
             raise AccountNotFound(f"a conta {username!r} não existe")
         return record
 
-    async def create(self, draft: AccountDraft, *, actor: str) -> IssuedPassword | Account:
+    async def create(
+        self, draft: AccountDraft, *, actor: str, actor_can_admin: bool = True
+    ) -> IssuedPassword | Account:
         _check_actor(actor)
+        _guard_actor(actor_can_admin, escalation_create(draft.groups, admin_group=self._config.admin_group))
         await self._check_groups(draft.groups)
         temporary = None if draft.google_only else self._tokens.password()
         record = await self._insert(
@@ -1026,9 +1042,15 @@ class IdentityService:
         _event("account.created", user=username, actor=actor, groups=",".join(sorted(groups)) or None)
         return record
 
-    async def update(self, username: str, patch: AccountPatch, *, actor: str, version: int) -> Account:
+    async def update(
+        self, username: str, patch: AccountPatch, *, actor: str, version: int, actor_can_admin: bool = True
+    ) -> Account:
         _check_actor(actor)
-        record = await self._record(username)
+        record = await self._writable(username)
+        admin = self._config.admin_group
+        _guard_actor(actor_can_admin, escalation_target(record.account.groups, admin_group=admin))
+        if patch.groups is not None:
+            _guard_actor(actor_can_admin, escalation_groups(record.account.groups, patch.groups, admin_group=admin))
         if record.account.version != version:
             raise Conflict("a conta mudou desde a leitura", field="version", current_version=record.account.version)
         groups = record.account.groups if patch.groups is None else patch.groups
@@ -1046,9 +1068,10 @@ class IdentityService:
         _event("account.updated", user=username, actor=actor)
         return updated.account
 
-    async def reset_password(self, username: str, *, actor: str) -> IssuedPassword:
+    async def reset_password(self, username: str, *, actor: str, actor_can_admin: bool = True) -> IssuedPassword:
         _check_actor(actor)
-        record = await self._record(username)
+        record = await self._writable(username)
+        _guard_actor(actor_can_admin, escalation_target(record.account.groups, admin_group=self._config.admin_group))
         temporary = self._tokens.password()
         updated = await self._save(
             record, password_hash=await self._hasher.hash(temporary), temporary_password=True, actor=actor
@@ -1057,9 +1080,10 @@ class IdentityService:
         _event("account.password_reset", user=username, actor=actor)
         return IssuedPassword(account=updated.account, temporary_password=temporary)
 
-    async def disable(self, username: str, *, actor: str) -> Account:
+    async def disable(self, username: str, *, actor: str, actor_can_admin: bool = True) -> Account:
         _check_actor(actor)
         record = await self._record(username)
+        _guard_actor(actor_can_admin, escalation_target(record.account.groups, admin_group=self._config.admin_group))
         if not record.account.active:
             return record.account
         await self._guard_admin(record, active=False, groups=record.account.groups)
@@ -1068,18 +1092,20 @@ class IdentityService:
         _event("account.disabled", user=username, actor=actor)
         return updated.account
 
-    async def enable(self, username: str, *, actor: str) -> Account:
+    async def enable(self, username: str, *, actor: str, actor_can_admin: bool = True) -> Account:
         _check_actor(actor)
-        record = await self._record(username)
+        record = await self._writable(username)
+        _guard_actor(actor_can_admin, escalation_target(record.account.groups, admin_group=self._config.admin_group))
         if record.account.active:
             return record.account
         updated = await self._save(record, active=True, actor=actor)
         _event("account.enabled", user=username, actor=actor)
         return updated.account
 
-    async def unlink_google(self, username: str, *, actor: str) -> Account:
+    async def unlink_google(self, username: str, *, actor: str, actor_can_admin: bool = True) -> Account:
         _check_actor(actor)
-        record = await self._record(username)
+        record = await self._writable(username)
+        _guard_actor(actor_can_admin, escalation_target(record.account.groups, admin_group=self._config.admin_group))
         if record.google_sub is None:
             return record.account
         updated = await self._save(record, google_sub=None, actor=actor)
@@ -1101,7 +1127,7 @@ class IdentityService:
         _event("group.created", group=name, actor=actor)
         return Group(name=name, protected=name == self._config.admin_group)
 
-    async def delete_group(self, name: str, *, actor: str) -> None:
+    async def delete_group(self, name: str, *, actor: str, actor_can_admin: bool = True) -> None:
         _check_actor(actor)
         if name == self._config.admin_group:
             raise ProtectedGroup(PROTECTED_DELETE)
@@ -1109,7 +1135,9 @@ class IdentityService:
             raise GroupNotFound(f"o grupo {name!r} não existe")
         _event("group.deleted", group=name, actor=actor)
 
-    async def set_members(self, name: str, usernames: frozenset[str], *, actor: str) -> Group:
+    async def set_members(
+        self, name: str, usernames: frozenset[str], *, actor: str, actor_can_admin: bool = True
+    ) -> Group:
         _check_actor(actor)
         counts = await self._accounts.groups()
         if name not in counts:
@@ -1119,7 +1147,11 @@ class IdentityService:
             record = await self._accounts.by_username(username)
             if record is None:
                 raise InvalidField(f"a conta {username!r} não existe", field="members")
+            if record.account.deleting:
+                raise Conflict(f"a conta {username!r} está sendo apagada", field="members")
             records.append(record)
+        if not actor_can_admin:
+            await self._guard_members(name, records)
         if name == self._config.admin_group:
             before = await self._accounts.active_members(name)
             after = {record.account.id for record in records if record.account.active}
@@ -1131,6 +1163,103 @@ class IdentityService:
         _event("group.members", group=name, actor=actor, members=len(records))
         counts = await self._accounts.groups()
         return Group(name=name, members=counts.get(name, 0), protected=name == self._config.admin_group)
+
+    async def add_group(self, username: str, group: str, *, actor: str, actor_can_admin: bool = True) -> Account:
+        """Um grupo de cada vez, sem versão (FR-033, research R32)."""
+        _check_actor(actor)
+        record = await self._writable(username)
+        _guard_actor(
+            actor_can_admin,
+            escalation_membership(group, record.account.groups, admin_group=self._config.admin_group),
+        )
+        if await self._accounts.add_member(record.account.id, group, at=self._clock.now(), actor=actor):
+            _event("account.group_added", user=username, actor=actor, group=group)
+        return (await self._record(username)).account
+
+    async def remove_group(self, username: str, group: str, *, actor: str, actor_can_admin: bool = True) -> Account:
+        _check_actor(actor)
+        record = await self._writable(username)
+        _guard_actor(
+            actor_can_admin,
+            escalation_membership(group, record.account.groups, admin_group=self._config.admin_group),
+        )
+        if group not in (await self._accounts.groups()):
+            raise GroupNotFound(f"o grupo {group!r} não existe")
+        if group in record.account.groups:
+            await self._guard_admin(record, active=record.account.active, groups=record.account.groups - {group})
+        if await self._accounts.remove_member(record.account.id, group, at=self._clock.now(), actor=actor):
+            _event("account.group_removed", user=username, actor=actor, group=group)
+        return (await self._record(username)).account
+
+    async def delete(self, username: str, *, actor: str, actor_can_admin: bool = True) -> DeletionReport:
+        """Apaga a conta em cascata (ADR-058, ADR-059; research R29, R30)."""
+        _check_actor(actor)
+        record = await self._record(username)
+        if record.deletion_pseudonym is None:
+            if actor == record.account.subject:
+                raise InvalidField("a própria conta não se apaga", field="username")
+            admin = self._config.admin_group
+            _guard_actor(actor_can_admin, escalation_target(record.account.groups, admin_group=admin))
+            await self._guard_admin(record, active=False, groups=frozenset())
+            record = await self._save(
+                record,
+                active=False,
+                groups=frozenset(),
+                deletion_pseudonym=pseudonym_of(self._tokens.uuid()),
+                actor=actor,
+            )
+            await self._grants.revoke_account_sessions(record.account.id, at=self._clock.now())
+            _event("account.deleting", user=username, actor=actor)
+        pseudonym = record.deletion_pseudonym
+        assert pseudonym is not None
+        subject = record.account.subject
+
+        modules: list[ModuleErasure] = []
+        for eraser in self._erasers:
+            try:
+                erased = await eraser.erase(subject, actor=actor, pseudonym=pseudonym)
+            except Exception:
+                _event("account.deletion_failed", logging.WARNING, user=username, actor=actor, eraser=eraser.name)
+                modules.append(ModuleErasure(name=eraser.name, failed=True))
+                continue
+            modules.append(ModuleErasure(name=eraser.name, counts=erased.counts, warnings=erased.warnings))
+        if any(module.failed for module in modules):
+            report = DeletionReport(username=username, complete=False, modules=tuple(modules))
+            failed = ", ".join(module.name for module in modules if module.failed)
+            raise DeletionIncomplete(
+                f"o apagamento de {username!r} não concluiu ({failed}); repita para retomar", report=report
+            )
+
+        grants = await self._grants.erase_account(record.account.id)
+        authored = await self._accounts.replace_actor(subject, pseudonym)
+        authored += await self._settings.replace_actor(subject, pseudonym)
+        self._attempts.reset(
+            attempt_keys(identifier=username, source=None) + attempt_keys(identifier=record.account.email, source=None)
+        )
+        removed = await self._accounts.delete(record.account.id)
+        _event("account.deleted", user=username, actor=actor)
+        identity = {**grants, "authored": authored, "account": int(removed)}
+        return DeletionReport(username=username, complete=True, identity=identity, modules=tuple(modules))
+
+    async def _writable(self, username: str) -> AccountRecord:
+        """A conta, se não está sendo apagada (FR-030)."""
+        record = await self._record(username)
+        if record.account.deleting:
+            raise Conflict(f"a conta {username!r} está sendo apagada", field="username")
+        return record
+
+    async def _guard_members(self, name: str, records: list[AccountRecord]) -> None:
+        """Ator que não administra definindo membros (R31): nada no grupo de administração nem nos membros dele."""
+        wanted = {record.account.id for record in records}
+        current = [
+            found
+            for found in await self._accounts.list(query=None, active=None, limit=1_000_000, after=None)
+            if name in found.account.groups
+        ]
+        current_ids = {found.account.id for found in current}
+        changed = [record.account.groups for record in records if record.account.id not in current_ids]
+        changed += [found.account.groups for found in current if found.account.id not in wanted]
+        _guard_actor(False, escalation_members(name, changed, admin_group=self._config.admin_group))
 
     async def bootstrap_admin(self) -> Account | None:
         """Admin inicial das variáveis da instalação, só com zero contas (FR-018)."""
@@ -1182,11 +1311,13 @@ class IdentityService:
         last_login_at: datetime | None = None,
         password_hash: str | _Keep = KEEP,
         google_sub: str | _Keep | None = KEEP,
+        deletion_pseudonym: str | _Keep | None = KEEP,
     ) -> AccountRecord:
         """Grava a conta com versão otimista. `bump=False` (último login, re-hash) não muda versão nem autor."""
         current = record.account
         new_hash = record.password_hash if isinstance(password_hash, _Keep) else password_hash
         new_sub = record.google_sub if isinstance(google_sub, _Keep) else google_sub
+        new_pseudonym = record.deletion_pseudonym if isinstance(deletion_pseudonym, _Keep) else deletion_pseudonym
         account = dataclasses.replace(
             current,
             email=current.email if email is None else email,
@@ -1197,14 +1328,23 @@ class IdentityService:
             last_login_at=current.last_login_at if last_login_at is None else last_login_at,
             has_password=new_hash is not None,
             google_linked=new_sub is not None,
+            deleting=new_pseudonym is not None,
         )
         if bump:
             account = dataclasses.replace(
                 account, updated_at=self._clock.now(), updated_by=actor, version=current.version + 1
             )
-        updated = AccountRecord(account=account, password_hash=new_hash, google_sub=new_sub)
+        updated = AccountRecord(
+            account=account, password_hash=new_hash, google_sub=new_sub, deletion_pseudonym=new_pseudonym
+        )
         await self._accounts.replace(updated, expected_version=current.version if expected is None else expected)
         return updated
+
+
+def _guard_actor(actor_can_admin: bool, field: str | None) -> None:
+    """Ator que não administra tocando o grupo de administração ou uma conta dele (ADR-057, item 4; R31)."""
+    if not actor_can_admin and field is not None:
+        raise ActorNotAllowed("quem não administra não mexe no grupo de administração nem nas contas dele", field=field)
 
 
 def _check_actor(actor: str) -> None:

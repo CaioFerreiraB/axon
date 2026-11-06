@@ -19,6 +19,7 @@ from typing import Any, Final
 import httpx
 
 from axon_ai.assistants.adapters.oidc import CallableJwksSource, JwksOidcVerifier
+from axon_ai.bootstrap.erasure import subject_erasers
 from axon_ai.bootstrap.settings import TEST_PROFILE, ConfigurationError, Settings
 from axon_ai.identity.adapters.cipher import AesGcmCipher
 from axon_ai.identity.adapters.clients_yaml import YamlClientSource
@@ -201,6 +202,8 @@ def identity_service(parts: Mapping[str, Any], *, session: Mapping[str, Any]) ->
         clock=parts["clock"],
         tokens=SystemTokenGenerator(),
         google=parts["identity_upstream"],
+        # Os apagadores dos outros módulos (incremento 9.7, FR-032, FR-033; R58, R59), montados na hora do apagamento.
+        erasers=subject_erasers(parts, session),
     )
 
 

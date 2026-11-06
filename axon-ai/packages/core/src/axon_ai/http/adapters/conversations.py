@@ -6,8 +6,9 @@ from typing import Any
 
 from fastapi import APIRouter, Request, Response
 
-from axon_ai.http.adapters.auth import authenticated
+from axon_ai.http.adapters.auth import authenticated, scoped
 from axon_ai.http.domain.conversations import conversation_json, page_size
+from axon_ai.http.domain.scopes import INFERENCE
 from axon_ai.http.service import ConversationService
 
 
@@ -18,6 +19,7 @@ def conversations_router(*, surface: str) -> APIRouter:
         return request.app.state.conversation_service  # type: ignore[no-any-return]
 
     @router.get("/conversations")
+    @scoped(INFERENCE)
     async def listing(request: Request) -> Any:
         principal = await authenticated(request, surface)
         limit = page_size(request.query_params.get("limit"))
@@ -25,12 +27,14 @@ def conversations_router(*, surface: str) -> APIRouter:
         return {"data": [conversation_json(c) for c in page.items], "next_cursor": page.next_cursor}
 
     @router.get("/conversations/{conversation_id}")
+    @scoped(INFERENCE)
     async def read(request: Request, conversation_id: str) -> Any:
         principal = await authenticated(request, surface)
         conversation, messages = await service(request).read(principal, conversation_id)
         return conversation_json(conversation, messages)
 
     @router.get("/conversations/{conversation_id}/attachments/{attachment_id}")
+    @scoped(INFERENCE)
     async def attachment(request: Request, conversation_id: str, attachment_id: str) -> Response:
         """Os bytes de uma imagem da conversa (ADR-044, item 9): mesma autenticação e mesmo 404 das mensagens."""
         principal = await authenticated(request, surface)
@@ -42,6 +46,7 @@ def conversations_router(*, surface: str) -> APIRouter:
         )
 
     @router.delete("/conversations/{conversation_id}", status_code=204)
+    @scoped(INFERENCE)
     async def remove(request: Request, conversation_id: str) -> Response:
         principal = await authenticated(request, surface)
         await service(request).delete(principal, conversation_id)

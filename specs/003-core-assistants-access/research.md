@@ -746,3 +746,249 @@ imagem. Mudar a impressão digital de todo Assistant inativaria todas as sobrepo
 
 **Alternatives considered**: lista `models.vision: [generation]` ao lado da allowlist (separa o atributo do papel que
 ele qualifica); herdar `vision` no modelo pedido (o operador declarou um modelo, não todos os da allowlist).
+
+# Passada de 2026-11-04: escopos da chave e Subject Erasure ([ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md), [ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md); US14, US15)
+
+> As decisões dos dois ADRs são pré-aprovadas e entram aqui como *Decision / Rationale (ADR) / Alternatives*, sem
+> re-pesquisa. O que eles deixam em aberto — forma no código, migração, credenciais de teste, concorrência — é decidido
+> abaixo. Nenhuma divergência; sem ADR novo.
+
+## R46 — `Scope` e `Principal.scopes`
+
+**Decision**: `type Scope = Literal["inference", "users", "admin"]` e `SCOPES: Final = ("inference", "users", "admin")`
+no `api.py`, com `DEFAULT_SCOPES: Final = frozenset({"inference"})`. `Principal.scopes: frozenset[Scope] | None = None`.
+No `__post_init__`: esquema `oidc` com escopos → `ValueError` (o token não tem escopos, ADR-057 item 2); esquema
+`api_key` sem escopos → normalizado para `DEFAULT_SCOPES`; escopo fora de `SCOPES` ou conjunto vazio → `ValueError`. O
+`authenticate` sempre monta o Principal de chave com os escopos guardados.
+
+**Rationale** (ADR-057, itens 1 e 2): o conjunto fechado é o do ADR. A normalização do `api_key` sem escopos para
+`{inference}` é o mesmo default da emissão e mantém funcionando quem monta o Principal em processo — o `axon eval run
+--principal svc:eval` da 011 e os kits de teste —, sem que nenhum deles ganhe administração por omissão.
+
+**Alternatives considered**: exigir escopos em todo Principal `api_key` (quebraria o harness de avaliação e uma dúzia de
+testes sem ganho de segurança — só a 003 autentica); `None` como "sem restrição" também em `api_key` (um Principal de
+chave montado sem escopos com o grupo de administração administraria: falha aberta).
+
+## R47 — Admin e inferência: duas regras puras, num lugar só
+
+**Decision**: em `domain/access.py`, `is_admin(principal, admin_group)` passa a ser "grupo de administração **e**
+(`scopes is None` **ou** `admin ∈ scopes`)", e entra `can_infer(principal) = scopes is None or "inference" in scopes`.
+`AccessService.is_admin` (que cumpre a `AdminGate` da 008) e `AssistantsService._require_admin` já chamam a função do
+domínio: nenhuma outra mudança para a FR-039.
+
+**Rationale** (ADR-057, item 3; FR-039): uma regra pura testada uma vez vale para emissão, listagem, rotação, revogação
+de chaves e para o System Assistant Admin; e, pela `AdminGate`, para as rotas da 008 no mesmo instante. O `oidc`
+(`scopes is None`) segue regido só pelo grupo.
+
+**Alternatives considered**: conferir o escopo em cada operação (duplicaria a regra, e uma operação esquecida seria
+falha aberta).
+
+## R48 — O portão de inferência no Assistant Directory e na resolução (FR-041)
+
+**Decision**: no `AssistantsService`, Principal sem `can_infer`: `resolve` levanta `not_found(<assistant>)` **antes**
+de procurar o Assistant (mesma mensagem do inexistente); `discover` e `mine` devolvem `[]`; `get`, `update` e `delete`
+levantam `not_found(name)`; `create` levanta `not_found(USER_PREFIX + draft.name)`. Nada conta orçamento.
+
+**Rationale** (ADR-057, item 5: falta de escopo é 404; FR-041): a 008 também barra por rota (o mapa é dela), mas a 003
+não depende disso — a regra vale para qualquer consumidor do seam (a avaliação, a 007 pelo grant). Recusar antes da
+busca não revela se o Assistant existe.
+
+**Alternatives considered**: `PermissionDenied`/403 (contraria o 404-não-403 da FR-005 e o ADR); deixar só para a 008
+(um consumidor novo do seam herdaria a falha aberta).
+
+## R49 — Emissão com escopos e rotação
+
+**Decision**: `ApiKeyAdmin.issue(..., scopes: Collection[str] | None = None)` e `issue_as_operator(..., scopes=…)`. Regra
+pura em `domain/keys.py`, `key_scopes(scopes, *, groups, admin_group, by_operator) -> frozenset[Scope]`, que levanta
+`RequestRejected(field="scopes")`:
+1. `None` → `{inference}`; conjunto vazio → recusa; nome fora de `SCOPES` → recusa nomeando o escopo;
+2. `admin` sem o grupo de administração nos grupos da chave → recusa ("o escopo admin exige o grupo de administração");
+3. `admin` fora da linha de comando (`by_operator=False`) → recusa ("o escopo admin só é concedido pela linha de
+   comando").
+
+Ordem no `issue` da administração: `_require_admin` → grupo de administração (`field="groups"`, FR-036, como hoje) →
+escopos. `ApiKeyInfo.scopes: frozenset[Scope] = DEFAULT_SCOPES`, validado no construtor (não vazio, dentro de `SCOPES`).
+A rotação (`ApiKeyStore.rotate`) troca só o hash e `rotated_at`; os escopos ficam — a conformidade da porta passa a
+conferir isso. A chave emitida pela CLI com `--group <admin>` **sem** `--scope admin` não administra: o default é o do
+ADR, e a saída do comando mostra os escopos.
+
+**Rationale** (ADR-057, itens 2, 3 e 6; FR-038, FR-040, FR-042): `admin` explícito em toda chave nova é o que o
+mantenedor escolheu (três escopos). A regra pura fica testável sem armazenamento; `by_operator` reproduz a separação da
+FR-036 sem um segundo caminho de código.
+
+**Alternatives considered**: default `{inference, admin}` na CLI quando há o grupo de administração (contradiz o
+default do ADR e tornaria o escopo implícito justamente na chave mais poderosa); escopos mutáveis por operação própria
+(ADR-057, item 6).
+
+## R50 — Migração `006_api_key_scopes` com o grupo de administração da configuração
+
+**Decision**: `sql/006_api_key_scopes.sql` acrescenta `api_keys.scopes text[]` (anulável) com
+`CHECK (scopes <@ '{inference,users,admin}' AND cardinality(scopes) > 0)`. O preenchimento precisa do grupo de
+administração, que é configuração do `assistants.yaml` e não está no SQL: `migrate(pool, *, now, admin_group: str | None
+= None)` ganha um passo Python por versão (`_AFTER = {6: _backfill_scopes}`), executado na mesma transação logo depois do
+arquivo 006 — `UPDATE … SET scopes = CASE WHEN %s = ANY(groups) THEN '{inference,admin}' ELSE '{inference}' END WHERE
+scopes IS NULL`, seguido de `ALTER COLUMN scopes SET NOT NULL`. Sem grupo de administração configurado, todas ficam
+`{inference}` (sem o grupo, nenhuma chave administrava). A 011 passa `admin_group=parts["assistants_config"].admin_group`
+em `wiring._migrate` (a configuração já foi lida na etapa `configuration`) — uma linha, atribuída pelo ADR-057 item 7.
+
+**Rationale** (ADR-057, item 7; FR-043; ADR-015, migração no adapter): o preenchimento roda uma vez, sob a mesma trava
+consultiva e a mesma transação da versão; o `NOT NULL` depois dele garante que nenhuma chave fica sem escopo. Mudar o
+`admin_group` depois da migração não dá `admin` a chave antiga: é preciso emitir outra — o mesmo que já vale para o
+grupo (ADR-040).
+
+**Alternatives considered**: deixar `NULL` como "chave anterior" e resolver na autenticação com o grupo atual (a regra
+legada viveria para sempre no caminho quente, e `ApiKeyInfo.scopes` teria de ser opcional); preencher todas com
+`{inference}` e pedir ao operador que reemita as de admin (quebra a instalação na atualização, contra o item 7).
+
+## R51 — Escopos das credenciais de teste e de desenvolvimento
+
+**Decision**: as chaves semeadas seguem a regra da migração — `{inference, admin}` se têm o grupo de administração,
+senão `{inference}`:
+- `TEST_API_KEY` (perfil `test`, `user:test`, grupo `admin`) → `{inference, admin}`: continua conversando em
+  `/private/v1` e administrando onde o `assistants.yaml` declara `admin_group: admin`, como hoje;
+- `AXON_DEV_API_KEY` (perfil `memory`, `user:dev`, no grupo de administração do `assistants.yaml` quando há um) →
+  `{inference, admin}`; sem `admin_group`, `{inference}`.
+
+`_seeded_keys`/`_record` em `bootstrap/profiles.py` (011) recebem os escopos — toque fora do módulo atribuído pelo
+ADR-057 item 7, feito nesta passada para a suíte da 008 e da 011 não regredir. Os kits que semeiam ou emitem chave de
+administração em processo (`tests/http/http_testkit.py`, `tests/bootstrap/integration/test_persistent_profile.py`)
+passam `scopes` explicitamente. Uma credencial de teste só com `users` (para a prova da 008/011) é decisão da passada da
+011, não daqui.
+
+**Rationale**: "depois da migração, nenhuma requisição que passava deixa de passar" (ADR-057, item 7) vale também para
+as credenciais semeadas; uma regra só para as duas evita um terceiro comportamento.
+
+**Alternatives considered**: `TEST_API_KEY` só com `{inference}` e uma segunda chave de admin (dezenas de testes de
+administração mudariam de credencial nesta passada, sem ganho); três chaves de teste já aqui (a 003 não tem rota; quem
+precisa delas é a prova da 008/011).
+
+## R52 — O seam Subject Erasure
+
+**Decision**: no `api.py`:
+
+```python
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ErasureReport:
+    user_assistants: int = 0
+    api_keys: int = 0
+    override_entries: int = 0
+    config_references: tuple[str, ...] = ()   # Assistants do assistants.yaml que citam o subject (FR-046)
+
+class SubjectErasure(Protocol):
+    async def erase_subject(self, subject: str, *, actor: str) -> ErasureReport: ...
+```
+
+`subject` no `SUBJECT_PATTERN` (senão `RequestRejected(field="subject")`); `actor` é o texto que vai como autor das
+versões novas de sobreposição (o subject de quem pediu, como `updated_by` hoje). O `actor` é refinamento da assinatura genérica do ADR-058 (item 2, `erase_subject(subject)`):
+a versão nova de uma sobreposição precisa de autor (FR-045, FR-021). Implementado por `SubjectEraser` em
+`service.py`, montado pela 011 com as três portas de armazenamento (`ApiKeyStore`, `UserAssistantStore`,
+`SystemOverrideStore | None`), a configuração e o `Clock`, e com uma referência ao `AssistantsService` só para
+invalidar o cache da configuração efetiva dos Assistants tocados (`AssistantsService.forget(names)`). Ordem: chaves
+(corta o acesso pela privada primeiro) → Assistants de usuário → sobreposições → referências do YAML. Duas operações
+novas de porta, com conformidade memória × Postgres: `ApiKeyStore.erase_subject(subject) -> int` (ativas e revogadas,
+um `DELETE`) e `UserAssistantStore.erase_owner(owner) -> int`.
+
+**Rationale** (ADR-058, itens 2 e 7; FR-044, FR-047): campos com nome em vez de dicionário deixam o 011 mapear o
+relatório para a porta da 012 sem convenção de chave; idempotência sai naturalmente de `DELETE … WHERE` (zero na
+segunda vez) e da regravação só quando a entrada existe. O seam não tem verificação de admin: quem autoriza é a 012,
+pela 011 (FR-047), e ele não é exposto por HTTP nem CLI da 003.
+
+**Alternatives considered**: método no `AssistantsService` com o `ApiKeyStore` injetado (misturaria chaves no serviço de
+Assistants); dois seams (um no `AccessService`, outro no `AssistantsService`) e a 011 chamando os dois (a ordem e a
+contagem ficariam fora do módulo dono); revogar as chaves em vez de apagá-las (o ADR-058 pede o apagamento; revogada
+ainda aparece na listagem).
+
+## R53 — Sobreposições de `auth` sem o subject (FR-045)
+
+**Decision**: para cada `StoredOverride` de seção `auth` (ativa **ou** inativa) cujo `allow` contém exatamente o
+subject (`user:ana`; seletores de grupo e `*` não são do subject), grava-se pela porta uma versão nova com `allow` sem a
+entrada, `updated_by=actor`, `expected_version` = a lida e a **mesma impressão digital guardada** (o estado
+ativo/inativo não muda pelo apagamento). A gravação vai direto à porta, sem a validação de `override_auth` — por isso o
+`allow` vazio é aceito (única exceção à FR-031) —, e o `apply_auth` já existente torna o Assistant indisponível com
+`override.auth` quando `allow` está vazio (R42): nada novo na efetiva. Versão desatualizada (um admin gravou entre a
+leitura e a escrita) → relê e tenta de novo, até 3 vezes; depois, `Conflict`, que a 012 trata como falha do apagador (a
+conta fica em `deleting` e o `DELETE` repetido retoma). `override_entries` conta as entradas removidas. O histórico
+recebe a ação `saved` com o autor, como qualquer gravação (FR-021).
+
+**Rationale** (ADR-058, item 7; clarificação de 2026-11-04; FR-045): descartar a sobreposição faria valer o `auth` do
+YAML, possivelmente mais amplo — falha aberta. Preservar a impressão digital evita que o apagamento reative uma
+sobreposição inativa ou inative uma ativa.
+
+**Alternatives considered**: recalcular a impressão digital (uma sobreposição inativa por mudança do YAML poderia voltar
+a valer sem ação de admin); travar a linha durante o apagamento (a porta já tem a versão otimista; a retomada da 012
+cobre o raro conflito).
+
+## R54 — Avisos do YAML e o que fica
+
+**Decision**: `config_references` lista, em ordem alfabética, os Assistants de sistema cujo `allow` **no YAML** contém o
+subject exato; nada é alterado no arquivo (FR-046). A política de Assistants de usuário cita grupos, não subjects: nada
+a avisar. Os contadores de taxa (`RateCounterStore`, memória, janela de 1 min) não são tocados: expiram sozinhos e não
+dão acesso. O relatório é o mesmo em toda repetição (as contagens vão a zero; as referências do YAML continuam).
+
+**Rationale** (ADR-058, item 7): configuração do operador muda por deploy; o aviso existe porque um usuário novo com o
+mesmo nome herdaria aquele acesso.
+
+**Alternatives considered**: recusar o apagamento enquanto o YAML citar o subject (o operador teria de fazer deploy
+para apagar uma conta); apagar os contadores (porta nova sem efeito observável).
+
+## R55 — Testes e toques fora do módulo
+
+**Decision**: marcas `us14` e `us15` no `pyproject.toml` do workspace. Testes:
+- `unit/test_scopes.py` (US14): `Principal` (normalização e recusas), `is_admin`/`can_infer`, `key_scopes` com cada
+  recusa e a ordem dos erros;
+- `contract/test_key_scopes.py` (US14): os nove cenários, inclusive a rotação que preserva e o admin com grupo sem
+  escopo; `contract/test_api_key_store.py` ganha escopos na ida e volta, na rotação e o `erase_subject`;
+- `contract/test_subject_erasure.py` (US15): os sete cenários, a idempotência, o `allow` vazio indisponível, o conflito
+  com retentativa e o esgotado (`Conflict`), e o cache invalidado; `contract/test_user_assistant_store.py` ganha
+  `erase_owner`;
+- `integration/test_postgres_migrations.py`: a 006 sobre dados — chave comum `{inference}`, com o grupo de
+  administração `{inference, admin}`, sem grupo configurado `{inference}`, e o `NOT NULL` depois;
+- `integration/test_cli.py`: `keys create --scope`, a recusa de `admin` sem o grupo e `keys list` com escopos.
+
+Toques fora de `axon_ai/assistants/**`, todos atribuídos pelo ADR-057 item 7 ou exigidos para a suíte não regredir:
+`bootstrap/wiring.py` (`admin_group` no `migrate`), `bootstrap/profiles.py` (escopos das chaves semeadas, R51),
+`tests/http/http_testkit.py` e `tests/bootstrap/integration/test_persistent_profile.py` (escopos explícitos). O
+`--scope` da CLI é argumento do `keys_create_command` da 003 (`adapters/cli.py`), sem registro novo na 011. A montagem
+do `SubjectEraser` e a ligação à 012 são da passada da 011.
+
+**Rationale**: SC-011 e SC-012 são adversariais e valem em memória e no Postgres; cada US tem o seu arquivo de contrato,
+como nas passadas anteriores.
+
+**Alternatives considered**: deixar `profiles.py` para a passada da 011 (a suíte inteira da 008 ficaria vermelha entre
+as passadas).
+
+## R56 — O pseudônimo no Subject Erasure ([ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md); FR-048)
+
+**Decision**: `erase_subject(subject, *, actor, pseudonym)`. `pseudonym` é obrigatório, porque o seam é desta mesma
+passada e ainda não foi publicado, e é conferido contra `^deleted:[0-9a-f]{16}$` (`RequestRejected(field="pseudonym")`).
+Depois de regravar as sobreposições (R53), uma operação nova da porta, `SystemOverrideStore.pseudonymize(subject,
+pseudonym) -> int`, faz três trocas numa transação:
+- `updated_by` das sobreposições, quando igual ao subject;
+- `actor` do histórico, quando igual;
+- o subject dentro de `payload.allow` das versões `auth` do histórico.
+
+Devolve o total de citações trocadas, que vai a `ErasureReport.authored`. A ordem importa: a regravação de R53 grava
+`updated_by=actor` (quem apaga) e um histórico já sem o subject; a troca vem depois e pega o que sobrou.
+
+**Rationale** (ADR-059, itens 1–3; clarificação da 012 de 2026-11-04): o histórico é registro da plataforma e fica, mas
+sem identificar a pessoa. O pseudônimo, e não a remoção da entrada, mantém a versão antiga legível: "esta versão permitia
+alguém que foi apagado".
+
+**Alternatives considered**: `pseudonym` opcional (abriria um caminho que deixa o nome guardado); apagar o histórico das
+sobreposições que citam o subject (perde a trilha de quem mudou o acesso); trocar no histórico só o `actor` (a versão
+antiga continuaria listando `user:<nome>`).
+
+## R57 — Testes do ajuste
+
+**Decision**: em `contract/test_subject_erasure.py`, todo `erase_subject` passa `pseudonym=`. Casos novos:
+- o cenário 8 da US15;
+- o pseudônimo malformado é recusado;
+- depois do apagamento, uma busca do subject no schema `assistants` (todas as colunas de texto e `jsonb` das quatro
+  tabelas) não acha nada, com `AXON_TEST_POSTGRES_DSN`.
+
+A conformidade de `pseudonymize` vai em `contract/test_override_store.py` (memória × Postgres).
+
+**Rationale**: SC-012 revisto; a busca no Postgres é a prova de que nada ficou.
+
+**Alternatives considered**: só a conformidade da porta (não provaria a ausência no schema todo).
+

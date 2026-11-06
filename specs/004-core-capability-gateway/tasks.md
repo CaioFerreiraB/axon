@@ -387,3 +387,30 @@ o resumo.
 - [X] D03 Types/lint e regressões.
 
 Validação ADR-055: suítes MCP/gateway/motor/HTTP com Postgres temporário; testes novos de isolamento, API e canal confidencial; mypy, Ruff e 69 contratos import-linter aprovados. Testes de transporte e destinos estáticos preservados.
+
+
+## Passada de 2026-11-04: US7 — pseudônimo na auditoria (incremento 9.7; [ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md); research R16)
+
+**Goal**: `AuditErasure.erase_subject(subject, *, pseudonym)` troca o Principal dos registros do subject pelo
+pseudônimo, sem apagar nada; idempotente.
+
+**Independent Test**: `uv run pytest packages/core/tests/capabilities -k us7` (com `AXON_TEST_POSTGRES_DSN`, também o
+Postgres e a varredura do schema `capabilities`).
+
+- [X] T044 [P] [US7] Marca `us7` estendida com "004 US7 — pseudônimo na auditoria" em `axon-ai/pyproject.toml`
+- [X] T045 [P] [US7] Conformidade de `pseudonymize` em `tests/capabilities/contract/test_audit_log.py` (memória ×
+  Postgres): só `principal` muda; outro Principal intacto; repetir devolve 0; registro `started` fecha depois
+- [X] T046 [P] [US7] `tests/capabilities/contract/test_audit_erasure.py`: cenários 1–3 pelo serviço; subject e
+  pseudônimo inválidos sem tocar a auditoria; no Postgres, SC-006
+- [X] T047 [US7] `AuditErasureReport` e `AuditErasure` em `axon_ai/capabilities/api.py`; `AuditLog.pseudonymize` em
+  `ports.py`; adapters em `adapters/memory.py` e `adapters/audit_postgres.py`
+- [X] T048 [US7] `CapabilityService.erase_subject` em `axon_ai/capabilities/service.py`
+- [X] T049 [US7] Verificação: suíte da 004 com Postgres, mypy, ruff, lint-imports; `specs/README.md`, `docs/roadmap.md`
+
+**Dependências**: T044–T046 antes de T047–T048; T049 por último. A 011 (US9) liga o seam à porta `SubjectDataEraser`
+da 012, descartando `actor`.
+
+
+**Execução (2026-11-04)**: T044–T049 feitas. Suíte da 004 contra o Postgres: 140 passaram; workspace com Postgres:
+4072 passaram, 12 pulados; mypy, ruff e import-linter (70 contratos) limpos. O comentário "só inserção e o fechamento"
+do `001_audit.sql` não foi editado (migração aplicada); a terceira exceção, a troca pelo pseudônimo, está na research R16.

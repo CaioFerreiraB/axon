@@ -236,7 +236,9 @@ async def _migrate(parts: Mapping[str, Any]) -> None:
     async with storage(parts) as session:
         now = parts["clock"].now()
         async with _database_errors(parts["settings"]):
-            await assistants_schema.migrate(session["database"], now=now)
+            await assistants_schema.migrate(
+                session["database"], now=now, admin_group=parts["assistants_config"].admin_group
+            )
             await http_schema.migrate(session["database"], now=now)
             await mcp_schema.migrate(session["database"], now=now)
             await capabilities_schema.migrate(session["database"], now=now)

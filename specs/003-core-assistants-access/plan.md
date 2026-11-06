@@ -545,3 +545,126 @@ Nenhuma linha nova.
 
 Reavaliado com [data-model.md](data-model.md), [contracts/](contracts/) e [quickstart.md](quickstart.md) ("Fase 9,
 2026-10-21"): **PASS**.
+
+# Passada de 2026-11-04: escopos da chave e Subject Erasure (US14, US15; [ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md), [ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md))
+
+> As seções acima ficam como foram executadas. Este é o plano da US14 e da US15 (Fase 9, incremento 9.7).
+
+**Insumos lidos**: [spec.md](spec.md) (US14, US15, FR-036 revista, FR-038–FR-047, SC-011, SC-012, clarificações de
+2026-11-04), [design.md](design.md), ADR-012, ADR-015, ADR-031, ADR-040, ADR-057, ADR-058, constituição. Research:
+R46–R55. **Sem divergência** do `design.md` nem dos ADRs; sem ADR novo.
+
+## Summary (US14, US15)
+
+**US14**: `Scope` (`inference`, `users`, `admin`) entra no `api.py`; o `Principal` de chave carrega os escopos (o OIDC
+não, R46); `is_admin` com chave passa a exigir o escopo `admin` e `can_infer` barra resolução e Assistant Directory sem
+`inference` com o 404 de inexistente (R47, R48); a emissão valida os escopos por uma regra pura — default `{inference}`,
+`admin` só pela CLI e só com o grupo de administração — e a rotação os preserva (R49); a migração 006 preenche as chaves
+existentes com o grupo de administração da configuração (R50); as credenciais semeadas seguem a mesma regra (R51).
+**US15**: seam **Subject Erasure** (`erase_subject(subject, *, actor) -> ErasureReport`), implementado por um
+`SubjectEraser` que apaga chaves e Assistants de usuário por duas operações novas de porta e regrava as sobreposições de
+`auth` sem o subject, preservando a impressão digital e aceitando `allow` vazio (falha fechada pela efetiva já
+existente), com retentativa em conflito de versão e as referências do YAML como aviso (R52–R54).
+
+## Technical Context (US14, US15)
+
+- **Language/Version, dependências**: sem mudança.
+- **Storage**: `sql/006_api_key_scopes.sql` no schema `assistants` + passo de preenchimento no `migrate` (R50).
+- **Testing**: `unit/test_scopes.py`, `contract/test_key_scopes.py`, `contract/test_subject_erasure.py`; acréscimos na
+  conformidade do `ApiKeyStore` e do `UserAssistantStore`, nas migrações e na CLI (R55). Marcas `us14`, `us15`.
+- **Scale/Scope**: `api.py`, `ports.py`, `service.py`, `domain/access.py`, `domain/keys.py`, adapters de memória e
+  Postgres das chaves e dos Assistants de usuário, `postgres_schema.py`, `cli.py`; fora do módulo, `bootstrap/wiring.py`
+  (uma linha), `bootstrap/profiles.py` (escopos semeados) e dois kits de teste (R51, R55).
+- **Performance**: o apagamento é um `DELETE` por tabela e uma regravação por sobreposição citada — ordem de dezenas de
+  linhas por subject; nada no caminho quente muda além de um teste de pertença num `frozenset`.
+- Nenhum `NEEDS CLARIFICATION`.
+
+## Constitution Check (US14, US15)
+
+| Princípio | Resultado | Evidência |
+|---|---|---|
+| II. Módulos substituíveis por seams | ✅ | Seams Authenticator e API Key Admin mudam de forma aditiva, e `is_admin` muda de comportamento sob o ADR-057; Subject Erasure é seam novo sob o ADR-058; a 003 não importa a 012 nem conhece contas (FR-047) |
+| IV. O Assistant é a fronteira de isolamento | ✅ | Sem `inference`, nenhum Assistant resolve nem aparece (R48); o apagamento nunca amplia o acesso de um Assistant (R53) |
+| VII. Falha fechada e explícita | ✅ | Principal de chave sem escopos vira `{inference}`, nunca "sem restrição" (R46); `allow` vazio → indisponível com `override.auth` (R53); conflito esgotado levanta `Conflict`, e a 012 retoma |
+| XII. Simplicidade deliberada | ✅ | Três escopos fechados; sem escopo em OIDC; idempotência no lugar de transação entre schemas (ADR-058, item 4) |
+| XIII. Portas e adapters | ✅ | Regras puras em `domain/access.py` e `domain/keys.py`; apagamento por duas operações novas de portas existentes, com conformidade; nenhuma porta nova |
+
+**Module boundary gate**: `axon_ai/assistants/**`, `tests/assistants/**`, `axon-ai/pyproject.toml` (marcas),
+`specs/README.md` (linhas dos seams Principal, API Key Admin e Subject Erasure — já feitas no specify) e `design.md`.
+Fora do módulo: `bootstrap/wiring.py` e `bootstrap/profiles.py` (011) e os kits `tests/http/http_testkit.py` (008) e
+`tests/bootstrap/integration/test_persistent_profile.py` (011), atribuídos pelo ADR-057 item 7 (migração sem quebra,
+R50, R51). Nada em `http/` de produção: o mapa de rotas é da passada da 008. **Ports & adapters gate**: nenhuma porta
+nova; `ApiKeyStore.erase_subject` e `UserAssistantStore.erase_owner` com conformidade memória × Postgres. **Resultado**:
+PASS.
+
+## Project Structure (US14, US15)
+
+```text
+axon-ai/
+├── pyproject.toml                                  # marcas us14, us15
+└── packages/core/
+    ├── src/axon_ai/
+    │   ├── assistants/
+    │   │   ├── api.py                              # Scope, SCOPES, DEFAULT_SCOPES; Principal.scopes; ApiKeyInfo.scopes;
+    │   │   │                                       #   ApiKeyAdmin.issue(scopes=…); ErasureReport; SubjectErasure (R46, R49, R52)
+    │   │   ├── ports.py                            # ApiKeyStore.erase_subject; UserAssistantStore.erase_owner (R52)
+    │   │   ├── service.py                          # portão de inferência (R48); escopos na emissão (R49);
+    │   │   │                                       #   AssistantsService.forget; SubjectEraser (R52–R54)
+    │   │   ├── domain/access.py                    # is_admin com escopo; can_infer (R47)
+    │   │   ├── domain/keys.py                      # key_scopes (R49)
+    │   │   └── adapters/
+    │   │       ├── memory.py                       # escopos; erase_subject; erase_owner
+    │   │       ├── api_keys_postgres.py            # coluna scopes; erase_subject
+    │   │       ├── assistants_postgres.py          # erase_owner
+    │   │       ├── postgres_schema.py              # migrate(admin_group=…) e o passo de preenchimento (R50)
+    │   │       ├── cli.py                          # keys create --scope; keys list/create/rotate mostram escopos
+    │   │       └── sql/006_api_key_scopes.sql
+    │   └── bootstrap/
+    │       ├── wiring.py                           # admin_group no migrate (R50)
+    │       └── profiles.py                         # escopos das chaves semeadas (R51)
+    └── tests/
+        ├── assistants/
+        │   ├── unit/test_scopes.py                 # novo
+        │   ├── contract/{test_key_scopes,test_subject_erasure}.py      # novos
+        │   ├── contract/{test_api_key_store,test_user_assistant_store}.py
+        │   └── integration/{test_cli,test_postgres_migrations}.py
+        ├── http/http_testkit.py                    # escopos explícitos nas chaves de admin semeadas
+        └── bootstrap/integration/test_persistent_profile.py           # idem na emissão
+```
+
+## Seam Notes for Consumers (US14, US15)
+
+| Consumidor | O que precisa saber |
+|---|---|
+| 008 | `Principal.scopes` (`None` = OIDC); `AdminGate.is_admin` já exige o escopo `admin` em chave (nada a mudar na porta); o mapa rota → escopo (`users` em contas e grupos, `inference` na execução, `admin` no resto) é dela; `ApiKeyInfo.scopes` na listagem das duas superfícies; `issue(scopes=…)` com `RequestRejected(field="scopes")` para vazio, desconhecido e `admin`; Assistant Directory e `resolve` devolvem inexistente/vazio sem `inference` |
+| 011 | `migrate(pool, now=…, admin_group=…)`; chaves semeadas com escopos (feito nesta passada); montar `SubjectEraser(keys=…, users=…, overrides=…, config=…, assistants=…, clock=…)` e adaptá-lo à porta `SubjectDataEraser` da 012 (passada da 011); uma credencial de teste só `users`, se a prova precisar |
+| 012 | Nenhuma dependência direta: recebe o apagamento da 003 pela porta dela, montada pela 011. `Conflict` do `erase_subject` = apagador que falhou (retomável) |
+| Operador | `axon keys create … --scope inference --scope users`; `--scope admin` só com `--group <admin>`; sem `--scope`, `inference`; chaves existentes migram sem perder acesso |
+
+## Complexity Tracking (US14, US15)
+
+Nenhuma linha nova.
+
+## Constitution Check — pós-design (US14, US15)
+
+Reavaliado com [data-model.md](data-model.md), [contracts/](contracts/) e [quickstart.md](quickstart.md) ("Fase 9,
+2026-11-04"): **PASS**.
+
+## Ajuste da passada de 2026-11-04: o pseudônimo no Subject Erasure ([ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md); FR-048; research R56, R57)
+
+**Summary**:
+- **O seam.** O Subject Erasure passa a exigir o pseudônimo que a 012 gera.
+- **A porta.** `SystemOverrideStore` ganha `pseudonymize(subject, pseudonym)`, que troca numa transação o autor das
+  sobreposições, o ator do histórico e o subject nas listas `allow` guardadas no histórico.
+- **O relatório.** `ErasureReport` ganha `authored`.
+
+**Constitution Check**: PASS. O seam muda antes de ser consumido, ainda na passada. A operação nova da porta tem
+conformidade. Nenhum toque fora do módulo, porque a 011 ainda não liga o seam.
+
+**Project Structure**: `assistants/api.py` (`ErasureReport.authored`, `SubjectErasure.erase_subject(…, pseudonym)`,
+`PSEUDONYM_PATTERN`), `ports.py`, `service.py` (`SubjectEraser`), `adapters/memory.py`, `adapters/overrides_postgres.py`;
+testes em `contract/test_subject_erasure.py` e `contract/test_override_store.py`.
+
+**Seam Notes for Consumers**: a 011 adapta `erase_subject(subject, actor=…, pseudonym=…)` à porta `SubjectDataEraser`
+da 012, com contagens `user_assistants`, `api_keys`, `override_entries` e `authored`, e `config_references` como avisos.
+

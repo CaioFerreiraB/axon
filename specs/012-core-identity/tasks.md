@@ -478,3 +478,174 @@ T077.
 
 - [X] T081 `_Http.csp` calculada por página a partir de `service.clients`; teste de regressão em
   `tests/identity/integration/test_pages.py`. Verificado no dev: o login por senha pelo Open WebUI volta ao cliente.
+
+---
+
+## Passada de 2026-11-04: apagar conta, um grupo de cada vez, o ator que não administra — US9, US10, US11 ([ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md), [ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md), [ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md); research R28–R34)
+
+**Goal**:
+- **Apagar.** `AccountAdmin.delete` apaga uma conta em cascata, pela porta `SubjectDataEraser`, passando a todos os
+  apagadores o mesmo pseudônimo.
+- **Falha e retomada.** Se um apagador falha, a conta fica em apagamento e o `delete` repetido retoma.
+- **Fim.** O nome volta a ficar livre e os autores viram o pseudônimo.
+- **Um grupo de cada vez.** `add_group`/`remove_group` não usam versão.
+- **Quem não administra.** `actor_can_admin=False` recusa tudo o que toca o grupo de administração ou as contas dele.
+
+**Independent Test**: [quickstart.md, "Fase 9, incremento 9.7"](quickstart.md) — a suíte de `identity/`, com e sem
+`AXON_TEST_POSTGRES_DSN`, e a suíte completa sem regressão.
+
+### Setup
+
+- [X] T082 `axon-ai/pyproject.toml`: acrescentar às descrições das marcas `us9`, `us10` e `us11` a parte da 012
+  ("012 US9 — apagar conta em cascata", "012 US10 — um grupo de cada vez", "012 US11 — ator que não administra")
+
+### Foundational (bloqueia as três US)
+
+- [X] T083 `axon-ai/packages/core/src/axon_ai/identity/api.py` (R28, R29, R31):
+  - **`Account`.** Ganha `deleting: bool = False`.
+  - **Relatório.** `ModuleErasure(name: str, counts: Mapping[str, int], warnings: tuple[str, ...] = (), failed: bool =
+    False)` e `DeletionReport(username: str, complete: bool, identity: Mapping[str, int], modules: tuple[ModuleErasure,
+    ...])`, frozen e kw_only, com os mapeamentos em `MappingProxyType`.
+  - **Erros.** `DeletionIncomplete(IdentityError)`, com o atributo `report`, e `ActorNotAllowed(IdentityError)`, com
+    `field`.
+  - **`AccountAdmin`.** Ganha `delete`, `add_group` e `remove_group` com as assinaturas do contrato. As escritas
+    existentes (`create`, `update`, `reset_password`, `disable`, `enable`, `unlink_google`, `delete_group`,
+    `set_members`) ganham `actor_can_admin: bool = True`, keyword.
+- [X] T084 `axon-ai/packages/core/src/axon_ai/identity/domain/records.py` e `domain/accounts.py` (R28, R31):
+  - **`AccountRecord`.** Ganha `deletion_pseudonym: str | None = None`, que tem de casar `^deleted:[0-9a-f]{16}$`
+    (senão `ValueError`) e coerente com `account.deleting`.
+  - **`pseudonym_of(uuid: str) -> str`.** Devolve `deleted:` + os 16 primeiros hexadecimais do uuid sem hífens.
+  - **`escalation(...) -> str | None`.** Uma função pura por operação, com a tabela da R31: devolve o campo
+    (`groups`, `group`, `username`, `name`, `members`) ou `None`.
+- [X] T085 `axon-ai/packages/core/src/axon_ai/identity/ports.py` (R29, R30, R32):
+  - **Novos.** `ErasedData(counts: Mapping[str, int], warnings: tuple[str, ...] = ())` e
+    `SubjectDataEraser(Protocol)`, com `name: str` e `async erase(subject, *, actor, pseudonym) -> ErasedData`.
+  - **`AccountStore`.** `delete(account_id) -> bool`, `replace_actor(old, new) -> int`, `add_member(account_id, group,
+    *, at, actor) -> bool` e `remove_member(...) -> bool`.
+  - **`GrantStore`.** `erase_account(account_id) -> Mapping[str, int]`.
+  - **`IdentitySettingsStore`.** `replace_actor(old, new) -> int`.
+- [X] T086 `axon-ai/packages/core/src/axon_ai/identity/adapters/sql/005_account_deletion.sql`: `ALTER TABLE
+  identity.accounts ADD COLUMN deletion_pseudonym text CHECK (deletion_pseudonym ~ '^deleted:[0-9a-f]{16}$')`.
+  Comentário com a origem (ADR-058, ADR-059, R28). O `postgres_schema.py` só pega o arquivo novo.
+
+### US9 — Tests (antes das T092–T095)
+
+- [X] T087 [P] [US9] `axon-ai/packages/core/tests/identity/unit/test_account_rules.py` (novo): `pseudonym_of` (formato,
+  determinístico pelo uuid); `escalation` com cada linha da R31, inclusive `None` para tudo que não toca o grupo de
+  administração
+- [X] T088 [P] [US9] Conformidade das portas, memória × Postgres:
+  - `contract/test_account_store.py`: `deletion_pseudonym` na ida e volta; `delete` tira associações e conta e devolve
+    `False` na repetição; `replace_actor` troca só o `updated_by` igual.
+  - `contract/test_grant_store.py`: `erase_account` apaga sessões, renovações (em cascata), códigos e pedidos da conta e
+    só dela, com as contagens; zero na repetição.
+  - `contract/test_settings_store.py`: `replace_actor`.
+- [X] T089 [P] [US9] `axon-ai/packages/core/tests/identity/contract/test_account_deletion.py` (novo, marca `us9`):
+  - **Os oito cenários da US9**, com dois apagadores de teste que registram as chamadas.
+  - **Pseudônimo.** O mesmo nos dois apagadores e nas duas tentativas; ausente do `DeletionReport`. O `updated_by`
+    de outra conta e o dos ajustes passam a ele.
+  - **Retomada.** Um apagador que falha na primeira vez leva a `DeletionIncomplete`, com `report.complete=False` e
+    `failed=True` só nele; o outro roda mesmo assim. A segunda tentativa conclui.
+  - **Conta em apagamento.** `enable`, `update`, `reset_password` e o cadastro com o mesmo nome dão
+    `Conflict("username")`; `accounts()` não a lista, e `accounts(active=None)` a lista com `deleting=True`.
+  - **Protocolo.** O login e a renovação dela são recusados.
+  - **Recusas.** A própria conta dá `InvalidField("username")`; o último admin dá `ProtectedGroup`, sem mudar nada.
+  - **Conta inexistente.** `AccountNotFound`.
+  - **Memória e Postgres.** Os mesmos casos com o Postgres quando `AXON_TEST_POSTGRES_DSN` está definido (SC-009).
+- [X] T090 [P] [US9] `axon-ai/packages/core/tests/identity/integration/test_identity_migrations.py` (novo; com
+  `AXON_TEST_POSTGRES_DSN`): banco até a 004 com contas → a 005 aplica, as contas ficam com `deletion_pseudonym` nulo e
+  `deleting=False`; o `CHECK` recusa `deleted:xyz`
+- [X] T091 [P] [US9] `axon-ai/packages/core/tests/identity/integration/test_identity_cli.py`: `users_delete_command`
+  sem `--yes` pede o nome digitado de novo (nome errado → código 1, nada apagado); com `--yes`, imprime o relatório por
+  módulo e sai com 0; `DeletionIncomplete` → código 1 com o relatório parcial
+
+### US9 — Implementation
+
+- [X] T092 [US9] Adapters de memória e Postgres (`adapters/memory.py`, `adapters/postgres.py`):
+  - **Operações novas.** As da T085, cada uma numa transação no Postgres.
+  - **`deletion_pseudonym`.** Nas colunas e na leitura.
+  - **`accounts(active=…)`.** Continua filtrando por `active`, e a conta em apagamento é inativa.
+- [X] T093 [US9] `axon-ai/packages/core/src/axon_ai/identity/service.py` (R29, R30):
+  - **Construtor.** `IdentityService` ganha `erasers: Sequence[SubjectDataEraser] = ()`.
+  - **`delete`.** Segue a ordem da R29: recusas → estado com o pseudônimo → `revoke_account_sessions` → todos os
+    apagadores, um `try` cada → `DeletionIncomplete`, se algum falhou → o que é da identidade, na ordem da R30.
+  - **Eventos de log.** `account.deleting`, `account.deleted` e `account.deletion_failed`, este com o nome do apagador;
+    sem segredo e sem o pseudônimo.
+  - **Recusas em todas as escritas.** Conta em apagamento dá `Conflict("username")`, e o cadastro com nome de conta em
+    apagamento dá `Conflict("username")`, pelo índice único que já existe.
+- [X] T094 [US9] `axon-ai/packages/core/src/axon_ai/identity/adapters/cli.py` (R33): `users_delete_command(service, *,
+  username, yes, persistent, read_confirmation, out, err)`, que imprime `identidade: …` e uma linha por módulo
+  (`<nome>: chave=n …` ou `<nome>: FALHOU`) e os avisos
+- [X] T095 [US9] Conferir que a conta em apagamento é recusada no login, na renovação e em "Minha conta" pelos caminhos
+  existentes de conta inativa (`service.py`); acrescentar o teste de protocolo em `test_account_deletion.py` se algum
+  caminho usar outro campo
+
+### US10 — Tests (antes da T097)
+
+- [X] T096 [P] [US10] `axon-ai/packages/core/tests/identity/contract/test_group_membership.py` (novo, marca `us10`) e
+  `contract/test_account_store.py` (`add_member`/`remove_member`, memória × Postgres):
+  - **Os seis cenários da US10.**
+  - **Idempotência.** Repetir não muda a versão.
+  - **Concorrência.** `asyncio.gather` de `add_group` em dois grupos deixa os dois (SC-011), e um `update` com a versão
+    anterior a um `add_group` recebe `Conflict("version")`.
+  - **Erros.** `GroupNotFound`/`AccountNotFound`; último admin → `ProtectedGroup`; conta em apagamento →
+    `Conflict("username")`.
+
+### US10 — Implementation
+
+- [X] T097 [US10] Adapters de memória e Postgres e os comandos da CLI:
+  - **`service.py`** (R32): `add_group`/`remove_group` validam a conta e o grupo, chamam `_guard_admin` ao tirar do
+    grupo de administração, depois a porta, e devolvem a conta relida.
+  - **`adapters/cli.py`** (R33): `groups_add_member_command` e `groups_remove_member_command`.
+  - **Testes da CLI** em `test_identity_cli.py`.
+
+### US11 — Tests (antes da T099)
+
+- [X] T098 [P] [US11] `axon-ai/packages/core/tests/identity/contract/test_actor_not_admin.py` (novo, marca `us11`):
+  - **Recusas.** Cada recusa da R31 com `actor_can_admin=False`, nomeando o campo e sem mudar nada (SC-010).
+  - **O que segue valendo.** Operações sobre contas e grupos comuns funcionam; leituras devolvem tudo, inclusive os
+    membros do grupo de administração.
+  - **Sem o parâmetro**, nada muda.
+
+### US11 — Implementation
+
+- [X] T099 [US11] `axon-ai/packages/core/src/axon_ai/identity/service.py` (R31): `_guard_actor(...)` chamado em cada
+  escrita, antes de qualquer gravação, com `escalation` do domínio e `ActorNotAllowed(field)`
+
+### Integration e verificação
+
+- [X] T100 Suítes (a partir de `axon-ai/`, `XDG_DATA_HOME=$HOME/.local/share`): `uv run pytest && uv run mypy && uv run
+  ruff check packages && uv run lint-imports`, e `identity/` contra o Postgres 17 em contêiner temporário (não remover
+  contêiner existente com o mesmo nome: usar um nome próprio da passada)
+- [X] T101 [P] `specs/README.md` (linha da 012: US9–US11 implementadas), `docs/roadmap.md` (andamento: 012 feita) e
+  `graphify update .`; nas notas da execução, registrar que a SC-012 (nada do nome apagado em nenhum schema) fecha na
+  prova ponta a ponta da 011, com os apagadores de todos os módulos ligados
+
+### Dependencies (US9–US11)
+
+T082 → T083 → T084 → T085 → T086 (fundação) → US9: T087 ∥ T088 ∥ T089 ∥ T090 ∥ T091 (veem falhar) → T092 → T093 → T094 →
+T095 → US10: T096 → T097 → US11: T098 → T099 → T100 (T101 em paralelo). As três US tocam `service.py` e os adapters: em
+sequência. A US11 depende da fundação (`escalation`), não das outras.
+
+**MVP**: a US11 e a US10 sozinhas já servem a passada da 008 (gestão pela chave `users`); a US9 completa o apagamento,
+que só fica disponível ponta a ponta depois da 011 ligar os apagadores.
+
+### Notas da execução (US9–US11)
+
+- **Falhas esperadas.** Os testes da US9 falharam antes da implementação: o `harness` ainda não aceitava `erasers`, e
+  o `delete` não existia.
+- **Ordem do teste.** As regras puras (`pseudonym_of` e as funções `escalation_*`, uma por operação, em vez de um
+  `escalation` só) entraram na fundação, antes do teste de unidade, como a análise apontou (F1).
+- **`_save`** passou a carregar `deletion_pseudonym`. Sem isso, qualquer gravação de uma conta em apagamento perderia o
+  estado.
+- **`set_members` com ator que não administra** lê os membros atuais pela listagem, só nesse caso.
+- **`remove_group`** confere o último admin antes de tirar.
+- **CLI.** A listagem mostra "em apagamento". `users_delete_command` pede o nome digitado de novo; com `--yes`, não
+  pergunta.
+- **SC-012.** Nada do nome apagado sobra no schema `identity`, mas a busca em todos os schemas fecha na prova ponta a
+  ponta da 011, com os apagadores de todos os módulos ligados (análise E1).
+- **Suítes.**
+  - Workspace com Postgres 17 em contêiner temporário de nome próprio (`axon-012-pg`, porta 55433, parado ao fim):
+    4026 passed, 11 skipped.
+  - `identity/` contra o Postgres: 439 passed, inclusive a 005 sobre contas existentes.
+  - mypy limpo (285 arquivos), ruff limpo, import-linter 70 kept.
+

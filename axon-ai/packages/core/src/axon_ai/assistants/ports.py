@@ -63,6 +63,10 @@ class UserAssistantStore(Protocol):
         """`False` se não existe."""
         ...
 
+    async def erase_owner(self, owner: str) -> int:
+        """Apaga todos os do dono e devolve quantos (zero na repetição; ADR-058)."""
+        ...
+
 
 class ApiKeyStore(Protocol):
     """Chaves de API, só com o hash (FR-015)."""
@@ -80,6 +84,10 @@ class ApiKeyStore(Protocol):
     async def rotate(self, key_id: str, *, key_hash: bytes, at: datetime) -> ApiKeyRecord | None:
         """Troca o hash e grava `rotated_at` numa operação só, **só se a chave está ativa**: uma rotação e uma
         revogação simultâneas acontecem uma antes da outra (research R38). `None` = inexistente ou revogada."""
+        ...
+
+    async def erase_subject(self, subject: str) -> int:
+        """Apaga as chaves do subject, ativas e revogadas, e devolve quantas (zero na repetição; ADR-058)."""
         ...
 
 
@@ -148,4 +156,10 @@ class SystemOverrideStore(Protocol):
 
     async def history(self, assistant: str) -> Sequence[OverrideHistoryRecord]:
         """Mais recente primeiro."""
+        ...
+
+    async def pseudonymize(self, subject: str, pseudonym: str) -> int:
+        """Troca o subject pelo pseudônimo, numa operação: `updated_by` das sobreposições, `actor` do histórico e as
+        entradas de `allow` das versões `auth` do histórico (ADR-059; research R56). Devolve quantas citações; zero na
+        repetição."""
         ...

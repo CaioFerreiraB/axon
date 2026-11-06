@@ -63,6 +63,12 @@ class InMemoryServerStore:
     async def delete(self, owner: str | None, alias: str) -> bool:
         return self._records.pop((owner, alias), None) is not None
 
+    async def erase_owner(self, owner: str) -> int:
+        keys = [key for key in self._records if key[0] == owner]
+        for key in keys:
+            del self._records[key]
+        return len(keys)
+
 
 class InMemoryConfigSource:
     """Arquivo do operador já carregado — ou nenhum."""
@@ -170,3 +176,7 @@ class InMemoryDiscoveryCache:
 
     def put(self, key: CacheKey, value: CachedDiscovery, *, ttl: timedelta) -> None:
         self._entries[key] = (self._clock.now() + ttl, value)
+
+    def forget_owner(self, owner: str) -> None:
+        for key in [key for key in self._entries if key.owner == owner]:
+            del self._entries[key]

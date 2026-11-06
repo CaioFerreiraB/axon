@@ -251,3 +251,20 @@ cd axon-ai && uv run pytest packages/core/tests/http -m us12
 Esperado: `GET /admin/v1/impact` com uma chave de admin devolve o formato de [contracts/admin-api.md](contracts/admin-api.md)
 ("Impacto ambiental") com números em texto; `grain=day` com 400 dias → 422 `param: "grain"`; `grain=year` → 422; sem o
 seam (estimativa desligada) → 200 com `enabled: false`; um não admin recebe o 404 de rota inexistente.
+
+
+## Fase 9, incremento 9.7 (2026-11-05): US13, US14 — escopos, contas por chave e apagamento das conversas
+
+```bash
+cd axon-ai
+uv run pytest packages/core/tests/http -k "us13 or us14"
+AXON_TEST_POSTGRES_DSN=postgresql://postgres:pg@localhost:55432/postgres uv run pytest packages/core/tests/http -k us14
+uv run lint-imports        # http.api não importa o resto da 008; ninguém além da 011 importa a 008
+```
+
+Esperado: toda rota de `/private/v1` e `/admin/v1` com escopo declarado (SC-012); a chave `users` cria, agrupa e apaga
+`ana`, lê o grupo de administração e recebe 403 ao escrever nele e 404 em `/keys`, `/prices` e no chat (SC-013); a chave
+`inference` conversa e recebe 404 em toda `/admin/v1`; `DELETE /admin/v1/users/ana` devolve o relatório sem pseudônimo,
+e um módulo em falha dá 503 `deletion_incomplete` com `Retry-After`; o apagamento das conversas devolve as contagens e,
+no Postgres, nenhuma linha do schema `http` cita o subject (SC-014). Ponta a ponta com a 012 e as outras specs: na
+passada da 011 (US9).

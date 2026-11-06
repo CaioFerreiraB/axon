@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 from datetime import timedelta
 from typing import Any
 
@@ -78,3 +79,30 @@ async def test_finish_grava_o_resumo_das_imagens_sem_bytes(audit_log: Any) -> No
     records = {record.id: record for record in await audit_log.query(AuditFilter())}
     assert records[com].attachments == (info,)
     assert records[sem].attachments == ()
+
+
+PSEUDO = "deleted:0123456789abcdef"
+
+
+@pytest.mark.us7
+async def test_pseudonymize_troca_so_o_principal(audit_log: Any) -> None:
+    """T045 (incremento 9.7, FR-019): só `principal` muda; outro Principal intacto; repetir devolve 0."""
+    aberto = await audit_log.begin(entry(1))
+    fechado = await audit_log.begin(entry(2))
+    await audit_log.finish(fechado, status="ok", result="pago", at=T0 + timedelta(minutes=3))
+    await audit_log.begin(entry(3, principal="user:bia"))
+    antes = {r.request_id: r for r in await audit_log.query(AuditFilter())}
+
+    assert await audit_log.pseudonymize("user:ana", PSEUDO) == 2
+
+    depois = {r.request_id: r for r in await audit_log.query(AuditFilter())}
+    assert {k: r.principal for k, r in depois.items()} == {"req-1": PSEUDO, "req-2": PSEUDO, "req-3": "user:bia"}
+    for chave in ("req-1", "req-2"):
+        assert dataclasses.replace(depois[chave], principal="user:ana") == antes[chave]
+    assert depois["req-3"] == antes["req-3"]
+    assert await audit_log.query(AuditFilter(principal="user:ana")) == []
+    assert await audit_log.pseudonymize("user:ana", PSEUDO) == 0
+
+    await audit_log.finish(aberto, status="error", result="falhou", at=T0 + timedelta(minutes=4))
+    (registro,) = [r for r in await audit_log.query(AuditFilter(principal=PSEUDO)) if r.id == aberto]
+    assert (registro.status, registro.result, registro.principal) == ("error", "falhou", PSEUDO)

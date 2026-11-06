@@ -20,6 +20,7 @@ function issued(subject: string, label: string | null, extra: object = {}) {
     key_id: "0000000000000009",
     subject,
     groups: [],
+    scopes: ["inference"],
     label,
     created_at: "2026-10-21T10:00:00+00:00",
     revoked_at: null,
@@ -72,7 +73,7 @@ describe("Chaves de API", () => {
     await userEvent.click(screen.getByRole("button", { name: "Gerar chave" }));
 
     const dialog = await screen.findByRole("dialog", { name: "Chave criada para svc:relatorios" });
-    expect(body).toEqual({ subject: "svc:relatorios", label: "prod" });
+    expect(body).toEqual({ subject: "svc:relatorios", label: "prod", scopes: ["inference"] }); // 9.7: o padrão é a inferência
     expect(within(dialog).getByDisplayValue(SECRET)).toBeInTheDocument();
     expect(within(dialog).getByText(/não aparece de novo/)).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Copiar" })).toBeInTheDocument();
@@ -189,5 +190,73 @@ describe("Chaves de API", () => {
     server.use(http.get("*/admin/v1/keys", () => HttpResponse.json({ data: [] })));
     renderAt("/acesso/chaves", routes);
     expect(await screen.findByText("Nenhuma chave")).toBeInTheDocument();
+  });
+});
+
+describe("Escopos (incremento 9.7, US12; 013 R31)", () => {
+  it("o diálogo oferece inferência (marcada) e usuários, nunca a administração; sem nenhum, bloqueia", async () => {
+    renderAt("/acesso/chaves?criar=1", routes);
+    const inference = await screen.findByRole("checkbox", { name: "Uso de inferência" });
+    const users = screen.getByRole("checkbox", { name: "Gerenciar usuários e grupos" });
+    expect(inference).toBeChecked();
+    expect(users).not.toBeChecked();
+    expect(screen.queryByRole("checkbox", { name: "Administração" })).not.toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText("Nome do sistema"), "provisionamento");
+    await userEvent.click(inference);
+    expect(screen.getByText("Escolha ao menos um escopo.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Gerar chave" })).toBeDisabled();
+  });
+
+  it("cria só com usuários e mostra o escopo na chave emitida", async () => {
+    let body: unknown;
+    server.use(
+      http.post("*/admin/v1/keys", async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json(issued("svc:provisionamento", null, { scopes: ["users"] }), { status: 201 });
+      }),
+    );
+    renderAt("/acesso/chaves?criar=1", routes);
+    await userEvent.type(await screen.findByLabelText("Nome do sistema"), "provisionamento");
+    await userEvent.click(screen.getByRole("checkbox", { name: "Gerenciar usuários e grupos" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Uso de inferência" }));
+    await userEvent.click(screen.getByRole("button", { name: "Gerar chave" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Chave criada para svc:provisionamento" });
+    expect(body).toEqual({ subject: "svc:provisionamento", scopes: ["users"] });
+    expect(within(dialog).getByText("Gerenciar usuários e grupos")).toBeInTheDocument();
+  });
+
+  it("a recusa de escopos da plataforma aparece nos escopos", async () => {
+    server.use(
+      http.post("*/admin/v1/keys", () =>
+        HttpResponse.json(
+          {
+            error: {
+              message: "escopo desconhecido: x",
+              type: "invalid_request_error",
+              code: "invalid_field",
+              param: "scopes",
+            },
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+    renderAt("/acesso/chaves?criar=1", routes);
+    await userEvent.type(await screen.findByLabelText("Nome do sistema"), "provisionamento");
+    await userEvent.click(screen.getByRole("button", { name: "Gerar chave" }));
+    expect(await screen.findByText("escopo desconhecido: x")).toBeInTheDocument();
+  });
+
+  it("a lista mostra os escopos de cada chave; a administração diz que é só pela linha de comando", async () => {
+    renderAt("/acesso/chaves", routes);
+    const table = await screen.findByRole("table", { name: "Chaves de API" });
+    expect(within(table).getByRole("columnheader", { name: "Escopos" })).toBeInTheDocument();
+    const caio = within(table).getByRole("row", { name: /user:caio/ });
+    expect(caio).toHaveTextContent("Administração — só pela linha de comando");
+    expect(caio).toHaveTextContent("Uso de inferência");
+    const homolog = within(table).getByRole("row", { name: /homolog/ });
+    expect(homolog).toHaveTextContent("Gerenciar usuários e grupos");
   });
 });

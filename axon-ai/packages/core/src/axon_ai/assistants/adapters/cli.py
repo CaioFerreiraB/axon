@@ -80,7 +80,12 @@ NOT_PERSISTENT_WARNING = (
 
 class _KeysOperator(Protocol):
     async def issue_as_operator(
-        self, *, subject: str, groups: Collection[str] = (), label: str | None = None
+        self,
+        *,
+        subject: str,
+        groups: Collection[str] = (),
+        label: str | None = None,
+        scopes: Collection[str] | None = None,
     ) -> IssuedApiKey: ...
 
     async def keys_as_operator(self) -> Sequence[ApiKeyInfo]: ...
@@ -99,18 +104,19 @@ async def keys_create_command(
     persistent: bool,
     out: TextIO,
     err: TextIO,
+    scopes: Sequence[str] | None = None,
 ) -> int:
     """`axon keys create`: a chave em claro sai **uma vez**, sozinha na última linha — para que um script a capture —
     e em nenhum outro lugar."""
     _warn_if_not_persistent(persistent, err)
     try:
-        issued = await service.issue_as_operator(subject=subject, groups=groups, label=label)
+        issued = await service.issue_as_operator(subject=subject, groups=groups, label=label, scopes=scopes or None)
     except RequestRejected as error:
-        print(f"erro: {error}", file=err)
+        print(f"erro: {error.field}: {error}", file=err)
         return EXIT_UNAVAILABLE
     info = issued.info
     print(f"key_id: {info.key_id}", file=out)
-    print(f"subject: {info.subject}  groups: {_groups(info.groups)}", file=out)
+    print(f"subject: {info.subject}  groups: {_groups(info.groups)}  scopes: {_groups(info.scopes)}", file=out)
     if info.label:
         print(f"label: {info.label}", file=out)
     print(issued.plaintext, file=out)
@@ -126,7 +132,8 @@ async def keys_list_command(service: _KeysOperator, *, persistent: bool, out: Te
             state += f", rotacionada em {info.rotated_at.isoformat()}"
         label = info.label or "-"
         created = info.created_at.isoformat()
-        print(f"{info.key_id}  {info.subject}  {_groups(info.groups)}  {label}  {created}  {state}", file=out)
+        scopes = ",".join(sorted(info.scopes))
+        print(f"{info.key_id}  {info.subject}  {_groups(info.groups)}  {scopes}  {label}  {created}  {state}", file=out)
     return EXIT_OK
 
 
@@ -167,6 +174,6 @@ async def keys_rotate_command(
         return EXIT_UNAVAILABLE
     info = issued.info
     print(f"key_id: {info.key_id} (rotacionada)", file=out)
-    print(f"subject: {info.subject}  groups: {_groups(info.groups)}", file=out)
+    print(f"subject: {info.subject}  groups: {_groups(info.groups)}  scopes: {_groups(info.scopes)}", file=out)
     print(issued.plaintext, file=out)
     return EXIT_OK

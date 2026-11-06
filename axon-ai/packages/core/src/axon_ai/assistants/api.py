@@ -13,7 +13,7 @@ from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from types import MappingProxyType
-from typing import Final, Literal, Protocol
+from typing import Final, Literal, Protocol, cast
 
 from axon_ai.llm.api import MODEL_ROLES, ModelPolicy, ModelRef, ModelRole
 from axon_ai.packs.api import Composition
@@ -28,6 +28,7 @@ type Origin = Literal["system", "user"]
 type OverrideSection = Literal["models", "mcp", "auth"]
 type OverrideState = Literal["active", "inactive"]
 type OverrideAction = Literal["saved", "discarded"]
+type Scope = Literal["inference", "users", "admin"]
 
 PUBLIC_SURFACE: Final = "public"
 PRIVATE_SURFACE: Final = "private"
@@ -46,6 +47,17 @@ Na de administração, a credencial com o prefixo de chave segue o caminho de ch
 SCHEME_OF_SURFACE: Final[Mapping[str, Scheme]] = MappingProxyType({PUBLIC_SURFACE: "oidc", PRIVATE_SURFACE: "api_key"})
 """**Depreciado** (ADR-031): o esquema único das duas superfícies antigas, derivado de `SCHEMES_OF_SURFACE`. Some na
 série seguinte; use `SCHEMES_OF_SURFACE`."""
+
+SCOPES: Final[tuple[Scope, ...]] = ("inference", "users", "admin")
+"""Escopos de uma chave de API, conjunto fechado (ADR-057): `inference` conversa, `users` gere contas e grupos, `admin`
+administra (com o grupo de administração). `admin` não inclui `inference`."""
+
+PSEUDONYM_PATTERN: Final = re.compile(r"deleted:[0-9a-f]{16}")
+"""O pseudônimo de uma conta apagada, gerado pela 012 (ADR-059): o mesmo formato, repetido aqui porque os módulos não se
+importam."""
+
+DEFAULT_SCOPES: Final[frozenset[Scope]] = frozenset({"inference"})
+"""Os escopos da chave emitida sem escolha, e do Principal de chave montado sem escopos (research R46)."""
 
 OVERRIDE_SECTIONS: Final[tuple[OverrideSection, ...]] = ("models", "mcp", "auth")
 """Seções de um Assistant de sistema que o YAML pode liberar para a administração (`overrides`, ADR-032)."""
@@ -157,6 +169,17 @@ def _positive(name: str, value: int | None) -> None:
         raise ValueError(f"{name} precisa ser um inteiro ≥ 1: {value!r}")
 
 
+def _scopes(scopes: Collection[str]) -> frozenset[Scope]:
+    """Os escopos validados: não vazio e dentro de `SCOPES`, senão `ValueError`."""
+    names = frozenset(scopes)
+    if not names:
+        raise ValueError("uma chave tem ao menos um escopo")
+    unknown = sorted(names - set(SCOPES))
+    if unknown:
+        raise ValueError(f"escopo desconhecido: {', '.join(unknown)}")
+    return cast("frozenset[Scope]", names)
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Principal:
     """Quem pede. Avaliado a cada requisição; nada é guardado entre requisições."""
@@ -164,6 +187,9 @@ class Principal:
     subject: str
     scheme: Scheme
     groups: frozenset[str] = frozenset()
+    scopes: frozenset[Scope] | None = None
+    """Os escopos da chave (ADR-057). `None` no OIDC, regido só pelos grupos; nunca `None` com chave: sem escopos, o
+    Principal de chave fica com `DEFAULT_SCOPES` (research R46)."""
 
     def __post_init__(self) -> None:
         if not SUBJECT_PATTERN.fullmatch(self.subject):
@@ -171,6 +197,11 @@ class Principal:
         if self.scheme not in SCHEMES:
             raise ValueError(f"esquema desconhecido: {self.scheme!r}")
         object.__setattr__(self, "groups", frozenset(self.groups))
+        if self.scheme == "oidc":
+            if self.scopes is not None:
+                raise ValueError("Principal OIDC não tem escopos: o token é regido pelos grupos (ADR-057)")
+            return
+        object.__setattr__(self, "scopes", _scopes(DEFAULT_SCOPES if self.scopes is None else self.scopes))
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -349,6 +380,8 @@ class ApiKeyInfo:
     revoked_at: datetime | None = None
     rotated_at: datetime | None = None
     """Instante da última rotação do segredo (ADR-040); `key_id`, subject, grupos e rótulo não mudam nela."""
+    scopes: frozenset[Scope] = DEFAULT_SCOPES
+    """Fixados na emissão e imutáveis, inclusive na rotação (ADR-057)."""
 
     def __post_init__(self) -> None:
         if not KEY_ID_PATTERN.fullmatch(self.key_id):
@@ -356,6 +389,7 @@ class ApiKeyInfo:
         if not SUBJECT_PATTERN.fullmatch(self.subject):
             raise ValueError(f"subject precisa ser 'user:<id>' ou 'svc:<id>': {self.subject!r}")
         object.__setattr__(self, "groups", frozenset(self.groups))
+        object.__setattr__(self, "scopes", _scopes(self.scopes))
 
     @property
     def active(self) -> bool:
@@ -479,6 +513,25 @@ class OverrideHistoryEntry:
     at: datetime
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ErasureReport:
+    """O que o apagamento de um subject tirou da 003 (ADR-058; research R52). Repetido, as contagens vão a zero e as
+    referências da configuração continuam."""
+
+    user_assistants: int = 0
+    """Assistants de usuário do dono apagados."""
+    api_keys: int = 0
+    """Chaves do subject apagadas, ativas e revogadas."""
+    override_entries: int = 0
+    """Entradas do subject tiradas do `allow` de sobreposições de `auth`."""
+    authored: int = 0
+    """Citações do subject trocadas pelo pseudônimo no que fica: autor das sobreposições, ator do histórico e
+    entradas de `allow` nas versões guardadas no histórico (ADR-059)."""
+    config_references: tuple[str, ...] = ()
+    """Assistants de sistema cujo `allow` no `assistants.yaml` cita o subject — aviso: o arquivo não muda, e um
+    usuário novo com o mesmo nome herdaria aquele acesso (FR-046). Em ordem alfabética."""
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 # Seams
 # ---------------------------------------------------------------------------------------------------------------------
@@ -537,7 +590,11 @@ class ApiKeyAdmin(Protocol):
         subject: str,
         groups: Collection[str] = (),
         label: str | None = None,
-    ) -> IssuedApiKey: ...
+        scopes: Collection[str] | None = None,
+    ) -> IssuedApiKey:
+        """Sem `scopes`, `{inference}`. Vazio, escopo desconhecido ou `admin` (só pela linha de comando, com o grupo de
+        administração) levantam `RequestRejected(field="scopes")` (ADR-057)."""
+        ...
 
     async def keys(self, *, actor: Principal) -> Sequence[ApiKeyInfo]: ...
 
@@ -584,4 +641,18 @@ class SystemAssistantAdmin(Protocol):
 
     async def declared_models(self) -> tuple[ModelRef, ...]:
         """Os modelos efetivos de todos os Assistants de sistema, para a saúde (011)."""
+        ...
+
+
+class SubjectErasure(Protocol):
+    """Apaga o que a 003 guarda de um subject (ADR-058) — consumido pela 011, que o liga ao apagamento de contas da 012.
+
+    Não confere quem pede: a autorização é de quem chama (FR-047). Idempotente. Conflito de versão persistente numa
+    sobreposição levanta `Conflict`; repetir retoma.
+    """
+
+    async def erase_subject(self, subject: str, *, actor: str, pseudonym: str) -> ErasureReport:
+        """`subject` fora de `user:…`/`svc:…` levanta `RequestRejected(field="subject")`; `actor` é o autor das versões
+        novas das sobreposições; `pseudonym` (`deleted:<16 hex>`, senão `RequestRejected(field="pseudonym")`) substitui
+        cada citação do subject que fica (ADR-059)."""
         ...

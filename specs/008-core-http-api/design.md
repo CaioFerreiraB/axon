@@ -192,6 +192,8 @@ rota é uma tradução fina para um seam do módulo dono — nenhuma regra mora 
 | `ConversationStore` | secundária | memória (Fase 1) → Postgres (Fase 2) | em memória + conformidade contra Postgres; isolamento entre Principals; continuação após reinício |
 | `HealthProvider` | secundária | agregador da composition root (011) | provider fixo em memória |
 | `Clock` | secundária | relógio do sistema (adapter único, injetado pela 011) | relógio fixo — expiração de conversas |
+| Apagamento das conversas (`ConversationErasure`, `http/api.py`, incremento 9.7) | primária (seam Python, para a 011) | `ConversationService` | conformidade memória × Postgres; varredura do schema `http` |
+| Mapa de escopos (incremento 9.7) | política pura (`domain/scopes.py`) | — | suíte que percorre as rotas montadas e falha numa sem escopo |
 
 Consome por seam: Authenticator, GrantResolver e AssistantDirectory (003), Execution Engine (005), Pack Registry (002),
 MCP Registry (007), identificador de trace (009); na Fase 9, System Assistant Admin (003), Model Router `check` (006),

@@ -11,11 +11,11 @@ from psycopg_pool import AsyncConnectionPool
 from axon_ai.assistants.api import ApiKeyInfo
 from axon_ai.assistants.domain.keys import ApiKeyRecord
 
-_COLUMNS = "key_id, key_hash, subject, groups, label, created_at, revoked_at, rotated_at"
+_COLUMNS = "key_id, key_hash, subject, groups, label, created_at, revoked_at, rotated_at, scopes"
 
 
 def _record(row: Sequence[Any]) -> ApiKeyRecord:
-    key_id, key_hash, subject, groups, label, created_at, revoked_at, rotated_at = row
+    key_id, key_hash, subject, groups, label, created_at, revoked_at, rotated_at, scopes = row
     info = ApiKeyInfo(
         key_id=key_id,
         subject=subject,
@@ -24,6 +24,7 @@ def _record(row: Sequence[Any]) -> ApiKeyRecord:
         created_at=created_at,
         revoked_at=revoked_at,
         rotated_at=rotated_at,
+        scopes=frozenset(scopes),
     )
     return ApiKeyRecord(info=info, key_hash=bytes(key_hash))
 
@@ -39,7 +40,7 @@ class PostgresApiKeyStore:
         info = record.info
         async with self._pool.connection() as connection:
             await connection.execute(
-                f"INSERT INTO assistants.api_keys ({_COLUMNS}) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                f"INSERT INTO assistants.api_keys ({_COLUMNS}) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
                 (
                     info.key_id,
                     record.key_hash,
@@ -49,6 +50,7 @@ class PostgresApiKeyStore:
                     info.created_at,
                     info.revoked_at,
                     info.rotated_at,
+                    sorted(info.scopes),
                 ),
             )
 
@@ -85,3 +87,9 @@ class PostgresApiKeyStore:
             )
             row = await cursor.fetchone()
         return _record(row) if row is not None else None
+
+    async def erase_subject(self, subject: str) -> int:
+        """Apaga as chaves do subject, ativas e revogadas (ADR-058; research R52). Zero na repetição."""
+        async with self._pool.connection() as connection:
+            cursor = await connection.execute("DELETE FROM assistants.api_keys WHERE subject = %s", (subject,))
+            return cursor.rowcount

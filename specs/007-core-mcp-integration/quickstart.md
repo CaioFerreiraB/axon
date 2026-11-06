@@ -32,6 +32,7 @@ uv run mypy && uv run ruff check packages && uv run lint-imports
 | US5 — política por servidor | `contract/test_policy.py` | de 50 tools anunciadas, só as 3 da allowlist, com a marca de escrita; resultado grande cortado com marca |
 | US6 — SSRF | `unit/test_network.py`, `contract/test_guarded_backend.py`, `integration/test_ssrf.py` | 100% dos vetores de [contracts/network-policy.md](contracts/network-policy.md) bloqueados, inclusive rebinding; host interno só para global; com `allowed_hosts`, host fora dela bloqueado para global e usuário |
 | FR-010 — cache | `contract/test_discovery.py` | segunda descoberta no TTL não toca o servidor; mudar o registro invalida |
+| US7 — apagar os servidores de um dono (9.7) | `contract/test_mcp_subject_erasure.py`, `contract/test_store.py` | `-k us7`: contagem, idempotência, globais e outros donos intactos, cache esquecido; no Postgres, nenhuma linha do schema `mcp` cita o subject |
 | FR-011 — saúde | `contract/test_registry.py` | lista as tools anunciadas e as que faltam; credencial ausente aparece nomeando a referência |
 
 ## Manual: um servidor MCP de verdade

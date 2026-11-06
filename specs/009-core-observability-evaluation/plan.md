@@ -484,3 +484,21 @@ axon-ai/packages/core/tests/observability/
 **Constitution Check — pós-design (US9)**: reavaliado com [data-model.md](data-model.md) ("Passada de 2026-11-03"),
 [contracts/usage-api.md](contracts/usage-api.md), [contracts/ports.md](contracts/ports.md) e
 [quickstart.md](quickstart.md): **PASS**.
+
+## Passada de 2026-11-04: pseudônimo nos autores (US10; [ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md); research R53)
+
+**Summary**: a 009 publica `ObservabilityErasure.erase_subject(subject, *, pseudonym)`, que troca o autor dos preços e
+dos ajustes de destino pelo pseudônimo. Sem dependência nova; sem migração; sem importar a 003.
+
+| Onde | O quê |
+|---|---|
+| `observability/api.py` | `ObservabilityErasureReport(prices, destination_settings)`; `ObservabilityErasure` (Protocol) |
+| `observability/domain/erasure.py` | `SUBJECT_PATTERN`, `PSEUDONYM_PATTERN` (puros) |
+| `observability/ports.py` | `PriceStore.pseudonymize`, `DestinationSettingsStore.pseudonymize` |
+| `observability/service.py` | `SubjectPseudonymizer(prices, settings)` |
+| `observability/adapters/memory.py`, `postgres.py` | `pseudonymize` nas duas portas |
+
+**Constitution Check**: princípio II — seam novo no `api.py`, só para a 011; a 009 troca só o próprio dado e continua
+sem importar 003, 012, packs ou llm. Princípio XIII — métodos novos de portas existentes, com memória e Postgres na
+conformidade. Sem violação.
+

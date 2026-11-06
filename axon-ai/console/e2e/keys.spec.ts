@@ -56,3 +56,29 @@ test("cria, rotaciona e revoga a chave de um sistema", async ({ page, request })
   expect(await privateHealth(request, second)).toBe(401);
   expect(await page.content()).not.toContain(second);
 });
+
+test("cria uma chave só para gerenciar usuários: a lista mostra o escopo e a chave não alcança o resto", async ({
+  page,
+  request,
+}) => {
+  const system = `prov${stamp}`;
+  await login(page, "/acesso/chaves");
+  await page.getByRole("button", { name: "Criar chave" }).click();
+  await page.getByLabel("Nome do sistema").fill(system);
+  await page.getByRole("checkbox", { name: "Gerenciar usuários e grupos" }).check();
+  await page.getByRole("checkbox", { name: "Uso de inferência" }).uncheck();
+  await page.getByRole("button", { name: "Gerar chave" }).click();
+
+  const created = page.getByRole("dialog", { name: `Chave criada para svc:${system}` });
+  await expect(created.getByText("Gerenciar usuários e grupos")).toBeVisible();
+  const key = await created.getByLabel("Chave de API").inputValue();
+  await created.getByRole("button", { name: "Concluir" }).click();
+  const keyId = key.split("_")[1] ?? "";
+  await expect(
+    page.getByRole("row", { name: new RegExp(keyId) }).getByText("Gerenciar usuários e grupos"),
+  ).toBeVisible();
+
+  const as = { headers: { Authorization: `Bearer ${key}` } };
+  expect((await request.get("http://127.0.0.1:8765/admin/v1/users", as)).status()).toBe(200);
+  expect((await request.get("http://127.0.0.1:8765/admin/v1/keys", as)).status()).toBe(404);
+});

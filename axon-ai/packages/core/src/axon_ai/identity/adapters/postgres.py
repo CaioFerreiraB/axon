@@ -41,7 +41,7 @@ _UNIQUE_FIELDS: Final = {
 
 _ACCOUNT_COLUMNS: Final = (
     "a.id, a.username, a.email, a.name, a.active, a.password_hash, a.temporary_password, a.google_sub, a.created_at, "
-    "a.updated_at, a.updated_by, a.last_login_at, a.version, "
+    "a.updated_at, a.updated_by, a.last_login_at, a.version, a.deletion_pseudonym, "
     "COALESCE((SELECT array_agg(m.group_name) FROM identity.memberships m WHERE m.account_id = a.id), '{}')"
 )
 
@@ -61,6 +61,7 @@ def _account(row: Sequence[Any]) -> AccountRecord:
         updated_by,
         last_login_at,
         version,
+        deletion_pseudonym,
         groups,
     ) = row
     account = Account(
@@ -78,8 +79,11 @@ def _account(row: Sequence[Any]) -> AccountRecord:
         updated_by=updated_by,
         last_login_at=last_login_at,
         version=version,
+        deleting=deletion_pseudonym is not None,
     )
-    return AccountRecord(account=account, password_hash=password_hash, google_sub=google_sub)
+    return AccountRecord(
+        account=account, password_hash=password_hash, google_sub=google_sub, deletion_pseudonym=deletion_pseudonym
+    )
 
 
 def _conflict(error: UniqueViolation) -> Conflict:
@@ -154,8 +158,8 @@ class PostgresAccountStore:
             async with self._pool.connection() as connection, connection.transaction():
                 await connection.execute(
                     "INSERT INTO identity.accounts (id, username, email, name, active, password_hash, "
-                    "temporary_password, google_sub, created_at, updated_at, updated_by, last_login_at, version) "
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    "temporary_password, google_sub, created_at, updated_at, updated_by, last_login_at, version, "
+                    "deletion_pseudonym) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                     (
                         account.id,
                         account.username,
@@ -170,6 +174,7 @@ class PostgresAccountStore:
                         account.updated_by,
                         account.last_login_at,
                         account.version,
+                        record.deletion_pseudonym,
                     ),
                 )
                 await self._write_groups(connection, account.id, account.groups)
@@ -185,7 +190,7 @@ class PostgresAccountStore:
                 cursor = await connection.execute(
                     "UPDATE identity.accounts SET email = %s, name = %s, active = %s, password_hash = %s, "
                     "temporary_password = %s, google_sub = %s, updated_at = %s, updated_by = %s, last_login_at = %s, "
-                    "version = %s WHERE id = %s AND version = %s",
+                    "version = %s, deletion_pseudonym = %s WHERE id = %s AND version = %s",
                     (
                         account.email,
                         account.name,
@@ -197,6 +202,7 @@ class PostgresAccountStore:
                         account.updated_by,
                         account.last_login_at,
                         account.version,
+                        record.deletion_pseudonym,
                         account.id,
                         expected_version,
                     ),
@@ -279,6 +285,48 @@ class PostgresAccountStore:
                     "WHERE id = ANY(%s)",
                     (at, actor, sorted(changed)),
                 )
+
+    async def add_member(self, account_id: str, group: str, *, at: datetime, actor: str) -> bool:
+        try:
+            async with self._pool.connection() as connection, connection.transaction():
+                cursor = await connection.execute(
+                    "INSERT INTO identity.memberships (account_id, group_name) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                    (account_id, group),
+                )
+                return await self._touch(connection, cursor.rowcount, account_id, at=at, actor=actor)
+        except ForeignKeyViolation:
+            raise GroupNotFound(f"o grupo {group!r} não existe") from None
+
+    async def remove_member(self, account_id: str, group: str, *, at: datetime, actor: str) -> bool:
+        async with self._pool.connection() as connection, connection.transaction():
+            cursor = await connection.execute(
+                "DELETE FROM identity.memberships WHERE account_id = %s AND group_name = %s", (account_id, group)
+            )
+            return await self._touch(connection, cursor.rowcount, account_id, at=at, actor=actor)
+
+    @staticmethod
+    async def _touch(connection: Any, changed: int, account_id: str, *, at: datetime, actor: str) -> bool:
+        """Só mudando a associação: versão + 1, autor e instante, na mesma transação (research R32)."""
+        if changed != 1:
+            return False
+        await connection.execute(
+            "UPDATE identity.accounts SET version = version + 1, updated_at = %s, updated_by = %s WHERE id = %s",
+            (at, actor, account_id),
+        )
+        return True
+
+    async def delete(self, account_id: str) -> bool:
+        async with self._pool.connection() as connection, connection.transaction():
+            await connection.execute("DELETE FROM identity.memberships WHERE account_id = %s", (account_id,))
+            cursor = await connection.execute("DELETE FROM identity.accounts WHERE id = %s", (account_id,))
+            return cursor.rowcount == 1
+
+    async def replace_actor(self, old: str, new: str) -> int:
+        async with self._pool.connection() as connection:
+            cursor = await connection.execute(
+                "UPDATE identity.accounts SET updated_by = %s WHERE updated_by = %s", (new, old)
+            )
+            return cursor.rowcount
 
     async def active_members(self, name: str) -> frozenset[str]:
         async with self._pool.connection() as connection:
@@ -475,6 +523,27 @@ class PostgresGrantStore:
                 "UPDATE identity.refresh_tokens SET status = 'revoked' WHERE family_id = %s", (family_id,)
             )
 
+    async def erase_account(self, account_id: str) -> Mapping[str, int]:
+        async with self._pool.connection() as connection, connection.transaction():
+            refresh = await connection.execute(
+                "DELETE FROM identity.refresh_tokens WHERE account_id = %s "
+                "OR session_id IN (SELECT id_hash FROM identity.sessions WHERE account_id = %s)",
+                (account_id, account_id),
+            )
+            sessions = await connection.execute("DELETE FROM identity.sessions WHERE account_id = %s", (account_id,))
+            codes = await connection.execute(
+                "DELETE FROM identity.authorization_codes WHERE account_id = %s", (account_id,)
+            )
+            pending = await connection.execute(
+                "DELETE FROM identity.pending_authorizations WHERE account_id = %s", (account_id,)
+            )
+            return {
+                "sessions": sessions.rowcount,
+                "refresh_tokens": refresh.rowcount,
+                "codes": codes.rowcount,
+                "pending": pending.rowcount,
+            }
+
     async def purge(self, *, now: datetime, codes_before: datetime) -> int:
         removed = 0
         async with self._pool.connection() as connection, connection.transaction():
@@ -564,6 +633,13 @@ class PostgresIdentitySettingsStore:
         return IdentitySettings(
             google_enabled=google_enabled, version=version, updated_by=updated_by, updated_at=updated_at
         )
+
+    async def replace_actor(self, old: str, new: str) -> int:
+        async with self._pool.connection() as connection:
+            cursor = await connection.execute(
+                "UPDATE identity.settings SET updated_by = %s WHERE id = 1 AND updated_by = %s", (new, old)
+            )
+            return cursor.rowcount
 
     async def put(self, settings: IdentitySettings, *, expected_version: int) -> bool:
         values = (settings.google_enabled, settings.version, settings.updated_by, settings.updated_at)

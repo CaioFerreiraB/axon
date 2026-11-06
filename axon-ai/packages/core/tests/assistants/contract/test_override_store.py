@@ -89,3 +89,29 @@ async def test_secao_auth_grava_le_e_entra_no_historico(override_store: Any) -> 
     assert por_secao["auth"].payload == payload and set(por_secao) == {"auth", "models"}
     historico = await override_store.history("geral")
     assert {(record.section, record.action) for record in historico} == {("auth", "saved"), ("models", "saved")}
+
+
+# --- US15, ajuste do ADR-059: pseudônimo (research R56) ---------------------------------------------------------------
+
+PSEUDO = "deleted:0123456789abcdef"
+
+
+@pytest.mark.us15
+async def test_pseudonimiza_autor_ator_e_allow_do_historico(override_store: Any) -> None:
+    def auth(allow: list[str], by: str) -> StoredOverride:
+        return _record(section="auth", payload={"schemes": ["oidc"], "allow": allow}, updated_by=by)
+
+    await override_store.put(auth(["user:ana", "group:equipe"], "user:ana"), expected_version=None)
+    await override_store.put(auth(["group:equipe", "user:bia"], "user:root"), expected_version=1)
+    await override_store.put(_record(updated_by="user:ana"), expected_version=None)  # models, autora ana
+
+    trocas = await override_store.pseudonymize("user:ana", PSEUDO)
+
+    # autor de `models` (1); ator e allow da 1ª versão de `auth` no histórico (2); ator de `models` no histórico (1)
+    assert trocas == 4
+    atuais = {r.section: r for r in await override_store.get("geral")}
+    assert atuais["models"].updated_by == PSEUDO and atuais["auth"].updated_by == "user:root"
+    historico = await override_store.history("geral")
+    textos = repr([(h.actor, h.payload) for h in historico])
+    assert "user:ana" not in textos and PSEUDO in textos and "user:bia" in textos and "group:equipe" in textos
+    assert await override_store.pseudonymize("user:ana", PSEUDO) == 0

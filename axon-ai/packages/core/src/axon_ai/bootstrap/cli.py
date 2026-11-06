@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Final, TextIO
 
 from axon_ai.assistants.adapters import cli as assistants_cli
-from axon_ai.assistants.api import AssistantsConfigError, Principal
+from axon_ai.assistants.api import SCOPES, AssistantsConfigError, Principal
 from axon_ai.assistants.service import AccessService
 from axon_ai.bootstrap import identity as identity_parts
 from axon_ai.bootstrap.health import boot_items, health_command
@@ -256,6 +256,13 @@ def _keys_create_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--subject", required=True, help="dono da chave: user:<id> ou svc:<id>")
     parser.add_argument("--group", action="append", default=[], help="grupo da chave (repetível)")
     parser.add_argument("--label", default=None, help="rótulo para reconhecer a chave na listagem")
+    parser.add_argument(
+        "--scope",
+        action="append",
+        default=[],
+        choices=SCOPES,
+        help="escopo da chave (repetível; sem ele, inference); admin só com o grupo de administração",
+    )
 
 
 def _key_id_arguments(parser: argparse.ArgumentParser) -> None:
@@ -296,6 +303,7 @@ def _keys_create(service: AccessService, args: argparse.Namespace, persistent: b
         subject=args.subject,
         groups=args.group,
         label=args.label,
+        scopes=args.scope,
         persistent=persistent,
         out=io.out,
         err=io.err,
@@ -351,6 +359,41 @@ def _group_argument(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("name", help="nome do grupo (minúsculas, sem @)")
 
 
+def _users_delete_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("username", help="nome de usuário")
+    parser.add_argument("--yes", action="store_true", help="não pede para digitar o nome de novo")
+
+
+def _users_delete(service: IdentityService, args: argparse.Namespace, persistent: bool, io: Io) -> Awaitable[int]:
+    """`axon users delete` (incremento 9.7, FR-034): a 012 da sessão já traz os apagadores dos outros módulos."""
+    return identity_cli.users_delete_command(
+        service,
+        username=args.username,
+        yes=args.yes,
+        persistent=persistent,
+        out=io.out,
+        err=io.err,
+        prompt=lambda text: input(text),
+    )
+
+
+def _group_member_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("group", help="nome do grupo")
+    parser.add_argument("username", help="nome de usuário")
+
+
+def _groups_add(service: IdentityService, args: argparse.Namespace, persistent: bool, io: Io) -> Awaitable[int]:
+    return identity_cli.groups_add_member_command(
+        service, group=args.group, username=args.username, persistent=persistent, out=io.out, err=io.err
+    )
+
+
+def _groups_remove(service: IdentityService, args: argparse.Namespace, persistent: bool, io: Io) -> Awaitable[int]:
+    return identity_cli.groups_remove_member_command(
+        service, group=args.group, username=args.username, persistent=persistent, out=io.out, err=io.err
+    )
+
+
 def _groups_create(service: IdentityService, args: argparse.Namespace, persistent: bool, io: Io) -> Awaitable[int]:
     return identity_cli.groups_create_command(service, name=args.name, persistent=persistent, out=io.out, err=io.err)
 
@@ -366,11 +409,12 @@ def _keys_rotate_arguments(parser: argparse.ArgumentParser) -> None:
 IdentityAction = Callable[[IdentityService, argparse.Namespace, bool, Io], Awaitable[int]]
 
 
-def _identity_command(action: IdentityAction) -> Handler:
-    """Configuração e adapters; o armazenamento da 012 abre e fecha no laço do próprio comando (R13, R42)."""
+def _identity_command(action: IdentityAction, *, until: str = STAGE_ADAPTERS) -> Handler:
+    """Configuração e adapters; o armazenamento da 012 abre e fecha no laço do próprio comando (R13, R42). `until`:
+    `users delete` sobe até `assistants`, porque os apagadores da 003 e da 004 precisam de packs e do motor (R60)."""
 
     def run(args: argparse.Namespace, io: Io) -> int:
-        built = _boot(args, io, until=STAGE_ADAPTERS)
+        built = _boot(args, io, until=until)
         if built is None:
             return EXIT_FAILURE
         try:
@@ -725,6 +769,24 @@ COMMANDS: Final[tuple[Command, ...]] = (
         help="define os grupos de uma conta",
         run=_identity_command(_users_groups),
         arguments=_users_groups_arguments,
+    ),
+    Command(
+        path=("users", "delete"),
+        help="apaga a conta e o que é dela em todos os módulos (pede o nome; --yes pula)",
+        run=_identity_command(_users_delete, until=STAGE_ASSISTANTS),
+        arguments=_users_delete_arguments,
+    ),
+    Command(
+        path=("groups", "add"),
+        help="põe uma conta num grupo",
+        run=_identity_command(_groups_add),
+        arguments=_group_member_arguments,
+    ),
+    Command(
+        path=("groups", "remove"),
+        help="tira uma conta de um grupo",
+        run=_identity_command(_groups_remove),
+        arguments=_group_member_arguments,
     ),
     Command(
         path=("groups", "create"),

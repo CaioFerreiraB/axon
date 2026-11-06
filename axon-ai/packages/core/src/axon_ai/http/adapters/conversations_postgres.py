@@ -186,6 +186,19 @@ class PostgresConversationStore:
             )
             return await cursor.fetchone() is not None
 
+    async def erase_owner(self, owner: str) -> tuple[int, int]:
+        """Conta as imagens (distintas por conversa, como a memória) e apaga as conversas; mensagens e imagens saem pela
+        cascata (R71)."""
+        async with self._pool.connection() as connection, connection.transaction():
+            cursor = await connection.execute(
+                "SELECT count(DISTINCT (a.conversation_id, a.id)) FROM http.attachments a "
+                "JOIN http.conversations c ON c.id = a.conversation_id WHERE c.owner = %s",
+                (owner,),
+            )
+            row = await cursor.fetchone()
+            cursor = await connection.execute("DELETE FROM http.conversations WHERE owner = %s", (owner,))
+            return cursor.rowcount, int(row[0]) if row is not None else 0
+
     async def delete_inactive(self, *, before: datetime) -> int:
         async with self._pool.connection() as connection:
             cursor = await connection.execute("DELETE FROM http.conversations WHERE last_activity_at < %s", (before,))

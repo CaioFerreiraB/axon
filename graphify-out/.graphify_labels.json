@@ -1,5 +1,4 @@
 {
-  "15": "Remote Tool Access Tests",
   "16": "Usage and Price Dashboard",
   "18": "Assistant Testkit Setup",
   "87": "SpecKit Shell Scripts",
@@ -9,7 +8,6 @@
   "154": "Tool Schema and Arguments",
   "168": "Agent Pack Protocol Core",
   "169": "Pack System Architecture Docs",
-  "170": "LLM Provider Adapter Integrations",
   "186": "Model Provider Port Tests",
   "188": "TypeScript Compiler Options",
   "194": "AI Core Execution Framework",
@@ -97,8 +95,6 @@
   "393": "Client Test Fixtures",
   "394": "Postgres Storage Backends",
   "395": "Storage Conformance Setup",
-  "396": "In-Memory Service Ports",
-  "397": "Memory Port Overrides",
   "398": "Observability Storage Conformance",
   "399": "Shared Test Fixtures",
   "400": "Pack Toolset Definition",

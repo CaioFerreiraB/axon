@@ -360,6 +360,8 @@ export const accountSchema = z.object({
   updated_by: z.string().nullable(),
   last_login_at: instant.nullable(),
   version: z.number().int(),
+  /** Em apagamento, depois de um apagamento incompleto (008 FR-054; 013 R34). A API anterior não o traz. */
+  deleting: z.boolean().default(false),
 });
 export type Account = z.infer<typeof accountSchema>;
 export const accountPageSchema = z.object({ data: z.array(accountSchema), next_cursor: z.string().nullable() });
@@ -384,12 +386,34 @@ export const loginSettingsSchema = z.object({
 });
 export type LoginSettings = z.infer<typeof loginSettingsSchema>;
 
+/** O relatório do apagamento de uma conta (008 FR-049; 013 R33): o 200 do `DELETE` e o `report` do 503. Nunca traz o
+ * pseudônimo (ADR-059). */
+export const deletionReportSchema = z.object({
+  username: z.string(),
+  complete: z.boolean(),
+  identity: z.record(z.string(), z.number().int()),
+  modules: z.array(
+    z.object({
+      name: z.string(),
+      counts: z.record(z.string(), z.number().int()),
+      warnings: z.array(z.string()),
+      failed: z.boolean(),
+    }),
+  ),
+});
+export type DeletionReport = z.infer<typeof deletionReportSchema>;
+
 // --- chaves e saúde -------------------------------------------------------------------------------------------------
+
+export const SCOPES = ["inference", "users", "admin"] as const;
+export type Scope = (typeof SCOPES)[number];
 
 export const apiKeySchema = z.object({
   key_id: z.string(),
   subject: z.string(),
   groups: z.array(z.string()),
+  /** Os escopos da chave (ADR-057; 013 R31). `admin` só a linha de comando concede. */
+  scopes: z.array(z.enum(SCOPES)),
   label: z.string().nullable(),
   created_at: instant,
   revoked_at: instant.nullable(),

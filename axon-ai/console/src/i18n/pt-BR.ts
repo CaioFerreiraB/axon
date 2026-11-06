@@ -53,3 +53,51 @@ export const SECTION_TEXT: Record<"models" | "mcp" | "auth", string> = {
   mcp: "MCP",
   auth: "Permissões",
 };
+
+// --- incremento 9.7: escopos de chave e o relatório do apagamento (013 R31, R33) -----------------------------------
+
+/** Os escopos de chave em português (ADR-057). A administração só a linha de comando concede. */
+export const SCOPE_TEXT: Record<"inference" | "users" | "admin", string> = {
+  inference: "Uso de inferência",
+  users: "Gerenciar usuários e grupos",
+  admin: "Administração",
+};
+
+/** Os escopos que a console concede, na ordem do diálogo (sem a administração; ADR-057 item 3). */
+export const GRANTABLE_SCOPES = ["inference", "users"] as const;
+
+/** As partes da plataforma no relatório do apagamento; uma parte nova aparece pelo nome cru. */
+const MODULE_TEXT: Record<string, string> = {
+  assistants: "Assistants e chaves",
+  mcp: "Servidores MCP",
+  conversations: "Conversas",
+  audit: "Auditoria de tools",
+  observability: "Preços e ajustes",
+  identity: "Conta e sessões",
+};
+
+const COUNT_TEXT: Record<string, string> = {
+  user_assistants: "Assistants pessoais",
+  api_keys: "chaves de API",
+  override_entries: "permissões em Assistants",
+  authored: "registros com o autor trocado",
+  servers: "servidores pessoais",
+  conversations: "conversas",
+  attachments: "imagens",
+  audit_records: "registros de auditoria com o autor trocado",
+  prices: "preços com o autor trocado",
+  destination_settings: "ajustes com o autor trocado",
+  account: "conta",
+  sessions: "sessões",
+  refresh_tokens: "tokens de renovação",
+  codes: "códigos de login",
+  pending: "logins em andamento",
+};
+
+export function moduleText(name: string): string {
+  return MODULE_TEXT[name] ?? name;
+}
+
+export function countText(name: string): string {
+  return COUNT_TEXT[name] ?? name;
+}

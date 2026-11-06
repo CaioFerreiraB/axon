@@ -115,3 +115,9 @@ class PostgresUserAssistantStore:
                 "DELETE FROM assistants.user_assistants WHERE owner = %s AND name = %s RETURNING 1", (owner, name)
             )
             return await cursor.fetchone() is not None
+
+    async def erase_owner(self, owner: str) -> int:
+        """Apaga os Assistants de usuário do dono (ADR-058; research R52). Zero na repetição."""
+        async with self._pool.connection() as connection:
+            cursor = await connection.execute("DELETE FROM assistants.user_assistants WHERE owner = %s", (owner,))
+            return cursor.rowcount

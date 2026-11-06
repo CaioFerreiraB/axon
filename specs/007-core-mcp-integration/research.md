@@ -353,3 +353,40 @@ texto que o modelo lê).
 ## Incremento: delegação MCP por execução (2026-10-29)
 
 Regido por [ADR-055](../../docs/adr/ADR-055-autenticacao-mcp-delegada.md). Protocolo 1: um MCP delegado por grant, identidade confidencial por execução, sem cache compartilhado e sem alteração da ACL. Contrato: [delegação](../007-core-mcp-integration/contracts/delegation.md). Casos D01 isolamento concorrente; D02 falha fechada; D03 metadados e superfície privada; D04 segredo ausente de persistência/trace; D05 regressão estática.
+
+
+## Incremento 9.7: apagar os servidores de um dono (2026-11-04; US7)
+
+## R18 — `erase_subject` sem pseudônimo, só servidores de usuário (ADR-058 item 2; ADR-059; FR-018)
+
+**Decision**: seam `McpSubjectErasure` no `api.py`, que o `McpService` cumpre:
+`erase_subject(subject: str) -> McpErasureReport(servers: int)`. O subject é validado pelo `SUBJECT_PATTERN` da 003
+(`user:…`/`svc:…`), senão `McpRejected(field="subject")` antes de qualquer I/O. A porta `McpServerStore` ganha
+`erase_owner(owner: str) -> int`, que apaga numa operação (`DELETE … WHERE owner = %s`) todos os registros do dono; o
+dono é sempre um texto não vazio, então os globais (`owner IS NULL`) e as entradas do arquivo do operador nunca entram.
+Idempotente: repetir devolve 0. Não confere quem pede, como os demais métodos da porta primária para os globais — a
+autorização é da 012, que só chama pela composição da 011. O seam **não recebe** `actor` nem `pseudonym`: nenhuma
+tabela da 007 guarda autor ou ator (a `definition` é só o rascunho), então não há citação a trocar; a 011 adapta a
+assinatura à porta `SubjectDataEraser` da 012 e descarta os dois.
+
+**Rationale** (ADR-058 item 2: "cada módulo dono de dado de usuário publica o próprio apagamento por subject"; ADR-059
+item 3: cada módulo troca **as próprias** citações): o `owner` é a única coluna da 007 que cita um subject. Os
+Assistants de usuário que referenciam um `~alias` são do mesmo dono e saem antes, pela 003 (ordem 003 → 007 da 011).
+
+**Alternatives considered**: a mesma assinatura da 003 (`actor`, `pseudonym`) — dois parâmetros sem uso, que só
+existiriam para uniformidade que a 011 já resolve no adaptador; apagar um a um por `delete_mine` — exigiria montar um
+`Principal` e faria N idas ao banco sem garantia de terminar; apagar também os globais que o subject criou — os globais
+não têm autor e são do operador.
+
+## R19 — O cache de descoberta esquece o dono (FR-019)
+
+**Decision**: a porta `DiscoveryCache` ganha `forget_owner(owner: str) -> None`, que descarta as entradas cuja
+`CacheKey.owner` é o dono; o `erase_subject` a chama depois do armazenamento. O adapter em memória filtra o dicionário.
+
+**Rationale** (ADR-059 item 1: "nada que identifique a conta fica na plataforma depois do apagamento concluído"): a
+lista de tools de um servidor do usuário, indexada pelo subject, ficaria em memória até o TTL (5 min por padrão). Sem
+ela também não há risco de um usuário novo com o mesmo nome acertar uma entrada do anterior — a `CacheKey` leva a versão
+do registro, mas registro igual criado no mesmo instante teria a mesma versão.
+
+**Alternatives considered**: deixar vencer no TTL (o dado do usuário apagado ficaria até 5 min no processo); limpar o
+cache inteiro (custo de redescoberta para todos por causa de um apagamento).

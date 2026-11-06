@@ -940,3 +940,85 @@ servidor que o operador escolheu; a do usuário, de qualquer cliente).
 - **Decision**: entrada nova em `COMMANDS`; monta só configuração e adapters (sem rede), abre a sessão de
   armazenamento, chama `ImpactService.backfill(limit)` (padrão 10 000) e imprime estimadas, sem par e com falha; saída
   0, 1 se alguma falhou ou se a estimativa está desligada, 2 para `--limit` inválido.
+
+
+## Incremento 9.7: apagamento em cascata montado e escopos na linha de comando (2026-11-05; US9)
+
+## R58 — Os apagadores, num módulo próprio da composição (ADR-058 item 3; ADR-059 item 3; FR-032)
+
+**Decision**: `bootstrap/erasure.py` com `subject_erasers(parts, session) -> tuple[SubjectDataEraser, ...]`, cinco
+objetos com `name` e `erase(subject, *, actor, pseudonym) -> ErasedData`, nesta ordem:
+
+| `name` | Seam chamado | O que vai | Contagens |
+|---|---|---|---|
+| `assistants` | `SubjectEraser.erase_subject` (003) | subject, ator, pseudônimo | `user_assistants`, `api_keys`, `override_entries`, `authored`; `config_references` vira um aviso: "referências na configuração (assistants.yaml): geral, interno" |
+| `mcp` | `McpService.erase_subject` (007) | subject | `servers` |
+| `conversations` | `ConversationService.erase_subject` (008) | subject | `conversations`, `attachments` |
+| `audit` | `CapabilityService.erase_subject` (004) | subject, pseudônimo | `audit_records` |
+| `observability` | `SubjectPseudonymizer.erase_subject` (009) | subject, pseudônimo | `prices`, `destination_settings` |
+
+A tradução é genérica: as contagens são os campos inteiros do relatório (`dataclasses.fields`), e só a 003 tem aviso.
+A 011 conhece os cinco `api.py`; a 012 só vê a porta.
+
+**Rationale**: a composição é a única que conhece os módulos (ADR-058 item 3); a ordem é a do ADR-059 item 3 (o
+Assistant `~x` sai antes do servidor `~drive`, e as conversas antes da auditoria das execuções delas).
+
+**Alternatives considered**: um apagador por módulo dentro de cada módulo, no formato da 012 (cada um importaria a 012;
+a fronteira é o motivo da porta); um apagador só que chama os cinco (a 012 perderia o relatório por módulo e a falha de
+um derrubaria os outros).
+
+## R59 — Preguiçosos: o serviço do módulo é montado na hora do apagamento (FR-033)
+
+**Decision**: cada apagador recebe uma fábrica e monta o seam na primeira chamada de `erase`, a partir de `parts` e de
+`session`. No servidor, `session is parts` e os apagadores usam os serviços da plataforma (`parts["assistants"]`,
+`parts["mcp"]`, `parts["capabilities"]`), para que o cache das sobreposições (003) e o da descoberta (007) sejam os do
+processo que atende; o 008 e o 009 montam o seam sobre `parts["conversations"]`, `parts["price_store"]` e
+`parts["destination_settings"]`. Na linha de comando, sobre a sessão: `session_assistants(parts, session)` (para o
+`forget`, que ali não tem efeito), `mcp_service(parts, store=session["mcp_store"])`, `capabilities_service(parts,
+audit=session["audit"], mcp=…)`, `ConversationService(store=session["conversations"], …)` e o `SubjectPseudonymizer`
+sobre as portas da sessão. `identity_service(parts, *, session)` passa `erasers=subject_erasers(parts, session)`.
+
+**Rationale**: a 012 é montada na etapa `identity`, antes de `packs`, `mcp_registry`, `engine` e `assistants` — os
+serviços que os apagadores usam ainda não existem quando ela nasce. Montar na hora mantém a ordem de boot e o mesmo
+código nos dois caminhos.
+
+**Alternatives considered**: mover a etapa `identity` para depois de `assistants` (o verificador OIDC da 003 depende
+das chaves dela, e a ordem de boot é contrato, FR-001); injetar os apagadores na 012 depois do boot (a porta é
+argumento do construtor, e o serviço ficaria mutável).
+
+## R60 — `axon users delete` sobe até `assistants`; `groups add|remove` até `adapters` (FR-034)
+
+**Decision**: `users delete <usuário> [--yes]` usa o `_boot(..., until=STAGE_ASSISTANTS)` (como `axon eval run`): os
+apagadores da 003 e da 004 precisam de packs, motor e Assistants; nenhum abre rede (os transportes MCP não são
+exercitados no apagamento). `groups add <grupo> <usuário>` e `groups remove <grupo> <usuário>` seguem o
+`_identity_command` de hoje (até `adapters`). Os três chamam os comandos da 012 (`users_delete_command`,
+`groups_add_member_command`, `groups_remove_member_command`), com o ator `cli` que ela já usa.
+
+**Rationale**: o mesmo caminho do `axon audit`, que já sobe até o motor pelo mesmo motivo (R29).
+
+**Alternatives considered**: montar a 003 e a 004 sem packs (exigiria versões "de apagamento" dos serviços, que só a
+composição usaria).
+
+## R61 — `TEST_USERS_API_KEY` no perfil `test` (FR-035)
+
+**Decision**: `axn_7e57c0de00000002_provisionamento-de-teste`, subject `svc:provisionamento-teste`, sem grupos, escopo
+`{users}`, semeada ao lado da `TEST_API_KEY` e exportada em `axon_ai.bootstrap.profiles`. `_seeded_keys` aceita os
+escopos por chave (o padrão segue a regra da migração).
+
+**Rationale**: a suíte de provisionamento e o e2e da console precisam de uma chave que não administra; emitir uma pela
+API em cada teste exigiria a chave de admin e esconderia o caso.
+
+## R62 — A prova ponta a ponta (SC-009)
+
+**Decision**: `tests/bootstrap/integration/test_platform_user_admin_scopes.py`, no perfil `test` com a identidade, e o
+mesmo roteiro no `persistent` com `AXON_TEST_POSTGRES_DSN`. Roteiro: `TEST_USERS_API_KEY` cria `ana` e a põe em `equipe`; o
+admin semeado a põe no grupo de administração pela console (a chave `users` não pode, ADR-057 item 4); `ana` entra
+pelo login da 012 (token da console e do chat), cria `~x` e `~drive`, conversa com imagem, executa uma tool de escrita
+num MCP global programado (controller e transporte por troca de porta, como em `test_platform_agentic_mcp.py`), fica no
+`allow` de uma sobreposição de `auth`, lança um preço e muda a captura; o admin semeado apaga `ana`. No `persistent`, a
+varredura procura `user:ana` em toda coluna de texto, JSON ou lista dos schemas `assistants`, `mcp`, `http`,
+`capabilities`, `observability` e `identity`, e `ana` como valor inteiro de coluna de texto (nome de usuário). Depois,
+uma conta nova `ana` não vê nada do anterior. A falha de um apagador fica nos testes da 012 (retomada) e da 008
+(503); a T098 prova que o `ModuleEraser` não a engole (achado U1 do `/speckit-analyze`).
+
+**Rationale**: SC-012 da 003 e SC-009 desta spec só fecham com todos os módulos montados juntos.

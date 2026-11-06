@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: ADR-012 (composition root), ADR-013 (relógio único, Trace Sink); [relatório de estilo arquitetural](../../docs/relatorio-estilo-arquitetural.md), lacuna G6; arch-v1 §13 (boot, CLI) e §14 (deployment). Fase 9 (2026-10-13): identidade da plataforma, superfície de administração, sobreposições, destinos do trace e chave mestra — ADR-030 a ADR-034. Fase 9, incremento 9.5 (2026-10-20): identidade Axon — ADR-037, ADR-038. Fase 9, incremento 9.6 (2026-11-03): impacto ambiental pelo EcoLogits — ADR-056.
+**Input**: ADR-012 (composition root), ADR-013 (relógio único, Trace Sink); [relatório de estilo arquitetural](../../docs/relatorio-estilo-arquitetural.md), lacuna G6; arch-v1 §13 (boot, CLI) e §14 (deployment). Fase 9 (2026-10-13): identidade da plataforma, superfície de administração, sobreposições, destinos do trace e chave mestra — ADR-030 a ADR-034. Fase 9, incremento 9.5 (2026-10-20): identidade Axon — ADR-037, ADR-038. Fase 9, incremento 9.6 (2026-11-03): impacto ambiental pelo EcoLogits — ADR-056. Fase 9, incremento 9.7 (2026-11-05): apagamento de contas em cascata montado, escopos de chave e um grupo de cada vez na linha de comando — ADR-057, ADR-058, ADR-059.
 
 ## Module Boundary *(mandatory)*
 
@@ -17,7 +17,7 @@
 - **Depende de infraestrutura (via portas)**: configuração do operador (arquivos e ambiente). Indiretamente, toda a infraestrutura dos módulos, cujos adapters instancia.
 - **Não conhece**: regras de negócio de qualquer módulo (grant, catálogo, flows, políticas de tool), o estado interno do motor e o contexto de execução (005), qualquer domínio.
 - **Substituição**: preservar a ordem de boot com falha fechada, os perfis de adapters e os comandos da linha de comando; a técnica de injeção é livre.
-- **Insumo técnico**: [design.md](design.md); [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md), [ADR-009](../../docs/adr/ADR-009-deploy-docker-build-arg.md), [ADR-020](../../docs/adr/ADR-020-segredos-uma-fonte-por-perfil-uma-porta-por-modulo.md), [ADR-030](../../docs/adr/ADR-030-a-plataforma-e-o-provedor-de-identidade.md), [ADR-033](../../docs/adr/ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md), [ADR-034](../../docs/adr/ADR-034-trace-com-destinos-e-conteudo-opcional.md), [ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md), [ADR-038](../../docs/adr/ADR-038-marca-da-plataforma-e-marca-da-instalacao.md), [ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md).
+- **Insumo técnico**: [design.md](design.md); [ADR-012](../../docs/adr/ADR-012-estilo-arquitetural-hexagonal.md), [ADR-013](../../docs/adr/ADR-013-seams-transversais-trace-e-tempo.md), [ADR-009](../../docs/adr/ADR-009-deploy-docker-build-arg.md), [ADR-020](../../docs/adr/ADR-020-segredos-uma-fonte-por-perfil-uma-porta-por-modulo.md), [ADR-030](../../docs/adr/ADR-030-a-plataforma-e-o-provedor-de-identidade.md), [ADR-033](../../docs/adr/ADR-033-segredos-de-runtime-cifrados-com-a-chave-mestra.md), [ADR-034](../../docs/adr/ADR-034-trace-com-destinos-e-conteudo-opcional.md), [ADR-037](../../docs/adr/ADR-037-a-plataforma-se-chama-axon.md), [ADR-038](../../docs/adr/ADR-038-marca-da-plataforma-e-marca-da-instalacao.md), [ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md), [ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md), [ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md), [ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md).
 
 ## Clarifications
 
@@ -247,6 +247,46 @@ encaixe do incremento 9.6.
 
 ---
 
+### User Story 9 - A plataforma apaga uma conta em cascata e aceita chaves com escopo (Priority: P2)
+
+O operador sobe a plataforma e apagar uma conta — pela administração, por uma chave `users` ou pela linha de comando —
+apaga o que é do usuário em todos os módulos e troca, pelo pseudônimo, o nome dele no que fica; um usuário novo com o
+mesmo nome não herda nada. Pela linha de comando ele também põe e tira uma conta de um grupo e emite chaves com escopo
+([ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md), [ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md),
+[ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md)).
+
+**Why this priority**: Os seams de apagamento de cada módulo e a porta da 012 existem, mas só a composition root os
+liga; sem ela, apagar uma conta deixaria os dados nos outros módulos. É a passada de encaixe do incremento 9.7.
+
+**Independent Test**: No perfil `test` com a identidade ligada, um admin emite uma chave `users`; com ela cria `ana` e a
+põe num grupo de administração; `ana` cria um Assistant `~x`, um servidor `~drive`, uma conversa, um registro de
+auditoria, um preço e um ajuste; outro admin apaga `ana`; o relatório lista cada módulo, e nada de `ana` resta — no
+`persistent`, nenhuma linha de nenhum schema cita o nome dela.
+
+**Acceptance Scenarios**:
+
+1. **Given** a plataforma montada em qualquer perfil, **When** uma conta é apagada, **Then** os apagadores rodam na ordem
+   003 → 007 → 008 → 004 → 009, cada um com o subject, o ator e o pseudônimo, e o relatório traz um item por módulo com
+   as contagens e os avisos dele (as referências do `assistants.yaml` saem como aviso da 003).
+2. **Given** `ana` com Assistant `~x`, servidor `~drive`, chave, conversa com imagem, entrada no `allow` de uma
+   sobreposição, registro de auditoria, preço e ajuste de destino de autoria dela, **When** `ana` é apagada, **Then** os
+   dados dela somem, as citações que ficam passam ao pseudônimo e, no perfil `persistent`, uma varredura das colunas de
+   texto de todos os schemas da plataforma não acha `ana` como subject nem como nome de usuário.
+3. **Given** um apagador que falha, **When** a conta é apagada pela administração, **Then** a resposta é o 503 da 008 com
+   o relatório parcial; **When** o apagamento é repetido, **Then** conclui.
+4. **Given** a plataforma com a identidade ligada, **When** o operador roda `axon users delete ana --yes`, **Then** a
+   linha de comando apaga com os mesmos apagadores, sobre os armazenamentos da sua sessão, e imprime o relatório; sem
+   `--yes`, pede a confirmação digitando o nome; incompleto, sai com 1 e o relatório parcial.
+5. **Given** a plataforma com a identidade ligada, **When** o operador roda `axon groups add equipe ana` e `axon groups
+   remove equipe ana`, **Then** a conta entra e sai do grupo; repetir não muda nada.
+6. **Given** o operador, **When** roda `axon keys create --subject svc:prov --scope users`, **Then** a chave nasce só com
+   `users`; `axon keys list` mostra os escopos; e a documentação da 011 mostra `--scope admin` ao emitir uma chave de
+   administração.
+7. **Given** o perfil `test`, **When** uma suíte precisa de uma chave de provisionamento, **Then** usa `TEST_USERS_API_KEY`,
+   exportada como as outras credenciais de teste, só com o escopo `users`.
+
+---
+
 ### Edge Cases
 
 - Configuração de pack que referencia pack não instalado: tratada pela 002 (`error: não instalado`); o boot continua.
@@ -298,6 +338,20 @@ encaixe do incremento 9.6.
 - **FR-029**: A configuração DEVE ler `AXON_TOOL_MAX_ATTACHMENT_BYTES`, `AXON_MAX_REQUEST_BYTES`, `AXON_MAX_INPUT_IMAGE_BYTES` e `AXON_MAX_INPUT_IMAGES`, com faixas que nomeiam a variável, e ligá-las à 007 e à 008 nos três perfis ([ADR-044](../../docs/adr/ADR-044-imagens-na-conversa.md), item 12).
 - **FR-030**: A configuração DEVE ler `AXON_CHARTS_SCRIPT_BASE_URL` (opcional, validado como o `AXON_PUBLIC_URL`; o erro para o boot nomeando a variável) e passar à 008 o endereço efetivo dos scripts dos gráficos — o próprio ou, sem ele, o `AXON_PUBLIC_URL`; a saúde DEVE ter o item informativo `charts`, sempre `ok`, com o aviso no `detail` quando não há endereço ([ADR-052](../../docs/adr/ADR-052-graficos-na-conversa.md), item 6).
 - **FR-031**: A composição DEVE montar a porta `impact_estimator` da 009 nos três perfis (o estimador do EcoLogits, também no `test`) e entregá-la ao destino de uso e ao `ImpactService`, que entra nos seams da administração; DEVE ler `AXON_IMPACT_ENABLED` (padrão `true`), `AXON_IMPACT_ZONE` (opcional, conferida contra os mixes do EcoLogits) e `AXON_IMPACT_TREE_KG_CO2E` (padrão 140, positivo), recusando valor inválido com erro que nomeia a variável; a saúde DEVE ter o item informativo `impact`, sempre `ok`, com versão, estado e cobertura das últimas 24 h; a raiz de comandos DEVE registrar `usage impact-backfill [--limit N]` ([ADR-056](../../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md), item 7).
+- **FR-032**: A composição DEVE montar a porta `SubjectDataEraser` da 012 com cinco apagadores com nome, nesta ordem:
+  `assistants` (003), `mcp` (007), `conversations` (008), `audit` (004) e `observability` (009). Cada um DEVE chamar o
+  seam do módulo com o subject e, onde o seam os aceita, o ator e o pseudônimo, e traduzir o relatório do módulo em
+  contagens por nome de campo e avisos; as referências da configuração que a 003 aponta DEVEM sair como aviso que nomeia
+  os Assistants ([ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md), item 3; [ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md), item 3).
+- **FR-033**: Os apagadores DEVEM ser os mesmos na API e na linha de comando: no servidor, sobre os armazenamentos da
+  plataforma; na linha de comando, sobre os da sessão de armazenamento do comando — nunca uma 012 que apaga só a conta.
+- **FR-034**: A raiz de comandos DEVE registrar `users delete <usuário> [--yes]`, `groups add <grupo> <usuário>` e
+  `groups remove <grupo> <usuário>`, sobre os comandos que a 012 já oferece; `users delete` incompleto sai com 1 e o
+  relatório parcial.
+- **FR-035**: O perfil `test` DEVE semear e exportar `TEST_USERS_API_KEY`, de um subject de serviço sem grupos e só com o
+  escopo `users`, ao lado de `TEST_API_KEY`.
+- **FR-036**: A documentação da 011 (quickstart e contrato da linha de comando) DEVE mostrar a emissão de chave de
+  administração com `--scope admin` e a de chave com outros escopos ([ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md), itens 3 e 7).
 
 ### Key Entities
 
@@ -319,9 +373,15 @@ encaixe do incremento 9.6.
 - **SC-006**: Adicionar um adapter novo a uma porta existente exige mudança apenas no módulo dono do adapter e neste módulo.
 - **SC-007**: Com a identidade ligada, a suíte ponta a ponta — login, conversa pelo token do chat, administração pelo token da console, sobreposição e relatório de uso — roda inteira sem rede e sem serviços externos.
 - **SC-008**: Depois da passada da US7, zero ocorrências de `ai_core`, `ai-core` ou `AI_CORE` no código, nos testes, na configuração e nos documentos vivos do workspace e das specs do core (fora do histórico do ADR-037, item 6, do código, dos testes e dos documentos da recusa dos nomes antigos (FR-025) e dos identificadores que pertencem às passadas de outros módulos — clarificação de 2026-10-20), e as suítes do workspace e da console passam.
+- **SC-009**: Com a identidade ligada, a suíte ponta a ponta do apagamento — chave `users` cria e agrupa a conta, a conta
+  gera dados em 003, 004, 007, 008, 009 e 012, outro admin a apaga — roda sem rede, e o relatório tem os cinco módulos;
+  no perfil `persistent`, 0 linhas de todos os schemas da plataforma citam o subject ou o nome de usuário apagado.
 
 ## Assumptions
 
+- Incremento 9.7: o que já saiu do processo não é apagado pela plataforma — o log de processo (a 012 registra nomes de
+  usuário em logins e mudanças), o trace em arquivo e o que foi a destinos externos (Langfuse, com captura ligada) ficam
+  sob a retenção do operador (ADR-059, item 4); a documentação da instalação diz isso (002).
 - A configuração vem de arquivos montados na imagem (`packs.yaml`, `assistants.yaml`) e de variáveis de ambiente, como no template de instalação (002, ADR-009).
 - Processo único na v1; múltiplas réplicas ficam fora de escopo, como os contadores de taxa da 003.
 - A técnica de injeção (construtores explícitos ou container) é decidida no plano; a constituição exige apenas que ela fique neste módulo.

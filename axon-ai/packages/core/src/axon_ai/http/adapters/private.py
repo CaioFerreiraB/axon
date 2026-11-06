@@ -12,9 +12,10 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from axon_ai.assistants.api import PRIVATE_SURFACE, ApiKeyAdmin, NotFound, Principal
-from axon_ai.http.adapters.auth import authenticated
+from axon_ai.http.adapters.auth import authenticated, scoped
 from axon_ai.http.adapters.chat import json_body
 from axon_ai.http.domain.private import health_json, issue_request, key_json, packs_json
+from axon_ai.http.domain.scopes import ADMIN, ANY_KEY
 from axon_ai.http.ports import AdminGate, HealthProvider
 from axon_ai.packs.api import PackRegistry
 
@@ -26,6 +27,7 @@ def private_router() -> APIRouter:
         return request.app.state.keys  # type: ignore[no-any-return]
 
     @router.get("/packs")
+    @scoped(ADMIN)
     async def packs(request: Request) -> Any:
         principal = await authenticated(request, PRIVATE_SURFACE)
         _require_admin(request, principal)
@@ -33,23 +35,27 @@ def private_router() -> APIRouter:
         return packs_json(registry.entries())
 
     @router.post("/admin/keys", status_code=201)
+    @scoped(ADMIN)
     async def issue(request: Request) -> Any:
         principal = await authenticated(request, PRIVATE_SURFACE)
-        subject, groups, label = issue_request(await json_body(request))
-        issued = await keys(request).issue(actor=principal, subject=subject, groups=groups, label=label)
+        subject, groups, label, scopes = issue_request(await json_body(request))
+        issued = await keys(request).issue(actor=principal, subject=subject, groups=groups, label=label, scopes=scopes)
         return key_json(issued.info) | {"key": issued.plaintext}
 
     @router.get("/admin/keys")
+    @scoped(ADMIN)
     async def listing(request: Request) -> Any:
         principal = await authenticated(request, PRIVATE_SURFACE)
         return {"data": [key_json(info) for info in await keys(request).keys(actor=principal)]}
 
     @router.delete("/admin/keys/{key_id}")
+    @scoped(ADMIN)
     async def revoke(request: Request, key_id: str) -> Any:
         principal = await authenticated(request, PRIVATE_SURFACE)
         return key_json(await keys(request).revoke(actor=principal, key_id=key_id))
 
     @router.get("/health")
+    @scoped(ANY_KEY)
     async def health(request: Request) -> Any:
         await authenticated(request, PRIVATE_SURFACE)
         provider: HealthProvider = request.app.state.health

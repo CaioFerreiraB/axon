@@ -13,6 +13,7 @@ from axon_ai.identity.api import (
     Account,
     AccountDraft,
     AccountPatch,
+    DeletionReport,
     Group,
     IssuedPassword,
     LoginSettingsView,
@@ -38,6 +39,21 @@ def account_json(account: Account) -> dict[str, Any]:
         "updated_by": account.updated_by,
         "last_login_at": account.last_login_at.isoformat() if account.last_login_at else None,
         "version": account.version,
+        "deleting": account.deleting,  # incremento 9.7 (FR-054, R72): em apagamento, depois de um incompleto
+    }
+
+
+def deletion_json(report: DeletionReport) -> dict[str, Any]:
+    """O relatório do apagamento (FR-049, R69). O `DeletionReport` da 012 não traz o pseudônimo, e o formato também não
+    (ADR-059)."""
+    return {
+        "username": report.username,
+        "complete": report.complete,
+        "identity": dict(report.identity),
+        "modules": [
+            {"name": m.name, "counts": dict(m.counts), "warnings": list(m.warnings), "failed": m.failed}
+            for m in report.modules
+        ],
     }
 
 

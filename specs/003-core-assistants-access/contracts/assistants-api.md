@@ -216,3 +216,73 @@ deixou de valer (ex.: `*` depois de o deploy tornar o Assistant privado) → `As
 
 `tests/assistants/contract/test_key_rotation.py` (marca `us12`), `tests/assistants/contract/test_auth_override.py`
 (marca `us13`), `rotate` em `tests/assistants/contract/test_api_key_store.py` (memória × Postgres).
+
+## Fase 9 (2026-11-04): escopos da chave e Subject Erasure (ADR-057, ADR-058; research R46–R54)
+
+### `Principal` e `ApiKeyInfo` — campos novos
+
+```python
+type Scope = Literal["inference", "users", "admin"]
+SCOPES: Final[tuple[Scope, ...]] = ("inference", "users", "admin")
+DEFAULT_SCOPES: Final[frozenset[Scope]] = frozenset({"inference"})
+
+class Principal:          # + scopes: frozenset[Scope] | None = None   (oidc: None; api_key: nunca None)
+class ApiKeyInfo:         # + scopes: frozenset[Scope] = DEFAULT_SCOPES
+```
+
+### `Authenticator` e `ApiKeyAdmin` — mudanças
+
+```python
+class ApiKeyAdmin(Protocol):
+    async def issue(self, *, actor: Principal, subject: str, groups: Collection[str] = (),
+                    label: str | None = None, scopes: Collection[str] | None = None) -> IssuedApiKey: ...
+```
+
+| Regra | Origem | Verificada por |
+|---|---|---|
+| O Principal de chave traz os escopos guardados; o de OIDC, `None` | FR-038, R46 | `test_key_scopes.py` |
+| Chave sem `admin` não é admin em nenhuma operação (`NotFound`), mesmo com o grupo de administração; OIDC com o grupo continua admin | FR-039, US14 cen. 3–4 | `test_key_scopes.py`, `test_scopes.py` |
+| Sem `inference`: `resolve`/`get`/`update`/`delete`/`create` → `AssistantNotFound`/`NotFound` de inexistente; `discover`/`mine` → `[]` | FR-041, US14 cen. 2 | `test_key_scopes.py` |
+| `scopes=None` → `{inference}`; vazio, desconhecido ou `admin` → `RequestRejected(field="scopes")` pela administração | FR-038, FR-040, US14 cen. 1, 6, 7 | `test_key_scopes.py` |
+| `issue_as_operator(scopes=["admin", …])` só com o grupo de administração em `groups`; senão `RequestRejected(field="scopes")` | FR-040, US14 cen. 5 | `test_key_scopes.py`, `test_cli.py` |
+| `rotate` preserva os escopos | FR-042, US14 cen. 8 | `test_key_scopes.py`, `test_api_key_store.py` |
+
+### `SubjectErasure` — consumido pela 011 (ligado ao apagamento de contas da 012)
+
+```python
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ErasureReport:
+    user_assistants: int = 0
+    api_keys: int = 0
+    override_entries: int = 0
+    config_references: tuple[str, ...] = ()
+
+class SubjectErasure(Protocol):
+    async def erase_subject(self, subject: str, *, actor: str) -> ErasureReport: ...
+```
+
+| Regra | Origem | Verificada por |
+|---|---|---|
+| Apaga os Assistants de usuário do dono e todas as chaves do subject; a requisição seguinte com a chave é não autenticada | FR-044, US15 cen. 1, 2, 7 | `test_subject_erasure.py` |
+| Cada sobreposição de `auth` que cita o subject ganha versão nova sem a entrada, autor `actor`, histórico `saved`, impressão digital preservada | FR-045, US15 cen. 3, R53 | `test_subject_erasure.py` |
+| `allow` que fica vazio é gravado; o Assistant fica indisponível com `override.auth` | FR-045, US15 cen. 4 | `test_subject_erasure.py` |
+| Conflito de versão: até 3 tentativas; depois `Conflict` | R53 | `test_subject_erasure.py` |
+| Referências no YAML só em `config_references`; o arquivo não muda | FR-046, US15 cen. 5 | `test_subject_erasure.py` |
+| Repetido: contagens zero, mesmas referências, sem erro | FR-044, US15 cen. 6, SC-012 | `test_subject_erasure.py` (memória e Postgres) |
+| `subject` fora de `user:…`/`svc:…` → `RequestRejected(field="subject")`; sem verificação de admin (quem autoriza é a 012) | FR-047 | `test_subject_erasure.py` |
+| A resolução seguinte já vê a sobreposição nova (cache invalidado para os Assistants tocados) | R52 | `test_subject_erasure.py` |
+
+### Ajuste: o pseudônimo (ADR-059; FR-048)
+
+```python
+class SubjectErasure(Protocol):
+    async def erase_subject(self, subject: str, *, actor: str, pseudonym: str) -> ErasureReport: ...
+# ErasureReport + authored: int = 0
+```
+
+| Regra | Verificada por |
+|---|---|
+| `pseudonym` fora de `deleted:<16 hex>` → `RequestRejected(field="pseudonym")` | `test_subject_erasure.py` |
+| Autor das sobreposições, ator do histórico e `allow` do histórico com o subject passam ao pseudônimo; `authored` conta; zero na repetição | `test_subject_erasure.py`, `test_override_store.py` |
+| Nenhuma linha do schema `assistants` cita o subject depois do apagamento (Postgres) | `test_subject_erasure.py` |
+

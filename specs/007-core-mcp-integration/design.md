@@ -84,6 +84,7 @@ arch-v1 lista `stdio` como transporte e permite `scope: user`. Combinados, isso 
 |---|---|---|---|
 | MCP Registry | primária (seam) | `service.py` | CRUD por escopo, isolamento entre usuários |
 | Cliente MCP restrito (`MCPClient`, contrato 001) | primária (seam) | `service.py` | alias fora do grant → "servidor desconhecido" |
+| Apagamento por subject (`McpSubjectErasure`, 9.7) | primária (seam) | `service.py` | todos os `~` do dono, nunca globais; idempotente; cache esquecido |
 | `McpServerStore` | secundária | memória → Postgres (Fase 3) | em memória + conformidade contra Postgres; varredura de segredos |
 | `SecretResolver` | secundária | variáveis de ambiente (adapter único, injetado pela 011) | dicionário em memória |
 | `McpTransport` | secundária | http/sse; stdio só global | MCP de teste em processo |

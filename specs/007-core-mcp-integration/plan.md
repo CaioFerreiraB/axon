@@ -239,3 +239,25 @@ Reavaliado com [data-model.md](data-model.md), [contracts/](contracts/) e [quick
 ## Incremento: delegação MCP por execução (2026-10-29)
 
 Regido por [ADR-055](../../docs/adr/ADR-055-autenticacao-mcp-delegada.md). Protocolo 1: um MCP delegado por grant, identidade confidencial por execução, sem cache compartilhado e sem alteração da ACL. Contrato: [delegação](../007-core-mcp-integration/contracts/delegation.md). Casos D01 isolamento concorrente; D02 falha fechada; D03 metadados e superfície privada; D04 segredo ausente de persistência/trace; D05 regressão estática.
+
+
+## Incremento 9.7: apagar os servidores de um dono (2026-11-04; US7)
+
+**Summary**: a 007 publica `McpSubjectErasure.erase_subject(subject) -> McpErasureReport` (ADR-058 item 2), que apaga
+os servidores de escopo `user` do subject numa operação do armazenamento e descarta a descoberta em cache deles. Sem
+pseudônimo: a 007 não guarda autor nem ator (research R18, R19). Sem dependência nova; sem migração (a coluna `owner` já
+existe).
+
+**Mudanças**:
+
+| Onde | O quê |
+|---|---|
+| `mcp/api.py` | `McpErasureReport(servers: int)`; `McpSubjectErasure` (Protocol) |
+| `mcp/ports.py` | `McpServerStore.erase_owner(owner: str) -> int`; `DiscoveryCache.forget_owner(owner: str) -> None` |
+| `mcp/service.py` | `McpService.erase_subject` — valida o subject, apaga, esquece o cache |
+| `mcp/adapters/memory.py`, `registry_postgres.py` | `erase_owner`; `InMemoryDiscoveryCache.forget_owner` |
+
+**Constitution Check**: princípio II — só o `api.py` muda de forma pública, com um seam novo que a 011 consome; nenhum
+módulo apaga dado de outro. Princípio XIII — a porta nova é método de porta existente, com adapter em memória e
+Postgres, na conformidade de `test_store.py`. Princípio VIII (testes) — conformidade memória × Postgres e a varredura
+do schema `mcp` (SC-005). Sem violação.

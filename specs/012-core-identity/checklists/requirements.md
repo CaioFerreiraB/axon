@@ -76,3 +76,47 @@
 - "Sem detalhes de implementação": nomes de cookie, realm e rótulo são identificadores que o navegador, o cliente OIDC e
   o banco veem — o objeto da US, decidido no ADR-037. Os tokens de cor vêm do `DESIGN.md`, o documento de desenho do
   projeto, como nas demais passadas visuais.
+
+## Passada de 2026-11-04: US9 apagar conta em cascata, US10 um grupo de cada vez, US11 gestão por quem não administra (ADR-057, ADR-058)
+
+### Content Quality
+
+- [x] No implementation details (languages, frameworks, APIs)
+- [x] Focused on user value and business needs
+- [x] Written for non-technical stakeholders
+- [x] All mandatory sections completed
+
+### Requirement Completeness
+
+- [x] No [NEEDS CLARIFICATION] markers remain
+- [x] Requirements are testable and unambiguous
+- [x] Success criteria are measurable
+- [x] Success criteria are technology-agnostic (no implementation details)
+- [x] All acceptance scenarios are defined
+- [x] Edge cases are identified
+- [x] Scope is clearly bounded
+- [x] Dependencies and assumptions identified
+
+### Feature Readiness
+
+- [x] All functional requirements have clear acceptance criteria
+- [x] User scenarios cover primary flows
+- [x] Feature meets measurable outcomes defined in Success Criteria
+- [x] No implementation details leak into specification
+
+### Notes
+
+- Iteração 1: todos os itens passam.
+- **US9.** FR-028 → cenários 1–3; FR-029 → 4–5; FR-030 → 4 e casos de borda; FR-031 → 6; FR-032 → 2; FR-036 e FR-037
+  → SC-009.
+- **US10.** FR-033 → cenários 1–6 e SC-011.
+- **US11.** FR-034 → cenários 1–5 e SC-010; FR-035 → cenário 6.
+- A FR-001 foi revista, sem contradizer o US2 cen. 4, que passou a falar da conta desativada.
+- **Pontos para a clarificação.** O que fica guardado (ADR-058, item 6, pede que a 012 confirme). E se o relatório de
+  um apagamento incompleto é um erro ou um resultado. As Assumptions registram os palpites: fica a auditoria; o
+  relatório é síncrono.
+- Clarificação de 2026-11-04, com duas perguntas:
+  - **O que fica.** Os registros ficam pseudonimizados (FR-038, SC-012, [ADR-059](../../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md)).
+  - **Apagamento incompleto.** É erro, com o relatório parcial (FR-029, US9 cen. 4).
+  - O checklist continua passando.
+

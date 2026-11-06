@@ -104,7 +104,9 @@ async def test_chave_emitida_autentica_numa_plataforma_nova(persistent: None, ba
     primeira = _platform(tmp_path, banco_limpo)
     async with serving(primeira):
         assert primeira.access is not None
-        emitida = await primeira.access.issue_as_operator(subject="svc:robo", groups=["admin"])
+        emitida = await primeira.access.issue_as_operator(
+            subject="svc:robo", groups=["admin"], scopes=["inference", "admin"]
+        )
 
     segunda = _platform(tmp_path, banco_limpo)
     async with serving(segunda) as client:

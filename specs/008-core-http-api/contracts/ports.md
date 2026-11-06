@@ -113,3 +113,10 @@ class AdminGate(Protocol):
 | `HealthProvider` | provedor mínimo da composition root (a partir do relatório de boot) até a 011 US5; `StaticHealthProvider` nos testes | a rota responde 200/503 conforme `ok` |
 | `AdminGate` | `AccessService` da 003 | a rota de packs responde 404 a quem a porta recusa |
 | `RequestIds` | uma instância para requisições, outra para conversas | ids distintos e previsíveis nos testes |
+
+
+## Incremento 9.7 (2026-11-05)
+
+`ConversationStore.erase_owner(owner: str) -> tuple[int, int]` — apaga todas as conversas do dono numa transação e
+devolve `(conversas, imagens)`; repetir devolve `(0, 0)`; outros donos intactos. Conformidade em
+`contract/test_conversation_store.py` (memória × Postgres).

@@ -56,3 +56,63 @@ test("o grupo de administração é protegido; um grupo comum é criado e apagad
   await page.getByRole("alert").getByRole("button", { name: "Apagar" }).click();
   await expect(row).toHaveCount(0);
 });
+
+// --- incremento 9.7 (US12; 013 R32–R35) -------------------------------------------------------------------------------
+
+async function cadastrar(page: import("@playwright/test").Page, username: string, name: string) {
+  await page.getByRole("button", { name: "Cadastrar pessoa" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Cadastrar pessoa" });
+  await dialog.getByLabel("Nome").fill(name);
+  await dialog.getByLabel("Usuário").fill(username);
+  await dialog.getByLabel("E-mail").fill(`${username}@exemplo.org`);
+  await dialog.getByRole("button", { name: "Cadastrar" }).click();
+  await page
+    .getByRole("dialog", { name: `${name} foi cadastrado` })
+    .getByRole("button", { name: "Concluir" })
+    .click();
+}
+
+test("apaga uma pessoa confirmando pelo nome, vê o relatório e ela some da lista", async ({ page }) => {
+  const username = `rui${stamp}`;
+  await login(page, "/acesso/usuarios");
+  await cadastrar(page, username, "Rui Prado");
+
+  const row = page.getByRole("row", { name: new RegExp(username) });
+  await row.getByRole("button", { name: "Ações de Rui Prado" }).click();
+  await page.getByRole("button", { name: "Apagar conta" }).click();
+  const dialog = page.getByRole("dialog", { name: "Apagar a conta de Rui Prado?" });
+  const apagar = dialog.getByRole("button", { name: "Apagar" });
+  await expect(apagar).toBeDisabled();
+  await dialog.getByLabel(/Digite o nome de usuário/).fill(username);
+  await apagar.click();
+
+  const report = page.getByRole("dialog", { name: `A conta ${username} foi apagada` });
+  await expect(report.getByText("Conta e sessões")).toBeVisible();
+  await expect(report.getByText("Servidores MCP")).toBeVisible();
+  expect(await page.content()).not.toContain("deleted:");
+  await report.getByRole("button", { name: "Concluir" }).click();
+  await page.getByRole("radio", { name: "Todas" }).click();
+  await expect(page.getByRole("row", { name: new RegExp(username) })).toHaveCount(0);
+});
+
+test("os grupos da ficha valem na hora, um de cada vez", async ({ page }) => {
+  const username = `ivo${stamp}`;
+  await login(page, "/acesso/usuarios");
+  await cadastrar(page, username, "Ivo Neves");
+
+  const row = page.getByRole("row", { name: new RegExp(username) });
+  await row.getByRole("button", { name: "Ações de Ivo Neves" }).click();
+  await page.getByRole("button", { name: "Editar" }).click();
+  const dialog = page.getByRole("dialog", { name: "Editar Ivo Neves" });
+  await dialog.getByRole("checkbox", { name: "equipe" }).check();
+  await expect(dialog.getByRole("checkbox", { name: "equipe" })).toBeChecked();
+  await dialog.getByRole("button", { name: "Cancelar" }).click();
+  await expect(row.getByText("equipe")).toBeVisible();
+
+  await row.getByRole("button", { name: "Ações de Ivo Neves" }).click();
+  await page.getByRole("button", { name: "Editar" }).click();
+  await dialog.getByRole("checkbox", { name: "equipe" }).uncheck();
+  await expect(dialog.getByRole("checkbox", { name: "equipe" })).not.toBeChecked();
+  await dialog.getByRole("button", { name: "Cancelar" }).click();
+  await expect(row.getByText("equipe")).toHaveCount(0);
+});

@@ -270,3 +270,39 @@ qualquer caixa e com qualquer valor, é `ChatRequestInvalid` com `field` = o ant
 | Corpo de `PUT …/auth` (`auth_body`) | `schemes: [str]`, `allow: [str]`, `version: int \| null`; outro campo → 422 |
 | `AssistantView` | + `yaml.auth`, `effective.auth`; `payload` de sobreposição e de histórico pode ser `auth` |
 | Erro | + `409 key_revoked` (`param: "key_id"`) |
+
+
+## Incremento 9.7 (2026-11-05): escopos, contas por chave e apagamento das conversas (research R66–R71)
+
+### Escopos por rota (`domain/scopes.py`)
+
+| Conjunto | Escopos | Rotas |
+|---|---|---|
+| `INFERENCE` | `inference` | chat completions, `POST /chat`, `/models`, `/conversations*` (privada) |
+| `ACCOUNTS` | `users`, `admin` | `/admin/v1/users*`, `/admin/v1/groups*`, `GET /admin/v1/me` |
+| `ADMIN` | `admin` | `/private/v1/packs`, `/private/v1/admin/keys*`, `/private/v1/mcp*`, o resto de `/admin/v1` (padrão do decorador) |
+| `ANY_KEY` | os três | `/private/v1/health` |
+
+`key_reaches(None, rota)` é sempre verdadeiro (OIDC, regido pelo grupo). `admin_access(scopes, rota, administers)`:
+OIDC → `administers`; chave → (`users` ∈ rota ∩ chave) ou (`admin` ∈ rota e `administers`).
+
+### Relatório do apagamento (`deletion_json`)
+
+```json
+{"username": "ana", "complete": true,
+ "identity": {"sessions": 2, "refresh_tokens": 1, "codes": 0, "pending": 0, "authored": 3, "account": 1},
+ "modules": [{"name": "assistants", "counts": {"user_assistants": 1, "api_keys": 0}, "warnings": [], "failed": false}]}
+```
+
+Nunca o pseudônimo. Incompleto: o mesmo objeto em `report` do erro 503, com `complete: false` e `identity` vazio.
+
+### `ConversationErasureReport` (`http/api.py`)
+
+`conversations: int`, `attachments: int` — 0 e 0 ao repetir. A porta `ConversationStore.erase_owner(owner) ->
+tuple[int, int]` devolve o par na mesma ordem.
+
+### Campos novos
+
+- Visão da chave (`key_json`): `scopes: [str]`, em ordem alfabética.
+- `GET /admin/v1/me`: `scopes: [str] | null`.
+- Corpo da emissão: `scopes?: [str]`.

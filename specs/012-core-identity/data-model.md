@@ -158,3 +158,49 @@ qualquer --logout | desativação | troca de senha (outras sessões) | rotação
 
 Uma `SigningKey` com `private_sealed` selado pelo rótulo antigo não abre: `IdentityStartError`, que aponta
 `axon identity keys rotate --force`.
+
+# Passada de 2026-11-04: apagar conta, um grupo de cada vez, o ator que não administra (US9–US11; research R28–R33)
+
+### `Account` — campo novo (seam)
+
+`deleting: bool` (padrão `False`). Em apagamento: `active=False`, `groups=∅`, `deleting=True`.
+
+### Ciclo de vida da conta
+
+```text
+ativa ⇄ desativada                           (disable / enable)
+ativa | desativada ──delete──▶ em apagamento ──apagadores ok──▶ (apagada; nome e e-mail livres)
+em apagamento ──apagador falha──▶ em apagamento (DeletionIncomplete; delete de novo retoma, mesmo pseudônimo)
+em apagamento ──enable/update/reset/add_group/remove_group──▶ Conflict("username")
+```
+
+### `AccountRecord` — campo novo (interno)
+
+`deletion_pseudonym: str | None` — `deleted:` + 16 hexadecimais (`pseudonym_of(uuid)`); nunca sai do módulo, nem no
+relatório.
+
+### Relatório (seam)
+
+| Tipo | Campos |
+|---|---|
+| `ModuleErasure` | `name: str`, `counts: Mapping[str, int]`, `warnings: tuple[str, ...]`, `failed: bool` |
+| `DeletionReport` | `username: str`, `complete: bool`, `identity: Mapping[str, int]` (`sessions`, `refresh_tokens`, `codes`, `pending`, `authored`, `account`), `modules: tuple[ModuleErasure, ...]` na ordem da composição |
+
+Incompleto: `complete=False`, `identity` vazio, os módulos que falharam com `failed=True` e sem contagens.
+
+### Erros novos (seam)
+
+| Erro | Quando | `field` |
+|---|---|---|
+| `DeletionIncomplete(report)` | algum apagador falhou | — |
+| `ActorNotAllowed` | ator que não administra tocando o grupo de administração ou conta dele (R31) | `groups`, `group`, `username`, `name` ou `members` |
+
+### Porta `SubjectDataEraser` e `ErasedData` (`ports.py`)
+
+`name: str`; `erase(subject, *, actor, pseudonym) -> ErasedData(counts, warnings)`. Idempotente; exceção = falha.
+
+### Armazenamento (schema `identity`)
+
+| Migração | Mudança |
+|---|---|
+| `005_account_deletion.sql` | `accounts.deletion_pseudonym text`, `CHECK (deletion_pseudonym ~ '^deleted:[0-9a-f]{16}$')`; nulo nas contas existentes |

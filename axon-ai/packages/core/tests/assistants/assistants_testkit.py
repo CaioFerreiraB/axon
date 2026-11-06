@@ -52,7 +52,9 @@ ANA = Principal(subject="user:ana", scheme="oidc")
 BIA = Principal(subject="user:bia", scheme="oidc", groups=frozenset({"chefia"}))
 """Usuária pública do grupo `chefia`."""
 
-CAIO_KEY = Principal(subject="user:caio", scheme="api_key", groups=frozenset({"operadores"}))
+CAIO_KEY = Principal(
+    subject="user:caio", scheme="api_key", groups=frozenset({"operadores"}), scopes=frozenset({"inference", "admin"})
+)
 """Operador pela superfície privada, no grupo de administração das suítes."""
 
 CAIO_OIDC = Principal(subject="user:caio", scheme="oidc")

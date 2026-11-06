@@ -46,3 +46,14 @@ Todos os itens continuam passando. FR-034 → cen. 1 e 2; FR-035 → cen. 1; FR-
 FR-038 → nenhuma rota nova (conferido na conformidade); FR-039 → cen. 7; SC-011 → cen. 1 e a varredura de segredo.
 Rotas e códigos aparecem porque a API HTTP é o próprio objeto desta spec (como nas US anteriores). Nenhuma marca de
 clarificação; a rotação na superfície privada fica para o `/speckit-clarify`.
+
+### Iteração de 2026-11-05 — US13, US14 (incremento 9.7; ADR-057, ADR-058, ADR-059)
+
+Todos os itens continuam passando. FR-046 → SC-012 e cen. 1, 2; FR-047 → cen. 1, 2 e 9; FR-048 → cen. 3 e SC-013;
+FR-049 → cen. 6 e 7; FR-050 → cen. 8; FR-051 → cen. 4; FR-052 → cen. 5; FR-053 → US14 cen. 1–3 e SC-014. Rotas,
+códigos e o nome `http/api.py` aparecem porque a API HTTP e o seam são o próprio objeto da spec. Nenhuma marca de
+clarificação: o código da falha de apagamento incompleto (FR-049) e a leitura do grupo de administração por uma chave
+`users` ficam para o `/speckit-clarify`. Correção de leitura do ADR-057 item 1 (não existe `/private/v1/mcp` do próprio
+subject) registrada em Assumptions.
+Clarificação de 2026-11-05: duas perguntas (503 `deletion_incomplete` com o relatório; a chave `users` lê tudo). Todos
+os itens continuam passando; o código do 403 (`actor_not_allowed`) foi fixado sem pergunta, pelo nome do erro da 012.

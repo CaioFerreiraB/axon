@@ -219,3 +219,22 @@ Reavaliado com [data-model.md](data-model.md), [contracts/](contracts/) e [quick
 ## Delegação por execução (ADR-055)
 
 `ToolContext.mcp_delegation` propaga credencial confidencial ao cliente MCP restrito. Nenhuma credencial em prompts, argumentos, resultados ou eventos. Contrato em [delegation.md](../007-core-mcp-integration/contracts/delegation.md).
+
+
+## Incremento 9.7: pseudônimo na auditoria (2026-11-04; US7)
+
+**Summary**: a 004 publica `AuditErasure.erase_subject(subject, *, pseudonym) -> AuditErasureReport` (ADR-059), que troca
+o Principal dos registros de auditoria do subject pelo pseudônimo e devolve quantos mudou (research R16). Sem dependência
+nova; sem migração.
+
+| Onde | O quê |
+|---|---|
+| `capabilities/api.py` | `AuditErasureReport(audit_records: int)`; `AuditErasure` (Protocol) |
+| `capabilities/ports.py` | `AuditLog.pseudonymize(subject, pseudonym) -> int` |
+| `capabilities/service.py` | `CapabilityService.erase_subject` — valida subject e pseudônimo, troca, relatório |
+| `capabilities/adapters/memory.py`, `audit_postgres.py` | `pseudonymize` |
+
+**Constitution Check**: princípio II — seam novo no `api.py`, consumido só pela 011; a 004 só troca o próprio dado.
+Princípio XIII — método novo de porta existente, com memória e Postgres na conformidade de `test_audit_log.py`. Sem
+violação.
+

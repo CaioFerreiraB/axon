@@ -118,3 +118,11 @@ registro global + mesmo alias no arquivo ──▶ sombreado (indisponível, com
 | Destino bloqueado pela política de rede | descoberta: `unavailable`; chamada: `ToolResult(error=...)`; saúde: `ok=False` |
 | Credencial não configurada | idem, nomeando a referência, nunca um valor |
 | Erro no arquivo (YAML, chave desconhecida, raiz) | `McpConfigError` — o boot para (011) |
+
+## Apagamento por subject (incremento 9.7, US7)
+
+- **McpErasureReport** (`api.py`): `servers: int` — servidores de escopo `user` do subject apagados (0 ao repetir).
+- `erase_subject(subject)`: `subject` casa `SUBJECT_PATTERN` da 003 (`user:…`/`svc:…`), senão `McpRejected(field="subject")`.
+  Apaga todos os registros com `owner = subject`; os globais (`owner` nulo) e o arquivo do operador ficam intactos.
+  Depois, a descoberta em cache com `CacheKey.owner = subject` é descartada.
+- Nenhuma migração: a coluna `mcp.servers.owner` já é o subject; nenhuma outra coluna o cita.

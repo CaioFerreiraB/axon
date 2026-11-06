@@ -6,6 +6,7 @@ chaves. A ordem da resolução é a de research R4 — ACL antes de tudo, orçam
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -13,6 +14,7 @@ from typing import Final
 
 from axon_ai.assistants.api import (
     NAME_PATTERN,
+    PSEUDONYM_PATTERN,
     SCHEMES,
     SCHEMES_OF_SURFACE,
     SUBJECT_PATTERN,
@@ -22,6 +24,7 @@ from axon_ai.assistants.api import (
     AssistantUnavailable,
     AuthOverride,
     Conflict,
+    ErasureReport,
     ExecutionGrant,
     IssuedApiKey,
     Limits,
@@ -42,7 +45,7 @@ from axon_ai.assistants.api import (
     UserAssistantDraft,
     ValidationReport,
 )
-from axon_ai.assistants.domain.access import OidcAudiences, OidcClaims, is_admin, principal_from_claims
+from axon_ai.assistants.domain.access import OidcAudiences, OidcClaims, can_infer, is_admin, principal_from_claims
 from axon_ai.assistants.domain.definitions import AssistantDefinition, AssistantsConfig, allowed_model, is_selector
 from axon_ai.assistants.domain.keys import (
     KEY_ID_BYTES,
@@ -51,6 +54,7 @@ from axon_ai.assistants.domain.keys import (
     ApiKeyRecord,
     compose_key,
     hash_key,
+    key_scopes,
     matches,
     parse_key,
 )
@@ -177,6 +181,9 @@ class AssistantsService:
 
     async def resolve(self, *, model: str, principal: Principal) -> ExecutionGrant:
         selection = split_model_id(model)
+        # Chave sem `inference`: o mesmo que inexistente, antes de qualquer busca (FR-041, research R48).
+        if not can_infer(principal):
+            raise not_found(selection.assistant)
         # Passos 2 e 3 pelo mesmo caminho: inexistente e não autorizado levantam o mesmo erro, com a mesma mensagem,
         # antes de qualquer verificação de disponibilidade — um privado quebrado não se revela (SC-001). Assistant de
         # usuário é procurado só no escopo de quem pede: `~x` alheio e `~x` inexistente são a mesma leitura vazia.
@@ -217,6 +224,8 @@ class AssistantsService:
     async def discover(self, principal: Principal) -> Sequence[AssistantSummary]:
         """Exatamente o que `resolve` aceitaria: a mesma ACL e a mesma disponibilidade, nenhuma regra duplicada
         (FR-008). `visibility` não filtra."""
+        if not can_infer(principal):
+            return []
         found = []
         for name in sorted(self._config.assistants):
             definition, _ = await self._system(name)
@@ -229,16 +238,20 @@ class AssistantsService:
         return found
 
     async def mine(self, principal: Principal) -> Sequence[UserAssistant]:
+        if not can_infer(principal):
+            return []
         return [await self._view(stored, principal) for stored in await self._users.list(principal.subject)]
 
     async def get(self, principal: Principal, name: str) -> UserAssistant:
-        plain = _plain_name(name)
+        plain = _plain_name(name) if can_infer(principal) else None
         stored = await self._users.get(principal.subject, plain) if plain is not None else None
         if stored is None:
             raise not_found(name)
         return await self._view(stored, principal)
 
     async def create(self, principal: Principal, draft: UserAssistantDraft) -> UserAssistant:
+        if not can_infer(principal):
+            raise not_found(f"{USER_PREFIX}{draft.name}")
         await self._conform(draft, principal)
         now = self._clock.now()
         record = StoredUserAssistant(owner=principal.subject, draft=draft, created_at=now, updated_at=now)
@@ -248,7 +261,7 @@ class AssistantsService:
 
     async def update(self, principal: Principal, name: str, draft: UserAssistantDraft) -> UserAssistant:
         """Substitui o rascunho inteiro — a última escrita vence (R10). O nome não muda: remove-se e cria-se outro."""
-        plain = _plain_name(name)
+        plain = _plain_name(name) if can_infer(principal) else None
         existing = await self._users.get(principal.subject, plain) if plain is not None else None
         if existing is None:
             raise not_found(name)
@@ -263,7 +276,7 @@ class AssistantsService:
         return await self._view(record, principal)
 
     async def delete(self, principal: Principal, name: str) -> None:
-        plain = _plain_name(name)
+        plain = _plain_name(name) if can_infer(principal) else None
         if plain is None or not await self._users.delete(principal.subject, plain):
             raise not_found(name)
 
@@ -283,6 +296,12 @@ class AssistantsService:
             definition = user_definition(stored.draft, owner=stored.owner, allow=(), limits=Limits())
             statuses.append(status_of(definition, (await self._availability(definition)).reasons))
         return ValidationReport(statuses=tuple(statuses))
+
+    def forget(self, names: Collection[str]) -> None:
+        """Tira do cache da configuração efetiva os Assistants dados: a resolução seguinte relê as sobreposições
+        (o apagamento de um subject as regrava sem passar por aqui; research R52)."""
+        for name in names:
+            self._effective.pop(name, None)
 
     # --- SystemAssistantAdmin (ADR-032) ---------------------------------------------------------------------------
 
@@ -684,7 +703,9 @@ class AccessService:
         record = await self._keys.get(key_id)
         if record is None or not record.info.active or not matches(credential, record.key_hash):
             return None
-        return Principal(subject=record.info.subject, scheme="api_key", groups=record.info.groups)
+        return Principal(
+            subject=record.info.subject, scheme="api_key", groups=record.info.groups, scopes=record.info.scopes
+        )
 
     # --- ApiKeyAdmin (superfície privada, grupo de administração) --------------------------------------------------
 
@@ -695,12 +716,13 @@ class AccessService:
         subject: str,
         groups: Collection[str] = (),
         label: str | None = None,
+        scopes: Collection[str] | None = None,
     ) -> IssuedApiKey:
         self._require_admin(actor)
         # O grupo de administração só sai pela linha de comando: chave de admin é ato do operador (FR-036, R40).
         if self._admin_group is not None and self._admin_group in _group_names(groups):
             raise RequestRejected("o grupo de administração só é concedido pela linha de comando", field="groups")
-        return await self.issue_as_operator(subject=subject, groups=groups, label=label)
+        return await self._issue(subject=subject, groups=groups, label=label, scopes=scopes, by_operator=False)
 
     async def keys(self, *, actor: Principal) -> Sequence[ApiKeyInfo]:
         self._require_admin(actor)
@@ -717,7 +739,23 @@ class AccessService:
     # --- autoridade do operador (CLI: quem tem o host é o operador) ------------------------------------------------
 
     async def issue_as_operator(
-        self, *, subject: str, groups: Collection[str] = (), label: str | None = None
+        self,
+        *,
+        subject: str,
+        groups: Collection[str] = (),
+        label: str | None = None,
+        scopes: Collection[str] | None = None,
+    ) -> IssuedApiKey:
+        return await self._issue(subject=subject, groups=groups, label=label, scopes=scopes, by_operator=True)
+
+    async def _issue(
+        self,
+        *,
+        subject: str,
+        groups: Collection[str],
+        label: str | None,
+        scopes: Collection[str] | None,
+        by_operator: bool,
     ) -> IssuedApiKey:
         if not SUBJECT_PATTERN.fullmatch(subject):
             raise RequestRejected(f"subject precisa ser 'user:<id>' ou 'svc:<id>': {subject!r}", field="subject")
@@ -727,10 +765,13 @@ class AccessService:
         names = _group_names(groups)
         if any(not name or any(char.isspace() for char in name) for name in names):
             raise RequestRejected("grupos precisam ser nomes sem espaço", field="groups")
+        granted = key_scopes(scopes, groups=names, admin_group=self._admin_group, by_operator=by_operator)
 
         key_id = self._tokens.token_hex(KEY_ID_BYTES)
         plaintext = compose_key(key_id, self._tokens.token_urlsafe(SECRET_BYTES))
-        info = ApiKeyInfo(key_id=key_id, subject=subject, groups=names, label=label, created_at=self._clock.now())
+        info = ApiKeyInfo(
+            key_id=key_id, subject=subject, groups=names, label=label, created_at=self._clock.now(), scopes=granted
+        )
         await self._keys.add(ApiKeyRecord(info=info, key_hash=hash_key(plaintext)))
         return IssuedApiKey(info=info, plaintext=plaintext)
 
@@ -766,3 +807,99 @@ class AccessService:
 def _group_names(groups: Collection[str]) -> frozenset[str]:
     """Os grupos como a chave os guarda: sem o prefixo `group:` e sem espaço nas pontas."""
     return frozenset(group.removeprefix("group:").strip() for group in groups)
+
+
+ERASE_ATTEMPTS: Final = 3
+"""Tentativas de regravar uma sobreposição quando um admin a grava ao mesmo tempo; depois, `Conflict` (research R53)."""
+
+
+class SubjectEraser:
+    """`SubjectErasure` (ADR-058; research R52 a R54): chaves, depois Assistants de usuário, depois as entradas do
+    subject no `allow` das sobreposições de `auth`, e as referências do YAML como aviso.
+
+    Não confere quem pede (FR-047) e não descarta sobreposição: a entrada sai numa versão nova, com a mesma impressão
+    digital, e `allow` vazio deixa o Assistant indisponível pela efetiva (falha fechada, FR-045)."""
+
+    def __init__(
+        self,
+        *,
+        keys: ApiKeyStore,
+        users: UserAssistantStore,
+        overrides: SystemOverrideStore | None,
+        config: AssistantsConfig,
+        assistants: AssistantsService,
+        clock: Clock,
+    ) -> None:
+        self._keys = keys
+        self._users = users
+        self._overrides = overrides
+        self._config = config
+        self._assistants = assistants
+        self._clock = clock
+
+    async def erase_subject(self, subject: str, *, actor: str, pseudonym: str) -> ErasureReport:
+        if not SUBJECT_PATTERN.fullmatch(subject):
+            raise RequestRejected(f"subject precisa ser 'user:<id>' ou 'svc:<id>': {subject!r}", field="subject")
+        if not PSEUDONYM_PATTERN.fullmatch(pseudonym):
+            raise RequestRejected("pseudônimo fora do formato deleted:<16 hexadecimais>", field="pseudonym")
+        api_keys = await self._keys.erase_subject(subject)
+        user_assistants = await self._users.erase_owner(subject)
+        entries, touched = await self._erase_from_overrides(subject, actor)
+        # Depois da regravação, que já grava o autor como quem apaga: o que sobra do subject vira o pseudônimo (R56).
+        authored = await self._overrides.pseudonymize(subject, pseudonym) if self._overrides is not None else 0
+        self._assistants.forget(touched)
+        references = tuple(
+            name for name, definition in sorted(self._config.assistants.items()) if subject in definition.access.allow
+        )
+        return ErasureReport(
+            user_assistants=user_assistants,
+            api_keys=api_keys,
+            override_entries=entries,
+            authored=authored,
+            config_references=references,
+        )
+
+    async def _erase_from_overrides(self, subject: str, actor: str) -> tuple[int, list[str]]:
+        if self._overrides is None:
+            return 0, []
+        entries = 0
+        touched: list[str] = []
+        for record in await self._overrides.all():
+            if record.section != "auth" or subject not in _allow(record):
+                continue
+            entries += await self._rewrite(record, subject, actor)
+            touched.append(record.assistant)
+        return entries, touched
+
+    async def _rewrite(self, record: StoredOverride, subject: str, actor: str) -> int:
+        """Grava a versão sem o subject; relê e tenta de novo se um admin gravou no meio (R53)."""
+        assert self._overrides is not None
+        current: StoredOverride | None = record
+        for attempt in range(ERASE_ATTEMPTS):
+            if current is None or subject not in _allow(current):
+                return 0
+            allow = [selector for selector in _allow(current) if selector != subject]
+            updated = dataclasses.replace(
+                current,
+                payload={**current.payload, "allow": allow},
+                updated_by=actor,
+                updated_at=self._clock.now(),
+            )
+            try:
+                await self._overrides.put(updated, expected_version=current.version)
+            except Conflict:
+                if attempt == ERASE_ATTEMPTS - 1:
+                    raise
+                current = next(
+                    (item for item in await self._overrides.get(record.assistant) if item.section == record.section),
+                    None,
+                )
+                continue
+            return 1
+        return 0  # pragma: no cover — o laço sempre devolve ou levanta
+
+
+def _allow(record: StoredOverride) -> list[str]:
+    """Os seletores guardados da seção `auth`; conteúdo ilegível não tem entrada a tirar."""
+    allow = record.payload.get("allow")
+    return [str(item) for item in allow] if isinstance(allow, list) else []

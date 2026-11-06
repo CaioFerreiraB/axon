@@ -85,6 +85,7 @@ Rate limit, limite de iteração e teto de tokens não são só custo — impede
 | Dado | Porta | Adapter | Quando |
 |---|---|---|---|
 | Auditoria de tool mutante | `AuditLog` | memória → Postgres | Fase 3 |
+| Pseudônimo na auditoria (`AuditErasure`, seam primário) | `AuditLog.pseudonymize` | memória e Postgres | incremento 9.7 (ADR-059) |
 
 O cache de descoberta MCP (memória, TTL) é do cliente MCP (spec 007, FR-010); este módulo não mantém cache próprio.
 

@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Final
 
-from axon_ai.assistants.api import GrantResolver, NotFound, Principal
+from axon_ai.assistants.api import SUBJECT_PATTERN, GrantResolver, NotFound, Principal, RequestRejected
 from axon_ai.graph.api import (
     ExecutionEngine,
     ExecutionGrant,
@@ -24,6 +24,7 @@ from axon_ai.graph.api import (
     StepFinished,
     TokenEvent,
 )
+from axon_ai.http.api import ConversationErasureReport
 from axon_ai.http.domain.admission import AdmissionLimits, decide, retry_after
 from axon_ai.http.domain.charts import ChartScripts, embeds_event
 from axon_ai.http.domain.chat_request import ChatRequest
@@ -440,6 +441,13 @@ class ConversationService:
         if image is None:
             raise NotFound(NOT_FOUND)
         return image
+
+    async def erase_subject(self, subject: str) -> ConversationErasureReport:
+        """`ConversationErasure` (incremento 9.7, FR-053; R71)."""
+        if not SUBJECT_PATTERN.fullmatch(subject):
+            raise RequestRejected(f"subject precisa ser 'user:<id>' ou 'svc:<id>': {subject!r}", field="subject")
+        conversations, attachments = await self._store.erase_owner(subject)
+        return ConversationErasureReport(conversations=conversations, attachments=attachments)
 
     async def delete(self, principal: Principal, conversation_id: str) -> None:
         if not await self._store.delete(principal.subject, conversation_id):

@@ -499,3 +499,38 @@ administração, o item informativo `impact` na saúde e `axon usage impact-back
 **Constitution Check (US8)**: II ✅ (só os `api.py` e adapters dos módulos, como composition root); VII ✅ (valor
 inválido para o boot nomeando a variável; desligado é dito); XIII ✅ (a única instância do adapter do EcoLogits nasce
 aqui). **Module boundary gate**: `axon_ai/bootstrap/**` e `tests/bootstrap/**`. **Resultado**: PASS.
+
+
+## Passada de 2026-11-05: apagamento em cascata montado e escopos na linha de comando (US9; [ADR-057](../../docs/adr/ADR-057-escopos-da-chave-de-api.md), [ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md), [ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md))
+
+**Insumos lidos**: [spec.md](spec.md) (US9, FR-032–FR-036, SC-009), os três ADRs, as passadas de 2026-11-04/05 da 003
+(US14, US15), 012 (US9–US11), 007 (US7), 004 (US7), 009 (US10) e 008 (US13, US14), e `bootstrap/wiring.py`,
+`identity.py`, `cli.py` e `profiles.py`. Research: R58–R62.
+
+**Summary**: a composição monta os cinco apagadores (preguiçosos, R59) e os entrega à 012 nos dois caminhos — servidor e
+linha de comando —; a raiz registra `users delete` e `groups add|remove`; o perfil `test` exporta `TEST_USERS_API_KEY`;
+a documentação mostra `--scope`; e uma suíte ponta a ponta prova o apagamento em todos os módulos.
+
+**Technical Context**: sem dependência nova, sem migração (as da 003, 012 e 004/009 já vieram nas passadas deles; a
+etapa `adapters` já as roda), sem etapa nova. Nenhum `NEEDS CLARIFICATION`.
+
+| Onde | O quê |
+|---|---|
+| `bootstrap/erasure.py` (novo) | `subject_erasers(parts, session)`; `ModuleEraser` (nome, fábrica, chamada, tradução) |
+| `bootstrap/identity.py` | `identity_service(..., session)` passa `erasers=subject_erasers(parts, session)` |
+| `bootstrap/cli.py` | `users delete` (até `assistants`), `groups add`, `groups remove` |
+| `bootstrap/profiles.py` | `TEST_USERS_API_KEY`; `_seeded_keys` com escopos |
+| `tests/bootstrap/unit/test_erasure.py` (novo) | ordem, tradução, avisos, preguiça |
+| `tests/bootstrap/contract/test_cli_commands.py` | os três comandos |
+| `tests/bootstrap/integration/test_platform_user_admin_scopes.py` (novo) | SC-009 nos perfis `test` e `persistent` |
+| `quickstart.md`, `contracts/cli.md` da 011 | `--scope admin` (FR-036) |
+
+**Constitution Check (US9)**: II ✅ (a 011 é a única que conhece os cinco módulos; a 012 só vê a porta; ninguém importa
+a 011); VII ✅ (falha de um apagador sai com o relatório parcial; a CLI sai com 1); XIII ✅ (os seams são os dos módulos,
+os apagadores ficam na composição); VIII ✅ (prova ponta a ponta nos dois perfis). **Module boundary gate**:
+`axon_ai/bootstrap/**`, `tests/bootstrap/**` e os documentos da 011. **Resultado**: PASS.
+
+**Seam Notes for Consumers (US9)**: 013 — `TEST_USERS_API_KEY` para o e2e de provisionamento; 002 — a instalação
+documenta o que fica fora (ADR-059 item 4).
+
+**Constitution Check — pós-design**: igual. PASS.

@@ -112,3 +112,10 @@ class PostgresAuditLog:
             )
             rows = await cursor.fetchall()
         return [_record(row) for row in rows]
+
+    async def pseudonymize(self, subject: str, pseudonym: str) -> int:
+        async with self._pool.connection() as connection:
+            cursor = await connection.execute(
+                "UPDATE capabilities.audit SET principal = %s WHERE principal = %s", (pseudonym, subject)
+            )
+            return cursor.rowcount

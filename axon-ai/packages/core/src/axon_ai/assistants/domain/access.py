@@ -72,8 +72,16 @@ def _groups(value: object) -> frozenset[str]:
 
 def is_admin(principal: Principal, admin_group: str | None) -> bool:
     """Administra quem pertence ao grupo declarado, em qualquer esquema (ADR-031, research R27): cada superfície já
-    limita os esquemas que aceita."""
-    return admin_group is not None and admin_group in principal.groups
+    limita os esquemas que aceita. Com chave, também o escopo `admin` (ADR-057, research R47); o OIDC (`scopes is
+    None`) segue só pelo grupo."""
+    if admin_group is None or admin_group not in principal.groups:
+        return False
+    return principal.scopes is None or "admin" in principal.scopes
+
+
+def can_infer(principal: Principal) -> bool:
+    """Resolve e lista Assistants (FR-041): o OIDC sempre; a chave, só com o escopo `inference` (research R48)."""
+    return principal.scopes is None or "inference" in principal.scopes
 
 
 def selector_matches(selector: str, principal: Principal) -> bool:

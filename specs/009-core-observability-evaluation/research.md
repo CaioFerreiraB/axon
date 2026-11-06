@@ -766,3 +766,28 @@ escolha do EcoLogits. Os fatos da biblioteca foram conferidos num ambiente isola
   agregar por ordenação, o que não é o estado de uma instalação em uso (o autovacuum mantém as estatísticas).
 - **Rationale**: na CI, o relatório de 400 dias com 100 mil chamadas levou 1,015 s; localmente, de 0,56 s para
   0,29 s com as duas mudanças. `GROUPING SETS` com `count(DISTINCT …)` foi medido e ficou mais lento (0,64 s).
+
+
+## Incremento 9.7: pseudônimo nos autores (2026-11-04; US10)
+
+## R53 — `erase_subject(subject, *, pseudonym)` troca `created_by` e `updated_by` (ADR-059; FR-031, FR-032)
+
+**Decision**: seam `ObservabilityErasure` no `api.py`:
+`erase_subject(subject: str, *, pseudonym: str) -> ObservabilityErasureReport(prices: int, destination_settings: int)`,
+cumprido por uma classe nova do `service.py`, `SubjectPseudonymizer(prices, settings)`, que a 011 monta com as portas
+`price_store` e `destination_settings` que já monta. As portas ganham `PriceStore.pseudonymize(subject, pseudonym) -> int`
+(`UPDATE … SET created_by = %s WHERE created_by = %s`) e `DestinationSettingsStore.pseudonymize(subject, pseudonym) ->
+int` (`updated_by`, **sem** mexer em `version` nem `updated_at`). Erro de formato é o `InvalidField(field=…)` que a 009
+já tem. Sem `actor`; sem migração.
+
+**Rationale** (ADR-059 itens 1–3): são as duas únicas citações de um subject no schema `observability` — `model_calls`
+e `executions` guardam o Assistant, nunca o Principal. A versão dos ajustes é o controle de concorrência da console
+(409 quando muda): trocar o autor não é uma edição, e subir a versão faria falhar uma edição legítima aberta antes. O
+`DestinationService` guarda em memória só a visão efetiva, que não tem autor, então não precisa recarregar.
+
+**Alternatives considered**: um método em cada serviço existente (`UsageService` e `DestinationService`) — a 011 teria
+de montar dois apagadores para uma 009 só, e o relatório sairia em dois; subir a versão dos ajustes (falharia a edição
+aberta, sem motivo para quem edita); importar `SUBJECT_PATTERN` e `PSEUDONYM_PATTERN` do `api.py` da 003 — a 009 é
+consumida por quase todos os módulos e nunca dependeu da 003; os dois formatos ficam em `domain/erasure.py`, como a 012
+já repete o do pseudônimo (`identity/domain/accounts.py`).
+

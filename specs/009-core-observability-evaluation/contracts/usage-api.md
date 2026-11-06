@@ -66,3 +66,23 @@ dias imediatamente antes. As linhas (`rows`) são do período inteiro; `buckets[
 `test_impact_report.py` (memória × Postgres): os cinco grãos com semana ISO e semestre, fuso local, origem, as duas
 chaves, cobertura, respostas estimadas, período anterior, recorte da retenção, desligado; totais iguais à soma das
 estimativas gravadas (SC-010).
+
+## `ObservabilityErasure` — pseudônimo nos autores (incremento 9.7, US10; ADR-059; research R53)
+
+```python
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ObservabilityErasureReport:
+    prices: int = 0
+    destination_settings: int = 0
+
+class ObservabilityErasure(Protocol):                 # consumido pela 011
+    async def erase_subject(self, subject: str, *, pseudonym: str) -> ObservabilityErasureReport: ...
+```
+
+| Regra | Origem | Verificada por |
+|---|---|---|
+| Só `created_by` dos preços e `updated_by` dos ajustes mudam; valores, vigência, instantes e versão ficam | FR-031 | `test_observability_erasure.py`, `test_settings_store.py`/`test_price_store.py` (memória × Postgres) |
+| Idempotente; outros autores intactos | FR-031 | idem |
+| Subject ou pseudônimo fora do formato → `InvalidField` nomeando o campo, sem tocar os dados | FR-032 | `test_observability_erasure.py` |
+| Nenhuma linha do schema `observability` cita o subject | SC-012 | `test_observability_erasure.py` (Postgres) |
+

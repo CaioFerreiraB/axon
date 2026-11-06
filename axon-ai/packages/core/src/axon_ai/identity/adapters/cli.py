@@ -9,10 +9,18 @@ gerada sai uma vez, sozinha na última linha, para que um script a capture.
 from __future__ import annotations
 
 import getpass
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Final, TextIO
 
-from axon_ai.identity.api import Account, AccountDraft, AccountPatch, IdentityError, InvalidField
+from axon_ai.identity.api import (
+    Account,
+    AccountDraft,
+    AccountPatch,
+    DeletionIncomplete,
+    DeletionReport,
+    IdentityError,
+    InvalidField,
+)
 from axon_ai.identity.service import IdentityService
 
 EXIT_OK: Final = 0
@@ -34,7 +42,7 @@ def _warn(persistent: bool, err: TextIO) -> None:
 
 
 def _line(account: Account) -> str:
-    state = "ativa" if account.active else "desativada"
+    state = "em apagamento" if account.deleting else "ativa" if account.active else "desativada"
     groups = ", ".join(sorted(account.groups)) or "-"
     flags = []
     if account.temporary_password:
@@ -208,4 +216,79 @@ async def identity_keys_rotate_command(
         print(f"chave nova: {kid}; as anteriores saíram e todas as sessões foram encerradas", file=out)
     else:
         print(f"chave nova: {kid}; a anterior segue publicada até os tokens dela vencerem", file=out)
+    return EXIT_OK
+
+
+# --- US9 e US10: apagar e um grupo de cada vez (research R33; registrados pela 011) -----------------------------------
+
+
+async def users_delete_command(
+    service: IdentityService,
+    *,
+    username: str,
+    yes: bool,
+    persistent: bool,
+    out: TextIO,
+    err: TextIO,
+    prompt: Callable[[str], str] = input,
+) -> int:
+    """`axon users delete <usuário> [--yes]`: apaga a conta em cascata (ADR-058). Sem `--yes`, pede o nome de novo."""
+    _warn(persistent, err)
+    if not yes:
+        typed = prompt(f"apagar {username!r} e tudo o que é dela, em todos os módulos? digite o nome para confirmar: ")
+        if typed.strip() != username:
+            print("erro: o nome digitado não confere; nada foi apagado", file=err)
+            return EXIT_FAILED
+    try:
+        report = await service.delete(username, actor=ACTOR)
+    except DeletionIncomplete as error:
+        _report(error.report, out)
+        print(f"erro: {error} — a conta fica em apagamento", file=err)
+        return EXIT_FAILED
+    except IdentityError as error:
+        print(f"erro: {error}", file=err)
+        return EXIT_FAILED
+    _report(report, out)
+    return EXIT_OK
+
+
+def _report(report: DeletionReport, out: TextIO) -> None:
+    if report.complete:
+        print(f"apagada: {report.username}", file=out)
+        print("identidade: " + _counts(report.identity), file=out)
+    for module in report.modules:
+        print(f"{module.name}: " + ("FALHOU" if module.failed else _counts(module.counts)), file=out)
+        for warning in module.warnings:
+            print(f"  aviso: {warning}", file=out)
+
+
+def _counts(counts: Mapping[str, int]) -> str:
+    return " ".join(f"{name}={value}" for name, value in sorted(counts.items())) or "-"
+
+
+async def groups_add_member_command(
+    service: IdentityService, *, group: str, username: str, persistent: bool, out: TextIO, err: TextIO
+) -> int:
+    """`axon groups add <grupo> <usuário>`: um grupo de cada vez, sem reescrever a lista (FR-033)."""
+    _warn(persistent, err)
+    try:
+        account = await service.add_group(username, group, actor=ACTOR)
+    except IdentityError as error:
+        print(f"erro: {error}", file=err)
+        return EXIT_FAILED
+    print(f"grupos: {_line(account)}", file=out)
+    return EXIT_OK
+
+
+async def groups_remove_member_command(
+    service: IdentityService, *, group: str, username: str, persistent: bool, out: TextIO, err: TextIO
+) -> int:
+    """`axon groups remove <grupo> <usuário>`."""
+    _warn(persistent, err)
+    try:
+        account = await service.remove_group(username, group, actor=ACTOR)
+    except IdentityError as error:
+        print(f"erro: {error}", file=err)
+        return EXIT_FAILED
+    print(f"grupos: {_line(account)}", file=out)
     return EXIT_OK

@@ -28,9 +28,11 @@ from axon_ai.observability.api import (
     ImpactQuery,
     ImpactReport,
     InstallationDefined,
+    InvalidField,
     InvalidPrice,
     MasterKeyMissing,
     ModelExchange,
+    ObservabilityErasureReport,
     Price,
     Trace,
     TraceEvent,
@@ -40,6 +42,7 @@ from axon_ai.observability.api import (
     UsageReport,
 )
 from axon_ai.observability.domain.content import exchange_record
+from axon_ai.observability.domain.erasure import PSEUDONYM_PATTERN, SUBJECT_PATTERN
 from axon_ai.observability.domain.impact import build_impact_report
 from axon_ai.observability.domain.impact import window as impact_window
 from axon_ai.observability.domain.prices import check_amount, with_states
@@ -517,3 +520,22 @@ class DestinationService:
     @property
     def effective_settings(self) -> EffectiveDestinations:
         return self._effective
+
+
+class SubjectPseudonymizer:
+    """`ObservabilityErasure` (incremento 9.7, FR-031, FR-032; research R53): o autor dos preços e dos ajustes de
+    destino passa a ser o pseudônimo da conta apagada."""
+
+    def __init__(self, *, prices: PriceStore, settings: DestinationSettingsStore) -> None:
+        self._prices = prices
+        self._settings = settings
+
+    async def erase_subject(self, subject: str, *, pseudonym: str) -> ObservabilityErasureReport:
+        if not SUBJECT_PATTERN.fullmatch(subject):
+            raise InvalidField(f"subject precisa ser 'user:<id>' ou 'svc:<id>': {subject!r}", field="subject")
+        if not PSEUDONYM_PATTERN.fullmatch(pseudonym):
+            raise InvalidField("pseudônimo fora do formato deleted:<16 hexadecimais>", field="pseudonym")
+        return ObservabilityErasureReport(
+            prices=await self._prices.pseudonymize(subject, pseudonym),
+            destination_settings=await self._settings.pseudonymize(subject, pseudonym),
+        )

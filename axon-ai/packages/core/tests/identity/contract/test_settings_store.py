@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
 from identity_testkit import T0
 
 from axon_ai.identity.ports import IdentitySettings
@@ -20,3 +21,15 @@ async def test_sem_gravacao_e_o_padrao_e_a_versao_protege_a_escrita(stores: Any)
     assert await store.put(second, expected_version=1) is True
     assert await store.put(IdentitySettings(google_enabled=True, version=2), expected_version=1) is False
     assert await store.get() == second
+
+
+@pytest.mark.us9
+async def test_trocar_o_autor_dos_ajustes(stores: Any) -> None:
+    store = stores.settings
+    await store.put(
+        IdentitySettings(google_enabled=False, version=1, updated_by="user:caio", updated_at=T0), expected_version=0
+    )
+    assert await store.replace_actor("user:caio", "deleted:0123456789abcdef") == 1
+    lido = await store.get()
+    assert lido.updated_by == "deleted:0123456789abcdef" and lido.version == 1
+    assert await store.replace_actor("user:caio", "deleted:0123456789abcdef") == 0

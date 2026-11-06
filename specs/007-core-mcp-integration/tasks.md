@@ -486,3 +486,33 @@ texto e PNG.
 - [X] D03 Validar regressões, types, lint e atualizar documentação operacional.
 
 Validação ADR-055: suítes MCP/gateway/motor/HTTP com Postgres temporário; testes novos de isolamento, API e canal confidencial; mypy, Ruff e 69 contratos import-linter aprovados. Testes de transporte e destinos estáticos preservados.
+
+
+## Passada de 2026-11-04: US7 — apagar os servidores de um dono (incremento 9.7; [ADR-058](../../docs/adr/ADR-058-apagar-conta-em-cascata.md), [ADR-059](../../docs/adr/ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md); research R18, R19)
+
+**Goal**: `McpSubjectErasure.erase_subject(subject)` apaga os servidores `~` do subject e a descoberta em cache deles,
+sem tocar globais nem outros donos; idempotente.
+
+**Independent Test**: `uv run pytest packages/core/tests/mcp -k us7` (com `AXON_TEST_POSTGRES_DSN`, também o Postgres e
+a varredura do schema `mcp`).
+
+- [X] T053 [P] [US7] Marca `us7` estendida com "007 US7 — apagar os servidores de um dono" em `axon-ai/pyproject.toml`
+- [X] T054 [P] [US7] Conformidade de `erase_owner` em `tests/mcp/contract/test_store.py` (memória × Postgres): apaga
+  todos os de um dono e devolve quantos; outro dono e globais intactos; repetir devolve 0
+- [X] T055 [P] [US7] `tests/mcp/contract/test_mcp_subject_erasure.py`: cenários 1–4 da US7; subject inválido sem I/O
+  (`field="subject"`); entrada do arquivo do operador intacta; no Postgres, nenhuma coluna de texto/JSON do schema `mcp`
+  cita o subject (SC-005)
+- [X] T056 [US7] `McpErasureReport` e `McpSubjectErasure` em `axon_ai/mcp/api.py`
+- [X] T057 [US7] `McpServerStore.erase_owner` e `DiscoveryCache.forget_owner` em `axon_ai/mcp/ports.py`; adapters em
+  `adapters/memory.py` (store e cache) e `adapters/registry_postgres.py` (`DELETE … WHERE owner = %s`)
+- [X] T058 [US7] `McpService.erase_subject` em `axon_ai/mcp/service.py`: valida o subject pelo `SUBJECT_PATTERN` da 003,
+  `erase_owner`, `forget_owner`, relatório
+- [X] T059 [US7] Verificação: suíte da 007 com Postgres, mypy, ruff, lint-imports; `specs/README.md` (linha da 007 e
+  seam), `docs/roadmap.md` (andamento do 9.7) e `graphify update .`
+
+**Dependências**: T053–T055 antes de T056–T058 (testes primeiro); T056 → T057 → T058; T059 por último. A 011 (US9)
+liga o seam à porta `SubjectDataEraser` da 012 descartando `actor` e `pseudonym`.
+
+**Execução (2026-11-04)**: T053–T059 feitas. O teste da US7 chama-se `test_mcp_subject_erasure.py`: com o mesmo nome do
+da 003, o pytest recusava a coleta (pastas de teste sem `__init__.py`). Suíte da 007 contra o Postgres: 332 passaram;
+workspace com Postgres: 4045 passaram, 12 pulados; mypy, ruff e import-linter (70 contratos) limpos.

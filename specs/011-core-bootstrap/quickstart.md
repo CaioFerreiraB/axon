@@ -129,7 +129,8 @@ Manual, com Postgres local e Ollama:
 ```bash
 export AXON_PROFILE=persistent AXON_DATABASE_URL=postgresql://postgres:pg@localhost:55432/postgres
 export AXON_PACKS_FILE=packs.yaml AXON_ASSISTANTS_FILE=assistants.yaml
-uv run axon keys create --subject user:caio --group operadores   # a chave sai na última linha
+uv run axon keys create --subject user:caio --group operadores --scope admin --scope inference   # a chave sai na última linha
+# (incremento 9.7, ADR-057: sem `--scope admin`, a chave do grupo de administração não administra)
 uv run axon serve
 ```
 
@@ -218,3 +219,19 @@ AXON_PROFILE=memory AXON_DEV_API_KEY=axn_0000000000000001_dev uv run axon health
 AXON_IMPACT_ZONE=XXX uv run axon health                                              # boot interrompido: AXON_IMPACT_ZONE
 uv run axon usage impact-backfill --limit 1000                                       # estimadas, sem par, com falha
 ```
+
+
+## Fase 9, incremento 9.7 (2026-11-05): US9 — apagar conta em cascata e escopos
+
+```bash
+cd axon-ai
+uv run pytest packages/core/tests/bootstrap -k us9
+AXON_TEST_POSTGRES_DSN=postgresql://postgres:pg@localhost:55432/postgres \
+  uv run pytest packages/core/tests/bootstrap/integration/test_platform_user_admin_scopes.py
+uv run axon keys create --subject svc:provisionamento --scope users      # só contas e grupos
+uv run axon groups add equipe ana && uv run axon groups remove equipe ana
+uv run axon users delete ana                                              # pede o nome; --yes pula
+```
+
+Esperado: os cinco módulos no relatório, na ordem; no `persistent`, nenhuma linha de nenhum schema cita `ana`; um
+apagador em falha deixa a conta em apagamento e o segundo `DELETE` (ou `users delete`) conclui.

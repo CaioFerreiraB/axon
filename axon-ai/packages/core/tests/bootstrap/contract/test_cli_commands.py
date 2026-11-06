@@ -143,8 +143,11 @@ def test_os_comandos_vem_de_uma_lista_de_registro() -> None:
         ("users", "enable"),
         ("users", "password"),
         ("users", "groups"),
+        ("users", "delete"),  # incremento 9.7 (FR-034)
         ("groups", "create"),
         ("groups", "list"),
+        ("groups", "add"),
+        ("groups", "remove"),
         ("identity", "keys", "rotate"),
     }
 
