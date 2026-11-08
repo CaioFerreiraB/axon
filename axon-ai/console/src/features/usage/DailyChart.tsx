@@ -8,7 +8,7 @@
  */
 
 import { scaleBand, scaleLinear } from "d3-scale";
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
 import { formatDayMonth, formatWeekdayDay } from "../../i18n/format";
 import styles from "./DailyChart.module.css";
@@ -194,6 +194,8 @@ export function DailyChart({
   const [width, setWidth] = useState(800);
   const [active, setActive] = useState<number | null>(null);
   const [labelWidths, setLabelWidths] = useState<Record<string, number>>({});
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const [tooltipWidth, setTooltipWidth] = useState(212);
   const descriptionId = useId();
 
   useEffect(() => {
@@ -209,6 +211,13 @@ export function DailyChart({
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
+
+  useLayoutEffect(() => {
+    const measured = tooltipRef.current?.offsetWidth;
+    if (measured && measured !== tooltipWidth) {
+      setTooltipWidth(measured);
+    }
+  }, [active, width, tooltipWidth]);
 
   const markerTexts = markers.map((marker) => `${formatDayMonth(marker.day)} · ${marker.label}`).join("\n");
   useEffect(() => {
@@ -291,7 +300,8 @@ export function DailyChart({
 
   const activeStack = active !== null ? stacks[active] : undefined;
   const activeX = activeStack ? (x(activeStack.day) ?? 0) + x.bandwidth() / 2 : 0;
-  const tooltipLeft = Math.max(0, Math.min(Math.max(activeX + 16, AXIS_LEFT), width - 216));
+  // A dica fica dentro do gráfico pela largura que ela de fato tem (no celular, nomes longos quebram em linhas).
+  const tooltipLeft = Math.max(0, Math.min(Math.max(activeX + 16, AXIS_LEFT), width - tooltipWidth - 4));
 
   return (
     <div className={styles.chart}>
@@ -426,7 +436,7 @@ export function DailyChart({
           </div>
         ) : null}
         {activeStack && state === "data" ? (
-          <div className={styles.tooltip} style={{ left: tooltipLeft, top: band + 96 }} role="status">
+          <div ref={tooltipRef} className={styles.tooltip} style={{ left: tooltipLeft, top: band + 96 }} role="status">
             <p className={styles.tooltipDay}>{tooltipLabel(activeStack.day)}</p>
             {activeStack.segments.length === 0 ? (
               <p>{emptyDay}</p>

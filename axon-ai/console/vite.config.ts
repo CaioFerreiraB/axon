@@ -38,6 +38,17 @@ function pwaServiceWorker(): Plugin {
         hash.update(readFileSync(join(publicDir, file)));
       }
       const precache = [...fromBundle, ...fromPublic].map((file) => `/${file}`).sort();
+      // O que o service worker exige na instalação (a página "Sem conexão"); o resto é opcional (src/pwa/sw.js).
+      for (const required of [
+        "/offline.html",
+        "/offline.css",
+        "/icons/axon-symbol.svg",
+        "/icons/axon-symbol-light.svg",
+      ]) {
+        if (!precache.includes(required)) {
+          this.error(`public/: falta ${required}, que a página "Sem conexão" usa`);
+        }
+      }
       hash.update(precache.join("\n"));
       const source = readFileSync(new URL("./src/pwa/sw.js", import.meta.url), "utf8")
         .replace(

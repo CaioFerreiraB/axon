@@ -55,6 +55,13 @@ describe("Table no celular", () => {
   it("rotula as linhas que chegam depois", async () => {
     const { container, rerender } = render(<Prices rows={["a"]} />);
     rerender(<Prices rows={["a", "b"]} />);
-    await waitFor(() => expect(labels(container.querySelectorAll("tbody tr")[1])[0]).toBe("Modelo"));
+    await waitFor(() =>
+      expect(labels(container.querySelectorAll("tbody tr")[1])).toEqual([
+        "Modelo",
+        "Entrada e saída",
+        "Entrada e saída",
+        "Ações",
+      ]),
+    );
   });
 });

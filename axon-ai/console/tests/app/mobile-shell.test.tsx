@@ -62,6 +62,28 @@ describe("Barra inferior e Mais (celular)", () => {
     expect(more).toHaveFocus();
   });
 
+  it("o foco volta ao Mais também depois do véu e de um link da folha", async () => {
+    const user = userEvent.setup();
+    renderShellAt("/meio-ambiente");
+    const more = (await bottomNav()).getByRole("button", { name: "Mais" });
+
+    await user.click(more);
+    await screen.findByRole("dialog", { name: "Mais" });
+    const overlay = document.querySelector<HTMLElement>("[data-state='open'][class*='overlay']");
+    expect(overlay).not.toBeNull();
+    if (overlay) {
+      await user.click(overlay);
+    }
+    expect(screen.queryByRole("dialog", { name: "Mais" })).not.toBeInTheDocument();
+    expect(more).toHaveFocus();
+
+    await user.click(more);
+    const sheet = within(await screen.findByRole("dialog", { name: "Mais" }));
+    await user.click(sheet.getByRole("link", { name: "Meio ambiente" }));
+    expect(screen.queryByRole("dialog", { name: "Mais" })).not.toBeInTheDocument();
+    expect(more).toHaveFocus();
+  });
+
   it("o cabeçalho de app mostra o título e, no detalhe, o voltar", async () => {
     renderShellAt("/assistentes/geral");
     expect(await screen.findByRole("link", { name: "Voltar para Assistentes" })).toHaveAttribute(

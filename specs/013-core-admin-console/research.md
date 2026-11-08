@@ -533,6 +533,12 @@ largura total, o primário por cima (`flex-direction: column-reverse`). O `Sheet
 `main.tsx` registra o `sw.js` só em produção, depois do `load`. Sem `skipWaiting`: a navegação sempre vai pela rede,
 então a versão nova chega na próxima abertura.
 
+Na instalação, só a página "Sem conexão" e o que ela usa (`offline.html`, `offline.css` e os dois símbolos) são
+obrigatórios; o resto da lista entra no cache quando o download dá certo (`Promise.allSettled`), sem impedir a
+instalação. `/assets/` sai do cache primeiro (hash no nome); `/icons/` e `offline.css`, sem hash, vão à rede primeiro e
+atualizam o cache, que só responde sem rede — um service worker novo em espera não deixa ícone velho para trás (revisão
+do PR #21).
+
 **Alternatives considered**: `vite-plugin-pwa`/Workbox (dependência grande para cerca de 50 linhas).
 
 ## R42 — Ícones e manifest (FR-051, FR-053)
@@ -546,6 +552,6 @@ e `apple-touch-icon.png` (180, fundo branco). Os PNGs são versionados. O `theme
 
 **Decision**: projetos `celular` (Pixel 7, Chromium) e `celular-escuro` no Playwright, com axe, teclado e
 `e2e/mobile.spec.ts` (sem rolagem horizontal em todas as rotas, barra inferior e "Mais", tabela em lista, folha);
-`e2e/pwa.spec.ts` no projeto `claro`, com o service worker permitido (manifest, ícones, registro, "Sem conexão",
+`e2e/pwa.spec.ts` no projeto `pwa` (desktop claro, o único com o service worker permitido; o `claro` o ignora) (manifest, ícones, registro, "Sem conexão",
 nada de `/admin/v1/` no cache). Os outros projetos usam `serviceWorkers: "block"`. Vitest: barra inferior, `theme-color`
 e `data-label` da tabela.

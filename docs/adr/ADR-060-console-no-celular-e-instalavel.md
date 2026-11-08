@@ -51,7 +51,10 @@ cliente público `console` da 012, com código + PKCE, e os tokens ficam só em 
    - **Navegação:** vai sempre pela rede, para o HTML sempre apontar para os assets do deploy atual. Sem rede, a resposta
      é `offline.html`: uma página estática, sem script, com "Sem conexão" e "Tentar de novo". Nunca é o `index.html` do
      cache, porque a sessão OIDC fica só em memória e, sem rede, o app tentaria um login que não completa.
-   - **Assets:** `/assets/` e `/icons/` saem do cache primeiro, porque têm hash e são imutáveis.
+   - **Instalação:** só a página "Sem conexão" e o que ela usa são obrigatórios. O resto do build entra no cache quando
+     o download dá certo, sem impedir a instalação.
+   - **Assets:** `/assets/` sai do cache primeiro, porque os nomes têm hash e o conteúdo não muda. `/icons/` e
+     `offline.css`, sem hash, vão à rede primeiro e atualizam o cache, que só responde sem rede.
    - **O que nunca passa pelo service worker:** os prefixos do core (`/v1/`, `/private/v1/`, `/admin/v1/`, `/oauth2/`,
      `/.well-known/`, `/static/`). Também não passam requisição que não seja GET nem requisição de outra origem.
      Nenhuma resposta da API e nenhum token entra no cache.

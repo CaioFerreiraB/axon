@@ -59,6 +59,35 @@ test("nenhuma tela rola de lado", async ({ page }) => {
   }
 });
 
+test("nem nos estados vazio e de erro", async ({ page }) => {
+  await login(page, "/uso?origem=evaluation");
+  await page.getByText("Nenhuma chamada de modelo neste período").waitFor();
+  let found = await overflow(page);
+  expect(found.page, `uso vazio: a página rola de lado (${found.offenders.join(", ")})`).toBeLessThanOrEqual(0);
+  for (const prefix of ["usage", "impact"]) {
+    await page.route(`**/admin/v1/${prefix}**`, (route) =>
+      route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: { message: "armazenamento indisponível", type: "server_error", code: "storage_unavailable" },
+        }),
+      }),
+    );
+  }
+  for (const [path, text] of [
+    ["/uso?dias=7", "Não foi possível carregar o uso"],
+    ["/meio-ambiente?periodo=90", "Não foi possível carregar"],
+  ] as const) {
+    await page.goto(path);
+    await page.getByText(text).first().waitFor({ timeout: 15_000 });
+    found = await overflow(page);
+    expect(found.page, `${path} com erro: a página rola de lado (${found.offenders.join(", ")})`).toBeLessThanOrEqual(
+      0,
+    );
+  }
+});
+
 test("barra inferior, Mais e cabeçalho de app no lugar da barra lateral", async ({ page }) => {
   await login(page, "/uso");
   await expect(page.getByRole("complementary", { name: "Navegação da console" })).toBeHidden();
