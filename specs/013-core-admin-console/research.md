@@ -482,3 +482,70 @@ apagamento" com `deleting`, grupos na hora (sucesso, recusa voltando a caixa). P
 (`serve_platform.py`): criar uma chave só com `users` e ver a coluna; cadastrar uma pessoa, apagá-la digitando o nome, ver
 o relatório e a lista sem ela; pôr e tirar um grupo; axe nos três diálogos nos dois temas e o teclado (SC-012). O 503 fica
 só no MSW: a plataforma de teste não tem apagador que falha.
+
+## R37 — O ponto de quebra do celular (US13; ADR-060, item 1)
+
+**Decision**: um só ponto de quebra novo, `max-width: 639.98px` ("celular"), em CSS Modules, no mesmo padrão dos de
+1100 e 1024px. Entre 640 e 1100px fica o trilho; o celular deitado (mais de 640px de largura) usa o layout de tablet.
+
+**Rationale**: é o mesmo ponto das páginas da 012 (o login vira cartão a partir de 640px), e 640px separa bem os
+celulares em pé (360–430px) dos tablets (768px+).
+
+**Alternatives considered**: 768px (o tablet pequeno em pé cairia no layout de celular, sem necessidade); container
+queries por tela (mais flexível, mas o problema é a casca inteira, não um componente).
+
+## R38 — Barra inferior, cabeçalho de app e "Mais" (FR-046, FR-047; clarificação de 2026-11-08)
+
+**Decision**: a casca (`Shell`) monta três peças novas, só visíveis abaixo de 640px: `AppBar` (marca compacta ou "voltar"
+e o título da tela, publicado por `PageHeader` num contexto ao lado de `PageTitleSuffix`), `BottomNav` (os quatro
+primários de `NAV_PRIMARY` e "Mais") e `MoreSheet` (os secundários, o tema, a pessoa, "Sair" e "Instalar app"). O bloco
+de tema e o da pessoa saem do `Sidebar` para componentes compartilhados (`ThemeChoice`, `SessionCard`). O título do
+`PageHeader` fica só para leitor de tela no celular, porque o `AppBar` o mostra; o `h1` continua no conteúdo.
+
+**Rationale**: a navegação primária no polegar, como num app; os itens continuam vindo de `NAV`, e as rotas não mudam.
+
+## R39 — A tabela vira lista de linhas (FR-048)
+
+**Decision**: o `Table` preenche `data-label` de cada célula do `tbody` e do `tfoot` com o texto do `th` da mesma
+coluna (num efeito com `MutationObserver`, para linhas que chegam depois), e o CSS, abaixo de 640px, troca a tabela por
+uma grade: `thead` só para leitor de tela, `tr` como bloco com fio embaixo, a primeira célula como título e as outras
+como "rótulo  valor" pelo `::before`. Célula com `data-label` vazio (coluna de ações, chevron) não mostra rótulo. A
+prop `stack={false}` mantém a rolagem horizontal para quem precisar.
+
+**Rationale**: uma mudança só no primitivo cobre as dez tabelas da console, sem tocar uma a uma; a semântica de tabela
+continua no DOM (o leitor de tela lê a tabela).
+
+**Alternatives considered**: um componente de lista por tela (dez reescritas); manter a rolagem horizontal (é o
+problema).
+
+## R40 — O diálogo vira folha (FR-049)
+
+**Decision**: o `Dialog` (Radix) ganha, abaixo de 640px, posição embaixo, largura total, `max-height: 90dvh`, raio de
+12px só no topo, alça decorativa e `padding-bottom` com `env(safe-area-inset-bottom)`; o rodapé empilha os botões em
+largura total, o primário por cima (`flex-direction: column-reverse`). O `Sheet` exportado é a mesma base, usada pelo
+"Mais". Foco, Esc e véu são os do Radix.
+
+## R41 — O service worker gerado no build (FR-052; ADR-060, item 5)
+
+**Decision**: um plugin local no `vite.config.ts` (`pwaServiceWorker`), no `generateBundle`, lê o modelo
+`src/pwa/sw.js`, troca `__PRECACHE__` pela lista de arquivos do bundle mais os de `public/` da casca (manifest, ícones,
+`offline.html`, `offline.css`) e `__VERSION__` pelo SHA-256 dessa lista, e emite `sw.js` na raiz do `dist/`. O
+`main.tsx` registra o `sw.js` só em produção, depois do `load`. Sem `skipWaiting`: a navegação sempre vai pela rede,
+então a versão nova chega na próxima abertura.
+
+**Alternatives considered**: `vite-plugin-pwa`/Workbox (dependência grande para cerca de 50 linhas).
+
+## R42 — Ícones e manifest (FR-051, FR-053)
+
+**Decision**: `scripts/pwa-icons.mjs` renderiza `brand-kit/svg/axon-symbol.svg` com o Chromium do Playwright em
+`public/icons/` — 192 e 512 (`any`, fundo branco com o símbolo a 70%), 512 `maskable` (símbolo na zona segura de 80%)
+e `apple-touch-icon.png` (180, fundo branco). Os PNGs são versionados. O `theme-color` acompanha o tema escolhido:
+`applyTheme` troca o `content` das duas meta para a cor fixa do tema escolhido e as devolve às de mídia em "sistema".
+
+## R43 — Testes de celular e de PWA (SC-013)
+
+**Decision**: projetos `celular` (Pixel 7, Chromium) e `celular-escuro` no Playwright, com axe, teclado e
+`e2e/mobile.spec.ts` (sem rolagem horizontal em todas as rotas, barra inferior e "Mais", tabela em lista, folha);
+`e2e/pwa.spec.ts` no projeto `claro`, com o service worker permitido (manifest, ícones, registro, "Sem conexão",
+nada de `/admin/v1/` no cache). Os outros projetos usam `serviceWorkers: "block"`. Vitest: barra inferior, `theme-color`
+e `data-label` da tabela.

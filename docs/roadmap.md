@@ -154,6 +154,13 @@ se atribui ou remove um por vez. Specs,
 nesta ordem: 003 · US14, US15 → 012 · US9–US11, 007 · US7, 004 e 009 (pseudônimo) e o ajuste da 003 → 008 · US13, US14 → 011 · US9 → 013 · US12. **Andamento**:
 003 feita (2026-11-04); 012 feita (2026-11-04); ajuste da 003 para o pseudônimo feito (2026-11-04); 007 feita (2026-11-04); 004 e 009 feitas (2026-11-04); 008 feita (2026-11-05: US13, US14); 011 feita (2026-11-05: US9, a prova ponta a ponta nos dois perfis); 013 feita (2026-11-05: US12, com o toque `deleting` na 008). **Incremento 9.7 implementado.**
 
+**Incremento 9.8, a console no celular e instalável (2026-11-08; ADR-060).** Abaixo de 640px a console vira app: cabeçalho
+de app, barra inferior com "Mais", tabelas em lista de linhas, diálogos como folha, alvos de 44px, nenhuma tela rolando
+de lado. Instalável como PWA (manifest `standalone`, ícones do símbolo, service worker só da casca com "Sem conexão",
+`theme-color` pelo tema). Só a 013 muda (US13), com o nginx da console. Desenho no Penpot, página "Console — celular".
+**Andamento**: 013 feita (2026-11-08: US13). Falta a tag do core e o redeploy da imagem `axon-console`, com o aval do
+mantenedor.
+
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 
 **Pendências entre specs resolvidas em 2026-10-07.** OpenAI como controller (ADR-023: o adapter converte o esquema

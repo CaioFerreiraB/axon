@@ -149,3 +149,22 @@
 .flipped {
   transform: translateX(-100%);
 }
+/* Celular (013 FR-046): o rótulo de marco longo termina em reticências dentro do gráfico (o texto inteiro está na tabela
+   equivalente), e a dica cabe na largura. */
+@media (max-width: 639.98px) {
+  .plot {
+    overflow: hidden;
+  }
+  .markerLabel {
+    max-width: 62%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .tooltip {
+    min-width: 0;
+    max-width: calc(100% - 8px);
+  }
+  .legend {
+    justify-content: flex-start;
+  }
+}

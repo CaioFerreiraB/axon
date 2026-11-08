@@ -31,3 +31,20 @@
     justify-content: flex-end;
   }
 }
+/* Celular (013 FR-046): o formulário de preço numa coluna, com as ações na largura. */
+@media (max-width: 639.98px) {
+  .form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .formActions {
+    flex-direction: column-reverse;
+  }
+  .formActions > * {
+    width: 100%;
+  }
+  .vigencia {
+    white-space: normal;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+}

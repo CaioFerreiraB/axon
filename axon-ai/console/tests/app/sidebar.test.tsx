@@ -1,6 +1,6 @@
 /** 013 US8 (FR-020, ADR-038; research R17, R18): a marca da barra lateral e o título da aba. */
 
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 
@@ -46,8 +46,9 @@ describe("Sidebar", () => {
     );
     renderShell();
     expect(await screen.findByText("Instituto Exemplo")).toBeInTheDocument();
-    expect(screen.getByText("I")).toBeInTheDocument();
-    expect(screen.getByText("com Axon")).toBeInTheDocument();
+    const sidebar = within(screen.getByRole("complementary", { name: "Navegação da console" }));
+    expect(sidebar.getByText("I")).toBeInTheDocument();
+    expect(sidebar.getByText("com Axon")).toBeInTheDocument();
     expect(screen.queryAllByAltText("Axon")).toHaveLength(0);
     await waitFor(() => expect(document.title).toBe("Uso e custo · Instituto Exemplo"));
   });

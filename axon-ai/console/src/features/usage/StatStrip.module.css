@@ -92,3 +92,26 @@
     border-top: 1px solid var(--borda-base);
   }
 }
+/* Celular (013 FR-046): duas colunas com números menores; a última célula ímpar (Emissões) ocupa a linha. */
+@media (max-width: 639.98px) {
+  .cell {
+    padding: 14px;
+    gap: 4px;
+  }
+  .value {
+    font-size: var(--tamanho-24);
+    overflow-wrap: anywhere;
+  }
+  .hero {
+    font-size: var(--tamanho-28);
+  }
+  .label,
+  .note,
+  .warn,
+  .more {
+    font-size: var(--tamanho-12);
+  }
+  .cell:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}

@@ -3,7 +3,7 @@
 Cada tela usa só as rotas de [admin-api.md](../../008-core-http-api/contracts/admin-api.md) (e o protocolo da 012 para
 entrar e sair). Toda tela tem os estados: **carregando** (esqueleto com a forma final), **vazio** (explica de onde vêm
 os dados), **erro** (mensagem da API + "Tentar de novo"), **acesso negado** (404 do `/me`). Recusas aparecem junto ao
-campo do `param` (FR-001). Referência visual: Penpot, "Console — claro" e "Console — escuro".
+campo do `param` (FR-001). Referência visual: Penpot, "Console — claro", "Console — escuro" e, abaixo de 640px, "Console — celular" (US13).
 
 | Rota | Chamadas | Ações | Estados específicos |
 |---|---|---|---|
@@ -34,6 +34,8 @@ Formatos: números `pt-BR`; dinheiro "US$ 41,87"; tokens compactos ("21,1 M"); d
 | Barra lateral, topo | símbolo Axon de 32px + wordmark `axon` (altura de x de 12px) + "Console" | logotipo ou inicial de 24px + nome + "Console" |
 | Barra lateral, rodapé | nada | símbolo de 16px + "com Axon" (caption terciário) |
 | Trilho (< 1100px) | só o símbolo | só o logotipo ou a inicial; a atribuição só com o símbolo |
+| Celular (< 640px; US13) | cabeçalho de app com o símbolo de 26px e o título da tela | logotipo ou inicial de 24px e o título; "com Axon" na folha "Mais" |
+| Ícone do app instalado | símbolo Axon, nome "Axon" | símbolo Axon, nome "Axon" (o manifest é estático; ADR-060) |
 | Acesso negado | lockup Axon (32px de altura) | lockup Axon (a console não lê o `me` sem permissão) |
 | Aba | favicon do símbolo; "<tela> · Axon" | favicon do símbolo; "<tela> · <nome da instalação>" |
 

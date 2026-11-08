@@ -65,3 +65,20 @@ test("SSE do chat chega pelo repasse", async ({ request }) => {
   expect(response.headers()["content-type"]).toContain("text/event-stream");
   expect(await response.text()).toContain("data: [DONE]");
 });
+
+test("o app instalável: manifest com o tipo certo, service worker e casca sem cache longo (013 FR-051, FR-052)", async ({
+  request,
+}) => {
+  const manifest = await request.get(`${nginx}/manifest.webmanifest`);
+  expect(manifest.status()).toBe(200);
+  expect(manifest.headers()["content-type"]).toContain("application/manifest+json");
+  expect(manifest.headers()["cache-control"]).toBe("no-cache");
+  expect(manifest.headers()["content-security-policy"]).toBe(CSP);
+  expect((await manifest.json()).display).toBe("standalone");
+  for (const path of ["/sw.js", "/offline.html", "/icons/icon-192.png"]) {
+    const response = await request.get(`${nginx}${path}`);
+    expect(response.status(), path).toBe(200);
+    expect(response.headers()["cache-control"], path).toBe("no-cache");
+  }
+  expect((await request.get(`${nginx}/sw.js`)).headers()["content-type"]).toContain("javascript");
+});

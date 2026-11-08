@@ -25,6 +25,7 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--fundo-base);
   color: var(--texto-primario);
   font-family: var(--fonte);
@@ -33,6 +34,18 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   caret-color: var(--acao-base);
+}
+
+/* O app instalado e o toque (013 FR-046, FR-051): sem o realce cinza do toque no WebKit e, em janela própria, sem o
+   "puxar para atualizar" do navegador, que num app desmonta a tela. */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+@media (display-mode: standalone) {
+  html,
+  body {
+    overscroll-behavior-y: none;
+  }
 }
 
 ::selection {

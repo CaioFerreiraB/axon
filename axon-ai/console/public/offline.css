@@ -1,0 +1,82 @@
+/* "Sem conexão" (013 FR-052): os tokens do DESIGN.md, com a fonte do sistema (as da console têm hash no nome). */
+:root {
+  color-scheme: light;
+  --fundo: #ffffff;
+  --texto: #111827;
+  --texto-2: #556070;
+  --acao: #2563eb;
+  --acao-hover: #1d4ed8;
+  --foco: #2563eb;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --fundo: #0b0f19;
+    --texto: #f1f3f7;
+    --texto-2: #a3abbb;
+    --foco: #93b4fb;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+}
+body {
+  margin: 0;
+  display: grid;
+  place-items: center;
+  padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+  background: var(--fundo);
+  color: var(--texto);
+  font:
+    16px/1.5 ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 360px;
+  text-align: center;
+}
+h1 {
+  margin: 8px 0 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  word-spacing: 0.06em;
+}
+p {
+  margin: 0;
+  color: var(--texto-2);
+  font-size: 0.9375rem;
+}
+.retry {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  margin-top: 12px;
+  padding: 0 20px;
+  border-radius: 6px;
+  background: var(--acao);
+  color: #ffffff;
+  font-weight: 500;
+  text-decoration: none;
+}
+.retry:hover {
+  background: var(--acao-hover);
+}
+.retry:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}

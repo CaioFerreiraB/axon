@@ -16,6 +16,18 @@ export function readTheme(): ThemeChoice {
   }
 }
 
+/** A cor da barra do navegador e da barra de status do app instalado em cada tema (013 FR-053; `fundo-base`). */
+export const THEME_COLOR = { light: "#ffffff", dark: "#0b0f19" } as const;
+
+/** As duas `<meta name="theme-color">` do `index.html`, uma por `prefers-color-scheme`. Com o tema escolhido na console,
+ * as duas passam à cor dele; em "sistema", cada uma volta à cor da própria mídia. */
+function applyThemeColor(choice: ThemeChoice): void {
+  document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]').forEach((meta) => {
+    const own = (meta.getAttribute("media") ?? "").includes("dark") ? THEME_COLOR.dark : THEME_COLOR.light;
+    meta.content = choice === "system" ? own : THEME_COLOR[choice];
+  });
+}
+
 export function applyTheme(choice: ThemeChoice = readTheme()): void {
   const root = document.documentElement;
   if (choice === "system") {
@@ -23,6 +35,7 @@ export function applyTheme(choice: ThemeChoice = readTheme()): void {
   } else {
     root.setAttribute("data-theme", choice);
   }
+  applyThemeColor(choice);
 }
 
 export function setTheme(choice: ThemeChoice): void {

@@ -49,3 +49,20 @@
 .input:disabled:checked {
   opacity: 0.5;
 }
+/* Celular (013 FR-050): a caixa de 20px numa linha de 44px — a linha inteira é o alvo, e os alvos vizinhos não se
+   encostam (WCAG 2.5.8). */
+@media (max-width: 639.98px) {
+  .row {
+    min-height: 44px;
+    gap: 12px;
+    font-size: var(--tamanho-16);
+  }
+  .input {
+    width: 20px;
+    height: 20px;
+  }
+  .input::after {
+    width: 14px;
+    height: 14px;
+  }
+}

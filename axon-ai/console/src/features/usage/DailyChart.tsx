@@ -203,7 +203,7 @@ export function DailyChart({
     }
     const observer = new ResizeObserver(([entry]) => {
       if (entry) {
-        setWidth(Math.max(320, Math.round(entry.contentRect.width)));
+        setWidth(Math.max(240, Math.round(entry.contentRect.width)));
       }
     });
     observer.observe(element);
@@ -291,7 +291,7 @@ export function DailyChart({
 
   const activeStack = active !== null ? stacks[active] : undefined;
   const activeX = activeStack ? (x(activeStack.day) ?? 0) + x.bandwidth() / 2 : 0;
-  const tooltipLeft = Math.min(Math.max(activeX + 16, AXIS_LEFT), width - 216);
+  const tooltipLeft = Math.max(0, Math.min(Math.max(activeX + 16, AXIS_LEFT), width - 216));
 
   return (
     <div className={styles.chart}>
@@ -366,7 +366,7 @@ export function DailyChart({
                 return [path, gap];
               });
               return (
-                <g key={stack.day} onMouseEnter={() => setActive(index)}>
+                <g key={stack.day} onMouseEnter={() => setActive(index)} onPointerDown={() => setActive(index)}>
                   <rect
                     x={bandX - (x.step() - x.bandwidth()) / 2}
                     y={0}

@@ -64,6 +64,7 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 | [057](ADR-057-escopos-da-chave-de-api.md) | A chave de API tem escopos: inferência, usuários e administração (refina o 031 e o 040) | Aceita | 003, 008, 012, 011, 013 |
 | [058](ADR-058-apagar-conta-em-cascata.md) | A administração apaga uma conta em cascata, e o nome volta a ficar livre (substitui o item 7 do 030) | Aceita (item 6 refinado pelo 059) | 012, 003, 007, 008, 011, 013 |
 | [059](ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md) | O que fica de uma conta apagada é pseudonimizado (refina o item 6 do 058) | Aceita | 012, 003, 004, 009, 011 |
+| [060](ADR-060-console-no-celular-e-instalavel.md) | A console no celular e instalável (PWA): barra inferior, primitivas responsivas e service worker só da casca | Aceita | 013 |
 
 ## Modelo para ADR novo
 

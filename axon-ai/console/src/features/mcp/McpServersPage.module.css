@@ -130,3 +130,17 @@
   gap: 8px;
   font-size: var(--tamanho-13);
 }
+/* Celular (013 FR-046): os detalhes do servidor em pares empilhados. */
+@media (max-width: 639.98px) {
+  .details {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+  .details dd + dt {
+    margin-top: 10px;
+  }
+  .endpointInline {
+    display: block;
+    margin-top: 4px;
+  }
+}
