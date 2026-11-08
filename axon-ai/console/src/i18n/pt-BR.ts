@@ -9,6 +9,16 @@ export const NAV = [
   { to: "/acesso", label: "Acesso", icon: "acesso" },
 ] as const;
 
+/** A barra inferior do celular (013 FR-047, R38): as quatro seções primárias; as outras ficam na folha "Mais". */
+export const NAV_PRIMARY = [
+  { to: "/uso", label: "Uso", icon: "uso" },
+  { to: "/assistentes", label: "Assistentes", icon: "assistente" },
+  { to: "/servidores-mcp", label: "MCP", icon: "mcp" },
+  { to: "/acesso", label: "Acesso", icon: "acesso" },
+] as const;
+
+export const NAV_SECONDARY = NAV.filter((item) => !NAV_PRIMARY.some((primary) => primary.to === item.to));
+
 export const ROLE_TEXT: Record<string, string> = {
   generation: "Escreve a resposta",
   controller: "Decide a próxima ação",

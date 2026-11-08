@@ -533,3 +533,60 @@ T094–T097; T098–T099 depois da implementação; T100 por último.
   `keys.test.tsx` (`scopes`), e as fixtures do MSW (`scopes`, `deleting`, a conta `bia`).
 - Console: tipagem e lint limpos; Vitest 170 passaram; Playwright 65 passaram (com o axe nos dois temas e no tablet).
 
+
+## Passada de 2026-11-08: US13 — a console no celular e instalável ([ADR-060](../../docs/adr/ADR-060-console-no-celular-e-instalavel.md); research R37–R43)
+
+**Goal**: abaixo de 640px, layout de app (cabeçalho de app, barra inferior e "Mais", tabelas em lista, diálogos como
+folha, alvos de 44px), sem nenhuma tela rolando de lado; a console instalável como PWA (manifest, ícones, service
+worker da casca, "Sem conexão", `theme-color` pelo tema).
+
+**Independent Test**: a partir de `axon-ai/console/`, `npm test` e `npx playwright test --project=celular
+--project=celular-escuro --project=pwa`; com o nginx (`e2e/serve_nginx.sh`), `CONSOLE_NGINX_URL=http://127.0.0.1:8080
+npx playwright test e2e/serving.spec.ts`.
+
+**Referência visual**: Penpot, "axon mockup", página "Console — celular" (Uso e custo claro e escuro, "Mais", Assistentes,
+Assistant — Modelos, Acesso — usuários, Cadastrar pessoa como folha, Sem conexão claro e escuro, Ícone do app).
+
+### Desenho e fundação
+
+- [X] T101 [US13] Penpot: página "Console — celular" com os boards acima, a partir dos tokens e ícones da console
+- [X] T102 [US13] `console/src/i18n/pt-BR.ts`: `NAV_PRIMARY` e `NAV_SECONDARY`; `src/ui/icons.tsx`: ícone `instalar`
+- [X] T103 [US13] `console/src/ui/Page.tsx`: `PageChrome`/`PageChromeSetter` (título e "voltar" publicados pelo
+  `PageHeader`); `Page.module.css` abaixo de 640px
+
+### Testes primeiro
+
+- [X] T104 [P] [US13] `console/tests/app/mobile-shell.test.tsx` (barra inferior, "Mais" ativo nas secundárias, folha
+  com o foco devolvido, "voltar" no detalhe), `tests/app/theme-color.test.ts`, `tests/ui/table-labels.test.tsx`
+- [X] T105 [P] [US13] `console/e2e/mobile.spec.ts` (nenhuma tela rola de lado, barra inferior e "Mais", lista de linhas,
+  folha), `e2e/pwa.spec.ts` (manifest e ícones, service worker, "Sem conexão", nada da API no cache, `theme-color`) e o
+  caso do app instalável em `e2e/serving.spec.ts`; projetos `celular`, `celular-escuro` e `pwa` no
+  `playwright.config.ts`, com `serviceWorkers: "block"` nos outros
+
+### Implementação
+
+- [X] T106 [US13] Casca (R38): `src/app/Shell.tsx`, `AppBar.tsx`, `BottomNav.tsx`, `MoreSheet.tsx`, `src/ui/Sheet.tsx`;
+  `Sidebar.tsx` exporta `THEMES`, `adminLabel` e `Brand`, e some abaixo de 640px
+- [X] T107 [US13] Primitivas (R39, R40): `Table` (rótulos e papéis explícitos, lista no celular, `stack={false}`),
+  `Dialog` (folha, fileiras só de botões empilhadas), `TabNav` e `Segmented` (rolam de lado), `Button`, `Field` e
+  `Checkbox` (44px, 16px), `global.css` (`100dvh`, toque e `display-mode: standalone`)
+- [X] T108 [US13] Telas: `StatStrip`, `DailyChart` (piso de 240px, toque, marcos com reticências), `ImpactPage`
+  (filtros), `PricesPage`, `Editor.module.css` (rodapé preso só com alteração, `data-dirty`), `McpServersPage`,
+  `Access.module.css`
+- [X] T109 [US13] PWA (R41, R42): `public/manifest.webmanifest`, `public/icons/` (gerados por `scripts/pwa-icons.mjs`),
+  `public/offline.html` e `offline.css`, `src/pwa/sw.js` e o plugin `pwaServiceWorker` no `vite.config.ts`,
+  `src/app/pwa/registerServiceWorker.ts` e `useInstallPrompt.ts`, meta do app em `index.html`, `theme-color` em
+  `src/app/theme.ts`
+- [X] T110 [US13] `console/deploy/nginx.conf.template`: `location = /manifest.webmanifest` com
+  `application/manifest+json` (o `mime.types` do nginx 1.28 não tem `webmanifest`)
+
+**Execução (2026-11-08)**: T101–T110 feitas. Notas:
+- A linha de base em 390×844 tinha 5 das 7 telas principais rolando de lado (Assistentes a 745px) e a faixa de números
+  sobreposta; depois, nenhuma tela rola, nos dois temas.
+- O e2e achou três defeitos, corrigidos: a barra inferior por cima da folha do diálogo (`z-index`), as caixas de seleção
+  de 16px empilhadas (axe `target-size`; a linha passou a 44px) e o foco que não voltava ao "Mais" (a `Sheet` guarda
+  quem abriu, como o `Dialog`).
+- O seletor de cinco períodos de Meio ambiente alargava o cabeçalho: as ações do `PageHeader` têm `contain:
+  inline-size` no celular.
+- Console: tipagem e lint limpos; Vitest 178 passaram; Playwright 91 passaram (claro, escuro, tablet, celular,
+  celular-escuro e pwa) e os 6 do nginx.

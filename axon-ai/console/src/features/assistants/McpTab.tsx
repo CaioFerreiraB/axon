@@ -289,7 +289,7 @@ export default function McpTab() {
           })
         }
       />
-      <div className={styles.footer}>
+      <div className={styles.footer} data-dirty={changes > 0 || undefined}>
         <span className={styles.meta}>
           {editable
             ? overrideMeta(override, "Sem sobreposição de MCP: vale o YAML", changes)

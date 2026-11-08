@@ -88,3 +88,117 @@
   color: var(--texto-terciario);
   text-align: right;
 }
+
+/* Celular (013 FR-048, R39): a tabela vira lista de linhas. O cabeçalho fica só para o leitor de tela; a primeira célula
+   é o título da linha; as outras saem como "rótulo  valor", com o rótulo (`data-label`) tirado do cabeçalho pelo
+   `Table`. A célula sem rótulo (ações) alinha à direita; o chevron vai para o canto. */
+@media (max-width: 639.98px) {
+  .stack {
+    overflow-x: visible;
+  }
+  .stack .table,
+  .stack .table tbody,
+  .stack .table tfoot,
+  .stack .table tr {
+    display: block;
+    width: 100%;
+  }
+  .stack .table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .stack .table tbody tr,
+  .stack .table tfoot tr {
+    position: relative;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--borda-base);
+  }
+  .stack .table tbody tr:last-child {
+    border-bottom: 0;
+  }
+  .stack .table tfoot tr {
+    border-top: 1px solid var(--borda-base);
+    border-bottom: 0;
+    background: var(--fundo-sutil);
+  }
+  .stack .table tbody td,
+  .stack .table tbody th,
+  .stack .table tfoot td {
+    height: auto;
+    padding: 0;
+    border: 0;
+  }
+  .stack .table tr > :first-child {
+    display: block;
+    padding-right: 28px;
+    font-size: var(--tamanho-14);
+  }
+  .stack .table tr > :not(:first-child) {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 12px;
+    align-items: baseline;
+    margin-top: 6px;
+    text-align: right;
+  }
+  .stack .table tr > :not(:first-child) > * {
+    grid-column: 2;
+    justify-self: end;
+    max-width: 100%;
+  }
+  .stack .table tr > :not(:first-child)::before {
+    content: attr(data-label);
+    grid-row: 1;
+    grid-column: 1;
+    color: var(--texto-secundario);
+    font-size: var(--tamanho-13);
+    font-weight: 400;
+    text-align: left;
+    white-space: nowrap;
+  }
+  /* Célula com campo (a sobreposição na aba Modelos): o rótulo em cima, o campo na largura. */
+  .stack .table tr > :not(:first-child):has(input, select, textarea) {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 6px;
+    margin-top: 12px;
+    text-align: left;
+  }
+  .stack .table tr > :not(:first-child):has(input, select, textarea) > * {
+    grid-column: 1;
+    justify-self: stretch;
+  }
+  .stack .table tr > [data-label=""]:not(:first-child) {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .stack .table tr > [data-label=""]:not(:first-child)::before {
+    content: none;
+  }
+  .stack .table tr > .chevron {
+    position: absolute;
+    top: 14px;
+    right: 12px;
+    display: block;
+    width: auto;
+    margin: 0;
+  }
+  .stack .table tr > .chevron::before {
+    content: none;
+  }
+  .stack .table tr > .wideOnly {
+    display: none;
+  }
+  .stack .table .mono {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .stack .table .truncate {
+    white-space: nowrap;
+  }
+}

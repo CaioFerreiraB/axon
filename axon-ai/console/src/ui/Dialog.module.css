@@ -1,11 +1,13 @@
 .overlay {
   position: fixed;
   inset: 0;
+  z-index: 40;
   background: var(--veu);
   animation: fade 160ms var(--curva-saida);
 }
 .content {
   position: fixed;
+  z-index: 41;
   top: 50%;
   left: 50%;
   width: min(480px, calc(100vw - 32px));
@@ -54,5 +56,57 @@
   from {
     opacity: 0;
     transform: translate(-50%, calc(-50% + 8px));
+  }
+}
+
+/* Celular (013 FR-049, R40): o diálogo vira folha ancorada embaixo, com os botões em largura total e o primário por
+   cima. */
+@media (max-width: 639.98px) {
+  .content {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-height: 90dvh;
+    padding: 20px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+    border-width: 1px 0 0;
+    border-radius: 12px 12px 0 0;
+    transform: none;
+    animation: sheet 220ms var(--curva-saida);
+    overscroll-behavior: contain;
+  }
+  .content::before {
+    content: "";
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    width: 36px;
+    height: 4px;
+    margin-left: -18px;
+    border-radius: var(--raio-pilula);
+    background: var(--borda-forte);
+  }
+  .footer {
+    flex-direction: column-reverse;
+    gap: 8px;
+  }
+  .footer > * {
+    width: 100%;
+  }
+  /* Os formulários que montam o próprio rodapé (cadastrar pessoa, nova chave, servidor MCP): toda fileira só de
+     botões empilha do mesmo jeito. */
+  .content div:has(> button + button):not(:has(> :not(button))):not([role="group"]) {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+  .content div:has(> button + button):not(:has(> :not(button))):not([role="group"]) > button {
+    width: 100%;
+  }
+}
+@keyframes sheet {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
   }
 }

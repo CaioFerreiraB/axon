@@ -351,6 +351,22 @@ Paleta de neutros frios (a família ink, slate, line e mist do Axon) com um azul
 
 **Abaixo de 1024px** o respiro da página cai para 24px.
 
+**Abaixo de 640px (celular; ADR-060):**
+- A barra lateral sai. No topo fica o **cabeçalho de app**: 56px mais a área segura, fundo base e fio embaixo, com a
+  marca compacta (símbolo de 26px, ou o logotipo ou a inicial da instalação) e o título da tela em 17px/600. Numa tela
+  de detalhe, o "voltar" (44px) substitui a marca. O `h1` da página continua no documento só para o leitor de tela; o
+  subtítulo, o selo e as ações ficam no conteúdo, empilhados.
+- Embaixo fica a **barra inferior** (ver Navigation).
+- O respiro da página é de 16px, com 16px entre blocos. As ações do cabeçalho vão para a linha de baixo, na largura, e
+  o que não cabe (seletores de período) rola de lado.
+- Toda tabela vira **lista de linhas** (ver Cards / Containers), a faixa de números fica em 2 colunas, com a última
+  célula ímpar na linha inteira, e os formulários e grades passam a uma coluna.
+- Todo diálogo vira **folha** (ver Elevation & Depth).
+- Nenhuma tela rola na horizontal. Só o conteúdo de um seletor, de uma barra de abas ou de um gráfico rola de lado,
+  dentro do próprio contêiner.
+- O rodapé de um editor com alteração não salva (Modelos, MCP, Permissões) fica preso acima da barra inferior, com os
+  botões na largura e o primário por cima.
+
 **Login e "Minha conta".** É uma coluna de até 420px. No celular, a página inteira é a superfície. A partir de 640px o conteúdo vira cartão centrado com fio e 32px de respiro, sobre o fundo `fundo-sutil`.
 
 ## Elevation & Depth
@@ -360,9 +376,11 @@ O sistema é plano. A profundidade vem de três tons de fundo (base, sutil, real
 ### Shadow Vocabulary
 - **Sombra flutuante** (`--sombra-flutuante`: no claro, `0 8px 24px -6px rgb(24 24 27 / 0.14), 0 2px 6px -2px rgb(24 24 27 / 0.08)`; no escuro, `0 12px 32px -8px rgb(0 0 0 / 0.6), 0 2px 8px -2px rgb(0 0 0 / 0.5)`): diálogo, dica do gráfico e menu de ações.
 - **Véu** (`--veu`: `rgb(24 24 27 / 0.36)` no claro, `rgb(0 0 0 / 0.6)` no escuro): o fundo atrás do diálogo.
+- **Folha** (celular): o diálogo, e o "Mais", sobem de baixo, ancorados na borda inferior. Ocupam a largura e até 90% da
+  altura, com raio de 12px só no topo, alça de 36×4px em `borda-forte`, sombra flutuante e a área segura embaixo.
 
 ### Named Rules
-**The Sombra Só No Que Flutua Rule.** Sombra existe só em camada que sai do plano e se sobrepõe ao conteúdo: diálogo, dica e menu. Nada que mora na página tem sombra. O anel de foco do campo (`0 0 0 1px` na cor de foco) é contorno, não elevação.
+**The Sombra Só No Que Flutua Rule.** Sombra existe só em camada que sai do plano e se sobrepõe ao conteúdo: diálogo (e folha), dica e menu. Nada que mora na página tem sombra. O anel de foco do campo (`0 0 0 1px` na cor de foco) é contorno, não elevação.
 
 ## Shapes
 
@@ -379,6 +397,8 @@ Contidos e diretos, sem gradiente nem sombra.
 - **Danger:** como o secundário, com texto vermelho; no hover, fundo e borda de erro.
 - **Carregando:** o rótulo divide espaço com um giro de 14px em `currentColor`.
 - **Login:** largura total, 44px no celular e 40px a partir de 640px.
+- **Celular (console):** todo botão tem 44px, e o de ícone, 44×44. Com ponteiro grosso acima de 640px, o mínimo é
+  40px.
 - **Transição:** 120ms em `--curva-saida` (`cubic-bezier(0.16, 1, 0.3, 1)`), só de cor.
 
 ### Selos (Badge)
@@ -393,6 +413,11 @@ Contidos e diretos, sem gradiente nem sombra.
 - **Border:** fio base de 1px. Em painéis com corpo separado, outro fio entre cabeçalho e corpo.
 - **Internal Padding:** 20px. A tabela usa 16px lateral, com cabeçalho de 36px em fundo sutil e caption secundário, e linhas de 48px.
 - **Números em tabela:** alinhados à direita, sem quebra, em Mona Sans.
+- **Lista de linhas (celular):** a tabela vira lista no mesmo contorno de 8px. Cada linha tem 12px por 16px de respiro
+  e fio embaixo. A primeira célula é o título; as outras saem como pares, com o rótulo da coluna em caption secundário à
+  esquerda e o valor à direita. Uma célula com campo põe o rótulo em cima e o campo na largura. O chevron vai para o
+  canto superior direito, e o total vira uma linha de resumo em fundo sutil. O cabeçalho fica só para o leitor de
+  tela.
 
 ### Inputs / Fields
 - **Style:** 36px de altura (32px compacto), fio forte, fundo base, 6px; rótulo em label acima, com 6px de vão, e ajuda em caption abaixo.
@@ -402,10 +427,17 @@ Contidos e diretos, sem gradiente nem sombra.
 - **Campo de modelo:** usa `datalist`, texto livre com sugestões dos modelos conhecidos, não `select`. A allowlist é do deploy, e a recusa vem da API, junto ao campo.
 - **Select:** nativo, com a seta desenhada.
 - **Login:** campo de 40px, texto em 16px.
+- **Celular (console):** campo de 44px com texto em 16px (abaixo disso, o Safari do iOS dá zoom ao focar), e caixa de
+  seleção de 20px numa linha de 44px.
 
 ### Navigation
 - **Barra lateral:** 240px, fundo sutil, fio à direita. O item tem 32px de altura, ícone SVG de 16px (traço 1,5, `currentColor`) e texto secundário. Item ativo e hover ganham fundo realce e texto primário; o ativo vai em 500. Abaixo de 1100px vira trilho de ícones com dica nativa.
 - **Abas (TabNav):** texto em 500, 40px de altura, fio base embaixo; a aba ativa leva um traço de 2px em texto primário.
+- **Barra inferior (celular):** fixa embaixo, fundo base, fio em cima e a área segura. Tem cinco itens iguais: Uso,
+  Assistentes, MCP, Acesso e "Mais", cada um com ícone de 20px numa pílula de 56×28px e rótulo de 11px/500, numa altura
+  de 56px. O ativo leva a pílula em `acao-sutil`, e ícone e rótulo em `acao-texto` (rótulo em 600). "Mais" fica ativo
+  em Meio ambiente e Observabilidade e abre a folha com essas seções, "Instalar app" (quando o navegador oferece), o
+  tema, a pessoa com "Sair" e, com marca da instalação, "com Axon".
 - **Seletor segmentado:** trilho realce de 32px com 2px de respiro; o item ativo vira fundo base com fio base (no escuro, fio base com contorno forte). Usado para período 7/30/90, agrupamento, filtros e tema.
 
 ### Notice

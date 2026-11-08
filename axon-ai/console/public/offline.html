@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0b0f19" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/svg+xml" href="/icons/axon-symbol.svg" />
+    <link rel="stylesheet" href="/offline.css" />
+    <title>Sem conexão · Axon</title>
+  </head>
+  <body>
+    <!-- A página que o service worker devolve quando a navegação falha sem rede (013 FR-052; ADR-060). Sem script: a CSP
+         da console proíbe script inline, e "Tentar de novo" é um link para a raiz. -->
+    <main class="card">
+      <picture>
+        <source srcset="/icons/axon-symbol-light.svg" media="(prefers-color-scheme: dark)" />
+        <img src="/icons/axon-symbol.svg" alt="Axon" width="48" height="48" />
+      </picture>
+      <h1>Sem conexão</h1>
+      <p>A console precisa de internet para mostrar os dados da plataforma. Confira a conexão e tente de novo.</p>
+      <a class="retry" href="/">Tentar de novo</a>
+    </main>
+  </body>
+</html>

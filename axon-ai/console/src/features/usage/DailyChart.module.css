@@ -102,7 +102,7 @@
 }
 .tooltipRow {
   display: grid;
-  grid-template-columns: 10px 1fr auto;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   padding: 3px 0;
@@ -148,4 +148,26 @@
 }
 .flipped {
   transform: translateX(-100%);
+}
+/* Celular (013 FR-046): o rótulo de marco longo termina em reticências dentro do gráfico (o texto inteiro está na tabela
+   equivalente), e a dica cabe na largura. */
+@media (max-width: 639.98px) {
+  .plot {
+    overflow: hidden;
+  }
+  .markerLabel {
+    max-width: 62%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .tooltip {
+    min-width: 0;
+    max-width: calc(100% - 8px);
+  }
+  .tooltipRow > :nth-child(2) {
+    overflow-wrap: anywhere;
+  }
+  .legend {
+    justify-content: flex-start;
+  }
 }

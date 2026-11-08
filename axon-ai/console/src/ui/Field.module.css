@@ -92,3 +92,17 @@
   font-size: var(--tamanho-13);
   font-weight: 500;
 }
+/* Celular (013 FR-050): campo de 44px com texto de 16px — abaixo disso, o Safari do iOS dá zoom ao focar. */
+@media (max-width: 639.98px) {
+  .control,
+  .compact {
+    height: 44px;
+    font-size: var(--tamanho-16);
+  }
+  .mono {
+    font-size: 0.9375rem;
+  }
+  textarea.control {
+    height: auto;
+  }
+}

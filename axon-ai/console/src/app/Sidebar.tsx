@@ -14,11 +14,16 @@ import { AxonSymbol, AxonWordmark } from "./brand/Mark";
 import styles from "./Sidebar.module.css";
 import { useTheme, type ThemeChoice } from "./theme";
 
-const THEMES = [
+export const THEMES = [
   { value: "light", label: "Tema claro", icon: "sol" },
   { value: "dark", label: "Tema escuro", icon: "lua" },
   { value: "system", label: "Seguir o sistema", icon: "atualizar" },
 ] as const;
+
+/** A linha "usuário · grupo" da pessoa na sessão: o grupo de administração, se ela o tem, senão o primeiro. */
+export function adminLabel(groups: readonly string[] | undefined): string {
+  return groups?.includes("admin") ? "admin" : (groups?.[0] ?? "");
+}
 
 export function Brand({ name, logoUrl }: { name: string; logoUrl: string | null }) {
   return logoUrl ? (
@@ -35,7 +40,7 @@ export function Sidebar() {
   const { signOut } = useAuth();
   const [theme, setTheme] = useTheme();
   const instance = me?.instance ?? { name: "Axon", logo_url: null, custom: false };
-  const admin = me?.groups.includes("admin") ? "admin" : (me?.groups[0] ?? "");
+  const admin = adminLabel(me?.groups);
   return (
     <aside className={styles.sidebar} aria-label="Navegação da console">
       {instance.custom ? (

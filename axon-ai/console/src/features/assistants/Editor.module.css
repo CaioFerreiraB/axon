@@ -152,3 +152,51 @@
   flex-direction: column;
   gap: 20px;
 }
+/* Celular (013 FR-046): o rodapé do editor (descartar, salvar) fica preso acima da barra inferior, com os botões na
+   largura. */
+@media (max-width: 639.98px) {
+  .footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .footer[data-dirty] {
+    position: sticky;
+    bottom: calc(57px + env(safe-area-inset-bottom, 0px));
+    z-index: 5;
+    margin: 0 -16px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--borda-base);
+    background: var(--fundo-base);
+  }
+  .actions {
+    width: 100%;
+  }
+  .actions {
+    flex-direction: column-reverse;
+  }
+  .actions > * {
+    width: 100%;
+  }
+  .cellTop td,
+  .cellTop th {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  .overrideCell {
+    min-width: 0;
+    width: 100%;
+  }
+  .providerSelect {
+    width: 8rem;
+  }
+  .effective {
+    align-items: flex-end;
+  }
+  .yamlInline {
+    display: block;
+    margin-top: 6px;
+    color: var(--texto-secundario);
+    font-size: var(--tamanho-12);
+  }
+}

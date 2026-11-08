@@ -76,6 +76,13 @@ emissão e na lista de chaves, apagar conta e um grupo de cada vez — ADR-057, 
 - Q: Como a console mostra uma conta com apagamento incompleto depois de fechado o diálogo? → A: A 008 acrescenta `deleting: true` à visão da conta (aditivo; a 012 já tem o estado), e a console mostra o selo "Em apagamento" com uma só ação, "Concluir apagamento", que repete o `DELETE`; as outras ações somem. O toque na 008 entra na passada dela, no mesmo incremento.
 - Q: Na ficha de edição, os grupos valem na hora ou no "Salvar"? → A: Na hora: os grupos saem do formulário e viram caixas que valem a cada clique (`PUT`/`DELETE` de um grupo, sem versão, com a recusa ao lado do grupo); nome e e-mail seguem no "Salvar", com a versão da conta.
 
+### Session 2026-11-08
+
+- Q: A console passa a ser usada no celular? → A: Sim ([ADR-060](../../docs/adr/ADR-060-console-no-celular-e-instalavel.md)). Abaixo de 640px ela tem layout próprio, de app, e não o "desktop pequeno" de hoje; entre 640 e 1100px fica o trilho de ícones. O desenho é o da página "Console — celular" do Penpot ("axon mockup"), aprovado pelo mantenedor.
+- Q: Como se navega entre as seis seções no celular? → A: Por uma barra inferior com Uso, Assistentes, MCP, Acesso e "Mais"; "Mais" abre uma folha com Meio ambiente, Observabilidade, "Instalar app" (quando o navegador oferece), o tema, a pessoa e "Sair". No topo, um cabeçalho de app com a marca compacta e o título da tela; numa tela de detalhe, o "voltar" no lugar da marca. A gaveta lateral (☰) foi rejeitada.
+- Q: A console é instalável? → A: Sim, como PWA: manifest com `display: standalone` (sem a barra do navegador), ícones do símbolo Axon e `theme-color` pelo tema escolhido. O ícone e o nome do app são sempre os do Axon — o manifest é estático e igual em toda instalação —, e a marca da instalação aparece dentro do app.
+- Q: O que o app instalado faz sem conexão? → A: Um service worker guarda só a casca (os arquivos do build) e, sem rede, mostra "Sem conexão" com "Tentar de novo". Nenhuma resposta da API e nenhum token vão para o cache; a sessão continua só em memória (FR-002).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Admin entra na console (Priority: P1)
@@ -420,6 +427,45 @@ grupos dela não mudaram.
 
 ---
 
+### User Story 13 - Usar a console no celular e instalá-la (Priority: P2)
+
+O admin abre a console no celular e a usa como um app: navega pela barra inferior, lê as listas sem rolar de lado,
+preenche formulários em folhas que sobem de baixo e alcança tudo com o polegar. Instala a console na tela de início e
+ela abre em janela própria, sem a barra do navegador, com o ícone do Axon; sem conexão, vê um aviso em vez da página de
+erro do navegador ([ADR-060](../../docs/adr/ADR-060-console-no-celular-e-instalavel.md)).
+
+**Why this priority**: A console era usável só de desktop ou tablet; no celular cinco das sete telas principais rolavam
+de lado e a faixa de números se sobrepunha. Trocar um modelo ou acompanhar o uso fora do computador são tarefas
+de administração do dia a dia.
+
+**Independent Test**: Em 390×844, entrar como `ana`, navegar pelas seis seções pela barra inferior e pelo "Mais", abrir
+"Cadastrar pessoa" e trocar o modelo de um Assistant, sem nenhuma rolagem horizontal da página; no Chrome, o painel do
+manifest diz que o app é instalável, e com a rede cortada a abertura mostra "Sem conexão".
+
+**Acceptance Scenarios**:
+
+1. **Given** uma tela com menos de 640px de largura, **When** o admin abre a console, **Then** vê o cabeçalho de app no
+   topo e a barra inferior com Uso, Assistentes, MCP, Acesso e "Mais", sem a barra lateral; o item da seção atual fica
+   marcado, e "Mais" fica marcado em Meio ambiente e Observabilidade.
+2. **Given** a barra inferior, **When** o admin toca em "Mais", **Then** uma folha sobe com Meio ambiente,
+   Observabilidade, o tema, a pessoa e "Sair" (e "Instalar app", quando o navegador oferece); Esc, o véu ou o arrastar
+   para baixo a fecham, e o foco volta ao "Mais".
+3. **Given** qualquer tela da console em 390px, **When** ela carrega com dados, vazia ou com erro, **Then** a página não
+   rola na horizontal, e cada tabela vira uma lista de linhas — título na primeira linha, os outros valores como
+   rótulo e valor —, sem perder nenhum valor da versão de desktop.
+4. **Given** um diálogo (cadastrar pessoa, nova chave, apagar conta, editar preço), **When** o admin o abre no celular,
+   **Then** ele é uma folha ancorada embaixo, com os botões em largura total e o primário por cima, e respeita a área
+   segura da tela.
+5. **Given** a console aberta num navegador que permite instalar, **When** o admin a instala, **Then** ela abre em
+   janela própria, sem a barra do navegador, na tela Uso e custo, com o ícone e o nome "Axon", e a barra de status na
+   cor do tema escolhido.
+6. **Given** a console instalada, **When** o admin a abre sem conexão, **Then** vê "Sem conexão" com "Tentar de novo";
+   **When** a conexão volta e ele toca em "Tentar de novo", **Then** entra (refazendo o login se a sessão expirou).
+7. **Given** uma versão nova da console publicada, **When** o admin abre o app instalado com conexão, **Then** recebe a
+   versão nova, sem limpar nada à mão.
+
+---
+
 ### Edge Cases
 
 - Dois admins editam o mesmo Assistant: quem salva por último recebe aviso de que houve mudança, pode recarregar e não
@@ -431,7 +477,13 @@ grupos dela não mudaram.
   o estado e os motivos que a API devolve.
 - Lista longa de usuários ou de preços: busca e paginação.
 - Dados de uso com fuso diferente do navegador: a console mostra o fuso da API, não o do navegador.
-- Tela estreita (tablet): todas as funções continuam acessíveis; o layout se reorganiza.
+- Tela estreita (tablet, 640–1100px): todas as funções continuam acessíveis; a barra lateral vira trilho de ícones.
+- Celular (menos de 640px): todas as funções continuam acessíveis pela barra inferior e pelo "Mais"; nenhuma tela rola
+  na horizontal; o teclado virtual não cobre o campo com foco nem os botões da folha.
+- Celular na horizontal (mais de 640px de largura): vale o layout de tablet.
+- Navegador sem suporte a service worker ou instalação (ou janela privada): a console funciona como site; "Instalar
+  app" não aparece.
+- Login pelo Google no app instalado: sai do escopo do app e volta a ele; o fluxo não muda.
 - `me` ainda carregando: a barra lateral mostra o símbolo Axon (sem atribuição) até a resposta chegar, e o título usa "Axon".
 - Instalação com logotipo e sem nome próprio: o logotipo com o nome padrão no lugar principal, e "com Axon" no rodapé (há marca da instalação).
 - Troca de tema pela console (claro/escuro/sistema): o símbolo e o wordmark trocam de versão na hora, sem recarregar.
@@ -552,6 +604,28 @@ grupos dela não mudaram.
   (clarificação de 2026-11-05).
 - **FR-042**: Os diálogos novos DEVEM seguir as regras de acessibilidade da console (foco, teclado, rótulos, contraste nos
   dois temas).
+- **FR-046**: Abaixo de 640px, a console DEVE ter layout de uma coluna: cabeçalho de app no topo (marca compacta ou
+  "voltar", e o título da tela), conteúdo com respiro de 16px e barra inferior fixa; a barra lateral não aparece. Entre
+  640 e 1100px, vale o trilho de ícones (US8).
+- **FR-047**: A barra inferior DEVE ter Uso, Assistentes, MCP, Acesso e "Mais", com ícone e rótulo; "Mais" DEVE abrir uma
+  folha com Meio ambiente, Observabilidade, o tema (FR-019), a pessoa com "Sair", a atribuição "com Axon" quando há marca
+  da instalação (FR-020) e "Instalar app" só quando o navegador oferece a instalação.
+- **FR-048**: Abaixo de 640px, toda tabela DEVE virar lista de linhas — a primeira célula como título, as outras como
+  rótulo e valor com o rótulo do cabeçalho, o total como linha de resumo —, e nenhuma tela DEVE rolar na horizontal.
+  As colunas `wideOnly` continuam escondidas, com o valor sob o nome.
+- **FR-049**: Abaixo de 640px, todo diálogo DEVE abrir como folha ancorada embaixo (largura total, até 90% da altura,
+  alça, área segura), com os botões em largura total e o primário por cima.
+- **FR-050**: Abaixo de 640px ou com ponteiro grosso, botões, itens de navegação e campos DEVEM ter alvo de pelo menos
+  44px, e o texto dos campos DEVE ter 16px; abas e seletores segmentados que não cabem DEVEM rolar de lado, com o item
+  ativo à vista.
+- **FR-051**: A console DEVE ser instalável: manifest com `display: standalone`, `start_url` `/uso`, nome "Axon Console",
+  nome curto "Axon" e ícones de 192 e 512px (`any`) e 512px (`maskable`) gerados do símbolo Axon; `apple-touch-icon` e
+  as meta de app do iOS; `viewport-fit=cover` com as áreas seguras respeitadas.
+- **FR-052**: A console DEVE registrar um service worker que guarda só os arquivos do build, com o nome do cache pela
+  impressão digital da lista e os caches antigos apagados na ativação; navegação pela rede e, sem rede, a página "Sem
+  conexão"; os prefixos do core, requisições que não são GET e de outra origem nunca passam pelo cache.
+- **FR-053**: O `theme-color` DEVE seguir o tema escolhido na console (claro `#FFFFFF`, escuro `#0B0F19`) e, em
+  "sistema", o do sistema operacional.
 
 ### Key Entities
 
@@ -587,10 +661,13 @@ grupos dela não mudaram.
 - **SC-012**: Zero violações automáticas de WCAG 2.2 AA no diálogo de nova chave com os escopos, no de apagar conta
   (confirmação, relatório completo e parcial) e na ficha de edição com os grupos, nos dois temas, operáveis só pelo
   teclado; o e2e apaga uma conta e ela some da lista, e o pseudônimo não aparece em nenhuma tela.
+- **SC-013**: Em 412×915 (celular), em todas as telas e nos dois temas, zero violações automáticas de WCAG 2.2 AA e
+  nenhuma rolagem horizontal da página; o painel do manifest do Chrome mostra o app como instalável, sem erro, e com a
+  rede cortada a abertura mostra "Sem conexão"; nenhuma resposta de `/admin/v1/` está no cache do service worker.
 
 ## Assumptions
 
-- A console é usada em navegador de desktop ou tablet; celular não é alvo.
+- A console é usada em navegador de desktop, tablet ou celular (US13); abaixo de 640px, com o layout de app.
 - A console é servida na mesma origem da plataforma, pela instalação; sem chamadas entre origens.
 - O formato da API de administração está no contrato `admin-api.md` da 008; a console não lê nada além dele e do
   protocolo da 012.

@@ -96,3 +96,26 @@
     transform: rotate(360deg);
   }
 }
+/* Celular e ponteiro grosso (013 FR-050): alvo de 44px. O ícone sozinho fica quadrado. */
+@media (max-width: 639.98px) {
+  .button,
+  .sm,
+  .lg {
+    height: 44px;
+    padding: 0 16px;
+    font-size: var(--tamanho-14);
+  }
+  .iconOnly,
+  .iconOnly.sm {
+    width: 44px;
+    padding: 0;
+  }
+}
+@media (pointer: coarse) and (min-width: 640px) {
+  .button {
+    min-height: 40px;
+  }
+  .iconOnly {
+    min-width: 40px;
+  }
+}

@@ -24,11 +24,35 @@ export default defineConfig({
     locale: "pt-BR",
     timezoneId: "America/Sao_Paulo",
     trace: "retain-on-failure",
+    // O service worker da casca (013 FR-052) fica de fora, para o cache não mascarar os testes; só o pwa.spec.ts o liga.
+    serviceWorkers: "block",
   },
   projects: [
     {
       name: "claro",
+      testIgnore: /(mobile|pwa)\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 960 }, colorScheme: "light" },
+    },
+    {
+      name: "pwa",
+      testMatch: /pwa\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1440, height: 960 },
+        colorScheme: "light",
+        serviceWorkers: "allow",
+      },
+    },
+    // O celular (013 US13, SC-013): Chromium com a tela e o toque de um Pixel 7.
+    {
+      name: "celular",
+      testMatch: /(a11y|keyboard|mobile)\.spec\.ts/,
+      use: { ...devices["Pixel 7"], colorScheme: "light" },
+    },
+    {
+      name: "celular-escuro",
+      testMatch: /a11y\.spec\.ts/,
+      use: { ...devices["Pixel 7"], colorScheme: "dark" },
     },
     {
       name: "escuro",

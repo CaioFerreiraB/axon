@@ -113,3 +113,34 @@
     font-size: var(--tamanho-12);
   }
 }
+/* Celular (013 FR-046, FR-050): os filtros ocupam a largura e o período rola de lado; a caixa do período personalizado
+   fica na largura da página, com os campos lado a lado. */
+@media (max-width: 639.98px) {
+  .filters {
+    width: 100%;
+  }
+  .periodWrap {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .origin {
+    width: 100%;
+  }
+  .popover {
+    right: auto;
+    left: 0;
+    width: calc(100vw - 32px);
+  }
+  .dates > * {
+    width: auto;
+    flex: 1;
+    min-width: 0;
+  }
+  .popoverActions {
+    flex-direction: column-reverse;
+  }
+  .sectionHead {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}

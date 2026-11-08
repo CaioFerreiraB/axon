@@ -78,6 +78,7 @@ const PATHS = {
     </>
   ),
   atualizar: <path d="M13.5 8A5.5 5.5 0 1 1 11.9 4.1M13.5 2.5v3h-3" />,
+  instalar: <path d="M8 2.5v7.5M4.75 7 8 10.25 11.25 7M3 13.5h10" />,
 } as const;
 
 export type IconName = keyof typeof PATHS;

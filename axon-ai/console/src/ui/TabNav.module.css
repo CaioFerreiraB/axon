@@ -30,3 +30,24 @@
   height: 2px;
   background: var(--texto-primario);
 }
+/* Celular (013 FR-050): as abas rolam de lado, sem barra visível; a ativa é trazida à vista pelo TabNav. */
+@media (max-width: 639.98px) {
+  .tabs {
+    gap: 20px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+    margin: 0 -16px;
+    padding: 0 16px;
+  }
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .tab {
+    flex-shrink: 0;
+    height: 44px;
+    font-size: var(--tamanho-14);
+    white-space: nowrap;
+    scroll-snap-align: start;
+  }
+}

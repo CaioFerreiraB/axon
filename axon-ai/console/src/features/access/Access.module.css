@@ -305,3 +305,48 @@
   flex-direction: column;
   gap: 4px;
 }
+
+/* Celular (013 FR-046, FR-050): busca na largura, formulários e painéis numa coluna, confirmação da linha empilhada. */
+@media (max-width: 639.98px) {
+  .search {
+    width: 100%;
+  }
+  .summary {
+    margin-left: 0;
+  }
+  .formRow,
+  .twoFields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .panelHead {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    padding: 16px;
+  }
+  .panelTitleRow {
+    flex-wrap: wrap;
+    gap: 6px 10px;
+  }
+  .panelBody {
+    padding: 16px;
+  }
+  .copyRow,
+  .secretRow,
+  .inline {
+    flex-wrap: wrap;
+  }
+  .copyRow > :first-child,
+  .secretRow > :first-child {
+    flex-basis: 100%;
+  }
+  .members {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .confirm {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .menuItem {
+    min-height: 44px;
+  }
+}

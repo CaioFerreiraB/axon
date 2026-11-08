@@ -63,3 +63,45 @@
     padding: 24px 24px 40px;
   }
 }
+/* Celular (013 FR-046, R37): o cabeçalho de app mostra o título e o "voltar"; aqui ficam o subtítulo, o selo e as ações,
+   empilhados. O h1 continua no documento para o leitor de tela. */
+@media (max-width: 639.98px) {
+  .page {
+    gap: 16px;
+    padding: 16px 16px 24px;
+  }
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .headings {
+    gap: 6px;
+  }
+  .back {
+    display: none;
+  }
+  .title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .actions,
+  .atBase {
+    align-self: stretch;
+  }
+}
+@media (max-width: 639.98px) {
+  /* Sem isto, um seletor largo nas ações (os cinco períodos de Meio ambiente) alarga o cabeçalho inteiro: com o tamanho
+     intrínseco contido, as ações têm a largura da página, e o seletor rola de lado. */
+  .actions {
+    contain: inline-size;
+  }
+  .actions > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+}

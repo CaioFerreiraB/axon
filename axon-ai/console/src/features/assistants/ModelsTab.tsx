@@ -390,7 +390,7 @@ export default function ModelsTab() {
         </tbody>
       </Table>
       <SaveError error={fieldless ?? discard.error} onReload={() => void onReload()} />
-      <div className={styles.footer}>
+      <div className={styles.footer} data-dirty={changes > 0 || undefined}>
         <span className={styles.meta}>
           {editable
             ? overrideMeta(override, "Sem sobreposição de modelos: vale o YAML", changes)
