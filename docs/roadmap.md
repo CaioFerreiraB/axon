@@ -158,8 +158,8 @@ nesta ordem: 003 · US14, US15 → 012 · US9–US11, 007 · US7, 004 e 009 (pse
 de app, barra inferior com "Mais", tabelas em lista de linhas, diálogos como folha, alvos de 44px, nenhuma tela rolando
 de lado. Instalável como PWA (manifest `standalone`, ícones do símbolo, service worker só da casca com "Sem conexão",
 `theme-color` pelo tema). Só a 013 muda (US13), com o nginx da console. Desenho no Penpot, página "Console — celular".
-**Andamento**: 013 feita (2026-11-08: US13). Falta a tag do core e o redeploy da imagem `axon-console`, com o aval do
-mantenedor.
+**Andamento**: 013 feita (2026-11-08: US13; PR #21). Core `0.7.0rc18` (tag `v0.7.0-rc18`). **Incremento 9.8
+implementado.**
 
 Itens de prioridade P3 não listados (ex.: 001 US5 rotina isolada, 002 US6 pack declarativo, 004 US6 catálogo mínimo, 005 US6) entram quando houver caso de uso.
 
