@@ -672,7 +672,7 @@ não as telas — a `Table` vira lista de linhas (rótulo `data-label` tirado do
 script, e o `sw.js` gerado pelo plugin `pwaServiceWorker` do `vite.config.ts` a partir de `src/pwa/sw.js` (precache do
 build, navegação pela rede, nunca os prefixos do core). O nginx serve o manifest como `application/manifest+json`. Os
 projetos `celular`, `celular-escuro` e `pwa` do Playwright cobrem isso; os outros bloqueiam o service worker. Desenho:
-Penpot, página "Console — celular".
+Penpot, página "Console — celular". O core está em `0.7.0rc18` (tag `v0.7.0-rc18`, contratos `0.2.5`, sem mudança).
 
 O `axon-generic` é o exemplo a copiar num pack novo: piso de Python dos contratos (`>=3.12`, não o 3.14 do core),
 dependência pela faixa derivada da `contract_version` (`>=0.1,<0.2`, ADR-014) com `[tool.uv.sources] ... { workspace =
