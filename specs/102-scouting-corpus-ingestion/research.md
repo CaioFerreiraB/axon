@@ -800,3 +800,15 @@ inclusive os vetores do e5.
   mil trechos — o índice é o mesmo, e as perguntas seguem codificadas na CPU.
 - **Alternatives**: `onnxruntime-gpu` no venv do projeto (os dois pacotes ocupam o mesmo módulo e não convivem); a GPU
   também em produção (as VMs pequenas não têm).
+
+## R41 — Fichas das atas e resumos ([ADR-062](../../docs/adr/ADR-062-busca-global-pelas-fichas-das-atas-no-scouting.md))
+
+- **Decision**: ficha estruturada por ata, extraída offline pelo `gpt-4.1-mini` com esquema estrito e conferida por
+  código contra a página; a ficha e a linha do tempo por órgão e ano são montadas sem modelo, em `summaries.jsonl` sem
+  vetores.
+- **Rationale**: o piloto nas 58 atas regionais de SP conferiu 1.796 de 1.902 itens (94,4%) por US$ 0,36; as 256 atas,
+  5.298 de 5.677 (93,3%) por cerca de US$ 1,30, em 1.196 resumos. Na linha do tempo do piloto, tirar o procedimento e
+  as vias repetidas levou de 259 para 153 partes. A redação dos itens segue a da ata
+  ("404 delegados credenciados", "Alexandre Banchi (Diretor-Presidente)").
+- **Alternatives**: resumo em prosa (revisão inviável); vetores para os resumos (artefato e manifesto mudariam a cada
+  ata).

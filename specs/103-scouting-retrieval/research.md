@@ -320,3 +320,14 @@ da 005, o N do rerank e o limiar do portão.
   - Só a consulta ancorada: a pergunta nova perde as vagas.
   - Recuar removendo também o tipo citado: desfaz o ADR-046.
 
+## R20 — A seleção dos resumos ([ADR-062](../../docs/adr/ADR-062-busca-global-pelas-fichas-das-atas-no-scouting.md))
+
+- **Decision**: candidatos por abrangência, anos e órgão nomeado (os resumos dele; senão os que falam dele); ordem por
+  termos (plural reduzido, BM25 sem vetores), bônus de ano, recência e abertura da ficha; até 2 partes por ano ou
+  reunião, a melhor de cada uma antes das segundas.
+- **Rationale**:
+  - A primeira versão (presença de termos, sem plural nem teto) deu 0,6218 no piloto: "diretores-presidentes" não
+    casava "Diretor-Presidente", e 2017 tomava quatro das seis linhas do tempo. Com as regras, 0,8718.
+  - Com as 256 atas, outros órgãos regionais concorriam e caiu para 0,8205; com o filtro por órgão e a ordem por ano,
+    voltou a 0,8462.
+- **Alternatives**: vetor de cada resumo pelo e5 (precisa do modelo na seleção e muda o artefato).

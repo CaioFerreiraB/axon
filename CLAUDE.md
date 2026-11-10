@@ -374,6 +374,22 @@ Pendente: a revisão das 91 transcrições pelo Codex e a troca das 57 cópias O
     recebe `previous=earlier_questions(view)`, e o retriever junta a busca com a âncora e a sem ela pela melhor posição.
   - O prompt junta os níveis das normas.
 - **Avaliação.** O acervo tem 46 itens, a linha de base é 0,8768, e a pergunta de 08/11 é controle.
+- **ADR-062, `scouting` 0.10.0: a busca global pelas atas.**
+  - **Extração offline** (`axon-scouting/scripts/fichas.py extract`, `gpt-4.1-mini` pelo OpenRouter, com a chave
+    `AXON_OPENROUTER_API_KEY` só no ambiente).
+    - Uma ficha estruturada por ata: reunião, deliberações nas palavras da ata, eleições e números, cada item com a
+      página. Vai para `corpus/resumos/atas/`.
+    - Cada item é conferido por código contra a página (`rag/ingestion/domain/minutes.py`).
+  - **Montagem sem modelo** (`build`). A ficha e a linha do tempo por órgão e ano vão para
+    `src/axon_scouting/data/index/summaries.jsonl`, sem vetores e fora do manifesto, servidos pelo seam
+    `MeetingSummaries`.
+  - **Na pergunta.**
+    - A derivação publica `synthesis` (anos, abrangência, órgãos), por marcador de síntese ou por palavra de reunião
+      com ano.
+    - A tool `scouting.search_summaries` entrega até 10 resumos à frente dos trechos (`summary_rank`).
+  - **Avaliação.** `eval/sintese.yaml` (13 perguntas, escritas antes) foi de 0,4551 a 0,8462 com as 256 atas
+    (5.298 de 5.677 itens conferidos, ~US$ 1,30); os outros conjuntos não mudaram.
+  - **Instalação.** A cópia do índice na instalação precisa levar o `summaries.jsonl`.
 - **Próximos passos.** O desenho do grafo aprovado (camadas organização, normas e ponte, mais a busca global) está em
   `axon-scouting/corpus/Organização Escoteira.revisado.json`. O rascunho da camada de organização, com fonte por
   relação, está em `corpus/organizacao.yaml`, ainda não lido por código. A Fase 2 (grafo, parágrafo e inciso) e a

@@ -130,7 +130,47 @@ denso é 0,887. Descer o índice até parágrafo serve à citação e ao grafo, 
   - nenhum serviço nem banco novo;
   - um banco de grafos só valeria para exploração ad hoc, no computador do mantenedor.
 
-## 7. Próximos passos (para decidir)
+## 7. Fase G feita: a busca global pelos resumos das atas (ADR-062, `axon-scouting` 0.10.0)
+
+- **O conjunto de síntese** (`eval/sintese.yaml`): 13 perguntas cuja resposta está espalhada pelas atas da Assembleia
+  Regional e do Conselho Consultivo Regional de SP, em quatro grupos (eleições, números, pauta, locais), com itens de
+  desenvolvimento e de controle em cada um. Foi escrito **antes** da mudança: linha de base 0,4551.
+- **As fichas**: o `gpt-4.1-mini` extrai offline uma ficha estruturada por ata (`scripts/fichas.py extract`):
+  - tipo, data e local da reunião;
+  - deliberações nas palavras da ata, eleições e números;
+  - a página de cada item.
+
+  Cada item é conferido por código contra a página.
+  - Piloto nas 58 atas regionais: 1.796 de 1.902 itens conferidos (94,4%), por US$ 0,36.
+  - As 256 atas: 5.298 de 5.677 (93,3%), por cerca de US$ 1,30.
+- **Os resumos**, montados sem modelo (`build`): a ficha da reunião e a linha do tempo por órgão e ano, em
+  `summaries.jsonl` ao lado do índice, sem vetores.
+- **A pergunta de síntese**:
+  - a derivação publica `synthesis` (anos, abrangência, órgãos);
+  - a tool `scouting.search_summaries` entrega até 10 resumos à frente dos trechos;
+  - as perguntas pontuais não mudam: nenhuma das 84 dos outros conjuntos pede síntese.
+
+| Item de síntese | Sem resumos | Piloto (58 atas) | As 256 atas |
+|---|---|---|---|
+| presidentes regionais desde 2016 | 0,33 | 1,00 | 1,00 |
+| mandatos das três últimas Diretorias | 0,00 | 0,67 | 0,33 |
+| delegados credenciados 2019–2025 | 0,67 | 1,00 | 1,00 |
+| delegados à Assembleia Nacional | 0,00 | 0,33 | 0,33 |
+| novo Regulamento nos anos 2000 (controle) | 0,00 | 1,00 | 1,00 |
+| quórum para reformar o Regulamento (controle) | 0,00 | 1,00 | 1,00 |
+| Conselho Consultivo 2014–2015 (controle) | 0,33 | 1,00 | 1,00 |
+| Conselho Consultivo 2017–2019 / 2023–2024 | 0,75 / 0,50 | 1,00 / 1,00 | 1,00 / 1,00 |
+| **média dos 13** | **0,4551** | **0,8718** | **0,8462** |
+
+- **Mesmos fatos dos dois lados**: as três colunas usam os mesmos fatos, com alternativas essenciais (a cidade, o
+  período), e o "sem resumos" reproduz a linha de base.
+- **Da coluna do piloto para a das 256 atas**: com todas as atas, outros órgãos regionais passaram a concorrer. A
+  seleção ganhou o filtro por órgão nomeado e a melhor parte de cada ano antes da segunda.
+- **Linha de base**: é a das 256 atas, gravada com `--force`. O harness a recusava por comparar com a do piloto, que
+  nunca foi commitada.
+- **Outros conjuntos**: `golden`, regressão (0,9768) e acervo (0,8768) ficaram iguais.
+
+## 8. Próximos passos (para decidir)
 
 1. **Fase 2, o grafo.**
    - Parágrafo e inciso na árvore (`estrutural-v6`).
@@ -140,8 +180,8 @@ denso é 0,887. Descer o índice até parágrafo serve à citação e ao grafo, 
    - Recuperação guiada: o órgão e o cargo da pergunta → `DISCIPLINA` → `INSTANCIA_DE` → `SUBORDINA_SE_A`, nos níveis
      da pergunta e acima.
    - É o que resolve a pergunta de 08/11 e garante a hierarquia.
-2. **Fase G, a busca global**, aprovada: primeiro o conjunto `eval/sintese.yaml`, depois o piloto com as 58 atas da
-   Assembleia Regional e do Conselho Consultivo Regional de SP.
+2. **Fase G**: feita (seção 7). Falta a revisão humana por amostra das fichas (`corpus/resumos/atas/`, ~10%) e as
+   perguntas de síntese das atas nacionais.
 3. **Se ainda faltar**: as faixas de autoridade e a reescrita da consulta pelo `controller` (core).
 4. **Sem código**: ligar a captura de conteúdo do `scouting` na console, para o próximo caso trazer a pergunta e os
    trechos no Langfuse.

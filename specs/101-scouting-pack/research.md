@@ -654,3 +654,12 @@ seguem no Qdrant embutido com `store: qdrant`.
   - Reescrever a pergunta por modelo no core: fica para depois do grafo, e soma uma chamada.
   - Herdar o tipo citado: prende a conversa a um documento só, contra a hierarquia das normas.
 
+## R42 — O pedido de síntese ([ADR-062](../../docs/adr/ADR-062-busca-global-pelas-fichas-das-atas-no-scouting.md))
+
+- **Decision**: `synthesis` com anos, abrangência e órgãos, por marcador de síntese ou palavra de reunião com ano;
+  "em que cidade", "reeleito" e "chapas" não disparam sozinhos.
+- **Rationale**: as 13 perguntas de `eval/sintese.yaml` pedem síntese, e nenhuma das 84 pontuais (golden, regressão e
+  acervo) pede. "Em que cidade fica a sede nacional?" e "um conselheiro nacional pode ser reeleito?" disparavam com a
+  primeira lista.
+- **Alternatives**: classificar a pergunta por modelo (uma chamada a mais); usar o leitor de períodos da vigência (só
+  entende "em AAAA").

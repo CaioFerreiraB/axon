@@ -33,6 +33,7 @@ próprio pack, nunca do modelo). Decisões em [research.md](../research.md) R8, 
 | `previous_version` | bool | sempre | mira a versão imediatamente substituída em relação a `effective_until` |
 | `catalog` | `{"kind": string, "terms": [string]}` | só num pedido de lista de documentos | a tool `list_documents` lista os documentos do tipo `kind` (id da taxonomia, ou `documento`) cujo título ou classificação casa os termos; a busca por trechos o ignora (ADR-047, ADR-049) |
 | `enumeration` | `{"unit_kind": string \| null, "terms": [string]}` | só num pedido de enumeração que não é de documentos | com `unit_kind`, a lista das unidades desse tipo; sem, a busca restrita aos trechos `list` e aos sumários; nos dois casos, à frente dos trechos (103, ADR-048) |
+| `synthesis` | `{"year_from": int \| null, "year_until": int \| null, "scopes": [string], "bodies": [string]}` | só num pedido de síntese (ADR-062) | a tool `search_summaries` entrega os resumos das atas desses anos e abrangência; a busca por trechos o ignora |
 | `anchor` | string (até 400 caracteres) | só numa pergunta de seguimento, sem assunto próprio (ADR-061) | a pergunta anterior que ela retoma: a 103 busca com a âncora antes da pergunta e com a pergunta sozinha, e junta pela melhor posição |
 
 Regras: valores são ids do léxico do pack (ASCII, `_`); ordem estável (a do léxico); nenhuma chave nova sem atualizar

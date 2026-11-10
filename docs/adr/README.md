@@ -66,6 +66,7 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 | [059](ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md) | O que fica de uma conta apagada é pseudonimizado (refina o item 6 do 058) | Aceita | 012, 003, 004, 009, 011 |
 | [060](ADR-060-console-no-celular-e-instalavel.md) | A console no celular e instalável (PWA): barra inferior, primitivas responsivas e service worker só da casca | Aceita | 013 |
 | [061](ADR-061-assunto-da-pergunta-no-scouting.md) | No scouting, o órgão que é assunto da pergunta não filtra, e a pergunta de seguimento herda o assunto da anterior (refina o item 4 do 049) | Aceita | 101, 103 |
+| [062](ADR-062-busca-global-pelas-fichas-das-atas-no-scouting.md) | No scouting, a pergunta de síntese recebe resumos das atas: fichas de reunião extraídas offline e uma linha do tempo por órgão e ano | Aceita | 101, 102, 103, 105 |
 
 ## Modelo para ADR novo
 
