@@ -361,7 +361,41 @@ documentos, 15.607 trechos, nenhum truncado. `fact_recall`: regressão 0,991 →
 e o marco simbólico acertavam por trechos que o e5 truncava; 105 R24), linhas de base regravadas. A ingestão pode
 codificar na GPU: `scripts/gpu-venv.sh` monta `.cache/gpu-venv` com o `onnxruntime-gpu`, e
 `AXON_SCOUTING_EMBEDDING_DEVICE=cuda` faz a reindexação em ~3 min (RTX 5060: 251 trechos/s contra ~10 na CPU; 102 R40).
-Pendente: a revisão das 91 transcrições pelo Codex e a troca das 57 cópias OCR em PDF pelos `.txt`. O ambiente de dev local (`axon-scouting/.cache/dev/
+Pendente: a revisão das 91 transcrições pelo Codex e a troca das 57 cópias OCR em PDF pelos `.txt`.
+**Revisão "Diretoria Regional" (2026-11-09)** — `docs/revisao-rag-scouting-2026-11-diretoria-regional.md`:
+- **O caso.** A pergunta de 08/11 (um vice regional pode ser presidente?) não achou o Estatuto Art. 27 §3º.
+  - A causa principal é o vocabulário (448º no denso, 1.273º no BM25).
+  - Agrava-se porque as atas, 36% dos trechos, abafam as normas.
+- **ADR-061, `scouting` 0.9.0, não publicado.**
+  - O órgão só filtra quando é o **emissor** do tipo citado ou da lista. O órgão-assunto vai em `suggested_bodies`, e
+    o nome dele não vira abrangência.
+  - A busca filtrada vazia é refeita sem `bodies`/`scopes` (marca `relaxed`).
+  - A pergunta de seguimento herda o assunto da última pergunta do usuário em `retrieval_filters.anchor`. A derivação
+    recebe `previous=earlier_questions(view)`, e o retriever junta a busca com a âncora e a sem ela pela melhor posição.
+  - O prompt junta os níveis das normas.
+- **Avaliação.** O acervo tem 46 itens, a linha de base é 0,8768, e a pergunta de 08/11 é controle.
+- **ADR-062, `scouting` 0.10.0: a busca global pelas atas.**
+  - **Extração offline** (`axon-scouting/scripts/fichas.py extract`, `gpt-4.1-mini` pelo OpenRouter, com a chave
+    `AXON_OPENROUTER_API_KEY` só no ambiente).
+    - Uma ficha estruturada por ata: reunião, deliberações nas palavras da ata, eleições e números, cada item com a
+      página. Vai para `corpus/resumos/atas/`.
+    - Cada item é conferido por código contra a página (`rag/ingestion/domain/minutes.py`).
+  - **Montagem sem modelo** (`build`). A ficha e a linha do tempo por órgão e ano vão para
+    `src/axon_scouting/data/index/summaries.jsonl`, sem vetores e fora do manifesto, servidos pelo seam
+    `MeetingSummaries`.
+  - **Na pergunta.**
+    - A derivação publica `synthesis` (anos, abrangência, órgãos), por marcador de síntese ou por palavra de reunião
+      com ano.
+    - A tool `scouting.search_summaries` entrega até 10 resumos à frente dos trechos (`summary_rank`).
+  - **Avaliação.** `eval/sintese.yaml` (13 perguntas, escritas antes) foi de 0,4551 a 0,8462 com as 256 atas
+    (5.298 de 5.677 itens conferidos, ~US$ 1,30); os outros conjuntos não mudaram.
+  - **Instalação.** A cópia do índice na instalação precisa levar o `summaries.jsonl`.
+- **Próximos passos.** O desenho do grafo aprovado (camadas organização, normas e ponte, mais a busca global) está em
+  `axon-scouting/corpus/Organização Escoteira.revisado.json`. O rascunho da camada de organização, com fonte por
+  relação, está em `corpus/organizacao.yaml`, ainda não lido por código. A Fase 2 (grafo, parágrafo e inciso) e a
+  Fase G (fichas de ata e linha do tempo) estão no relatório.
+
+O ambiente de dev local (`axon-scouting/.cache/dev/
 dev.sh`, fora do git: Postgres e Open WebUI em contêiner, `axon serve` do venv do pack, trace em `.cache/dev/trace/`)
 serve para testar antes de publicar. A chave do
 OpenRouter da instalação está em `~/Documents/cfblabs-management/stacks/axon/env` (materializada do cofre); use-a só no

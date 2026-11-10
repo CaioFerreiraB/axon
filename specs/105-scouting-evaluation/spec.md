@@ -170,6 +170,7 @@ não teriam como provar ganho nem como evitar piora.
 
 - **FR-018**: O relatório de cada conjunto DEVE trazer o `fact_recall` por grupo (`extra.group`), ao lado do agregado, e a comparação com a linha de base DEVE nomear o grupo que piorou ([ADR-048](../../docs/adr/ADR-048-arvore-de-unidades-e-enumeracao-no-scouting.md)).
 - **FR-019**: Os itens de especialidades da regressão DEVEM ter, além dos fatos de "como conquistar", fatos da lista (nomes de especialidades de eixos diferentes); o conjunto do acervo DEVE ganhar itens de enumeração tirados de documentos que nenhuma exceção do `estrutura.yaml` declara (atas, políticas, normas, manuais), metade de controle, com os fatos conferidos no texto.
+- **FR-020** ([ADR-062](../../docs/adr/ADR-062-busca-global-pelas-fichas-das-atas-no-scouting.md)): O conjunto `eval/sintese.yaml` (perguntas cuja resposta está espalhada pelas atas, com desenvolvimento e controle em cada grupo) DEVE rodar no workflow de avaliação contra a própria linha de base; um fato pode listar a redação da ata e a forma essencial do mesmo conteúdo, e a comparação antes/depois usa os mesmos fatos.
 
 ### Key Entities
 

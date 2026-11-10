@@ -53,7 +53,7 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 | [046](ADR-046-tipo-sugerido-ordena-no-scouting.md) | No scouting, o tipo de documento sugerido pelo tema ordena; só o citado filtra | Aceita | 101, 103, 105 |
 | [047](ADR-047-lista-de-documentos-do-acervo-no-scouting.md) | No scouting, a pergunta que pede uma lista de documentos recebe uma ficha por documento do acervo | Aceita | 101, 102, 103, 105 |
 | [048](ADR-048-arvore-de-unidades-e-enumeracao-no-scouting.md) | No scouting, cada documento vira uma árvore de unidades tipadas, e a pergunta de enumeração é respondida pela estrutura | Aceita | 101, 102, 103, 105 |
-| [049](ADR-049-taxonomia-e-a-tipologia-do-acervo-no-scouting.md) | No scouting, a taxonomia do acervo é a única tipologia: o `type` sai do catálogo, e tipo, órgão e abrangência vêm da pasta | Aceita | 101, 102, 103, 105 |
+| [049](ADR-049-taxonomia-e-a-tipologia-do-acervo-no-scouting.md) | No scouting, a taxonomia do acervo é a única tipologia: o `type` sai do catálogo, e tipo, órgão e abrangência vêm da pasta | Aceita (item 4 refinado pelo 061) | 101, 102, 103, 105 |
 | [050](ADR-050-leitura-fiel-e-trecho-que-cabe-no-embedder-no-scouting.md) | No scouting, a ingestão lê colunas e títulos pela tipografia, todo trecho cabe no embedder e o OCR vira transcrição revisável | Aceita | 102, 105 |
 | [051](ADR-051-link-da-citacao-e-fontes-no-open-webui.md) | A citação leva o link do original, e a API manda as fontes no dialeto do Open WebUI atrás de `x-axon-citations` | Aceita | 001, 008, 102, 104 |
 | [052](ADR-052-graficos-na-conversa.md) | Gráficos na conversa: a tool entrega dados, a API desenha o ECharts no `embeds` do Open WebUI atrás de `x-axon-charts` | Aceita | 001, 004, 005, 008, 010, 011, 013 |
@@ -65,6 +65,8 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 | [058](ADR-058-apagar-conta-em-cascata.md) | A administração apaga uma conta em cascata, e o nome volta a ficar livre (substitui o item 7 do 030) | Aceita (item 6 refinado pelo 059) | 012, 003, 007, 008, 011, 013 |
 | [059](ADR-059-o-que-fica-do-apagamento-e-pseudonimizado.md) | O que fica de uma conta apagada é pseudonimizado (refina o item 6 do 058) | Aceita | 012, 003, 004, 009, 011 |
 | [060](ADR-060-console-no-celular-e-instalavel.md) | A console no celular e instalável (PWA): barra inferior, primitivas responsivas e service worker só da casca | Aceita | 013 |
+| [061](ADR-061-assunto-da-pergunta-no-scouting.md) | No scouting, o órgão que é assunto da pergunta não filtra, e a pergunta de seguimento herda o assunto da anterior (refina o item 4 do 049) | Aceita | 101, 103 |
+| [062](ADR-062-busca-global-pelas-fichas-das-atas-no-scouting.md) | No scouting, a pergunta de síntese recebe resumos das atas: fichas de reunião extraídas offline e uma linha do tempo por órgão e ano | Aceita | 101, 102, 103, 105 |
 
 ## Modelo para ADR novo
 

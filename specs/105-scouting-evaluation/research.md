@@ -394,3 +394,12 @@ Artefato `scouting__20261028T…` (639 documentos, 15.607 trechos, nenhum acima 
   o marco do Ramo Escoteiro foi a 0,2.
 - **Próximo**: entregar com a parte de uma unidade normativa as partes irmãs (ou o caput) quando a pergunta cobre
   vários ramos; a tabela de competências com o rótulo errado ("SEGURANÇA…").
+
+## R25 — O conjunto de síntese ([ADR-062](../../docs/adr/ADR-062-busca-global-pelas-fichas-das-atas-no-scouting.md))
+
+- **Decision**: `eval/sintese.yaml`, com 13 perguntas e quatro grupos (eleições, números, pauta, locais), escrito lendo
+  as atas regionais de SP antes da mudança; fatos com alternativa essencial.
+- **Rationale**: a linha de base sem resumos é 0,4551. Os resumos não copiam a frase inteira da ata ("na cidade de
+  Bauru/SP" vira "…, Bauru/SP"). A alternativa essencial aceita o mesmo conteúdo, e a medição sem resumos com os mesmos
+  fatos dá os mesmos 0,4551.
+- **Alternatives**: medir pelo juiz (não determinístico, fora do CI).

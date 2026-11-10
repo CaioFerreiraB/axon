@@ -212,6 +212,8 @@ sem tipo, os melhores trechos `list` e sumários; o reranker os põe antes dos t
 - **FR-016**: A busca DEVE juntar os candidatos de texto idêntico (o corpo sem o rótulo, normalizado): fica o de melhor posição, e os títulos dos outros vão nos metadados.
 - **FR-017**: O trecho entregue DEVE levar o caminho da unidade; dois ou mais irmãos da mesma unidade entre os entregues DEVEM ir juntos, na ordem do documento, até um teto de tokens por unidade (provisório: 1.500).
 - **FR-018** ([ADR-049](../../docs/adr/ADR-049-taxonomia-e-a-tipologia-do-acervo-no-scouting.md)): O retriever DEVE traduzir `bodies` e `scopes` em filtros do índice e desempatar pelo órgão sugerido (`suggested_bodies`), depois do tipo sugerido; a lista de documentos DEVE escolher pelo tipo da taxonomia e casar os qualificadores no título ou na classificação do documento.
+- **FR-019** ([ADR-061](../../docs/adr/ADR-061-assunto-da-pergunta-no-scouting.md)): A busca filtrada por `bodies` ou `scopes` que não acha nada DEVE ser refeita sem esses dois filtros, mantendo os demais, com a marca `relaxed` nos trechos; com `anchor`, a busca DEVE consultar a âncora seguida da pergunta e a pergunta sozinha e juntar os achados pela melhor posição de cada trecho (nas facetas, uma busca só, com a âncora); `anchor` fora do contrato DEVE dar `InvalidFilters`.
+- **FR-020** ([ADR-062](../../docs/adr/ADR-062-busca-global-pelas-fichas-das-atas-no-scouting.md)): A tool `search_summaries` DEVE responder só ao pedido `synthesis`, com no máximo 10 resumos (até 6 linhas do tempo, 2 partes por ano ou reunião) escolhidos por abrangência e anos e ordenados pelos termos da pergunta, à frente dos trechos (`summary_rank`); `synthesis` fora do contrato DEVE dar `InvalidFilters`.
 
 ### Key Entities
 
