@@ -224,3 +224,34 @@ clarificação de 2026-11-10, levadas aqui sem re-pesquisa. Os números de base 
   `fact_recall` ir a 0,81 em 2026-10, então ela não sai.
 - **Alternatives**: trocar a busca por faceta só pelo grafo. Perderia os trechos que o grafo não liga a um ramo
   (`branches` vazio).
+
+## R18 — O G1 medido: o grafo v2 sem mudar nada (2026-11-10)
+
+- **Decision**: o G1 entrou como o `scouting` 0.12.0.
+  - **A 106 de pé:** o seam *Grafo de domínio*, o `DomainGraphService` sobre o `ArtifactGraphStore` e as portas
+    `GraphStore` e `GraphSources` com adapters em memória e conformidade.
+  - **O `graph.jsonl` v2:** 36 entidades (27 tipos de órgão e de instituição com os termos de hoje e 9 cargos sem
+    termos, só para as pontas da governança), 642 versões com papel, 28 seções com `CONTEM` e `SOBRE` (modo
+    `disciplina`) e as 22 relações de governança.
+  - **Nos consumidores:** a derivação publica `entities` e `plan`, e o retriever executa o plano (`_by_plan`), sem
+    teto total.
+- **Medido**, nas condições da CI (perfil `test`, e5, 20 candidatos e 20 trechos), com o `eval_diff.py`:
+  - **acervo, regressão, síntese e programa-adultos:** "Nenhum item mudou", com 0,9236, 0,9768, 0,8462 e 0,8409;
+  - **semente:** recall@5 0,6667, MRR 0,5509 e `context_accuracy` 0,90, iguais;
+  - **identidade dos trechos:** `tests/rag/graph/test_g1_identity.py`, com as 122 perguntas dos quatro conjuntos
+    (17 delas com trechos do grafo), os mesmos `chunk_id` à frente, na mesma ordem;
+  - **termos, seções e relações:** os do v1, conferidos linha a linha antes de apagá-lo;
+  - **tempo das consultas:** abaixo de 50 ms (`test_graph_timing.py`, SC-008);
+  - **verificação do pack:** 1.180 testes, 11 de integração, mypy, ruff e os 15 contratos do import-linter passam.
+- **Dois pontos de implementação**, que o contrato do `graph.jsonl` passa a dizer:
+  - **Fonte das entidades curadas.** A fonte de um tipo de órgão é a própria entrada do catálogo
+    (`organizacao.yaml:tipos_de_orgao/<id>`). O `instituido_em` "a verificar" de alguns órgãos (o Conselho Regional
+    Jovem, a Comissão Regional Pioneira) não os tira do grafo, o que mudaria o reconhecimento de hoje.
+  - **Ordem das entidades.** Elas ficam no arquivo na ordem do catálogo, e não pela chave. Essa ordem desempata o
+    reconhecimento quando dois termos de mesmo tamanho casam (101 R43).
+- **A referência do G1** (`tests/rag/graph/fixtures/g1_reference.json`) foi gravada com o código do 0.11.1 antes da
+  migração. Para cada pergunta, ela guarda a derivação com `organs` e o `_by_organ` sobre o artefato, com o embedder
+  de teste: os trechos do grafo vêm do `get` e do BM25 e não dependem do denso. O gerador não foi commitado, porque
+  importava o `NormGraph`, que saiu.
+- **Rationale**: a mudança de arquitetura sem mudança de comportamento é o que permite medir o G2 contra uma base limpa
+  (R2, SC-001).

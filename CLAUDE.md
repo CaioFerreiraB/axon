@@ -420,6 +420,11 @@ clarify decidiu que a 103 escolhe os trechos e que os tetos são 3×3 por consul
 do G2. O catálogo curado fica no `organizacao.yaml` mais o `dominio.yaml`, a ementa sai por regra e o modelo entra só
 no resto, e o plano e o papel são da 106. Os encaixes são 101 FR-037, 102 FR-037 e 103 FR-022. A 101 passa a importar
 `rag.graph.api`, com o import-linter ajustado (106 R14).
+O G1 está implementado (`scouting` 0.12.0, 106 R18). O `NormGraph` saiu do *Índice do scouting* para `rag/graph/`,
+com o `DomainGraphService` sobre o `ArtifactGraphStore` e o `graph.jsonl` v2, que tem as entidades, as versões com
+papel, as seções com `SOBRE` e a governança, cada uma com fonte e origem. A derivação publica `entities` e `plan`, e o
+retriever executa o plano. O `scripts/grafo.py` tem `build`, `query`, `plan` e `export --arrows`. Os quatro conjuntos
+e a semente ficaram idênticos ao 0.11.1, e a identidade dos trechos está em `tests/rag/graph/test_g1_identity.py`.
 
 O ambiente de dev local (`axon-scouting/.cache/dev/
 dev.sh`, fora do git: Postgres e Open WebUI em contêiner, `axon serve` do venv do pack, trace em `.cache/dev/trace/`)

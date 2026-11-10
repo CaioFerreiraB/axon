@@ -2,12 +2,13 @@
 
 O arquivo fica em `src/axon_scouting/data/index/graph.jsonl`, ao lado do índice, fora do manifesto, commitado no
 pacote. Quem escreve é o `scripts/grafo.py build` (106), e quem lê é o `ArtifactGraphStore`. É UTF-8, um objeto JSON
-por linha, na ordem `meta`, `entity`, `version`, `unit`, `edge`, `event`, e cada bloco ordenado pela chave, para o diff
-ficar estável.
+por linha, na ordem `meta`, `entity`, `version`, `unit`, `edge`, `event`. As entidades ficam na ordem do catálogo curado,
+que desempata o reconhecimento (R18), e os outros blocos, na ordem determinística do build. O mesmo artefato e os
+mesmos YAML dão o mesmo arquivo, byte a byte.
 
 | `kind` | Campos obrigatórios | Opcionais |
 |---|---|---|
-| `meta` | `version` (2), `chunking` (o do manifesto do índice), `built_at` (ISO, só informativo), `sources` (sha256 do `organizacao.yaml`, do `dominio.yaml` e da taxonomia) | `report` (contagens por tipo de aresta e origem, e as entradas descartadas com o motivo) |
+| `meta` | `version` (2), `chunking` (o do manifesto do índice), `built_at` (o do índice, para o arquivo ser reprodutível), `sources` (sha256 do `organizacao.yaml` e, a partir do G2, do `dominio.yaml` e da taxonomia) | `report` (contagens por tipo de aresta e origem, e as entradas descartadas com o motivo) |
 | `entity` | `id`, `type`, `name`, `terms`, `source`, `origin` | `aliases`, `level` |
 | `version` | `doc_key`, `document_id`, `type`, `role`, `status` | `scope`, `date`, `bodies` |
 | `unit` | `unit_id`, `doc_key`, `unit_kind`, `title`, `chunk_ids` | `branches`, `parent` |

@@ -22,10 +22,10 @@ incremento seguinte só começa com o aval do mantenedor.
 
 ## Phase 1: Setup
 
-- [ ] T001 Criar o esqueleto de `src/axon_scouting/rag/graph/`, com `__init__.py`, `api.py`, `ports.py`, `service.py`,
+- [X] T001 Criar o esqueleto de `src/axon_scouting/rag/graph/`, com `__init__.py`, `api.py`, `ports.py`, `service.py`,
   `domain/__init__.py`, `domain/build/__init__.py` e `adapters/__init__.py`, e de `tests/rag/graph/`, com
   `contract/`, `unit/` e `__init__.py`.
-- [ ] T002 Acrescentar ao `pyproject.toml` os contratos do import-linter do R14:
+- [X] T002 Acrescentar ao `pyproject.toml` os contratos do import-linter do R14:
   - o contrato "só o pack.py compõe" com `context | prompts | validators` acima de `rag`;
   - um `forbidden` que limita `axon_scouting.context` a `axon_scouting.rag.graph.api`, proibindo `rag.index`,
     `rag.retrieval`, `rag.ingestion`, `rag.graph.domain`, `rag.graph.service`, `rag.graph.ports` e
@@ -43,7 +43,7 @@ incremento seguinte só começa com o aval do mantenedor.
 
 **Objetivo**: os tipos do seam, o plano, os papéis e o grafo em memória, sem mudar nada do comportamento.
 
-- [ ] T003 [P] Testes unitários do plano em `tests/rag/graph/unit/test_plan.py`:
+- [X] T003 [P] Testes unitários do plano em `tests/rag/graph/unit/test_plan.py`:
   - `to_json`/`from_json` de ida e volta;
   - `version` ≠ 1 → `PlanInvalid("version")`;
   - `q` fora de `sobre|aplicavel_a|documentos|itens|linha_do_tempo|ligados`;
@@ -53,16 +53,16 @@ incremento seguinte só começa com o aval do mantenedor.
 
   A suíte valida, também, cada plano dos testes contra `../specs/106-scouting-graphrag/contracts/query-plan.schema.json`,
   copiado para `tests/rag/graph/query-plan.schema.json`.
-- [ ] T004 [P] Testes unitários de `reconhecer` em `tests/rag/graph/unit/test_reconhecer.py`:
+- [X] T004 [P] Testes unitários de `reconhecer` em `tests/rag/graph/unit/test_reconhecer.py`:
   - termo mais longo vence ("conselho consultivo regional" → regional);
   - sem sobreposição;
   - ordem da primeira menção;
   - texto sem termo → `()`.
-- [ ] T005 [P] Testes unitários dos papéis em `tests/rag/graph/unit/test_roles.py`:
+- [X] T005 [P] Testes unitários dos papéis em `tests/rag/graph/unit/test_roles.py`:
   - os 18 `taxonomy_id` da R3 com o papel certo;
   - `MODE_OF`;
   - a função que confere a taxonomia acusa um tipo sem papel.
-- [ ] T006 Implementar `src/axon_scouting/rag/graph/api.py` pelo `contracts/domain-graph-seam.md`:
+- [X] T006 Implementar `src/axon_scouting/rag/graph/api.py` pelo `contracts/domain-graph-seam.md`:
   - `Role`, `Mode`, `Origin`, `QueryName`;
   - `ROLES` (a tabela da R3), `MODE_OF`, `Aliases`, `reconhecer`;
   - `PlanInvalid`, `QueryStep`, `QueryPlan` (com `to_json`/`from_json`);
@@ -71,17 +71,17 @@ incremento seguinte só começa com o aval do mantenedor.
 
   O `api.py` não importa nada da 106 além do que define, nem a 101: o `reconhecer` recebe o texto e os termos já
   normalizados por quem o chama (a 101, com `context/text.py`).
-- [ ] T007 Implementar `src/axon_scouting/rag/graph/domain/model.py`:
+- [X] T007 Implementar `src/axon_scouting/rag/graph/domain/model.py`:
   - `DomainGraph`, com dicionários imutáveis de entidades, versões, unidades, arestas por tipo e ponta, eventos e
     termos;
   - `from_records(records)`, que valida as pontas e os campos obrigatórios do `contracts/graph-jsonl-v2.md`, e um
     registro inválido levanta `ValueError` nomeando a linha.
-- [ ] T008 Implementar `src/axon_scouting/rag/graph/ports.py`:
+- [X] T008 Implementar `src/axon_scouting/rag/graph/ports.py`:
   - `GraphStore` (`records() -> Iterable[GraphRecord]`, `GraphUnavailable` no chunking divergente);
   - `GraphSources`, offline: trechos com o `path`, versões do catálogo, fichas, `organizacao.yaml`, `dominio.yaml` e
     taxonomia como mapeamentos;
   - `ResolutionSummarizer`, offline.
-- [ ] T009 [P] Implementar `src/axon_scouting/rag/graph/adapters/memory.py` (`MemoryGraphStore`) e
+- [X] T009 [P] Implementar `src/axon_scouting/rag/graph/adapters/memory.py` (`MemoryGraphStore`) e
   `src/axon_scouting/rag/graph/adapters/artifact.py` (`ArtifactGraphStore`):
   - lê `graph.jsonl` v2;
   - arquivo ausente → nenhum registro;
@@ -89,12 +89,12 @@ incremento seguinte só começa com o aval do mantenedor.
     `scripts/grafo.py build`";
   - `kind` desconhecido é ignorado;
   - inclui o `write_graph_v2(path, records)`, com a ordem e a ordenação do contrato.
-- [ ] T010 Suíte de conformidade de `GraphStore` em `tests/rag/graph/contract/test_graph_store.py`, contra
+- [X] T010 Suíte de conformidade de `GraphStore` em `tests/rag/graph/contract/test_graph_store.py`, contra
   `MemoryGraphStore` e `ArtifactGraphStore` (num diretório temporário com um `manifest.json`):
   - ida e volta dos registros;
   - arquivo ausente;
   - chunking divergente.
-- [ ] T010a Implementar `MemorySources` em `src/axon_scouting/rag/graph/adapters/memory.py` (o `GraphSources` sobre
+- [X] T010a Implementar `MemorySources` em `src/axon_scouting/rag/graph/adapters/memory.py` (o `GraphSources` sobre
   mapeamentos em memória) e a suíte de conformidade em `tests/rag/graph/contract/test_graph_sources.py`, contra o
   `MemorySources` e, depois do T017, contra o `ArtifactSources`, num diretório temporário com um artefato mínimo e YAML
   mínimos.
@@ -115,29 +115,30 @@ quatro conjuntos idênticos ao 0.11.1.
 
 ### Testes da US1
 
-- [ ] T011 [P] [US1] Antes de qualquer mudança, gravar a referência do G1 em
+- [X] T011 [P] [US1] Antes de qualquer mudança, gravar a referência do G1 em
   `tests/rag/graph/fixtures/g1_reference.json`: para cada pergunta de `eval/acervo.yaml`, `eval/regression.yaml`,
   `eval/sintese.yaml` e `eval/programa-adultos.yaml`, os `chunk_id` com `graph_rank`, em ordem, que o `ScoutingRetriever`
-  do 0.11.1 devolve com os filtros da derivação, com o script `tests/rag/graph/fixtures/make_g1_reference.py`.
-- [ ] T012 [P] [US1] Teste `tests/rag/graph/test_g1_identity.py`: com o grafo v2 e o caminho novo (plano), os
+  do 0.11.1 devolve com os filtros da derivação. O gerador rodou fora do repositório e não foi commitado, porque
+  importava o `NormGraph` (R18).
+- [X] T012 [P] [US1] Teste `tests/rag/graph/test_g1_identity.py`: com o grafo v2 e o caminho novo (plano), os
   `chunk_id` à frente de cada pergunta são iguais aos de `g1_reference.json`, na mesma ordem.
-- [ ] T013 [P] [US1] Testes unitários de `sobre`, restrito a órgão, em `tests/rag/graph/unit/test_sobre_orgao.py`, sobre
+- [X] T013 [P] [US1] Testes unitários de `sobre`, restrito a órgão, em `tests/rag/graph/unit/test_sobre_orgao.py`, sobre
   um grafo sintético:
   - a ordem do 0.11.1: entidade na ordem da menção, depois nível, `doc_key` e `unit_id`;
   - um `sobre` com dois órgãos dá **um** grupo, com até 3 documentos no total, como o `_by_organ`;
   - a instância inclui o tipo;
   - a governança nunca vem;
   - entidade inexistente → vazio.
-- [ ] T014 [P] [US1] Conformidade do seam em `tests/rag/graph/contract/test_domain_graph_seam.py`, contra o
+- [X] T014 [P] [US1] Conformidade do seam em `tests/rag/graph/contract/test_domain_graph_seam.py`, contra o
   `DomainGraphService` com `MemoryGraphStore`, e com o `ArtifactGraphStore` sobre o `graph.jsonl` do pacote. São as
   garantias 1 a 8 do `contracts/domain-graph-seam.md`.
 
 ### Implementação da US1
 
-- [ ] T015 [US1] [102] Mover `rag/ingestion/domain/graph.py` para `src/axon_scouting/rag/graph/domain/build/organs.py`
+- [X] T015 [US1] [102] Mover `rag/ingestion/domain/graph.py` para `src/axon_scouting/rag/graph/domain/build/organs.py`
   (`Organ`, `ChunkPlace`, `Section`, `Relation`, `organs_from_mapping`, `cargo_terms`, `relations_from_mapping`,
   `sections`), sem mudar a regra, com os testes (`tests/rag/ingestion/…graph…` → `tests/rag/graph/unit/`).
-- [ ] T016 [US1] Implementar `src/axon_scouting/rag/graph/domain/build/records.py`, que converte o resultado da
+- [X] T016 [US1] Implementar `src/axon_scouting/rag/graph/domain/build/records.py`, que converte o resultado da
   construção do ADR-063 nos registros v2:
   - `entity` (`tipo_orgao:`/`tipo_inst:` com `terms` iguais aos `organ_terms` de hoje);
   - `version` (com `role` por `ROLES`);
@@ -145,30 +146,30 @@ quatro conjuntos idênticos ao 0.11.1.
   - `edge` (`SOBRE`, modo `disciplina`, `origin: regra`, `source` = `unit_id`; e as 22 de governança com
     `origin: curado` e `source` = o `chunk_id` conferido);
   - `meta` (o chunking do manifesto e os sha256 dos YAML).
-- [ ] T017 [US1] Implementar `src/axon_scouting/rag/graph/adapters/sources.py` (`ArtifactSources`): o `places()` de
+- [X] T017 [US1] Implementar `src/axon_scouting/rag/graph/adapters/sources.py` (`ArtifactSources`): o `places()` de
   hoje (trechos com `path`), o catálogo de `documents.jsonl`, os YAML do `corpus/` e o manifesto. O `yaml` é lido só
   aqui.
-- [ ] T018 [US1] Reescrever `scripts/grafo.py build` para compor `ArtifactSources` → `domain/build` →
+- [X] T018 [US1] Reescrever `scripts/grafo.py build` para compor `ArtifactSources` → `domain/build` →
   `write_graph_v2` e imprimir o relatório, pelo `contracts/grafo-cli.md`. Saídas: 0, 1 (invariante) e 2 (YAML
   inválido).
-- [ ] T019 [US1] Implementar `src/axon_scouting/rag/graph/domain/queries.py` com `sobre`, ainda só com arestas
+- [X] T019 [US1] Implementar `src/axon_scouting/rag/graph/domain/queries.py` com `sobre`, ainda só com arestas
   `SOBRE` para `tipo_orgao:`/`tipo_inst:`, `papeis`, a ordem da garantia 2 do contrato (a posição da entidade, papel,
   nível por `SCOPE_ORDER`, `doc_key`, `unit_id`) e o corte em 3 documentos. Também `ligados`, só para as relações de governança, que o `NormGraph.relations` dava.
-- [ ] T020 [US1] Implementar `src/axon_scouting/rag/graph/domain/executor.py` (`executar(g, plano) -> Frentes`) para a
+- [X] T020 [US1] Implementar `src/axon_scouting/rag/graph/domain/executor.py` (`executar(g, plano) -> Frentes`) para a
   forma `simples`. As formas `para_cada` e `intersecao` levantam `NotImplementedError` até o G2.
-- [ ] T021 [US1] Implementar `src/axon_scouting/rag/graph/service.py` (`DomainGraphService(store: GraphStore)`), com
+- [X] T021 [US1] Implementar `src/axon_scouting/rag/graph/service.py` (`DomainGraphService(store: GraphStore)`), com
   a carga única e com trava (como o `ArtifactGraph`), `aliases()`, `run(plan)` e `query(name, **args)`.
-- [ ] T022 [US1] Rodar `uv run python scripts/grafo.py build` e commitar o `src/axon_scouting/data/index/graph.jsonl`
+- [X] T022 [US1] Rodar `uv run python scripts/grafo.py build` e commitar o `src/axon_scouting/data/index/graph.jsonl`
   v2. Conferir no relatório as 28 seções e as 22 relações do 0.11.1.
-- [ ] T023 [US1] [102] Remover `NormGraph`, `NormSection` e `NormRelation` de `src/axon_scouting/rag/index/api.py` e
+- [X] T023 [US1] [102] Remover `NormGraph`, `NormSection` e `NormRelation` de `src/axon_scouting/rag/index/api.py` e
   apagar `src/axon_scouting/rag/index/adapters/graph.py`. Atualizar os imports e os testes que os usavam.
-- [ ] T024 [US1] [103] Em `src/axon_scouting/rag/retrieval/domain/filters.py`:
+- [X] T024 [US1] [103] Em `src/axon_scouting/rag/retrieval/domain/filters.py`:
   - `KNOWN` ganha `entities` e `plan` e perde `organs`;
   - `entities(raw)` devolve a tupla de ids;
   - `plan(raw)` devolve um `QueryPlan | None`, com `PlanInvalid` → `None` mais um `logging.warning` que nomeia o campo.
 
   Com testes em `tests/rag/retrieval/`.
-- [ ] T025 [US1] [103] Em `src/axon_scouting/rag/retrieval/retriever.py`:
+- [X] T025 [US1] [103] Em `src/axon_scouting/rag/retrieval/retriever.py`:
   - o `ScoutingRetriever` recebe `graph: DomainGraphSource | None`;
   - `_by_organ` vira `_by_plan`, que chama `run(plan)`, pega os trechos no `ChunkIndex.get`, escolhe até 3 por
     documento pelo `_best` e pelo BM25 de hoje, **sem teto total no G1** (3 × 3 = 9, como hoje);
@@ -176,28 +177,28 @@ quatro conjuntos idênticos ao 0.11.1.
   - sem plano, nada à frente.
 
   O resto da busca não muda. Constantes novas em `domain/ordering.py`: `GRAPH_QUERY` e `ROLE`.
-- [ ] T026 [US1] [101] Em `src/axon_scouting/context/lexicon.py`, `organ_terms` vira `entity_terms` (ids `tipo_orgao:` e
+- [X] T026 [US1] [101] Em `src/axon_scouting/context/lexicon.py`, `organ_terms` vira `entity_terms` (ids `tipo_orgao:` e
   `tipo_inst:`). Em `src/axon_scouting/context/derivation.py`:
   - `_organs` vira `_entities`, com o `reconhecer` de `rag.graph.api` e as mesmas exclusões da 101 R43;
   - a derivação publica `entities` e `plan` (`QueryPlan(consultas=(QueryStep(q="sobre", args={"entidades": [...],
     "papeis": ["norma"]}),))`, vazio sem entidades) no lugar de `organs`.
 
   Atualizar os testes de `tests/context/`.
-- [ ] T027 [US1] Em `src/axon_scouting/pack.py`:
+- [X] T027 [US1] Em `src/axon_scouting/pack.py`:
   - `_graph` compõe `DomainGraphService(ArtifactGraphStore(_artifact_dir(config)))`;
   - `_organ_terms` vira `_entity_terms` (`aliases()`);
   - o `ScoutingRetriever` recebe o serviço.
 
   Atualizar `tests/test_pack.py`.
-- [ ] T028a [US1] Teste de tempo em `tests/rag/graph/test_graph_timing.py` (SC-008): com o `graph.jsonl` do pacote já
+- [X] T028a [US1] Teste de tempo em `tests/rag/graph/test_graph_timing.py` (SC-008): com o `graph.jsonl` do pacote já
   carregado, o `run(plan)` das perguntas de `eval/acervo.yaml` leva menos de 50 ms cada, com a mediana impressa.
   Repetir no T043.
-- [ ] T028 [US1] Rodar T012 a T014 e T028a, `uv run pytest && uv run mypy && uv run ruff check && uv run lint-imports` e a
+- [X] T028 [US1] Rodar T012 a T014 e T028a, `uv run pytest && uv run mypy && uv run ruff check && uv run lint-imports` e a
   integração `uv run --python 3.14 --group platform pytest tests/integration`.
-- [ ] T029 [US1] Medir os quatro conjuntos (quickstart da 106, seção 4) e o `eval_diff.py` por item. Esperado:
+- [X] T029 [US1] Medir os quatro conjuntos (quickstart da 106, seção 4) e o `eval_diff.py` por item. Esperado:
   "Nenhum item mudou" nos quatro. Registrar no research da 106 (R18, a medida do G1). O `scouting` vai a 0.12.0 em
   `pyproject.toml`.
-- [ ] T030 [US1] Corrigir o cabeçalho do `corpus/organizacao.yaml` (o "RASCUNHO… não é lido por nenhum código" é de
+- [X] T030 [US1] Corrigir o cabeçalho do `corpus/organizacao.yaml` (o "RASCUNHO… não é lido por nenhum código" é de
   antes do ADR-063).
 
 **Checkpoint G1 — PARADA 4**: os números ao mantenedor, com os quatro conjuntos idênticos.
@@ -211,7 +212,7 @@ quatro conjuntos idênticos ao 0.11.1.
 **Teste independente**: `scripts/grafo.py query sobre tipo_orgao:diretoria_regional --papeis norma` lista as seções
 com a fonte, e o export abre no arrows.app.
 
-- [ ] T031 [P] [US7] Teste dos invariantes em `tests/rag/graph/test_graph_artifact.py`, sobre o `graph.jsonl`
+- [X] T031 [P] [US7] Teste dos invariantes em `tests/rag/graph/test_graph_artifact.py`, sobre o `graph.jsonl`
   commitado:
   - toda `source` resolve (o `chunk_id` ou o `unit_id` existe no `chunks.jsonl`, a pasta existe na taxonomia, a página
     da ficha existe);
@@ -220,10 +221,10 @@ com a fonte, e o export abre no arrows.app.
   - todo `taxonomy_id` de `documents.jsonl` está em `ROLES`;
   - o `meta.chunking` é igual ao do `manifest.json`;
   - nenhuma entidade de pessoa.
-- [ ] T032 [US7] `scripts/grafo.py query <consulta> <args>` e `scripts/grafo.py plan "<pergunta>"` pelo
+- [X] T032 [US7] `scripts/grafo.py query <consulta> <args>` e `scripts/grafo.py plan "<pergunta>"` pelo
   `contracts/grafo-cli.md`, com uma linha por evidência (documento, unidade e título, papel, data, aresta, fonte e
   origem) e `--json`. O `plan` compõe a derivação da 101 com os termos do grafo, como o `pack.py`.
-- [ ] T033 [US7] `scripts/grafo.py export --arrows [--entidade X --saltos N] [--sem-unidades]`, no formato de
+- [X] T033 [US7] `scripts/grafo.py export --arrows [--entidade X --saltos N] [--sem-unidades]`, no formato de
   `corpus/Organização Escoteira.revisado.json`, com o teste de forma em `tests/rag/graph/unit/test_export_arrows.py`.
 
 **Checkpoint**: entra na mesma PARADA 4 do G1.
