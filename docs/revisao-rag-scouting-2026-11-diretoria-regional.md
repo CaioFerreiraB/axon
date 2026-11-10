@@ -191,10 +191,11 @@ denso é 0,887. Descer o índice até parágrafo serve à citação e ao grafo, 
 
 1. **O resto da Fase 2.**
    - Parágrafo e inciso na árvore (`estrutural-v6`), para a citação apontar o §3º.
-   - As relações de governança do `organizacao.yaml` (ELEGE, FISCALIZA…) na busca, com as 9 marcadas "a verificar"
-     conferidas.
-   - A extração offline por LLM das ligações que o título não diz.
-   - O cargo na pergunta (hoje vale só o órgão).
+   - **Relações de governança.** Já estão no grafo (22 com fonte conferida), mas, medidas, não mudaram o acervo e ficam
+     fora da busca (0.11.1). Conferir as 9 "a verificar".
+   - **O cargo na pergunta.** Feito para os nomes que dizem o nível ("Conselheiro Nacional"), em 0.11.1.
+   - **A extração offline por LLM das ligações que o título não diz.** Cinco órgãos ainda não têm seção: Comissão
+     Regional Pioneira, Conselho de Pais e as instituições.
 2. **Fase G**: feita (seção 7). Falta a revisão humana por amostra das fichas (`corpus/resumos/atas/`, ~10%) e as
    perguntas de síntese das atas nacionais.
 3. **Se ainda faltar**: as faixas de autoridade e a reescrita da consulta pelo `controller` (core).

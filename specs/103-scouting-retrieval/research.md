@@ -340,3 +340,12 @@ da 005, o N do rerank e o limiar do portão.
   4º. O acervo foi de 0,8768 a 0,9203, sem item caindo; regressão, síntese e `golden` ficaram iguais.
 - **Alternatives**: a seção inteira (o Art. 28 do Estatuto tem 21 incisos, e o Capítulo III do Regulamento, 7
   trechos); só a norma do nível da pergunta (perderia o Estatuto).
+
+## R22 — As relações de governança medidas fora da busca ([ADR-063](../../docs/adr/ADR-063-grafo-das-normas-por-orgao-no-scouting.md))
+
+- **Decision**: a busca guiada pelo grafo usa só as seções do órgão; as relações (quem elege, fiscaliza…) não entram.
+- **Rationale**: com até 2 trechos de relação por pergunta, o acervo (48 itens, inclusive "quem fiscaliza as contas da
+  Diretoria Regional?" e "quem elege a Comissão de Ética e Disciplina Regional?", cuja resposta está na seção de outro
+  órgão) ficou igual: 0,9236 com e sem. A busca normal e as seções já traziam esses fatos, e as relações só tomariam
+  vagas.
+- **Alternatives**: manter as 2 vagas sem ganho medido.
