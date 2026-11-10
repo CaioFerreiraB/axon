@@ -633,3 +633,24 @@ seguem no Qdrant embutido com `store: qdrant`.
   CAN?" perderia o Estatuto e o POR, a mesma razão do ADR-046 para o tipo sugerido.
 - **Alternatives**: órgão sempre filtra (perde as normas que descrevem o órgão); "assembleia" como órgão (a assembleia
   de grupo é assunto do POR).
+
+## R41 — O órgão que é assunto e a pergunta de seguimento ([ADR-061](../../docs/adr/ADR-061-assunto-da-pergunta-no-scouting.md))
+
+- **Decision**:
+  - O órgão só filtra quando é o emissor do tipo citado ou da lista (logo depois do tipo, ligado por da/do/das/dos/de,
+    com até uma palavra de complemento); o órgão-assunto vai em `suggested_bodies`, e o nome dele sai do texto antes
+    de casar a abrangência.
+  - A pergunta sem assunto próprio, curta (até 6 palavras) ou com marcador de retomada, herda o assunto da última
+    pergunta do usuário que tem um, publicada em `anchor`.
+  - O prompt junta os níveis das normas.
+- **Rationale**:
+  - Medido em 2026-11-09 com o artefato 0.8.1 e o e5, "o que o regulamento regional diz sobre a diretoria regional?"
+    dava 0 trechos (o Regulamento SP é da pasta `gestao_institucional_e_governanca`) e agora traz o Art. 26 em 6º.
+    "Segundo o estatuto, qual o mandato da diretoria regional?" também dava 0 e agora põe o Art. 27 em 1º.
+  - "Qual o prazo de gestão?" depois de uma pergunta sobre a DR, "e quem pode ser reeleito?", "e no estatuto
+    nacional?" e "olhe no estatuto nacional" não traziam o Art. 27 entre os 20; ancoradas, ele fica em 3º, 2º, 9º e 1º.
+- **Alternatives**:
+  - Nunca filtrar por órgão: perde "as atas da assembleia regional".
+  - Reescrever a pergunta por modelo no core: fica para depois do grafo, e soma uma chamada.
+  - Herdar o tipo citado: prende a conversa a um documento só, contra a hierarquia das normas.
+

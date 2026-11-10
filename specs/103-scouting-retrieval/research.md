@@ -303,3 +303,20 @@ da 005, o N do rerank e o limiar do portão.
 - **Rationale**: "atas da assembleia regional" achava pelo título só as atas que diziam "Assembleia Regional" no nome;
   a classificação da pasta diz isso de todas. Um tipo novo na taxonomia não precisa mudar o retriever.
 - **Alternatives**: manter a espécie pela palavra do título (perde as atas de título curto, como "Ata ARE 2024").
+
+## R19 — O recuo sem órgão e a busca com a âncora ([ADR-061](../../docs/adr/ADR-061-assunto-da-pergunta-no-scouting.md))
+
+- **Decision**:
+  - Busca vazia com `bodies` ou `scopes` → refeita sem os dois, com a marca `relaxed`.
+  - Com `anchor`, duas consultas (âncora + pergunta, e a pergunta sozinha), juntas pela maior fusão de cada trecho; nas
+    facetas, uma consulta só, com a âncora.
+- **Rationale**:
+  - O órgão e a abrangência do índice são a pasta do documento, e uma pergunta que os cita pode não casar com
+    documento nenhum. Vazio, o `rag_first` gera sem trecho; o recuo mantém tipo, ramo e vigência, que dizem o que a
+    pergunta pediu.
+  - Com as duas consultas, uma âncora errada (pergunta nova e curta depois de outro assunto) não toma todas as vagas.
+  - A fusão de cada consulta é posição pura (RRF); a maior das duas põe o 1º de cada uma lado a lado.
+- **Alternatives**:
+  - Só a consulta ancorada: a pergunta nova perde as vagas.
+  - Recuar removendo também o tipo citado: desfaz o ADR-046.
+

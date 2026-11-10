@@ -33,6 +33,7 @@ class MetadataReranker:                                      # rag/retrieval/rer
 | US4 — desempate | dois candidatos empatados na fusão: o vigente e específico do ramo fica acima do geral; no máximo `top_k` |
 | US5 — filtros de contexto | `branch="pioneiro"` → pioneiro e gerais; `document_types=["por"]` → só POR |
 | ADR-049 — órgão e abrangência | `bodies=["conselho_de_administracao_nacional"]` → só documentos do CAN; `scopes=["regional"]` → só regionais; `suggested_bodies` não restringe e põe o órgão à frente no empate |
+| ADR-061 — recuo e âncora | busca vazia com `bodies` ou `scopes` → refeita sem os dois, com os demais filtros, trechos marcados `relaxed`; `anchor` → busca com a âncora antes da pergunta e com a pergunta sozinha, juntas pela melhor posição (o que a pergunta sozinha acha continua); `anchor` vazio, longo demais ou não texto → `InvalidFilters("anchor", …)` |
 | FR-004 | todo `Chunk` com proveniência completa e `score` em `[0, 1]` |
 | FR-007 | índice inexistente → `IndexUnavailable`, nunca `[]` |
 | FR-009 | `topics` não mudam o resultado |
