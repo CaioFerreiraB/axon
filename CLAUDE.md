@@ -404,6 +404,18 @@ Pendente: a revisão das 91 transcrições pelo Codex e a troca das 57 cópias O
   relação, está em `corpus/organizacao.yaml`, ainda não lido por código. A Fase 2 (grafo, parágrafo e inciso) e a
   Fase G (fichas de ata e linha do tempo) estão no relatório.
 
+**A Fase 8 do roadmap está em andamento** (grafo de domínio e consultas do scouting,
+[plano](docs/plano-sdd-grafo-de-dominio-scouting-2026-11.md)). O ADR-064 está aceito:
+- a 106 passa a ser o módulo do grafo de domínio (`rag/graph/`, seam *Grafo de domínio*);
+- a aresta `SOBRE` tem um modo, que vem do papel do tipo de documento;
+- há sete consultas com nome, e o plano viaja em `retrieval_filters`;
+- core e contratos não mudam.
+
+A medida veio primeiro (105 US7, R26). O `eval/programa-adultos.yaml` tem 33 itens, metade de controle, em doze formas
+de pergunta. A linha de base é a do 0.11.1 (0,8409), e o CI o roda ao lado dos outros três conjuntos. O
+`scripts/eval_diff.py` mostra o `fact_recall` antes e depois, por item e por grupo, e todo incremento da 106 o mostra
+nos quatro conjuntos.
+
 O ambiente de dev local (`axon-scouting/.cache/dev/
 dev.sh`, fora do git: Postgres e Open WebUI em contêiner, `axon serve` do venv do pack, trace em `.cache/dev/trace/`)
 serve para testar antes de publicar. A chave do

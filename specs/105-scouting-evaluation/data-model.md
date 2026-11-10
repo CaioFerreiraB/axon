@@ -58,3 +58,22 @@ declarar o marcador e as datas.
 O formato da 009, sem evidência por documento: `id`, `question`, `reference_time` (com fuso), `reference_answer`
 opcional e, em `extra`, `group` (`individual`, `agregado`, `comparativo`, `normativo`) e `facts` (lista não vazia; cada
 fato é texto ou lista de redações alternativas, e existe no texto do artefato).
+
+## Item do conjunto de programa e adultos (`eval/programa-adultos.yaml`, R26)
+
+O formato do conjunto do acervo (R22): `id`, `question`, `reference_time` (ISO com fuso), `reference_answer` (com a
+fonte: documento e regra, artigo ou página) e, em `extra`:
+
+| Campo | Regra |
+|---|---|
+| `group` | uma das doze formas: `o_que_e`, `requisitos`, `duas_entidades`, `lista_documentos`, `lista_itens`, `cada_ramo`, `situada`, `orgao`, `historico`, `mudanca`, `publicacoes`, `obrigatorio` |
+| `split` | `desenvolvimento` ou `controle`; os dois em cada grupo; no total, metade de controle (folga de um item) |
+| `facts` | lista não vazia; cada fato é texto, ou lista de redações alternativas, copiado do PDF e presente no texto do artefato |
+
+O conjunto tem de 24 a 36 itens. Os grupos `situada`, `historico`, `mudanca` e `publicacoes` tiram os fatos de
+documentos que não são o POR nem o Estatuto.
+
+| Arquivo | Conteúdo |
+|---|---|
+| `programa-adultos.yaml` | o conjunto (US7) |
+| `programa-adultos-baseline.json` | o relatório da rodada com o `scouting` 0.11.1, antes de qualquer mudança da 106 |

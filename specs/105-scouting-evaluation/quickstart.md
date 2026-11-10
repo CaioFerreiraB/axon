@@ -110,3 +110,23 @@ AXON_PROFILE=memory AXON_PACKS_FILE=eval/packs.yaml AXON_ASSISTANTS_FILE=eval/as
 
 Para o "antes", a mesma rodada com o pack no commit anterior ao prompt (`git stash` não basta: o prompt é código do
 pacote). Esperado: `scouting:absence_claim_rate` menor depois, fidelidade sem queda; `fact_recall` igual nas duas.
+
+## 9. Os quatro conjuntos antes e depois, por item (US7, ADR-064)
+
+Cada incremento do grafo de domínio roda os quatro conjuntos nas condições do CI, antes (no commit anterior) e depois:
+
+```bash
+export XDG_DATA_HOME=$HOME/.local/share AXON_PROFILE=test AXON_PACKS_FILE=eval/packs.yaml \
+  AXON_ASSISTANTS_FILE=eval/assistants.yaml AXON_RAG_CANDIDATES=20 AXON_RAG_PASSAGES=20 \
+  AXON_TOOL_MAX_RESPONSE_BYTES=65536
+for s in acervo regression sintese programa-adultos; do
+  base=eval/$s-baseline.json
+  uv run --python 3.14 --group platform axon eval run --golden eval/$s.yaml --baseline "$base" \
+    --report .cache/depois-$s.json
+  python3 scripts/eval_diff.py "$base" .cache/depois-$s.json --golden eval/$s.yaml
+done
+```
+
+O `eval_diff.py` lista cada item cujo `fact_recall` mudou (antes → depois), o agregado por grupo e o total; com
+`--golden eval/<conjunto>.yaml`, também por grupo. Linha de base do programa-adultos (`scouting` 0.11.1, 33 itens): 0,8409, com
+`historico` e `lista_documentos` em 0,50, `cada_ramo` em 0,625, `situada` em 0,90 e `mudanca` já em 1,0 (R26).

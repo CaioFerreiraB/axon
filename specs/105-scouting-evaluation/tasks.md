@@ -253,3 +253,62 @@ T011 eval/packs.yaml + eval/assistants.yaml
 - [X] T030 A faixa etária na redação da Regra 013; linha de base 0,90 (R18).
 - [X] T031 Os 8 itens do teste no dev, os grupos `lista` e `pessoa`, `suggested_types` no contexto esperado; linha de
   base 0,8705 (R19).
+
+## Passada de 2026-11-10 — US7, o conjunto de programa e adultos ([ADR-064](../../docs/adr/ADR-064-grafo-de-dominio-e-consultas-no-scouting.md); research R26)
+
+Objetivo: a medida do grafo de domínio, escrita e gravada antes de qualquer código da 106 (Passo B do plano SDD da
+Fase 8). Teste independente: `uv run pytest tests/eval/test_regression.py` passa com o conjunto novo, e a rodada do
+0.11.1 grava a linha de base sem item inválido. Tudo no submódulo `axon-scouting/`, na branch `feat/106-grafo-de-dominio`
+a partir de `cddba46`.
+
+- [X] T032 [US7] Criar a branch `feat/106-grafo-de-dominio` no `axon-scouting` a partir de `cddba46` (0.11.1).
+- [X] T033 [US7] Levantar os documentos de origem, por grupo, lendo o `corpus/corpus.yaml` e a taxonomia:
+  - os de programa educativo e de gestão de adultos;
+  - as atas regionais de SP, para `historico`;
+  - as resoluções que alteram ou revogam, para `mudanca`;
+  - os documentos de um órgão emissor, para `publicacoes`;
+  - o estatuto e a política do GE Inah e o regulamento regional, para `situada`.
+
+  Nenhuma pergunta pode repetir ou parafrasear uma de `eval/acervo.yaml`, `eval/regression.yaml`, `eval/sintese.yaml`
+  ou `eval/golden.yaml` (FR-021).
+- [X] T034 [US7] Escrever `eval/programa-adultos.yaml` (`version: 1`, `name: scouting-programa-adultos`, `assistant:
+  scouting`) com 24 a 36 itens, cada um com `id`, `question`, `reference_time` (ISO com fuso), `reference_answer` (com
+  documento e regra, artigo ou página) e, em `extra`, `group`, `split` e `facts`:
+  - `group` é um de `o_que_e`, `requisitos`, `duas_entidades`, `lista_documentos`, `lista_itens`, `cada_ramo`,
+    `situada`, `orgao`, `historico`, `mudanca`, `publicacoes` e `obrigatorio`;
+  - `split` é `desenvolvimento` ou `controle`. Os dois em cada grupo, e no total metade de controle, com folga de um
+    item;
+  - `facts` é uma lista não vazia, com cada fato copiado do texto do PDF pela ordem de leitura do `PdfiumParser`, sem
+    passar pelo índice, e conferido contra o original (FR-021 a FR-023);
+  - o cabeçalho do arquivo explica o método e os grupos, como o do `acervo.yaml`.
+- [X] T035 [US7] Em `tests/eval/test_regression.py`, acrescentar `PROGRAMA = ROOT / "eval" / "programa-adultos.yaml"`,
+  `PROGRAMA_GROUPS` (os doze grupos) e três testes:
+  - `test_programa_sem_problemas`, com o `_problems` contra o texto do artefato;
+  - `test_programa_tem_controle_em_cada_grupo`;
+  - `test_programa_tamanho_e_metade_de_controle`: de 24 a 36 itens, `|controle − desenvolvimento| ≤ 1`.
+
+  O fato que o artefato não reproduz ganha uma redação alternativa conferida no artefato, ou o item troca de fato.
+  Registrar o achado de ingestão no R26.
+- [X] T036 [P] [US7] `scripts/eval_diff.py ANTES DEPOIS`, só biblioteca padrão. Lê dois relatórios do `axon eval run` e
+  imprime três coisas:
+  - cada item cujo `scouting:fact_recall` mudou (id, grupo, antes → depois), lendo os grupos do `--golden` opcional;
+  - os itens novos ou ausentes;
+  - o agregado por grupo e o total.
+
+  Termina com código 0. É só leitura, e não barra.
+- [X] T037 [US7] Rodar o conjunto com o `scouting` 0.11.1 nas condições do CI (quickstart, seção 9: perfil `test`, 20
+  candidatos, 20 trechos, 64 KiB) com `--update-baseline`, gravando `eval/programa-adultos-baseline.json` (FR-024).
+  Conferir que não há item `invalid` e anotar no R26 o total, o agregado por grupo e os itens abaixo de 1.
+- [X] T038 [US7] Em `.github/workflows/eval.yml`, acrescentar o passo "Conjunto de programa e adultos contra a linha de
+  base", igual ao do acervo, com `--golden eval/programa-adultos.yaml --baseline eval/programa-adultos-baseline.json
+  --report programa-adultos-report.json`, e o relatório no `upload-artifact` (FR-025).
+- [X] T039 [US7] Rodar `uv run pytest && uv run mypy && uv run ruff check && uv run lint-imports` no `axon-scouting` e
+  conferir os outros três conjuntos sem mudança contra as linhas de base (nenhum código mudou).
+- [X] T040 [US7] Documentar:
+  - no README do pack, o conjunto novo;
+  - no `axon`, em `specs/README.md` (linha da 105: US7) e no `CLAUDE.md` (a frase da 105).
+
+  O README do pack não cita os conjuntos e fica como está. Commit no `axon-scouting`. No `axon`, só o SDD e o
+  ponteiro do submódulo, sem merge (plano, seção 7).
+
+Dependências: T032 → T033 → T034 → T035 → T037 → T038 → T039 → T040. O T036 é independente.
