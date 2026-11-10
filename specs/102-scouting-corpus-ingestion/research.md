@@ -822,3 +822,12 @@ inclusive os vetores do e5.
   com ele, nenhum item cai.
 - **Alternatives**: extração por LLM (desnecessária onde o título já diz); o documento inteiro também para instituições
   ("Escoteiros do Brasil" casaria em quase toda pergunta).
+
+## R43 — Relações de governança e cargos no grafo ([ADR-063](../../docs/adr/ADR-063-grafo-das-normas-por-orgao-no-scouting.md))
+
+- **Decision**: o `graph.jsonl` guarda as 22 relações do `organizacao.yaml` com fonte conferida e presente no índice
+  ("a verificar" fica fora), e os termos do órgão ganham o `nome` dos cargos que dizem o nível ("Conselheiro
+  Nacional", "Diretor-Presidente de Grupo"), nunca o apelido curto ("vice").
+- **Rationale**: as relações ficam disponíveis no seam (`NormGraph.relations`) para quando a busca precisar delas. O
+  cargo leva a pergunta ao órgão certo sem casar "presidente" em todo lugar.
+- **Alternatives**: os apelidos dos cargos (ambíguos entre DR, DEN e Diretoria de Grupo).
