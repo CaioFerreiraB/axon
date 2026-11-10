@@ -390,6 +390,15 @@ Pendente: a revisão das 91 transcrições pelo Codex e a troca das 57 cópias O
   - **Avaliação.** `eval/sintese.yaml` (13 perguntas, escritas antes) foi de 0,4551 a 0,8462 com as 256 atas
     (5.298 de 5.677 itens conferidos, ~US$ 1,30); os outros conjuntos não mudaram.
   - **Instalação.** A cópia do índice na instalação precisa levar o `summaries.jsonl`.
+- **ADR-063, `scouting` 0.11.0: o grafo das normas por órgão.**
+  - **Catálogo.** `corpus/organizacao.yaml` traz os tipos de órgão e instituição.
+  - **Ligação.** `DISCIPLINA` sai pelo título da seção das normas vigentes (o nome mais longo), ou pelo regulamento
+    inteiro cujo título nomeia um órgão. `scripts/grafo.py build` grava `data/index/graph.jsonl` (seam `NormGraph`).
+  - **Derivação.** Publica `organs` (termos injetados pelo pack). Fica vazio na síntese, na lista, na enumeração e com
+    período.
+  - **Busca.** O `ScoutingRetriever` traz à frente (`graph_rank`) até 3 trechos por documento, da norma de cima para a
+    de baixo, sem o filtro de tipo.
+  - **Resultado.** A pergunta de 08/11 põe o Estatuto Art. 27 em 1º, e o acervo foi de 0,8768 a 0,9203.
 - **Próximos passos.** O desenho do grafo aprovado (camadas organização, normas e ponte, mais a busca global) está em
   `axon-scouting/corpus/Organização Escoteira.revisado.json`. O rascunho da camada de organização, com fonte por
   relação, está em `corpus/organizacao.yaml`, ainda não lido por código. A Fase 2 (grafo, parágrafo e inciso) e a

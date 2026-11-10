@@ -256,6 +256,7 @@ o juiz não aponta troca de conceito.
 - **FR-033** ([ADR-061](../../docs/adr/ADR-061-assunto-da-pergunta-no-scouting.md)): O prompt DEVE orientar a resposta sobre um órgão ou sobre o que estatutos e regulamentos dizem a juntar os níveis — primeiro a regra do nível de cima, depois o que o de baixo acrescenta, sem contrariá-la — e, chegado um nível só, a dizer que o outro pode completar.
 - **FR-034** ([ADR-062](../../docs/adr/ADR-062-busca-global-pelas-fichas-das-atas-no-scouting.md)): A derivação DEVE publicar `synthesis: {year_from, year_until, scopes, bodies}` quando a pergunta tem um marcador de síntese ou uma palavra de reunião com ano citado, e nada na pergunta pontual; os anos são o menor e o maior citados ("desde" vai até o ano de referência, "anos 2000" é a década).
 - **FR-035** ([ADR-062](../../docs/adr/ADR-062-busca-global-pelas-fichas-das-atas-no-scouting.md)): O prompt DEVE orientar a responder a síntese pelos resumos das atas em ordem de data, com a ata e a página de cada fato, citando o resumo e nunca o apresentando como regra.
+- **FR-036** ([ADR-063](../../docs/adr/ADR-063-grafo-das-normas-por-orgao-no-scouting.md)): A derivação DEVE publicar `organs` — os tipos de órgão ou instituição que a pergunta nomeia, pelo nome mais longo, com os termos do grafo das normas que o pack injeta no léxico — e nenhum na síntese, na lista, na enumeração ou na pergunta com período.
 
 ### Key Entities
 
