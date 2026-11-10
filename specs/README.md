@@ -202,7 +202,7 @@ Ao criar spec nova, use o próximo número livre **dentro do bloco** (ver [CLAUD
 | [103](103-scouting-retrieval/spec.md) | Retrieval híbrido e rerank | `axon_scouting/rag/retrieval/` | 5 | Fase 5 implementada (US1–US5): `ScoutingRetriever` (score = similaridade densa, ADR-025), `MetadataReranker` (desempate sem pesos), tool `search_docs`; publicados pelo pack (US5 da 101) |
 | [104](104-scouting-citations/spec.md) | Citações, proveniência e aviso de vigência | `axon_scouting/validators/` | 4–5 | Implementada: `citation_integrity` e `validity_notice`, publicados pelo pack na Fase 5 (US5 da 101); a citação leva o link do original na página (FR-010, [ADR-051](../docs/adr/ADR-051-link-da-citacao-e-fontes-no-open-webui.md)) |
 | [105](105-scouting-evaluation/spec.md) | Conjunto dourado e calibração do domínio | `axon_scouting/eval/` | 6 | Fase 6, infraestrutura implementada (US1, US2 sobre a semente provisória) no `axon-scouting` 0.3.0: métricas `context_accuracy`, `current_document_rate` e `validity_notice_rate` pelo hook `eval_metrics` (ADR-027), `eval/` com a semente, a configuração e a linha de base, workflow `eval`; US3–US5 (calibração, embedding, modelo local) depois da curadoria; ADR-043: eval sobre o artefato, sem Qdrant; Fase 8: US7 (`eval/programa-adultos.yaml`, 33 itens em doze formas de pergunta, linha de base do 0.11.1 antes do grafo, [ADR-064](../docs/adr/ADR-064-grafo-de-dominio-e-consultas-no-scouting.md)) |
-| [106](106-scouting-graphrag/spec.md) | GraphRAG (futuro) | `axon_scouting/rag/graph/` | 8 | Draft (futuro) |
+| [106](106-scouting-graphrag/spec.md) | Grafo de domínio e consultas | `axon_scouting/rag/graph/`, `scripts/grafo.py` | 8 | Especificada e planejada ([ADR-064](../docs/adr/ADR-064-grafo-de-dominio-e-consultas-no-scouting.md)): entidades com fonte, `SOBRE` com modo pelo papel do documento, sete consultas com nome, plano em `retrieval_filters`, executor consumido pela 103; incrementos G1–G6 |
 
 ## Seams
 
@@ -238,7 +238,8 @@ secundárias (armazenamento, relógio, segredos…) não são seams: são intern
 | **Usage Report** + **Price Book** + **Trace Destinations** | 009 | 008 | Uso por dia, modelo e Assistant com custo calculado na consulta — o informado pelo provider vence a tabela ([ADR-035](../docs/adr/ADR-035-custo-informado-pelo-provider-e-providers-prontos.md)); tabela de preços com vigência; destinos do trace (Langfuse, captura de conteúdo) e de onde vem cada ajuste (Fase 9, [ADR-034](../docs/adr/ADR-034-trace-com-destinos-e-conteudo-opcional.md)) |
 | **Impact Report** | 009 | 008 | Impacto ambiental estimado pelo EcoLogits por chamada (energia, GWP, ADPe, PE, água; uso e fabricação; mínimo e máximo), agregado por dia, semana, mês, trimestre ou semestre, por modelo ou Assistant, com cobertura e árvores para compensar (incremento 9.6, [ADR-056](../docs/adr/ADR-056-impacto-ambiental-estimado-pelo-ecologits.md)) |
 | **API HTTP** | 008 | clientes externos (Open WebUI, console 013) | Superfícies `/v1`, `/private/v1` e `/admin/v1` ([ADR-031](../docs/adr/ADR-031-superficie-de-administracao.md)) |
-| **Índice do scouting** (modelo de chunk indexado + porta `ChunkIndex`) | 102 | 103, 106; 104 (só o modelo) | Contrato interno do `axon-scouting`; o schema do Qdrant é detalhe do adapter |
+| **Índice do scouting** (modelo de chunk indexado + porta `ChunkIndex`) | 102 | 103, 106 (offline); 104 (só o modelo) | Contrato interno do `axon-scouting`; o schema do Qdrant é detalhe do adapter. Sem o grafo das normas desde o [ADR-064](../docs/adr/ADR-064-grafo-de-dominio-e-consultas-no-scouting.md) |
+| **Grafo de domínio** (`DomainGraphSource`, `QueryPlan`, `Evidence`, `reconhecer`, `ROLES`) | 106 | 103 (executa o plano), 101 (pelo `pack.py`: termos, reconhecimento e esquema do plano) | Contrato interno do `axon-scouting` ([ADR-064](../docs/adr/ADR-064-grafo-de-dominio-e-consultas-no-scouting.md)): entidades e arestas com fonte e origem, sete consultas com nome; o `graph.jsonl` ao lado do índice |
 | **Catálogo de documentos** (`CatalogEntry` + porta `DocumentCatalog`) | 102 | 103 (lista de documentos) | Contrato interno do `axon-scouting` ([ADR-047](../docs/adr/ADR-047-lista-de-documentos-do-acervo-no-scouting.md)): um registro por documento, com os mesmos `IndexFilters` da busca |
 | **Árvore de unidades** (`UnitEntry` + porta `DocumentOutline`; `path`, `unit_kind`, `shape` e `branches` no chunk) | 102 | 101 (tipos de unidade no léxico), 103 (enumeração e entrega por unidade) | Contrato interno do `axon-scouting` ([ADR-048](../docs/adr/ADR-048-arvore-de-unidades-e-enumeracao-no-scouting.md)): a forma de cada documento vem da taxonomia do acervo e do `estrutura.yaml` |
 
@@ -270,7 +271,7 @@ flowchart LR
         S103[103 retrieval]
         S104[104 citações]
         S105[105 avaliação]
-        S106[106 GraphRAG]
+        S106[106 grafo de domínio]
     end
 
     C002 --> C001
@@ -314,6 +315,8 @@ flowchart LR
     S103 --> S102
     S104 --> S102
     S106 --> S102
+    S103 --> S106
+    S101 --> S106
     S105 --> C009
 ```
 
@@ -348,7 +351,7 @@ Só a [005](005-core-execution-engine/spec.md) muda. O que precisa continuar ver
 
 ### Caso: reescrever o `axon-scouting`
 
-Só as specs `1xx` mudam. O core só enxerga o pack pelo contrato 001 e pelo nome de flow preferido. É possível trocar uma parte isolada — por exemplo, o retrieval (103) por GraphRAG (106) — sem tocar em 101, 104 ou 102, porque o retriever é consumido pelo contrato `Retriever` e a citação depende apenas dos `chunk_id` entregues à geração. Trocar a base de vetores ou o modelo de embedding é trocar um adapter do índice (102), sem mexer em 103.
+Só as specs `1xx` mudam. O core só enxerga o pack pelo contrato 001 e pelo nome de flow preferido. É possível trocar uma parte isolada sem tocar nas outras: o retriever (103) é consumido pelo contrato `Retriever`, a citação depende apenas dos `chunk_id` entregues à geração, e o grafo de domínio (106) só é visto pelo seam dele ([ADR-064](../docs/adr/ADR-064-grafo-de-dominio-e-consultas-no-scouting.md)). Trocar a base de vetores ou o modelo de embedding é trocar um adapter do índice (102), sem mexer em 103.
 
 ## Questões em aberto (arch-v1 Parte IX)
 
@@ -357,7 +360,7 @@ Só as specs `1xx` mudam. O core só enxerga o pack pelo contrato 001 e pelo nom
 | Modelo de embedding para português | 105 (medição) → plano da 102/103 |
 | Números de calibração do RAG | 105, Fase 6 |
 | Multi-tenancy entre organizações | 003 — fora de escopo; instalação separada é o default |
-| Ontologia do GraphRAG | 106 (`NEEDS CLARIFICATION`) |
+| ~~Ontologia do GraphRAG~~ | Resolvida em 2026-11-10 pelo [ADR-064](../docs/adr/ADR-064-grafo-de-dominio-e-consultas-no-scouting.md) e pelo design.md da 106 |
 | O `axon-generic` continua sendo pack? | 010 (`NEEDS CLARIFICATION`), Fase 3 |
 | ~~ADR-011 (Turn View / `PackRoutine`)~~ | Aceito em 2026-09-14, com ADR-012 e ADR-013 |
 | ~~Como o harness fixa a data de referência de uma execução~~ | Resolvido em 2026-09-14: só em processo, pelo harness; a API rejeita o campo (008 FR-012) |

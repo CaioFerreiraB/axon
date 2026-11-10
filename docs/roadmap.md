@@ -14,7 +14,7 @@ limitando `/speckit-tasks` e `/speckit-implement` às user stories da fase (ex.:
 | **5 — RAG** ✅ | Recuperação híbrida com vigência e citação verificada | 102 · US1–US5 · 103 · US1–US5 · 104 · US1–US4 · 005 · US3, US4 (`rag_first`) · 101 · US4, US5 |
 | **6 — Avaliação** | **Antes de calibrar qualquer número do RAG** | 009 · US2, US3, US4 · 105 · US1–US5 |
 | **7 — Open WebUI** ✅ | Assistants aparecem como modelos | 008 · US6, US8 |
-| **8 — GraphRAG** | Retriever de grafo atrás do contrato existente | 106 (resolver a ontologia primeiro) |
+| **8 — Grafo de domínio do scouting** (em andamento) | Um grafo de domínio com consultas com nome junta os cinco mecanismos que trazem trechos à frente da busca; a busca híbrida continua sempre ([ADR-064](adr/ADR-064-grafo-de-dominio-e-consultas-no-scouting.md), [plano](plano-sdd-grafo-de-dominio-scouting-2026-11.md)) | 105 · US7 (o conjunto primeiro, feito) · 106 · US1–US7 (G1–G6), US8 opcional (G7) · encaixes: 101 FR-037 · 102 FR-037 · 103 FR-022 |
 | **9 — Console e identidade própria** | Login da própria plataforma (senha e Google) no lugar do Keycloak e administração gráfica do que o deploy permitir: modelos e MCPs por Assistant, uso e custo, Langfuse, ajustes de login | 012 · todas · 013 · todas · 003 · US9, US10 · 009 · US5–US7 · 006 · toque `model_exchange` · 008 · US9 · 011 · US6 · 002 · US7 · identidade Axon (incremento 9.5): US "Identidade Axon" em 001, 011, 010, 002, 003, 009, 008, 012, 013 e 101 · chaves e permissões pela console (ADR-040): 003 · US12, US13 · 008 · US11 · 013 · US9, US10 · impacto ambiental (incremento 9.6, ADR-056): 009 · US9 · 008 · US12 · 011 · US8 · 013 · US11 · usuários pela API e escopos de chave (incremento 9.7, ADR-057, ADR-058): 003 · US14, US15 · 012 · US9–US11 · 007 · US7 · 004 e 009 (pseudônimo, ADR-059) · 008 · US13 · 011 · US9 · 013 · US12 |
 
 **Fase 1 concluída em 2026-09-21.** `ai-core serve` sobe a plataforma a partir de `packs.yaml` e `assistants.yaml`, e
@@ -75,7 +75,7 @@ provedor de identidade (012) — o Open WebUI e a console entram por ela, e a 00
 uma superfície de administração (`/admin/v1`, grupo de administração, token da plataforma ou chave), sobreposições de
 Assistants de sistema sob a flag `overrides` do YAML, segredos de runtime cifrados com a chave mestra da instalação
 (a variável de ambiente prevalece), e um trace com destinos — uso e custo por dia para o dashboard, Langfuse, e o texto
-de prompt e resposta só quando ligado. A console (013) é uma SPA opcional na instalação. A Fase 8 (GraphRAG) não muda
+de prompt e resposta só quando ligado. A console (013) é uma SPA opcional na instalação. A Fase 8 (grafo de domínio) não muda
 de número: as fases não são estritamente sequenciais.
 
 **Incremento 9.5, identidade Axon (2026-10-20).** ADR-037 e ADR-038 aceitos e constituição 1.3.1: a plataforma passa a

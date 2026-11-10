@@ -215,6 +215,15 @@ sem tipo, os melhores trechos `list` e sumários; o reranker os põe antes dos t
 - **FR-019** ([ADR-061](../../docs/adr/ADR-061-assunto-da-pergunta-no-scouting.md)): A busca filtrada por `bodies` ou `scopes` que não acha nada DEVE ser refeita sem esses dois filtros, mantendo os demais, com a marca `relaxed` nos trechos; com `anchor`, a busca DEVE consultar a âncora seguida da pergunta e a pergunta sozinha e juntar os achados pela melhor posição de cada trecho (nas facetas, uma busca só, com a âncora); `anchor` fora do contrato DEVE dar `InvalidFilters`.
 - **FR-020** ([ADR-062](../../docs/adr/ADR-062-busca-global-pelas-fichas-das-atas-no-scouting.md)): A tool `search_summaries` DEVE responder só ao pedido `synthesis`, com no máximo 10 resumos (até 6 linhas do tempo, 2 partes por ano ou reunião) escolhidos por abrangência e anos e ordenados pelos termos da pergunta, à frente dos trechos (`summary_rank`); `synthesis` fora do contrato DEVE dar `InvalidFilters`.
 - **FR-021** ([ADR-063](../../docs/adr/ADR-063-grafo-das-normas-por-orgao-no-scouting.md)): Com `organs`, a busca DEVE trazer à frente (`graph_rank`) os trechos das seções que o grafo indica, da norma de cima para a de baixo, até 3 documentos e 3 trechos por documento pelos termos da pergunta, sem o filtro de tipo citado.
+- **FR-022** ([ADR-064](../../docs/adr/ADR-064-grafo-de-dominio-e-consultas-no-scouting.md), substitui a FR-021): A busca DEVE executar o plano que a 101 publica em `retrieval_filters.plan`
+  pelo seam *Grafo de domínio* (106).
+  - **Escolha dos trechos:** dentro de cada documento da evidência, até 3 pelos termos da pergunta.
+  - **Frentes:** à frente da busca, que roda sempre, até 8 das 20 vagas, repartidas por entidade em `para_cada`. Os
+    trechos levam `graph_rank`, `graph_query` e o papel (`role`).
+  - **Filtros:** `KNOWN` aceita `entities` e `plan` e deixa `organs`. Plano ausente, vazio ou inválido dá só a busca,
+    com aviso no log no caso inválido.
+  - **Fachadas:** as tools `search_summaries`, `list_documents` e `list_units` viram fachadas de `linha_do_tempo` (G4),
+    `documentos` e `itens` (G6), com o mesmo nome e a mesma saída.
 
 ### Key Entities
 

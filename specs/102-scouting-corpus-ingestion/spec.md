@@ -233,6 +233,13 @@ trecho por artigo; os invariantes do artefato e o `fact_recall` da 105 não pior
 - **FR-034** (ADR-050): Nos documentos de `ocr/`, a ingestão DEVE tirar do trecho (sem tirar do original) o carimbo repetido, a linha com menos da metade das palavras plausíveis e o rabo ilegível, com o vocabulário dos documentos nascidos digitais da mesma execução.
 - **FR-035** ([ADR-062](../../docs/adr/ADR-062-busca-global-pelas-fichas-das-atas-no-scouting.md)): As fichas das atas DEVEM ser extraídas offline (`scripts/fichas.py extract`) para `corpus/resumos/atas/`, cada item com a página e conferido por código contra o texto dela (o que não confere não entra no índice); os resumos — a ficha da reunião e a linha do tempo por órgão, abrangência e ano, sem itens de procedimento nem duplicatas das vias de uma ata — DEVEM ser montados sem modelo (`build`) em `summaries.jsonl` ao lado do índice, servidos pelo seam `MeetingSummaries` (`SummaryEntry`).
 - **FR-036** ([ADR-063](../../docs/adr/ADR-063-grafo-das-normas-por-orgao-no-scouting.md)): O grafo das normas DEVE ligar cada órgão do `corpus/organizacao.yaml` às unidades de estrutura das normas vigentes cujo título o nomeia (o nome mais longo) e ao regulamento inteiro cujo título nomeia um órgão, gravado em `graph.jsonl` ao lado do índice (`scripts/grafo.py build`, sem modelo) e servido pelo seam `NormGraph`.
+- **FR-037** ([ADR-064](../../docs/adr/ADR-064-grafo-de-dominio-e-consultas-no-scouting.md), substitui a FR-036): O grafo das normas DEVE sair do seam *Índice do scouting*.
+  - **O que vai para a 106:** `NormGraph`, `NormSection`, `NormRelation`, o adapter e a construção, como o *Grafo de
+    domínio*.
+  - **O que fica na 102:** a árvore de unidades, o catálogo e as fichas das atas, que a 106 lê offline pelos seams de
+    hoje.
+  - **O `graph.jsonl`:** continua ao lado do índice e fora do manifesto, escrito pela 106 com o chunking do índice de
+    que saiu.
 
 ### Key Entities
 

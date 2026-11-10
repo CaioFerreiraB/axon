@@ -415,6 +415,11 @@ A medida veio primeiro (105 US7, R26). O `eval/programa-adultos.yaml` tem 33 ite
 de pergunta. A linha de base é a do 0.11.1 (0,8409), e o CI o roda ao lado dos outros três conjuntos. O
 `scripts/eval_diff.py` mostra o `fact_recall` antes e depois, por item e por grupo, e todo incremento da 106 o mostra
 nos quatro conjuntos.
+A 106 está especificada e planejada (spec reescrita, clarify, `design.md`, plano, contratos e 69 tarefas G1–G6). O
+clarify decidiu que a 103 escolhe os trechos e que os tetos são 3×3 por consulta, com 8 de 20 vagas no total a partir
+do G2. O catálogo curado fica no `organizacao.yaml` mais o `dominio.yaml`, a ementa sai por regra e o modelo entra só
+no resto, e o plano e o papel são da 106. Os encaixes são 101 FR-037, 102 FR-037 e 103 FR-022. A 101 passa a importar
+`rag.graph.api`, com o import-linter ajustado (106 R14).
 
 O ambiente de dev local (`axon-scouting/.cache/dev/
 dev.sh`, fora do git: Postgres e Open WebUI em contêiner, `axon serve` do venv do pack, trace em `.cache/dev/trace/`)

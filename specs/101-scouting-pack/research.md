@@ -671,3 +671,18 @@ seguem no Qdrant embutido com `store: qdrant`.
   presidente em 2015"), a regra do órgão tomaria vagas da ata.
 - **Alternatives**: usar os órgãos da taxonomia (`bodies`), que são pastas: "assembleias" junta a nacional e a
   regional, e a Diretoria Regional não tem seção própria nas normas da pasta dela.
+
+## R44 — `entities` e `plan` na derivação ([ADR-064](../../docs/adr/ADR-064-grafo-de-dominio-e-consultas-no-scouting.md))
+
+- **Decision**:
+  - **O que a derivação publica:** `entities`, pelo `reconhecer` da 106 sobre os `entity_terms` que o `pack.py` injeta,
+    e `plan` (`QueryPlan.to_json()`) pela forma da pergunta. `organs` deixa de ser publicado.
+  - **Imports:** `context/` importa só `axon_scouting.rag.graph.api`. O import-linter põe `context` acima de `rag` e
+    limita esse acesso (106 R14).
+  - **G1:** o plano é o `sobre` dos órgãos, com as mesmas exclusões da R43 (síntese, lista, enumeração, período).
+  - **G2:** entram `para_cada` nos ramos (ADR-045), a interseção de duas entidades e a área.
+  - **G3:** entra `aplicavel_a` com a instituição citada.
+- **Rationale**: o esquema do plano e o reconhecimento são da 106 (clarify da 106, de 2026-11-10). A 101 decide a
+  forma da pergunta, que ela já reconhece.
+- **Alternatives**: a 101 montar um dicionário solto, o que daria duas definições do contrato; ou a 103 montar o
+  plano, que não conhece a forma da pergunta.

@@ -349,3 +349,20 @@ da 005, o N do rerank e o limiar do portão.
   órgão) ficou igual: 0,9236 com e sem. A busca normal e as seções já traziam esses fatos, e as relações só tomariam
   vagas.
 - **Alternatives**: manter as 2 vagas sem ganho medido.
+
+## R23 — A busca executa o plano do grafo ([ADR-064](../../docs/adr/ADR-064-grafo-de-dominio-e-consultas-no-scouting.md))
+
+- **Decision**:
+  - **Composição:** o `ScoutingRetriever` recebe o `DomainGraphSource` (106) no lugar do `NormGraph` e lê o `plan` de
+    `retrieval_filters`.
+  - **Frentes:** para cada grupo das `Frentes`, pega os trechos no `ChunkIndex.get`, escolhe até 3 por documento pelo
+    BM25 de `domain/terms.py` (que fica aqui) e limita o grafo a 8 das 20 vagas, repartidas em `para_cada`.
+  - **Marcas:** `graph_rank`, `graph_query` e `role` nos metadados. O `MetadataReranker` respeita `graph_rank`, como
+    hoje.
+  - **Plano inválido:** só a busca, com aviso.
+  - **Facetas:** a busca por faceta continua, repartindo as vagas que sobram.
+  - **G1:** reproduz o `_by_organ`.
+  - **G4 e G6:** as tools de resumo, lista e unidades viram fachadas.
+- **Rationale**: a clarificação da 106 (Q1, Q2) deixa a escolha dos trechos com quem lida com o texto da pergunta. Os
+  tetos são os do ADR-063 até serem medidos.
+- **Alternatives**: a 106 escolher os trechos; frentes sem teto total.

@@ -831,3 +831,15 @@ inclusive os vetores do e5.
 - **Rationale**: as relações ficam disponíveis no seam (`NormGraph.relations`) para quando a busca precisar delas. O
   cargo leva a pergunta ao órgão certo sem casar "presidente" em todo lugar.
 - **Alternatives**: os apelidos dos cargos (ambíguos entre DR, DEN e Diretoria de Grupo).
+
+## R44 — O grafo sai da 102 ([ADR-064](../../docs/adr/ADR-064-grafo-de-dominio-e-consultas-no-scouting.md))
+
+- **Decision**:
+  - **Vão para `rag/graph/` (106):** `NormGraph`, `NormSection`, `NormRelation`, `rag/index/adapters/graph.py` e
+    `rag/ingestion/domain/graph.py`.
+  - **A 102 continua dona:** do artefato (trechos, árvore, catálogo, vetores) e das fichas.
+  - **O `graph.jsonl`:** fica no diretório do índice, escrito pela 106 com o chunking do manifesto, e a carga recusa o
+    de outro build.
+- **Rationale**: o grafo passa a ter entidades e arestas de todo o acervo, e não só órgão → seção. Ele é consumido
+  pela 101 e pela 103, e mantê-lo no *Índice do scouting* misturaria a ontologia com o armazenamento dos trechos.
+- **Alternatives**: deixar o `NormGraph` na 102 e criar o grafo novo na 106, o que daria dois grafos.
