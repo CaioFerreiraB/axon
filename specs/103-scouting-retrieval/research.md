@@ -331,3 +331,12 @@ da 005, o N do rerank e o limiar do portão.
   - Com as 256 atas, outros órgãos regionais concorriam e caiu para 0,8205; com o filtro por órgão e a ordem por ano,
     voltou a 0,8462.
 - **Alternatives**: vetor de cada resumo pelo e5 (precisa do modelo na seleção e muda o artefato).
+
+## R21 — A busca guiada pelo grafo ([ADR-063](../../docs/adr/ADR-063-grafo-das-normas-por-orgao-no-scouting.md))
+
+- **Decision**: até 3 documentos e 3 trechos por documento, pelo BM25 da pergunta, à frente da busca, sem filtro de
+  tipo.
+- **Rationale**: a pergunta de 08/11 põe o Estatuto Art. 27 em 1º (era 448º no denso) e o Regulamento SP Art. 26 em
+  4º. O acervo foi de 0,8768 a 0,9203, sem item caindo; regressão, síntese e `golden` ficaram iguais.
+- **Alternatives**: a seção inteira (o Art. 28 do Estatuto tem 21 incisos, e o Capítulo III do Regulamento, 7
+  trechos); só a norma do nível da pergunta (perderia o Estatuto).

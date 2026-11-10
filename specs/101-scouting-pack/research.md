@@ -663,3 +663,11 @@ seguem no Qdrant embutido com `store: qdrant`.
   primeira lista.
 - **Alternatives**: classificar a pergunta por modelo (uma chamada a mais); usar o leitor de períodos da vigência (só
   entende "em AAAA").
+
+## R43 — Os órgãos da pergunta ([ADR-063](../../docs/adr/ADR-063-grafo-das-normas-por-orgao-no-scouting.md))
+
+- **Decision**: `organs` pelo nome mais longo do grafo; vazio na síntese, na lista, na enumeração e com período.
+- **Rationale**: "conselho consultivo regional" não pode trazer também o nacional. Na pergunta histórica ("quem foi
+  presidente em 2015"), a regra do órgão tomaria vagas da ata.
+- **Alternatives**: usar os órgãos da taxonomia (`bodies`), que são pastas: "assembleias" junta a nacional e a
+  regional, e a Diretoria Regional não tem seção própria nas normas da pasta dela.

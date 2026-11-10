@@ -170,16 +170,31 @@ denso é 0,887. Descer o índice até parágrafo serve à citação e ao grafo, 
   nunca foi commitada.
 - **Outros conjuntos**: `golden`, regressão (0,9768) e acervo (0,8768) ficaram iguais.
 
-## 8. Próximos passos (para decidir)
+## 8. Fase 2, primeira parte: o grafo das normas por órgão (ADR-063, `axon-scouting` 0.11.0)
 
-1. **Fase 2, o grafo.**
-   - Parágrafo e inciso na árvore (`estrutural-v6`).
-   - `organizacao.yaml` revisado.
-   - Camadas de normas e ponte por regra, mais a extração offline por LLM nas normas vigentes.
-   - Seam `NormGraph`.
-   - Recuperação guiada: o órgão e o cargo da pergunta → `DISCIPLINA` → `INSTANCIA_DE` → `SUBORDINA_SE_A`, nos níveis
-     da pergunta e acima.
-   - É o que resolve a pergunta de 08/11 e garante a hierarquia.
+- **O catálogo de órgãos** é o `corpus/organizacao.yaml`. A ligação `DISCIPLINA` sai por regra, sem modelo, do título
+  das seções das normas vigentes: "Seção III – Da Diretoria Regional" no Estatuto e "Capítulo III – Da Diretoria
+  Regional" no Regulamento SP.
+- **O regulamento cujo título nomeia o órgão vale inteiro**, como o Regulamento Interno do CAN. Saíram 28 seções, em
+  `graph.jsonl`.
+- **Na pergunta**: quando ela nomeia um órgão, a busca traz as seções que o disciplinam, da norma de cima para a de
+  baixo, até 3 trechos por documento, à frente dos outros.
+
+| Medida | Antes | Depois |
+|---|---|---|
+| A pergunta de 08/11: Estatuto Art. 27 §3º | 448º no denso, fora dos 20 | **1º** |
+| A pergunta de 08/11: Regulamento SP Art. 26 | 55º | 4º (com os Arts. 28 e 29) |
+| Acervo (`fact_recall`) | 0,8768 | **0,9203** (a pergunta de 08/11 e a da assembleia extraordinária de 0 a 1; nenhum item cai) |
+| Regressão / síntese / `golden` | 0,9768 / 0,8462 / — | iguais |
+
+## 9. Próximos passos (para decidir)
+
+1. **O resto da Fase 2.**
+   - Parágrafo e inciso na árvore (`estrutural-v6`), para a citação apontar o §3º.
+   - As relações de governança do `organizacao.yaml` (ELEGE, FISCALIZA…) na busca, com as 9 marcadas "a verificar"
+     conferidas.
+   - A extração offline por LLM das ligações que o título não diz.
+   - O cargo na pergunta (hoje vale só o órgão).
 2. **Fase G**: feita (seção 7). Falta a revisão humana por amostra das fichas (`corpus/resumos/atas/`, ~10%) e as
    perguntas de síntese das atas nacionais.
 3. **Se ainda faltar**: as faixas de autoridade e a reescrita da consulta pelo `controller` (core).

@@ -33,6 +33,7 @@ class MetadataReranker:                                      # rag/retrieval/rer
 | US4 — desempate | dois candidatos empatados na fusão: o vigente e específico do ramo fica acima do geral; no máximo `top_k` |
 | US5 — filtros de contexto | `branch="pioneiro"` → pioneiro e gerais; `document_types=["por"]` → só POR |
 | ADR-049 — órgão e abrangência | `bodies=["conselho_de_administracao_nacional"]` → só documentos do CAN; `scopes=["regional"]` → só regionais; `suggested_bodies` não restringe e põe o órgão à frente no empate |
+| ADR-063 — grafo das normas | com `organs` e um `NormGraph`, até 3 documentos e 3 trechos por documento das seções do órgão, com `graph_rank`, à frente dos da busca; sem `organs` ou sem grafo, nada muda |
 | ADR-062 — resumos das atas | sem `synthesis` → `search_summaries` devolve []; com ele, no máximo 10 resumos da abrangência e dos anos pedidos, linhas do tempo em ordem de ano e depois fichas, com `summary_rank` à frente dos trechos; `synthesis` malformado → `InvalidFilters("synthesis", …)` |
 | ADR-061 — recuo e âncora | busca vazia com `bodies` ou `scopes` → refeita sem os dois, com os demais filtros, trechos marcados `relaxed`; `anchor` → busca com a âncora antes da pergunta e com a pergunta sozinha, juntas pela melhor posição (o que a pergunta sozinha acha continua); `anchor` vazio, longo demais ou não texto → `InvalidFilters("anchor", …)` |
 | FR-004 | todo `Chunk` com proveniência completa e `score` em `[0, 1]` |

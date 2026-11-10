@@ -812,3 +812,13 @@ inclusive os vetores do e5.
   ("404 delegados credenciados", "Alexandre Banchi (Diretor-Presidente)").
 - **Alternatives**: resumo em prosa (revisão inviável); vetores para os resumos (artefato e manifesto mudariam a cada
   ata).
+
+## R42 — O grafo das normas por órgão ([ADR-063](../../docs/adr/ADR-063-grafo-das-normas-por-orgao-no-scouting.md))
+
+- **Decision**: `DISCIPLINA` pelo título da unidade de estrutura mais funda e pelo título do regulamento inteiro (só
+  órgãos), em `graph.jsonl`, sem vetores e fora do manifesto.
+- **Rationale**: as normas de organização têm uma seção por órgão. Saíram 28 seções para 21 órgãos e instituições. O
+  regulamento inteiro foi medido: sem ele, as reuniões do CAN (no Regulamento Interno do CAN) caíam de 1 a 0 no acervo;
+  com ele, nenhum item cai.
+- **Alternatives**: extração por LLM (desnecessária onde o título já diz); o documento inteiro também para instituições
+  ("Escoteiros do Brasil" casaria em quase toda pergunta).
