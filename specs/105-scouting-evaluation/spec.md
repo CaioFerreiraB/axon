@@ -147,10 +147,64 @@ não teriam como provar ganho nem como evitar piora.
 
 ---
 
+### User Story 7 - Conjunto de programa, adultos e formas de pergunta (Priority: P1)
+
+Antes de qualquer código do grafo de domínio ([ADR-064](../../docs/adr/ADR-064-grafo-de-dominio-e-consultas-no-scouting.md)),
+o mantenedor tem um conjunto de perguntas sobre programa educativo e gestão de adultos, escritas lendo os documentos.
+Cada forma de pergunta que as consultas do grafo devem atender tem o seu grupo:
+
+- o que é;
+- quem pode e requisitos;
+- duas entidades ao mesmo tempo;
+- lista de documentos;
+- lista de itens;
+- cada ramo e comparação;
+- situada no GE Prof. Inah de Mello;
+- normativa de um órgão;
+- histórico de um cargo, de um órgão ou de um documento;
+- o que mudou numa norma;
+- o que um órgão publicou;
+- obrigatório × recomendado.
+
+A linha de base é gravada com o `scouting` 0.11.1, e cada incremento do grafo mostra o `fact_recall` antes e depois,
+por item.
+
+**Why this priority**: As falhas que restam no 0.11.1 são todas de programa e adultos (requisitos do escotista, cada
+ramo, patrulhas, passagem de ramo), e quatro formas que o ADR-064 cria (situada, histórico de documento, o que mudou
+numa norma, o que um órgão publicou) não estão em nenhum conjunto. Sem medida escrita antes, um incremento do grafo
+não tem como provar ganho, e a metade de controle é o que mostra se ele generaliza.
+
+**Independent Test**: O conjunto é validado sem o core (formato, grupos, controle em cada grupo, fatos no texto do
+artefato) e roda pelo harness da 009 no perfil `test`, com o artefato, o e5 e as quantidades da instalação. O relatório
+traz o `fact_recall` por item, por grupo e agregado, e a linha de base fica gravada.
+
+**Acceptance Scenarios**:
+
+1. **Given** o conjunto escrito, **When** validado, **Then** todo item tem pergunta, data de referência, resposta de
+   referência, grupo, metade (`desenvolvimento` ou `controle`) e ao menos um fato, e todo fato existe no texto do
+   artefato do índice.
+2. **Given** os doze grupos, **When** validado, **Then** cada grupo tem ao menos um item de desenvolvimento e um de
+   controle, e o conjunto tem entre 24 e 36 itens, metade de controle (com folga de um item).
+3. **Given** o `scouting` 0.11.1, sem nenhuma mudança da 106, **When** o conjunto roda, **Then** a linha de base fica
+   gravada e o relatório traz o `fact_recall` de cada item e de cada grupo.
+4. **Given** uma mudança no RAG que faz um fato deixar de chegar, **When** o CI roda, **Then** a regressão
+   determinística do conjunto barra o job, nomeando o grupo.
+5. **Given** um incremento do grafo de domínio (G1 a G6), **When** medido, **Then** o relatório antes/depois mostra o
+   `fact_recall` por item nos quatro conjuntos (acervo, regressão, síntese e programa-adultos).
+
+---
+
 ### Edge Cases
 
 - Pergunta cuja resposta mudou com uma nova versão de documento: o item antigo continua válido na sua data de referência (ADR-013); quando a mudança for relevante, acrescenta-se um item com a data nova, e o histórico é preservado.
 - Item que se revela ambíguo: removido com justificativa registrada.
+- Fato do PDF que a ingestão não reproduz palavra a palavra (hifenização, coluna, OCR): a validação contra o artefato
+  falha nomeando o fato. Ele ganha uma redação alternativa conferida no texto do artefato, ou o item troca de fato. A
+  falha de ingestão fica registrada como achado, e não é escondida.
+- Pergunta do programa-adultos igual ou paráfrase próxima de uma pergunta de outro conjunto: não entra. Cada conjunto
+  mede perguntas próprias, e as falhas do acervo e da regressão continuam medidas lá.
+- Forma que hoje nenhum mecanismo atende (situada, o que mudou numa norma, o que um órgão publicou): o item entra
+  mesmo com `fact_recall` baixo na linha de base. É isso que o incremento correspondente do grafo deve subir.
 
 ## Requirements *(mandatory)*
 
@@ -171,12 +225,39 @@ não teriam como provar ganho nem como evitar piora.
 - **FR-018**: O relatório de cada conjunto DEVE trazer o `fact_recall` por grupo (`extra.group`), ao lado do agregado, e a comparação com a linha de base DEVE nomear o grupo que piorou ([ADR-048](../../docs/adr/ADR-048-arvore-de-unidades-e-enumeracao-no-scouting.md)).
 - **FR-019**: Os itens de especialidades da regressão DEVEM ter, além dos fatos de "como conquistar", fatos da lista (nomes de especialidades de eixos diferentes); o conjunto do acervo DEVE ganhar itens de enumeração tirados de documentos que nenhuma exceção do `estrutura.yaml` declara (atas, políticas, normas, manuais), metade de controle, com os fatos conferidos no texto.
 - **FR-020** ([ADR-062](../../docs/adr/ADR-062-busca-global-pelas-fichas-das-atas-no-scouting.md)): O conjunto `eval/sintese.yaml` (perguntas cuja resposta está espalhada pelas atas, com desenvolvimento e controle em cada grupo) DEVE rodar no workflow de avaliação contra a própria linha de base; um fato pode listar a redação da ata e a forma essencial do mesmo conteúdo, e a comparação antes/depois usa os mesmos fatos.
+- **FR-021** ([ADR-064](../../docs/adr/ADR-064-grafo-de-dominio-e-consultas-no-scouting.md)): O conjunto
+  `eval/programa-adultos.yaml` DEVE ter entre 24 e 36 perguntas sobre programa educativo e gestão de adultos, escritas
+  lendo os PDFs do acervo pelo método do conjunto do acervo (research R22), com os fatos copiados do texto do original
+  e conferidos contra ele. Nenhuma pergunta DEVE repetir ou parafrasear uma pergunta de outro conjunto.
+- **FR-022**: O conjunto DEVE ter um grupo (`extra.group`) para cada uma das doze formas da US7. Em cada grupo DEVE
+  haver ao menos um item de `desenvolvimento` e um de `controle` (`extra.split`), e no total os de controle DEVEM ser
+  metade, com folga de um item. Os grupos situada, histórico, o que mudou numa norma e o que um órgão publicou DEVEM
+  ter fatos de documentos que não são o POR nem o Estatuto:
+  - o estatuto e a política do GE Inah e o regulamento regional;
+  - atas;
+  - resoluções;
+  - documentos emitidos por um órgão.
+- **FR-023**: Todo item DEVE ter data de referência (FR-006), resposta de referência com a fonte (documento e regra,
+  artigo ou página) e ao menos um fato. Todo fato DEVE existir no texto do artefato do índice, e o conjunto DEVE ser
+  validado sem o core, como o do acervo: formato, grupos, controle em cada grupo e fatos.
+- **FR-024**: A linha de base (`eval/programa-adultos-baseline.json`) DEVE ser gravada com o `scouting` 0.11.1, antes
+  de qualquer mudança da 106, nas condições do CI (artefato em memória, e5, gerador simulado do perfil `test`, as
+  quantidades da instalação da research R20).
+- **FR-025**: O workflow de avaliação DEVE rodar o conjunto contra a própria linha de base, ao lado do acervo, da
+  regressão e da síntese. Só as métricas determinísticas barram.
+- **FR-026** ([ADR-064](../../docs/adr/ADR-064-grafo-de-dominio-e-consultas-no-scouting.md)): Todo incremento do grafo
+  de domínio que muda o artefato ou o comportamento DEVE registrar o `fact_recall` antes e depois, **por item**, nos
+  quatro conjuntos: acervo, regressão, síntese e programa-adultos. O incremento que derruba um conjunto não entra sem
+  a investigação registrada.
 
 ### Key Entities
 
 - **Scouting Golden Item**: pergunta, documentos esperados, resposta de referência, citações esperadas, data de referência (obrigatória em todo item) e, em `extra.context`, o contexto esperado da derivação (opcional).
 - **Calibration Decision**: parâmetro, valores comparados, relatório, escolha, data.
 - **Regression Item**: pergunta, data de referência, grupo (`individual`, `agregado`, `comparativo`, `normativo`) e os fatos que precisam chegar à geração.
+- **Program-Adults Item**: pergunta, data de referência, resposta de referência com a fonte, grupo (uma das doze
+  formas da US7), metade (`desenvolvimento` ou `controle`) e os fatos que precisam chegar à geração, conferidos no PDF e
+  no artefato.
 
 ## Success Criteria *(mandatory)*
 
@@ -186,9 +267,17 @@ não teriam como provar ganho nem como evitar piora.
 - **SC-002**: 100% das decisões de calibração têm relatório antes/depois.
 - **SC-003**: A decisão de embedding é tomada com dados de pelo menos dois candidatos.
 - **SC-004**: A linha de base do conjunto de regressão é registrada antes de qualquer correção estrutural do RAG (102, 101, 103), e cada correção mostra o `fact_recall` antes e depois.
+- **SC-005**: A linha de base do programa-adultos é registrada antes da primeira mudança da 106, e as doze formas da
+  US7 têm cada uma ao menos dois itens medidos.
+- **SC-006**: 100% dos incrementos do grafo de domínio têm o relatório antes/depois por item nos quatro conjuntos. O
+  G1, que só muda o código de lugar, dá números idênticos aos do 0.11.1 nos quatro.
 
 ## Assumptions
 
 - As perguntas da versão curada vêm de dúvidas reais de escotistas e dirigentes, coletadas pelo mantenedor, depois do desenvolvimento; até lá vale a semente provisória (FR-001).
 - A avaliação roda dentro de uma imagem de instalação que contém o `axon-ai` e o `axon-scouting` (ex.: `axon eval run`); o `axon-scouting` continua dependendo só de `axon-ai-contracts`. Na Fase 6 a CI e o mantenedor rodam pelo grupo `platform`; a imagem ganha o core com o harness numa passada de encaixe da 002 (research R9).
 - Faixas iniciais: 20–30 candidatos, 3–8 após rerank, 300–600 tokens para narrativo.
+- O programa-adultos (US7) é escrito agora, durante o desenvolvimento, como o acervo e a síntese, e não espera a
+  curadoria das perguntas reais (FR-001). Ele mede a recuperação pelos fatos e não serve para calibrar números.
+- Os itens obrigatório × recomendado medem por `fact_recall` se a regra chegou. A separação na resposta, pela
+  fidelidade do juiz, é a rodada manual do G7, opcional (ADR-064).

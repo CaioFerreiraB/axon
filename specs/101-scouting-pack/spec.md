@@ -257,6 +257,14 @@ o juiz não aponta troca de conceito.
 - **FR-034** ([ADR-062](../../docs/adr/ADR-062-busca-global-pelas-fichas-das-atas-no-scouting.md)): A derivação DEVE publicar `synthesis: {year_from, year_until, scopes, bodies}` quando a pergunta tem um marcador de síntese ou uma palavra de reunião com ano citado, e nada na pergunta pontual; os anos são o menor e o maior citados ("desde" vai até o ano de referência, "anos 2000" é a década).
 - **FR-035** ([ADR-062](../../docs/adr/ADR-062-busca-global-pelas-fichas-das-atas-no-scouting.md)): O prompt DEVE orientar a responder a síntese pelos resumos das atas em ordem de data, com a ata e a página de cada fato, citando o resumo e nunca o apresentando como regra.
 - **FR-036** ([ADR-063](../../docs/adr/ADR-063-grafo-das-normas-por-orgao-no-scouting.md)): A derivação DEVE publicar `organs` — os tipos de órgão ou instituição que a pergunta nomeia, pelo nome mais longo, com os termos do grafo das normas que o pack injeta no léxico — e nenhum na síntese, na lista, na enumeração ou na pergunta com período.
+- **FR-037** ([ADR-064](../../docs/adr/ADR-064-grafo-de-dominio-e-consultas-no-scouting.md), substitui a FR-036): A derivação DEVE publicar, em `retrieval_filters`, `entities` e `plan`, no
+  lugar de `organs`.
+  - **`entities`:** os ids das entidades do grafo de domínio que a pergunta nomeia, pelo `reconhecer` da 106 sobre os
+    termos que o pack injeta no léxico (`entity_terms`, sucessor de `organ_terms`).
+  - **`plan`:** um `QueryPlan` da 106, escrito pela forma da pergunta: a síntese, a lista, a enumeração, os ramos
+    (`para_cada`), a instituição e o período.
+  - **Imports:** a derivação continua pura e importa só o `api.py` da 106.
+  - **G1:** é só `sobre` dos órgãos nomeados com `papeis=["norma"]`, vazio onde `organs` era vazio.
 
 ### Key Entities
 

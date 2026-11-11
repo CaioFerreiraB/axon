@@ -403,3 +403,67 @@ Artefato `scouting__20261028T…` (639 documentos, 15.607 trechos, nenhum acima 
   Bauru/SP" vira "…, Bauru/SP"). A alternativa essencial aceita o mesmo conteúdo, e a medição sem resumos com os mesmos
   fatos dá os mesmos 0,4551.
 - **Alternatives**: medir pelo juiz (não determinístico, fora do CI).
+
+## R26 — O conjunto de programa, adultos e formas de pergunta ([ADR-064](../../docs/adr/ADR-064-grafo-de-dominio-e-consultas-no-scouting.md))
+
+- **Decision**: `eval/programa-adultos.yaml`, escrito antes de qualquer código da 106, pelo método da R22:
+  - **perguntas** escritas lendo os PDFs de programa educativo e de gestão de adultos, e também as atas, as resoluções e
+    os documentos do GE Inah, que as formas novas pedem;
+  - **fatos** copiados do texto do original e conferidos contra ele e contra o texto do artefato;
+  - **tamanho**: 24 a 36 itens, metade de controle;
+  - **grupos** pelas doze formas da seção 11.6 do [relatório do grafo](../../docs/avaliacao-grafo-rag-scouting-2026-11.md):
+    `o_que_e`, `requisitos`, `duas_entidades`, `lista_documentos`, `lista_itens`, `cada_ramo`, `situada`, `orgao`,
+    `historico`, `mudanca`, `publicacoes` e `obrigatorio`.
+
+  A linha de base (`eval/programa-adultos-baseline.json`) é a do `scouting` 0.11.1, nas condições do CI (R20: 20
+  candidatos, 20 trechos, 64 KiB). O workflow `eval` ganha um passo igual ao do acervo. O `scripts/eval_diff.py` lê dois
+  relatórios e lista, por item e por grupo, o `fact_recall` que mudou: é o "antes e depois por item" da FR-026, que o
+  `axon eval compare`, só com agregados, não mostra.
+- **Rationale**:
+  - As falhas do 0.11.1 são de programa e adultos, e as formas que o ADR-064 cria não estão em nenhum conjunto.
+    Escrever a medida antes do código é o que impede de escolher as perguntas pelo que o grafo já acerta (decisão 3
+    do mantenedor).
+  - As falhas do acervo e da regressão continuam medidas nos conjuntos delas. Repeti-las aqui contaria a mesma falha
+    duas vezes, por isso o conjunto novo só tem perguntas próprias.
+  - O grupo `obrigatorio` mede só se a regra chega à geração. A separação na resposta é do juiz, no G7.
+- **Alternatives**:
+  - acrescentar as perguntas ao `acervo.yaml`: misturaria uma linha de base gravada antes do grafo com uma de 0,92 que
+    já absorveu os ADRs 061 a 063;
+  - gerar as perguntas por modelo: R22;
+  - um conjunto só com as formas novas: sem controle das formas que já funcionam, um incremento poderia piorá-las sem
+    aparecer.
+- **Medido (2026-11-10), a linha de base:**
+  - **Condições:** `scouting` 0.11.1 (`cddba46`) nas condições do CI, com 29 itens (15 de desenvolvimento, 14 de
+    controle) e 58 fatos, todos conferidos no PDF e no artefato.
+  - **Resultado:** `fact_recall` 0,8362, sem item inválido. Desenvolvimento 0,794, controle 0,881.
+  - **Abaixo de 1:**
+    - `adultos-numa-atividade` 0,0: o mínimo de 2 escotistas e o 1 para 6 dos Padrões de Atividades;
+    - `regulamento-do-forum-pioneiro` 0,0: a ata da reunião extraordinária de 2025;
+    - `nome-do-chefe-de-cada-ramo` 0,25: os perfis de cargo por ramo;
+    - `documentos-para-abrir-secao` 0,33;
+    - `sedes-do-forum-pioneiro` e `dr-sp-cursos-distritais` 0,5;
+    - `instrucoes-normativas-sp` 0,67.
+  - **Por grupo:** `historico` 0,50, `lista_documentos` 0,50, `cada_ramo` 0,625, `obrigatorio` e `publicacoes` 0,75,
+    e os outros sete em 1,0.
+- **Achados:**
+  - **`situada` e `mudanca` já dão 1,0.** A pergunta nomeia o GE, ou o ramo e a regra, e a busca híbrida acha o trecho.
+    O ganho do G3 e do G5 vai aparecer em perguntas que exigem a hierarquia (a norma local **e** a de cima) ou a
+    ligação entre documentos sem o nome dela, e não nestas.
+  - **A Resolução CAN 11/2021 alterou a "Regra 178"**, que no POR 2025 é a 183 (Distintivos de Idiomas): a numeração
+    mudou. O `ALTERA` por regra (G5) precisa casar pelo título, e não só pelo número.
+  - **As instruções normativas da DR-SP têm o tipo `Resolução`** na taxonomia. Para o papel (ADR-064), são normas.
+  - **Ingestão:** a nota de rodapé colada ao texto ("3A IM se refere…") e as ligaduras perdidas nas atas de 2025
+    ("oûcial") pediram fatos sem essas palavras.
+- **Os outros conjuntos, sem mudança de código,** repetem as linhas de base item a item: acervo 0,9236, regressão 0,9768
+  e síntese 0,8462.
+- **Itens mais difíceis (2026-11-10, a pedido do mantenedor), ainda no 0.11.1:**
+  - **Situada com a hierarquia:** `inah-balanco-rejeitado` (estatuto do GE **e** Estatuto da UEB, art. 32, V) e
+    `inah-voto-dos-jovens` (estatuto do GE e o art. 33, V da UEB).
+  - **Mudança sem o número da regra:** `mudanca-distintivo-de-recrutador` (CAN 03/2023, a então Regra 191, hoje outra
+    no POR 2025) e `mudanca-tribo-da-terra` (CAN 05/2022, que remete à CAN 03/2021).
+  - **Linha de base regravada:** 33 itens (17 de desenvolvimento, 16 de controle), `fact_recall` **0,8409**, e os 29
+    anteriores sem mudança.
+  - **Resultado dos novos:** só `inah-balanco-rejeitado` fica abaixo de 1 (0,5): chega o estatuto do GE, e não o artigo
+    da UEB. É o caso do `aplicavel_a` (G3). Os outros três dão 1,0, porque a pergunta nomeia o assunto (o distintivo,
+    a Tribo da Terra, o GE) e a busca acha a resolução e o estatuto sozinha. `situada` fica em 0,90 e `mudanca` em 1,0.
+

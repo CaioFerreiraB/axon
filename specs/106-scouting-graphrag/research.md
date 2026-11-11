@@ -1,0 +1,572 @@
+# Research — 106 Grafo de domínio e consultas do scouting
+
+Decisões pré-aprovadas pelo [ADR-064](../../docs/adr/ADR-064-grafo-de-dominio-e-consultas-no-scouting.md) e pela
+clarificação de 2026-11-10, levadas aqui sem re-pesquisa. Os números de base são os do `scouting` 0.11.1: acervo
+0,9236, regressão 0,9768, síntese 0,8462 e programa-adultos 0,8409 (105 R26).
+
+## R1 — A 106 é o módulo do grafo, e não um retriever
+
+- **Decision**: a 106 fica com a ontologia, a construção offline, o grafo em memória, as consultas, o plano e o
+  executor, em `rag/graph/`, e expõe o seam *Grafo de domínio*. A 103 continua sendo o retriever e o consome. A 101 o
+  consome pela composição do `pack.py`.
+- **Rationale** (ADR-064, item 1): o ganho medido nos ADRs 045 a 063 veio de frentes à frente da busca, e não de outra
+  busca. Um retriever concorrente duplicaria a busca híbrida, os filtros e o reranker.
+- **Alternatives**: a 106 como retriever substituto, que era o rascunho de 2026-09; manter os cinco mecanismos
+  separados. As duas foram rejeitadas no ADR-064.
+
+## R2 — A migração do `NormGraph` (G1)
+
+- **Decision**: `NormGraph`, `NormSection`, `NormRelation`, o `ArtifactGraph`, `rag/ingestion/domain/graph.py` e a
+  montagem do `scripts/grafo.py` passam para `rag/graph/`. O `graph.jsonl` é regravado no v2. A 101 troca `organs` por
+  `entities` e `plan`, e a 103 executa o plano com a ordem e os tetos do `_by_organ`. O G1 é provado de dois jeitos:
+  - os quatro conjuntos com o mesmo `fact_recall` em todos os itens;
+  - um teste que compara os `chunk_id` à frente, antes e depois, para as perguntas do acervo.
+- **Rationale** (ADR-064, item 2; FR-015; SC-001): mudar a arquitetura e o comportamento ao mesmo tempo confunde efeito
+  com causa.
+- **Alternatives**:
+  - manter o `NormGraph` na 102 e criar o grafo novo ao lado: dois grafos;
+  - migrar já no G2: a primeira medida misturaria a migração com o ganho.
+
+## R3 — O papel do tipo de documento
+
+- **Decision**: a tabela de papéis fica no `api.py` da 106 (`ROLES`, por `taxonomy_id`):
+  - `norma`: estatuto, por, regulamento, resolucao, politica, lei;
+  - `orientacao`: manual, planejamento_estrategico;
+  - `registro`: ata, parecer, relatorio, manifestacao;
+  - `comunicacao`: oficio, edital, boletim, posicionamento, recomendacao, apresentacao.
+
+  Um tipo sem papel falha o build. O papel chega ao trecho pela 103 (`role`).
+- **Rationale** (ADR-064, item 3; clarify Q5): o papel serve para filtrar, ordenar e orientar o prompt. Mantê-lo na 106
+  não muda o seam nem o artefato da 102. As instruções normativas da DR-SP estão com o tipo `resolucao` na taxonomia e
+  são normas (105 R26).
+- **Alternatives**: o papel como campo do catálogo da 102 (mudaria o seam e regravaria o artefato); papel por
+  documento (são 642 linhas curadas contra 18).
+
+## R4 — Ontologia: ids, tipo e instância, sem pessoas
+
+- **Decision**:
+  - **Ids:** `tipo_inst:`, `tipo_orgao:`, `inst:`, `orgao:`, `cargo:`, `ramo:`, `secao:`, `area:`, `conceito:` e
+    `doc:`.
+  - **Nós do acervo:** a unidade pelo `unit_id` do artefato (`<doc_key>#u/…`, único), a versão pelo `doc_key` e o
+    evento por `evento:<doc_key>#<n>`.
+  - **Tipo e instância:** são distintos e se ligam por `INSTANCIA_DE`. `sobre` de uma instância inclui o tipo dela.
+  - **Ids do G1:** os de hoje, `tipo_orgao:<slug>` e `tipo_inst:<slug>`.
+- **Rationale** (ADR-064, item 4; decisões 1 e 2 do mantenedor): a norma disciplina o tipo, e a ata registra a
+  instância. O `unit_id` do artefato já é único, então não há id novo para manter.
+- **Alternatives**:
+  - um id só para tipo e instância: a DR-SP e "a Diretoria Regional" do Estatuto seriam a mesma coisa;
+  - pessoas como nós: rejeitado no ADR-064.
+
+## R5 — O catálogo curado em dois arquivos
+
+- **Decision**: os dados curados ficam em dois arquivos.
+  - `corpus/organizacao.yaml` fica com a organização: tipos de instituição e de órgão, `instituicoes` e `orgaos` (a
+    partir do G3, só com fonte), cargos e relações de governança. O cabeçalho de "rascunho" sai.
+  - `corpus/dominio.yaml`, novo, fica com o programa: `ramos` (saem do `organizacao.yaml`), `secoes`, `areas`,
+    `conceitos`, e as arestas `REGE`, `DE_RAMO` e `ATUA_EM`.
+
+  Toda entrada tem `fonte`. A que tiver `fonte: a verificar` não entra no grafo, como hoje.
+- **Rationale** (clarify Q3): a divisão é por tema. O `organizacao.yaml` já tem o formato e a conferência das fontes de
+  governança, e o programa é curado separadamente. O ADR-064 deixava o arquivo ao clarify.
+- **Alternatives**: um arquivo só, que era a recomendação do plano e não foi escolhida.
+
+## R6 — `SOBRE` e as regras de aresta
+
+- **Decision**: a aresta `SOBRE(modo)` vai da unidade à entidade, e o modo vem do papel. As regras, em ordem:
+  1. o título da unidade nomeia a entidade, pelo nome mais longo (ADR-063);
+  2. o regulamento cujo título nomeia um órgão vale inteiro (ADR-063);
+  3. `branches` da unidade → `ramo:`;
+  4. `kind` da unidade → `conceito:` (especialidade, etapa, bloco, insígnia, cargo);
+  5. a categoria da taxonomia → `DE_AREA`;
+  6. nas atas, o tema e a decisão de cada item da ficha, pelo `reconhecer` (G4);
+  7. nas resoluções, a ementa (G5, R12).
+
+  Instituições nunca valem pelo título do documento.
+- **Rationale** (ADR-064, itens 4 e 7; ADR-063; 102 R42): os títulos e a árvore já dizem a maior parte, a regra é
+  determinística e testável, e o ADR-063 mediu o "documento inteiro" para órgãos.
+- **Alternatives**: extração de esquema livre por LLM (rejeitada no ADR-064); só o título, sem `branches` nem `kind`
+  (perderia os guias, em que o ramo é o documento).
+
+## R7 — Sete consultas com nome
+
+- **Decision**: `reconhecer`, `sobre`, `aplicavel_a`, `documentos`, `itens`, `linha_do_tempo` e `ligados`, puras, em
+  `domain/queries.py`, com as assinaturas do design.md (seção 3). Elas devolvem `Evidence`, e não trechos. O
+  `reconhecer` também fica exposto no `api.py`.
+- **Rationale** (ADR-064, item 5): as formas de pergunta dos conjuntos cabem nelas (relatório, 11.6), e cada uma
+  generaliza um mecanismo de hoje.
+- **Alternatives**: uma linguagem de consulta (Cypher, SPARQL) ou consultas escritas por modelo, rejeitadas no ADR-064.
+
+## R8 — O plano em `retrieval_filters`
+
+- **Decision**: o plano viaja em `retrieval_filters.plan` como `QueryPlan.to_json()`, e as entidades em `entities`.
+  - **Esquema:** fechado, com versão 1, e é da 106 (`contracts/query-plan.schema.json`).
+  - **Ausente ou vazio:** só a busca.
+  - **Inválido:** só a busca, com um aviso no log que nomeia o campo, e nunca erro ao usuário.
+  - **Chaves do filtro:** `entities` e `plan` entram no `KNOWN` da 103, e `organs` sai.
+- **Rationale** (ADR-064, item 6; clarify Q5): core e contratos não mudam. O plano é um otimizador, e sem ele a
+  resposta continua correta. Os filtros restringem a busca e, errados, mudariam a resposta, por isso falham explícitos
+  (103 FR-007).
+- **Alternatives**:
+  - recusar o plano inválido como os filtros: troca uma resposta boa por erro;
+  - um campo no contrato 001: mudaria os contratos.
+
+## R9 — O executor, os tetos e quem escolhe os trechos
+
+- **Decision**: o executor aplica as formas `simples`, `para_cada` e `intersecao`. Ele ordena por papel, nível e data,
+  corta em até 3 documentos por consulta e devolve todos os trechos de cada unidade.
+  - **A 103 escolhe os trechos:** até 3 por documento, pelo BM25 dela (`rag/retrieval/domain/terms.py`).
+  - **Teto total:** 8 das 20 vagas para o grafo, repartidas por entidade em `para_cada`, a partir do G2. O G1 fica com
+    3 × 3, como o ADR-063, para ser idêntico (analyze I1).
+  - **Facetas:** a busca por faceta (ADR-045) continua na 103, e o `facet_rank` passa a ser `para_cada` sobre os ramos.
+- **Rationale** (clarify Q1 e Q2; ADR-063; ADR-045): a 106 não lida com o texto da pergunta além do `reconhecer`, e os
+  tetos de hoje são o ponto de partida medido. O teto total protege a busca, que acerta a maior parte.
+- **Alternatives**:
+  - a 106 escolher os trechos: levaria o BM25 para lá, ou o duplicaria;
+  - sem teto total: um plano de 3 consultas tomaria as 20 vagas;
+  - 10 de 20.
+
+## R10 — O artefato `graph.jsonl` v2
+
+- **Decision**: um registro JSON por linha:
+  - `meta`, com a versão 2, o chunking do índice e o sha256 dos YAML curados;
+  - `entity`;
+  - `version`;
+  - `unit`, só as usadas por alguma aresta;
+  - `edge`;
+  - `event`.
+
+  O arquivo fica fora do manifesto, ao lado do índice. Na carga, um chunking diferente do manifesto é recusado com uma
+  mensagem que manda rodar `scripts/grafo.py build`. Um arquivo ausente vale como grafo vazio, como hoje.
+- **Rationale** (ADR-064, item 2; relatório, seção 6): o formato é diffável, carrega em dicionários e é o mesmo
+  mecanismo do `summaries.jsonl`. A recusa evita um grafo que aponta para trechos de outro build.
+- **Alternatives**: SQLite, ou o LlamaIndex `SimplePropertyGraphStore`, rejeitados no ADR-064 e no relatório, seção 6;
+  pôr o grafo no manifesto, o que obrigaria a reindexar para mudar um apelido.
+
+## R11 — Armazenamento em memória, sem serviço
+
+- **Decision**: o `DomainGraph` é formado por dicionários imutáveis, montados uma vez por processo pelo
+  `DomainGraphService` com uma trava, como o `ArtifactGraph` de hoje.
+- **Rationale** (ADR-064, alternativas; relatório, seção 6): são poucos MB e travessias de 1 a 5 saltos.
+- **Alternatives**: Neo4j (um serviço JVM de cerca de 1 GB numa VM pequena), SQLite, networkx (dependência para o que
+  dicionários fazem).
+
+## R12 — Fontes, origens e o modelo offline
+
+- **Decision**: toda aresta e toda entidade curada têm `source` e `origin` (`curado`, `regra` ou `modelo_conferido`).
+  - **Ementas (G5):** primeiro a regra, na primeira frase. Mede-se quantas ficam sem assunto, e só nessas roda o
+    `gpt-4.1-mini` pelo OpenRouter, com a chave só no ambiente e o custo estimado e aprovado antes.
+  - **Conferência:** a saída do modelo é conferida contra a página por código, como as fichas do ADR-062. O que não
+    confere não entra, e fica no relatório do build.
+- **Rationale** (ADR-064, item 7; clarify Q4; ADR-062): regra antes de modelo e modelo só conferido, com o mesmo
+  mecanismo, já medido, das fichas.
+- **Alternatives**: só regra (deixaria resoluções sem assunto); modelo em todas (menos determinístico onde a regra
+  basta).
+
+## R13 — Portas e adapters
+
+- **Decision**: o seam `DomainGraphSource` é implementado pelo `DomainGraphService` (`service.py`). As portas
+  secundárias são:
+  - `GraphStore`, com o `ArtifactGraphStore` e o `MemoryGraphStore`;
+  - `GraphSources`, offline, com o `ArtifactSources`;
+  - `ResolutionSummarizer`, offline, com o adapter do OpenRouter e um simulado.
+
+  As consultas, o executor, as regras de aresta e os papéis ficam puros no `domain/`.
+- **Rationale** (ADR-012; constituição XIII): há porta só onde há I/O. O mesmo serviço roda sobre o artefato e sobre a
+  memória, para a conformidade.
+- **Alternatives**: o adapter implementar o seam direto, como o `ArtifactGraph` faz hoje com o `NormGraph`. Funciona,
+  mas a conformidade passaria a testar a leitura do arquivo junto com as consultas.
+
+## R14 — Import-linter
+
+- **Decision**:
+  - **Camadas do pack:** o contrato "só o pack.py compõe" passa a pôr `context | prompts | validators` acima de
+    `rag`.
+  - **Limite da 101:** um `forbidden` limita `axon_scouting.context` a `axon_scouting.rag.graph.api`, proibindo
+    `rag.index`, `rag.retrieval`, `rag.ingestion`, `rag.graph.domain` e `rag.graph.adapters`.
+  - **Camadas da 106:** `adapters` > `service` > `ports | domain` > `api`.
+  - **`api.py`:** não importa o resto do módulo.
+  - **Infraestrutura:** `yaml` e o SDK do modelo, só em `rag.graph.adapters`.
+  - **Fora da 106:** os outros módulos importam só `rag.graph.api`.
+- **Rationale** (constituição II e XIII; clarify Q5): a 101 escreve o plano com o esquema da 106, e nada em `rag/`
+  importa `context/` hoje.
+- **Alternatives**: a 101 montar o plano como dicionário solto, sem importar a 106: duas definições do contrato.
+
+## R15 — Medida e versões
+
+- **Decision**:
+  - **Medida:** todo incremento roda os quatro conjuntos e mostra o `fact_recall` antes e depois, por item e por
+    grupo (`scripts/eval_diff.py`, 105 FR-026).
+  - **Bloqueio:** o que derruba um conjunto (abaixo da linha de base, tolerância 0,02) não entra.
+  - **Versão:** cada incremento que muda o artefato ou o comportamento é um `scouting` menor, a partir do 0.12.0.
+  - **Linhas de base:** são regravadas só com o aval do mantenedor, na PARADA 4.
+- **Rationale** (ADR-064, consequências; plano SDD, seções 4 e 5).
+- **Alternatives**: medir só o agregado, que esconde as quedas de item (105 R23).
+
+## R16 — A consulta livre do mantenedor
+
+- **Decision**: o `scripts/grafo.py` tem três subcomandos.
+  - `query <consulta> <args>` roda as mesmas funções pelo `DomainGraphService` e imprime a evidência com a fonte e a
+    origem de cada aresta.
+  - `export --arrows [--entidade X --saltos N]` grava o subgrafo no JSON do arrows.app, o mesmo formato de
+    `corpus/Organização Escoteira.revisado.json`.
+  - `build` monta o grafo e imprime o relatório: contagens por aresta e origem, e o que ficou de fora e por quê.
+- **Rationale** (ADR-064, consequências; relatório, seção 6): ver o grafo real no editor em que o planejado foi
+  desenhado substitui o que o Neo4j daria.
+- **Alternatives**: Neo4j local, ou SQLite para exploração. São possíveis offline, mas fora desta fase.
+
+## R17 — Facetas como `para_cada`
+
+- **Decision**: no G2, a derivação escreve `para_cada(branches, sobre([ramo]))` quando publica `branches` (ADR-045).
+  - **Na 103:** a busca por faceta continua (uma busca por ramo, intercaladas), agora repartindo as vagas que sobram
+    das frentes do grafo.
+  - **Marcas:** `facet_rank` e `facet_order` continuam nos metadados, para o `MetadataReranker` não mudar.
+- **Rationale** (ADR-064, item 5; ADR-045): o ramo é uma entidade como as outras, e a busca por faceta é o que fez
+  `fact_recall` ir a 0,81 em 2026-10, então ela não sai.
+- **Alternatives**: trocar a busca por faceta só pelo grafo. Perderia os trechos que o grafo não liga a um ramo
+  (`branches` vazio).
+
+## R18 — O G1 medido: o grafo v2 sem mudar nada (2026-11-10)
+
+- **Decision**: o G1 entrou como o `scouting` 0.12.0.
+  - **A 106 de pé:** o seam *Grafo de domínio*, o `DomainGraphService` sobre o `ArtifactGraphStore` e as portas
+    `GraphStore` e `GraphSources` com adapters em memória e conformidade.
+  - **O `graph.jsonl` v2:** 36 entidades (27 tipos de órgão e de instituição com os termos de hoje e 9 cargos sem
+    termos, só para as pontas da governança), 642 versões com papel, 28 seções com `CONTEM` e `SOBRE` (modo
+    `disciplina`) e as 22 relações de governança.
+  - **Nos consumidores:** a derivação publica `entities` e `plan`, e o retriever executa o plano (`_by_plan`), sem
+    teto total.
+- **Medido**, nas condições da CI (perfil `test`, e5, 20 candidatos e 20 trechos), com o `eval_diff.py`:
+  - **acervo, regressão, síntese e programa-adultos:** "Nenhum item mudou", com 0,9236, 0,9768, 0,8462 e 0,8409;
+  - **semente:** recall@5 0,6667, MRR 0,5509 e `context_accuracy` 0,90, iguais;
+  - **identidade dos trechos:** `tests/rag/graph/test_g1_identity.py`, com as 122 perguntas dos quatro conjuntos
+    (17 delas com trechos do grafo), os mesmos `chunk_id` à frente, na mesma ordem;
+  - **termos, seções e relações:** os do v1, conferidos linha a linha antes de apagá-lo;
+  - **tempo das consultas:** abaixo de 50 ms (`test_graph_timing.py`, SC-008);
+  - **verificação do pack:** 1.180 testes, 11 de integração, mypy, ruff e os 15 contratos do import-linter passam.
+- **Dois pontos de implementação**, que o contrato do `graph.jsonl` passa a dizer:
+  - **Fonte das entidades curadas.** A fonte de um tipo de órgão é a própria entrada do catálogo
+    (`organizacao.yaml:tipos_de_orgao/<id>`). O `instituido_em` "a verificar" de alguns órgãos (o Conselho Regional
+    Jovem, a Comissão Regional Pioneira) não os tira do grafo, o que mudaria o reconhecimento de hoje.
+  - **Ordem das entidades.** Elas ficam no arquivo na ordem do catálogo, e não pela chave. Essa ordem desempata o
+    reconhecimento quando dois termos de mesmo tamanho casam (101 R43).
+- **A referência do G1** (`tests/rag/graph/fixtures/g1_reference.json`) foi gravada com o código do 0.11.1 antes da
+  migração. Para cada pergunta, ela guarda a derivação com `organs` e o `_by_organ` sobre o artefato, com o embedder
+  de teste: os trechos do grafo vêm do `get` e do BM25 e não dependem do denso. O gerador não foi commitado, porque
+  importava o `NormGraph`, que saiu.
+- **Rationale**: a mudança de arquitetura sem mudança de comportamento é o que permite medir o G2 contra uma base limpa
+  (R2, SC-001).
+
+## R19 — O G2 medido: entidades de programa e adultos, `todas` e `para_cada` (2026-11-11)
+
+- **Decision**: o G2 entra como o `scouting` 0.13.0, depois de dez rodadas medidas.
+  - **O que foi construído:**
+    - `corpus/dominio.yaml` com 5 ramos, 5 seções, 3 áreas e 20 conceitos, mais os 8 cargos de programa e adultos no
+      `organizacao.yaml`, cada entrada com fonte;
+    - `SOBRE` por regra, com 1.611 arestas. O título real da regra do POR sai do texto ("REGRA 080 PATRULHA NO RAMO
+      ESCOTEIRO"), o manual de um ramo vale inteiro para o ramo, e há `DE_AREA`, `REGE`, `DE_RAMO` e `E_UM`;
+    - `sobre` em camadas: as unidades diretas e as das seções, depois as do termo genérico, por último o documento
+      inteiro das áreas que regem a entidade;
+    - o `modo=todas`, que vale pelo caminho da unidade e prefere a unidade que nomeia tudo no próprio caminho à que só
+      herda o documento do ramo;
+    - as formas `para_cada` e `intersecao`.
+  - **"Adultos" é o termo genérico de escotista e dirigente** (pedido do mantenedor em 2026-11-11). A aresta curada
+    `E_UM` liga escotista e dirigente a adulto (`abrange` no `dominio.yaml`). O que vale para os adultos vale para
+    cada um, e a unidade sobre escotistas satisfaz "adulto" no `todas`.
+  - **O plano, pela forma da pergunta (101 R44):**
+    - **com órgão:** o plano do ADR-063, até o G3;
+    - **"cada ramo":** `para_cada` ramo, com `todas`;
+    - **ramo com entidade, ou duas entidades:** `todas`, e, com duas entidades, também a consulta de cada uma;
+    - **uma entidade sozinha:** sem plano.
+  - **Quem escolhe na 103 (103 R23)** (aprovado pelo mantenedor em 2026-11-11, item 1):
+    - **Corte em documentos.** O executor entrega toda a evidência, na ordem do papel, do nível e da camada. A 103
+      corta em 3 documentos por grupo, ordenando por relevância à pergunta dentro do mesmo papel, nível e camada.
+    - **Trechos.** Dentro de cada documento, a 103 escolhe os 3 trechos pela posição numa busca híbrida funda
+      (`GRAPH_DEPTH`, 200), com o melhor primeiro (aprovado no item 2). O BM25 fica só como desempate.
+    - **Vagas.** As 8 vagas se repartem sem passar do total.
+- **Medido** (perfil `test`, e5, 20 candidatos e 20 trechos), contra o 0.11.1:
+
+  | Conjunto | 0.11.1 | G2 | Itens que mudaram |
+  |---|---|---|---|
+  | acervo | 0,9236 | **0,9549** | `patrulhas-escoteiro-e-senior` 0,5 → 1,0; `reconhecimento-de-cada-ramo` 0,5 → 1,0; `requisitos-do-escotista` 0 → 0,5 |
+  | regressão | 0,9768 | 0,9696 | `marco-5-ramos` 0,8 → 1,0; `marco-cada-ramo` 1,0 → 0,8; `marco-ramos-nomeados` 0,8 → 0,6 |
+  | síntese | 0,8462 | 0,8462 | nenhum |
+  | programa-adultos | 0,8409 | **0,8485** | `nome-do-chefe-de-cada-ramo` 0,25 → 0,5 |
+  | semente | recall@5 0,667, MRR 0,551 | iguais | — |
+
+  - **Os 10 itens-alvo:** média de 0,568 para 0,719. Três chegaram a 1,0 (patrulhas, reconhecimentos e marco dos 5
+    ramos). **O SC-004 (metade em 1) não foi cumprido.**
+  - **Linhas de base:** regravadas com o aval do mantenedor. A regressão fica 0,007 abaixo, dentro da tolerância.
+- **O que as rodadas ensinaram:**
+  1. **Uma entidade sozinha atrapalha.** Um conceito ou cargo sozinho é amplo demais. "Como é feito o Sinal de
+     Promessa?" foi de MRR 1,0 a 0,25 na semente.
+  2. **A ordem alfabética dos documentos derrubava o marco.** Dentro do mesmo papel e nível, os documentos ficavam na
+     ordem do `doc_key`, sem relação com a pergunta.
+  3. **O BM25 da pergunta dentro da unidade erra o trecho.** A busca híbrida acerta mais. Dentro de cada documento, o
+     melhor trecho tem de vir primeiro: a ordem do id da unidade punha "capítulo 12" antes de "capítulo 2".
+  4. **"Cada ramo" com 5 ramos é uma troca de qualidade.** O trecho do grafo toma o lugar do 4º trecho da faceta. Ele
+     ganha nos reconhecimentos e perde no marco simbólico, nos ramos Sênior e Pioneiro.
+  5. **O salto pela área e a ordem por nível só para órgãos não mudaram nenhum número.** O salto fica, porque está no
+     ADR-064. A ordem por nível só para órgãos foi desfeita.
+- **Pendências:**
+  - o fato da Política de Espaços Seguros no `requisitos-do-escotista` (a seção 8.2 fica em 173º na busca, abaixo de
+    outras políticas);
+  - `blocos-escoteiro-e-senior`, `passagem-senior-pioneiro`, `tamanho-das-equipes` e `patrulha-sem-adultos`;
+  - o prompt pelo papel (T042), que pede uma rodada com modelo real e ficou para depois.
+- **O teste de identidade do G1** foi retirado: ele cumpriu o papel no `b75b5ab`.
+- **Alternatives** (medidas e não adotadas):
+  - `para_cada` só nas normas: não derruba nada, mas perde os reconhecimentos e o nome do chefe de seção;
+  - o BM25 dentro da unidade: acervo 0,9392 e regressão igual à base;
+  - as consultas amplas com uma entidade só: derrubam a semente.
+
+## R20 — O G3 medido: instituições reais, `aplicavel_a` e a interseção (2026-11-11)
+
+- **Decision**: o G3 entra como o `scouting` 0.14.0.
+  - **O catálogo (T044).** O `organizacao.yaml` ganhou `instituicoes` (OMME, Região Interamericana, UEB, Região SP e GE
+    Professora Inah de Mello) e `orgaos` (AN, CAN, DEN, CCN, CFN, CEDN, RNJL, AR-SP, DR-SP, CCR-SP, CFR-SP, CEDR-SP,
+    CRJ-SP, CVL-SP e CRP-SP). Cada uma tem o tipo (`instancia_de`), a de cima (`parte_de`) e a fonte, um trecho do
+    acervo conferido: `estatuto-2024#art1@p4`, `regulamento-regional-sp-2022#art1@p2` e `#art2@p2`,
+    `estatuto-gepim-2026#art1@p2`, os `instituido_em` dos órgãos nacionais e os art. 1º dos regimentos regionais.
+    - A instância sem fonte fica fora (decisão 1).
+    - Os distritos e os outros grupos ficam fora, porque nenhum tem documento no acervo.
+    - Só a Região SP e o GE reconhecem a pergunta. A UEB, a OMME e a Interamericana já são reconhecidas pelo tipo, e
+      os órgãos reais não reconhecem no G3, porque o tipo já reconhece.
+  - **As arestas (T046), por regra:**
+    - **`APLICA_SE_A`:** pelo nível do documento, pela jurisdição e pela subpasta da UEL. As 642 versões têm uma
+      (invariante novo): 450 na UEB, 186 na Região SP, 3 no GE, 2 na OMME e 1 na Interamericana;
+    - **`EMITIDO_POR`:** a pasta do tipo do órgão nos `bodies` do documento e a instituição do órgão. São 555, com 255
+      do CAN e 82 da DR-SP; o `documentos` que as usa é do G6. A fonte das duas é `pasta:<caminho>`.
+    - **`INSTANCIA_DE` e `PARTE_DE`, curadas.** O `PARTE_DE` vale também **entre os tipos**, pelo `instituicao` de cada
+      tipo de órgão, com o `instituido_em` como fonte. O design não listava esse caso (data-model, "Aresta").
+    - **O documento inteiro cujo título nomeia a instituição `SOBRE` ela:** os 3 do GE e o Regulamento da Região SP.
+      Os apelidos "regional sp" e "escoteiros sp" saíram, porque punham 65 resoluções da DR "sobre" a região só
+      porque o título nomeia o emissor.
+  - **As consultas:**
+    - **`aplicavel_a(instituicao, papeis=("norma",))`:** os documentos da instituição e das de cima pelo `PARTE_DE`,
+      até 5 níveis, de cima para baixo.
+    - **O `sobre` de uma instituição real** traz o documento dela, o tipo (`INSTANCIA_DE`) e as partes do tipo (o que
+      trata da assembleia de grupo trata do GE).
+    - **O tipo citado sozinho** ("grupo escoteiro", "região") fica como no G1, sem as partes.
+  - **O plano (T047, 101 R44):**
+    - **com órgão e instituição:** `sobre(órgão) ∩ aplicavel_a(instituição)`;
+    - **a instituição sozinha:** `sobre(instituição) ∩ aplicavel_a(instituição)`;
+    - **a instituição com um cargo ou conceito:** o plano do G2, porque o assunto são eles.
+- **Medido** (perfil `test`, e5, 20 candidatos e 20 trechos), contra o G2:
+
+  | Conjunto | G2 | G3 | Itens que mudaram |
+  |---|---|---|---|
+  | acervo | 0,9549 | 0,9549 | nenhum |
+  | regressão | 0,9696 | 0,9696 | nenhum |
+  | síntese | 0,8462 | 0,8462 | nenhum |
+  | programa-adultos | 0,8485 | **0,8636** | `inah-balanco-rejeitado` 0,5 → 1,0 |
+  | semente | recall@5 0,667, MRR 0,551 | iguais | — |
+
+  - **O SC-005 está cumprido.** O Estatuto da UEB, art. 32, V (contas e balanço do grupo, com o parecer da Comissão
+    Fiscal de Grupo) chega pela parte do tipo. Antes, o Estatuto da UEB só aparecia em 17º.
+  - **Linha de base do programa-adultos regravada.** As outras não mudaram.
+- **O que a medida ensinou:** na 1ª rodada, a instituição entrava no `sobre` junto com o órgão citado. Com isso, o
+  `inah-voto-dos-jovens` caiu de 1 para 0,5:
+  - as partes do grupo trouxeram o art. 35 (Diretoria de Grupo) no lugar do art. 33, que tem a representação juvenil;
+  - a política do GE tomou uma das 3 vagas de documento.
+
+  Com órgão citado, a instituição fica só no `aplicavel_a`.
+- **Efeito da interseção hoje:** nenhum. No acervo, tudo vale para a Região SP e o GE, que não têm vizinhos (outra
+  região, outro grupo). Ela passa a cortar quando entrar o documento de outra região ou UEL.
+- **Alternatives:**
+  - **as partes também na menção do tipo:** ampliaria "região" e "grupo escoteiro" em perguntas que já acertam, sem
+    caso que ganhe;
+  - **a instituição no `sobre` junto com o órgão:** medida, derruba o `inah-voto-dos-jovens`;
+  - **reconhecer os órgãos reais ("Diretoria Regional de São Paulo"):** o tipo já traz as mesmas unidades, e o nome
+    da instância só ganha uso com o `documentos` por emissor (G6).
+
+## R21 — O G4 medido: os eventos das atas e a `linha_do_tempo` (2026-11-11)
+
+- **Decision**: o G4 entra como o `scouting` 0.15.0.
+  - **Os eventos (T050).** As 256 fichas conferidas (`corpus/resumos/atas/`, ADR-062), lidas pela porta
+    `GraphSources.minutes()`, dão 4.423 eventos, sem modelo:
+    - um evento por reunião e um por item conferido (deliberação ou eleição), com a data, a página e o texto. Os
+      números ficam só na ficha;
+    - a deliberação cujo tema é uma eleição ("Eleição da Direção Regional gestão 2022-2025") é do tipo `eleicao`;
+    - **o evento leva os trechos da ata na página citada e nas vizinhas**, como a conferência da ficha. O trecho com
+      "24 delegados eleitos" está no fim da p. 3, e a ficha cita a p. 4;
+    - **`GERA` sai da versão (a ata)**, e não de uma unidade, porque as atas não têm unidade por página. A fonte é
+      `<doc_key>#<n>@p<página>`;
+    - **`DE`** é a do `reconhecer` no tema e na decisão (na eleição, no órgão e no cargo) e a do órgão que emite a ata
+      (`EMITIDO_POR`, G3). O nome do eleito fica só no texto, fora do reconhecimento (decisão 2).
+  - **O catálogo.**
+    - Apelidos que as atas usam: "diretorias regionais", "direção regional" e "assembleia escoteira nacional".
+    - O `dominio.yaml` ganhou `documentos`, com o Regulamento Regional de SP e o Estatuto da UEB, como alvo da linha do
+      tempo. Os apelidos de todo o acervo são do G5. "POR" ficou de fora, porque "por" está em toda frase.
+    - O documento não entra no plano fora da síntese.
+  - **A consulta `linha_do_tempo(alvo, eventos, periodo)`:**
+    - devolve os eventos `DE` o alvo e, sendo ele um tipo, `DE` as instâncias dele, por data;
+    - cada evidência traz o `EventRef` e os trechos.
+  - **A derivação (T052, 101 R44).** A síntese com entidade reconhecida vira `linha_do_tempo`:
+    - **só eleições** quando a pergunta fala de eleição, mandato ou chapa;
+    - **o período** é o citado, do primeiro ao último ano;
+    - **com duas entidades**, a interseção das linhas do tempo ("os delegados à Assembleia Nacional que a Assembleia
+      Regional elegeu");
+    - **a instituição** situa a pergunta e não é alvo;
+    - **a enumeração sem tipo de unidade** ("quais foram…") não impede o reconhecimento na síntese.
+    - **O léxico ganhou** `election_terms`, "fórum" e "fóruns" como palavras de reunião, e "quantos votos" como
+      marcador de síntese.
+  - **A 103 (T051, 103 R23):**
+    - **A `search_summaries` vira uma fachada da linha do tempo.** As partes das fichas das atas com eventos vão à
+      frente (até 4, escolhidas pelos termos), e a seleção de hoje completa as 10 vagas. O nome, a descrição e a saída
+      (`summary_rank`) não mudam.
+    - **No retriever principal, a linha do tempo fica numa faixa só.** A evidência vem por data, e a faixa de papel e
+      nível partia as atas: uma ata do CAN no meio punha as mais antigas primeiro. "As últimas" ordena pela data, e as
+      cópias de uma reunião (a registrada e a do CNPJ da filial) valem uma ata.
+- **Medido** (perfil `test`, e5, 20 candidatos e 20 trechos), contra o G3:
+
+  | Conjunto | G3 | G4 | Itens que mudaram |
+  |---|---|---|---|
+  | acervo | 0,9549 | 0,9549 | nenhum |
+  | regressão | 0,9696 | 0,9696 | nenhum |
+  | síntese | 0,8462 | **0,9487** | `mandatos-da-diretoria-regional` 0,33 → 1,0; `delegados-a-assembleia-nacional` 0,33 → 1,0 |
+  | programa-adultos | 0,8636 | **0,8939** | `regulamento-do-forum-pioneiro` 0 → 1,0 |
+  | semente | recall@5 0,667, MRR 0,551 | iguais | — |
+
+  - **O SC-006 está cumprido.** A média dos 3 itens de 0,33 foi a 0,78: dois chegaram a 1, e o
+    `alteracoes-do-regulamento-regional` ficou em 0,33.
+  - **O `historico` subiu** de 0,5 a 0,83 (o `sedes-do-forum-pioneiro` ficou em 0,5).
+  - **Linhas de base da síntese e do programa-adultos regravadas.**
+- **O que as rodadas ensinaram:**
+  1. **A faixa de papel e nível não serve à linha do tempo.** Com a evidência por data, ela partia as atas regionais
+     em várias faixas, e as mais antigas vinham primeiro (0,67 → 1,0 no `mandatos`).
+  2. **A página da ficha erra por uma.** Com só a página citada, o trecho dos "24 delegados" ficava de fora.
+  3. **As cópias da mesma reunião tomam as vagas.** A AR de 2024 e a de 2025 têm duas cópias cada.
+  4. **O ano anterior ao citado não mudou nada.** Ele foi medido para a sede do fórum, que se escolhe no ano anterior,
+     e ficou fora: o período é o que a pergunta diz.
+- **Pendências:**
+  - `alteracoes-do-regulamento-regional`: a ficha da ata do CCR de 2017 não registra a minuta, e, entre as atas da
+    linha do tempo, a relevância prefere as de 2014 e 2018 às de 2024;
+  - `sedes-do-forum-pioneiro`: a ficha da AR Pioneira de 2022 chega e diz "Mogi das Cruzes". O fato do conjunto é a
+    frase literal da p. 4, e o grafo escolhe só 3 trechos por documento.
+- **Alternatives** (medidas e não adotadas):
+  - **o ano anterior no período:** igual nos quatro conjuntos;
+  - **só a página citada:** perde os 24 delegados;
+  - **a faixa de papel e nível na linha do tempo:** perde o mandato de 2022.
+
+
+## R22 — O G5 medido: as resoluções, `ligados` e `documentos` (2026-11-11)
+
+- **Decision**: o G5 entra como o `scouting` 0.16.0.
+  - **As resoluções no build (T054, T055; `build/resolutions.py`), por regra:**
+    - **a ementa**: as linhas depois do cabeçalho ("RESOLUÇÃO CAN 03/2021", "INSTRUÇÃO NORMATIVA 2024.02", com o número
+      no começo da linha, ou na linha de baixo) até o "Considerando", a fórmula de quem resolve ou o primeiro artigo.
+      A regra lê 271 das 273; a CAN 01/2025 e a CAN 08/2025 trazem a ementa depois do "Considerando";
+    - **o assunto pela ementa**: o `reconhecer` com as entidades de programa e adultos dá `SOBRE` (modo `disciplina`)
+      da resolução inteira (`<doc_key>#documento`, só a vigente), com a fonte no primeiro trecho. São 61. Órgão e
+      instituição na ementa dizem quem emite ou onde vale, que já são `EMITIDO_POR` e `APLICA_SE_A` (G3), e ficam fora;
+    - **o número e o `doc:`**: cada resolução vira `doc:<document_id>`, reconhecível pelo número ("resolucao can 15
+      2025", com e sem os zeros, "nº", e a forma ano.número das regionais e das instruções);
+    - **`ALTERA` de regra do POR pelo título** que a resolução reproduz (Jaccard ≥ 0,5 entre as palavras do título,
+      cortado no primeiro item "I –" ou "A."): a 178 da CAN 11/2021 é a 183 de hoje (Distintivos de Idiomas), a 191 da
+      CAN 03/2023 é a 196, a 171 da CAN 05/2022 é a 175, e as 130 e 131 da CAN 05/2021 são a 133 e a 134. **Pelo
+      número só quando a resolução é posterior ao POR vigente** (abril de 2025): a renumeração é ampla. 11 alterações
+      ficam de fora, com o motivo no relatório (sem título e de antes do POR, ou título sem regra correspondente, como
+      a 174 da Tribo da Terra, "Distintivos especiais");
+    - **`ALTERA` e `REVOGA` entre resoluções** pelo número depois do verbo; sem a série, a da própria resolução. A
+      passiva ("alterado conforme a Resolução Nº 01/2019", "alterada pela…") inverte o sentido, e a mais antiga (pelo
+      ano do número, e não pela vigência do texto consolidado) não altera a mais nova;
+    - **`CITA`** ("Regra 054", "art. 27 do Estatuto") da unidade que cita para a regra ou o artigo vigente, só quando a
+      resolução não é anterior à norma, e nunca a regra que a mesma resolução altera;
+    - **`SUBSTITUI`** pela linhagem do catálogo (fonte `corpus.yaml:<document_id>`). Hoje dá zero arestas: o acervo
+      tem uma versão por documento.
+
+    São 27 `ALTERA`, 38 `REVOGA` e 20 `CITA`, cada uma com o trecho que a escreve como fonte.
+  - **A versão leva os trechos e a ementa** (campos opcionais do `graph.jsonl` v2): é o que `documentos` e `ligados`
+    entregam quando a evidência é o documento inteiro. O `graph.jsonl` foi de 7,6 MB a 9,9 MB.
+  - **As consultas:**
+    - **`ligados(alvo, relacoes)`** completa: o alvo pode ser uma unidade, uma versão, um `doc:` (as versões dele e as
+      unidades delas) ou uma entidade (ela, para a governança, e as unidades com `SOBRE` para ela). A evidência é a
+      outra ponta: a unidade, ou a versão com o trecho que escreve a ligação primeiro;
+    - **`documentos`** entra antes do G6, com os filtros que o plano do G5 usa: tipo, emissor (o tipo de órgão vale
+      pelas instâncias; a instituição, pelos órgãos dela), `aplica_se_a`, área, ramo, período e vigência. O G6 (T061)
+      confere a ordem com a lista de documentos de hoje (ADR-047) e faz a fachada.
+  - **O assunto pelo modelo (T056, T057), por decisão do mantenedor nesta passada:** em vez da rodada paga pelo
+    OpenRouter (`gpt-4.1-mini`, estimada em US$ 0,20 para as 212), o modelo offline foi o da própria sessão (Claude),
+    lendo a ementa e a primeira página das 188 vigentes sem assunto. As propostas estão em
+    `corpus/resumos/resolucoes/assuntos.yaml`, com o critério (a resolução disciplina a entidade; ato individual,
+    orçamento, registro e governança ficam sem assunto; medalha não é `conceito:reconhecimento`, que é o
+    Reconhecimento de Ramo). O build as lê pela porta `GraphSources.resolution_subjects()` e as confere por código
+    (`checked_subjects`): a entidade no catálogo e o trecho citado num trecho da própria resolução, que vira a fonte.
+    As 9 propostas passaram, e são 10 arestas `SOBRE` `modelo_conferido`. O `ResolutionSummarizer` e o
+    `--summarize-resolutions` não foram implementados; o `--subjects` aponta o arquivo.
+  - **A derivação (T058, 101 R44):** "o que mudou / que resolução alterou / foi revogada" vira
+    `ligados(alvo, [ALTERA, REVOGA])` — o `doc:` citado, senão as entidades, senão o ramo —, e "o que o órgão
+    publicou / estabeleceu / normatizou sobre X" vira `sobre(X) ∩ documentos(emissor=…, aplica_se_a=…)`. Sem alvo, ou
+    sem órgão e assunto, segue o plano de antes. O `conceito:formacao` ganhou "iniciativas de formação" e "eventos
+    formativos", como as instruções da DR-SP dizem.
+- **Medido** (perfil `test`, e5, 20 candidatos e 20 trechos), contra o G4:
+
+  | Conjunto | G4 | G5 | Itens que mudaram |
+  |---|---|---|---|
+  | acervo | 0,9549 | 0,9549 | nenhum |
+  | regressão | 0,9696 | 0,9696 | nenhum |
+  | síntese | 0,9487 | 0,9487 | nenhum |
+  | programa-adultos | 0,8939 | **0,9091** | `dr-sp-cursos-distritais` 0,5 → 1,0 |
+  | semente | recall@5 0,667, MRR 0,551 | iguais | — |
+
+  - **O teste independente da US5 está cumprido:** `mudanca` segue em 1,0, e `publicacoes` foi de 0,75 a 1,0 — a IN
+    2024.02 chega pela interseção com os dois trechos dos fatos.
+  - **Os assuntos pelo modelo não mudaram nenhum item** (a rodada só com a regra deu os mesmos números).
+  - **Linha de base do programa-adultos regravada.**
+- **Custo real do modelo:** zero de API.
+- **Alternatives:**
+  - **o `gpt-4.1-mini` pelo OpenRouter:** estimado em US$ 0,20 e não rodado; a leitura das 212 mostrou que quase todas
+    tratam do que o catálogo curado não tem, e o mapeamento provável das 41 comissões de medalha para
+    `conceito:reconhecimento` estaria errado;
+  - **órgãos e instituições no `SOBRE` da ementa:** fora, para não mexer no `sobre` dos órgãos do ADR-063;
+  - **o número da regra sem título em resolução antiga:** liga à regra errada (a 191 de 2023 é o recrutador; a de
+    hoje, o Brevê do CATAR I).
+
+## R23 — O G6 medido: as listas como consultas do grafo (2026-11-11)
+
+- **Decision**: o G6 entra como o `scouting` 0.17.0.
+  - **A referência antes da mudança (T060).** `tests/rag/retrieval/list_reference.py` roda as perguntas dos cinco
+    conjuntos pelo próprio pack (a derivação dá os filtros; o artefato e o e5) e grava a saída de `list_documents` e
+    `list_units`. São 19 perguntas de lista: 3 com fichas do acervo, 14 com unidades (5 pelo tipo de unidade, as
+    outras pelos trechos com forma de lista e o sumário). A referência está em
+    `tests/rag/retrieval/data/list_facades_reference.json`, e o teste a refaz quando o e5 está em `.cache/e5`.
+  - **O grafo (T061).**
+    - **As unidades dos tipos com nome** (o `TYPED` da árvore da 102, ADR-048) entram todas, com `CONTEM` e a
+      posição na árvore: 993 (442 itens de pauta, 206 especialidades, 141 blocos…). O `scripts/grafo.py` passa o
+      `TYPED` ao build, porque o grafo não importa a ingestão. O `graph.jsonl` foi a 10,7 MB.
+    - **`itens(tipo_de_unidade, de, ramo)`**: as unidades do tipo, por `doc_key` e posição, com o ramo da unidade; com
+      `de`, as entidades filhas pelo `PARTE_DE` (os órgãos de uma instituição), com o trecho da fonte.
+    - **`documentos`** passa a ordenar do mais recente ao mais antigo, como a lista de documentos (ADR-047).
+  - **As fachadas (T062, 103).** As duas tools recebem o grafo e perguntam a ele quais documentos do tipo e quais
+    unidades do tipo existem. O catálogo e a árvore da 102 continuam dando a vigência dos filtros, a fração dos
+    qualificadores e o texto das fichas, porque levar isso ao grafo duplicaria o catálogo inteiro. **Sem grafo** ao
+    lado do índice (a suíte de integração, um Qdrant de fora), as listas são as de hoje: a primeira rodada esvaziava a
+    lista ali.
+- **Medido** (perfil `test`, e5, 20 candidatos e 20 trechos): nenhum item mudou nos quatro conjuntos (acervo 0,9549,
+  regressão 0,9696, síntese 0,9487, programa-adultos 0,9091), a semente ficou igual (recall@5 0,667, MRR 0,551), e a
+  saída das duas tools é idêntica à referência.
+- **Alternatives:**
+  - **levar ao grafo o que as fichas mostram** (vigência, versão, link, classificação, caminho e página): tiraria do
+    retriever os seams `DocumentCatalog` e `DocumentOutline` da 102, mas duplicaria o catálogo no `graph.jsonl`; fica
+    para quando o seam do índice mudar;
+  - **o grafo vazio esvaziando as listas:** medido na integração e recusado.
+
+## R24 — O fechamento da 106 sem o G7 (2026-11-11)
+
+- **Decision**: a 106 fecha com G1–G6; o G7 (força normativa, US8) era opcional e não foi pedido. O T042 (o prompt pelo
+  papel do trecho) segue adiado. O README do pack ganhou a seção do grafo (T065).
+- **Resultado da fase**, contra o 0.11.1 (105 R26):
+
+  | Conjunto | 0.11.1 | 0.17.0 |
+  |---|---|---|
+  | acervo | 0,9236 | 0,9549 |
+  | regressão | 0,9768 | 0,9696 (−0,007, no G2) |
+  | síntese | 0,8462 | 0,9487 |
+  | programa-adultos | 0,8409 | 0,9091 |
+
+- **A instalação (T067).** O `axon-deploy/template` usa o índice que vem no pacote: nada a fazer. A `axon-cfblabs`
+  substitui o índice do pacote pela cópia em `packages/scouting-index/` (`install-scouting-index.py`, que trata o
+  `graph.jsonl` e o `summaries.jsonl` como opcionais). Os trechos, o catálogo, o manifesto e os resumos dessa cópia
+  são idênticos aos do pack, mas o `graph.jsonl` é o v1 do ADR-063 (27 KB, sem `meta`). Com o código de 0.12.0 em
+  diante, a carga levanta `GraphUnavailable` (decisão do G1: grafo de outro build falha explícito), e a pergunta não
+  é respondida. Subir o `PACKS` dela exige copiar junto o `graph.jsonl` do pack (10,7 MB). Não foi feito: é mudança na
+  instalação, só com pedido do mantenedor.

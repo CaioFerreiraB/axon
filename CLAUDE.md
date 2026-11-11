@@ -404,6 +404,88 @@ Pendente: a revisão das 91 transcrições pelo Codex e a troca das 57 cópias O
   relação, está em `corpus/organizacao.yaml`, ainda não lido por código. A Fase 2 (grafo, parágrafo e inciso) e a
   Fase G (fichas de ata e linha do tempo) estão no relatório.
 
+**A Fase 8 do roadmap está completa, sem o G7 opcional** (grafo de domínio e consultas do scouting,
+[plano](docs/plano-sdd-grafo-de-dominio-scouting-2026-11.md)). O ADR-064 está aceito:
+- a 106 passa a ser o módulo do grafo de domínio (`rag/graph/`, seam *Grafo de domínio*);
+- a aresta `SOBRE` tem um modo, que vem do papel do tipo de documento;
+- há sete consultas com nome, e o plano viaja em `retrieval_filters`;
+- core e contratos não mudam.
+
+A medida veio primeiro (105 US7, R26). O `eval/programa-adultos.yaml` tem 33 itens, metade de controle, em doze formas
+de pergunta. A linha de base é a do 0.11.1 (0,8409), e o CI o roda ao lado dos outros três conjuntos. O
+`scripts/eval_diff.py` mostra o `fact_recall` antes e depois, por item e por grupo, e todo incremento da 106 o mostra
+nos quatro conjuntos.
+A 106 está especificada e planejada (spec reescrita, clarify, `design.md`, plano, contratos e 69 tarefas G1–G6). O
+clarify decidiu que a 103 escolhe os trechos e que os tetos são 3×3 por consulta, com 8 de 20 vagas no total a partir
+do G2. O catálogo curado fica no `organizacao.yaml` mais o `dominio.yaml`, a ementa sai por regra e o modelo entra só
+no resto, e o plano e o papel são da 106. Os encaixes são 101 FR-037, 102 FR-037 e 103 FR-022. A 101 passa a importar
+`rag.graph.api`, com o import-linter ajustado (106 R14).
+O G1 está implementado (`scouting` 0.12.0, 106 R18). O `NormGraph` saiu do *Índice do scouting* para `rag/graph/`,
+com o `DomainGraphService` sobre o `ArtifactGraphStore` e o `graph.jsonl` v2, que tem as entidades, as versões com
+papel, as seções com `SOBRE` e a governança, cada uma com fonte e origem. A derivação publica `entities` e `plan`, e o
+retriever executa o plano. O `scripts/grafo.py` tem `build`, `query`, `plan` e `export --arrows`. Os quatro conjuntos
+e a semente ficaram idênticos ao 0.11.1, e a identidade dos trechos foi provada antes de mudar o comportamento (o teste saiu no G2).
+O G2 está implementado (`scouting` 0.13.0, 106 R19):
+- `corpus/dominio.yaml` tem ramos, seções, áreas e conceitos, e o `organizacao.yaml` ganhou os cargos de programa e
+  adultos;
+- o `SOBRE` sai pelo título (o das regras do POR vem do texto) e pelo manual do ramo;
+- "adultos" é o termo genérico de escotista e dirigente (`E_UM`), e o salto pela área usa o `REGE` e o `DE_AREA`;
+- a derivação escreve o plano pela forma da pergunta: `para_cada` em "cada ramo", `todas` em combinações, e nenhum plano
+  com uma entidade sozinha;
+- a 103 corta em 3 documentos pela relevância e escolhe os trechos pela posição numa busca híbrida funda.
+
+Resultado: acervo 0,9549, regressão 0,9696 (−0,007) e programa-adultos 0,8485, com as linhas de base regravadas. O
+SC-004 (metade dos 10 itens-alvo em 1) não foi cumprido: foram 3 de 10.
+
+O G3 está implementado (`scouting` 0.14.0, 106 R20):
+- o `organizacao.yaml` tem `instituicoes` (OMME, Interamericana, UEB, Região SP, GE Inah) e `orgaos` (15, nacionais e
+  de SP), cada um com o tipo, a instituição de cima e a fonte num trecho;
+- o grafo tem `INSTANCIA_DE`, `PARTE_DE` (também entre os tipos), `APLICA_SE_A` em todo documento e `EMITIDO_POR`
+  (pela pasta, com a fonte `pasta:<caminho>`), e o documento cujo título nomeia a instituição trata dela por inteiro;
+- `aplicavel_a` sobe até 5 níveis, e o `sobre` de uma instituição real traz o tipo e as partes dele;
+- a derivação escreve `sobre ∩ aplicavel_a` quando a pergunta cita a Região SP ou o GE.
+
+Resultado: o `inah-balanco-rejeitado` foi a 1 (SC-005), e o programa-adultos a 0,8636. Os outros conjuntos e a semente
+não mudaram.
+
+O G4 está implementado (`scouting` 0.15.0, 106 R21):
+- as fichas das atas viram 4.423 eventos no grafo, com a página, os trechos da ata nela e nas vizinhas, `GERA` e `DE`
+  (pelo tema e pelo órgão que emite a ata; pessoa nunca é entidade);
+- a `linha_do_tempo` dá os eventos de uma entidade por data, e o `dominio.yaml` ganhou `documentos` (Regulamento
+  Regional SP, Estatuto da UEB) como alvo;
+- a derivação escreve `linha_do_tempo` na síntese com entidade (só eleições quando a pergunta fala delas; duas
+  entidades, a interseção);
+- a `search_summaries` é uma fachada dela, com o mesmo nome e a mesma saída, e no retriever a linha do tempo fica numa
+  faixa só ("as últimas" pela data; as cópias de uma reunião valem uma).
+
+Resultado: síntese 0,8462 → 0,9487 (SC-006) e programa-adultos 0,8636 → 0,8939. Acervo, regressão e semente não
+mudaram.
+
+O G5 está implementado (`scouting` 0.16.0, 106 R22):
+- as resoluções têm a ementa lida por regra (271 de 273), que dá o `SOBRE` de 61, e um `doc:` reconhecível pelo
+  número ("Resolução CAN 15/2025");
+- `ALTERA` de regra do POR pelo título que a resolução reproduz (a numeração mudou: a 178 de 2021 é a 183 de hoje), e
+  pelo número só depois do POR vigente; `ALTERA`/`REVOGA` entre resoluções pelo número (a passiva inverte); `CITA`;
+  `SUBSTITUI` pela linhagem (zero hoje). São 27, 38 e 20, cada uma com o trecho como fonte;
+- `ligados` completo e `documentos` (antes do G6, com os filtros do plano); a derivação escreve "o que mudou" →
+  `ligados` e "o que o órgão publicou sobre X" → `sobre ∩ documentos(emissor)`;
+- o assunto das resoluções que a regra não resolve não usou o OpenRouter (decisão do mantenedor): as propostas da
+  sessão estão em `corpus/resumos/resolucoes/assuntos.yaml` e o build as confere (9, todas aprovadas).
+
+Resultado: programa-adultos 0,8939 → 0,9091 (`dr-sp-cursos-distritais` 0,5 → 1). Acervo, regressão, síntese e semente
+não mudaram.
+
+O G6 está implementado (`scouting` 0.17.0, 106 R23): as 993 unidades dos tipos com nome (ADR-048) estão no grafo, com a
+posição na árvore; `itens` as lista (ou, com `de`, os órgãos de uma instituição), e `documentos` ordena do mais recente.
+`list_documents` e `list_units` são fachadas: o grafo diz quem pode entrar, e o catálogo e a árvore da 102 continuam
+dando os filtros e o texto das fichas; sem grafo ao lado do índice, as listas são as de hoje. A saída das duas tools é
+idêntica à gravada antes (`tests/rag/retrieval/data/list_facades_reference.json`), e nenhum conjunto mudou.
+
+Para a instalação: a `axon-cfblabs` troca o índice inteiro do pacote pela cópia em `packages/scouting-index/`, e o
+`graph.jsonl` de lá ainda é o v1 do ADR-063. O código novo recusa esse grafo (`GraphUnavailable`) e não responde sem
+ele, então subir o `PACKS` para 0.12.0 ou mais exige copiar junto o `graph.jsonl` do pack (106 T067). O
+`axon-deploy/template` usa o índice do pacote e não precisa de nada.
+
 O ambiente de dev local (`axon-scouting/.cache/dev/
 dev.sh`, fora do git: Postgres e Open WebUI em contêiner, `axon serve` do venv do pack, trace em `.cache/dev/trace/`)
 serve para testar antes de publicar. A chave do

@@ -176,3 +176,32 @@ Reavaliado com [data-model.md](data-model.md), [contracts/](contracts/) e [quick
 ## Complexity Tracking
 
 Nenhuma violação.
+
+## Passada de 2026-11-10 — US7, o conjunto de programa e adultos ([ADR-064](../../docs/adr/ADR-064-grafo-de-dominio-e-consultas-no-scouting.md); research R26)
+
+Escopo: só a US7 (FR-021 a FR-026), o Passo B do
+[plano SDD da Fase 8](../../docs/plano-sdd-grafo-de-dominio-scouting-2026-11.md). Nenhuma mudança de comportamento do
+pack, nenhuma métrica nova, nenhuma porta, nenhuma variável de ambiente.
+
+**Technical Context (delta)**:
+- **Dados:** `axon-scouting/eval/programa-adultos.yaml` e `eval/programa-adultos-baseline.json`.
+- **Testes:** `tests/eval/test_regression.py` ganha `PROGRAMA_GROUPS` e dois casos, como o acervo: sem problemas, e
+  controle em cada grupo. Ganha também a contagem (24 a 36 itens, metade de controle com folga de um).
+- **CI:** um passo no `.github/workflows/eval.yml`, ao lado do acervo, e o relatório no artefato.
+- **Ferramenta:** `scripts/eval_diff.py`, só biblioteca padrão. Lê dois relatórios e lista, por item e por grupo, o
+  `fact_recall` que mudou.
+- **Versão:** o pack fica no 0.11.1. Só dados, teste e CI, sem mudança de comportamento.
+- **Branch:** `feat/106-grafo-de-dominio` no `axon-scouting`, a partir de `cddba46` (0.11.1).
+
+**Constitution Check (delta)**: PASS.
+- **V e X:** a linha de base é gravada antes da primeira mudança, e o conjunto mede só os trechos entregues
+  (`fact_recall`, determinística).
+- **II:** só arquivos de `eval/` e testes do pack. Nenhum seam muda.
+
+**Ordem**:
+1. ler os PDFs e escrever os itens;
+2. conferir cada fato contra o PDF e contra o artefato (`test_regression.py`);
+3. rodar com o 0.11.1 e gravar a linha de base;
+4. o passo da CI;
+5. o `eval_diff.py`;
+6. o quickstart (seção 9).

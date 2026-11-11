@@ -349,3 +349,40 @@ da 005, o N do rerank e o limiar do portão.
   órgão) ficou igual: 0,9236 com e sem. A busca normal e as seções já traziam esses fatos, e as relações só tomariam
   vagas.
 - **Alternatives**: manter as 2 vagas sem ganho medido.
+
+## R23 — A busca executa o plano do grafo ([ADR-064](../../docs/adr/ADR-064-grafo-de-dominio-e-consultas-no-scouting.md))
+
+- **Decision**:
+  - **Composição:** o `ScoutingRetriever` recebe o `DomainGraphSource` (106) no lugar do `NormGraph` e lê o `plan` de
+    `retrieval_filters`.
+  - **Frentes:** para cada grupo das `Frentes`, pega os trechos no `ChunkIndex.get`, escolhe até 3 por documento pelo
+    BM25 de `domain/terms.py` (que fica aqui) e limita o grafo a 8 das 20 vagas, repartidas em `para_cada`.
+  - **Marcas:** `graph_rank`, `graph_query` e `role` nos metadados. O `MetadataReranker` respeita `graph_rank`, como
+    hoje.
+  - **Plano inválido:** só a busca, com aviso.
+  - **Facetas:** a busca por faceta continua, repartindo as vagas que sobram.
+  - **G1:** reproduz o `_by_organ`.
+  - **G4 e G6:** as tools de resumo, lista e unidades viram fachadas.
+- **Rationale**: a clarificação da 106 (Q1, Q2) deixa a escolha dos trechos com quem lida com o texto da pergunta. Os
+  tetos são os do ADR-063 até serem medidos.
+- **Alternatives**: a 106 escolher os trechos; frentes sem teto total.
+
+- **G2 (106 R19, 2026-11-11; aprovado pelo mantenedor)**: o corte em 3 documentos por grupo passou do executor para cá.
+  - **Documentos.** A ordem é papel, nível e camada e, dentro deles, a relevância à pergunta (a melhor posição de um
+    trecho do documento na busca híbrida). A ordem por `doc_key` era alfabética e derrubava o marco simbólico.
+  - **Trechos.** Dentro do documento, eles saem pela posição numa busca híbrida funda (`GRAPH_DEPTH` = 200, a pergunta
+    e, no grupo de um ramo, o nome do ramo), com o melhor primeiro. O BM25 é o desempate.
+  - **Vagas.** As 8 se repartem entre os grupos sem passar do total.
+  - **Facetas.** Com elas, as frentes do grafo vêm antes, e a busca por faceta reparte o que sobra.
+- **G4 (106 R21, 2026-11-11)**:
+  - **A `search_summaries` é uma fachada da `linha_do_tempo`.** Com o plano dela, o `SummariesRetriever` recebe o grafo
+    e põe à frente as partes das fichas das atas com eventos (até 4, pelos termos da pergunta). A seleção do ADR-062
+    completa as 10 vagas, e o nome, a descrição e a saída não mudam.
+  - **A linha do tempo fica numa faixa só no retriever,** porque a evidência dela vem por data.
+    - Com "as últimas", as atas mais recentes vêm primeiro.
+    - As cópias de uma reunião (a mesma data) valem uma ata.
+- **G6 (106 R23, 2026-11-11)**: `list_documents` e `list_units` são fachadas de `documentos` e `itens`. O
+  `CatalogRetriever` e o `UnitsRetriever` recebem o grafo pela composição e perguntam a ele quais documentos do tipo
+  e quais unidades do tipo existem. O catálogo e a árvore da 102 continuam dando os filtros de vigência e ramo, a
+  fração dos qualificadores e o texto das fichas, e a saída é a mesma (referência gravada antes, nas 19 perguntas de
+  lista dos cinco conjuntos). Sem grafo ao lado do índice, as listas são as de hoje.

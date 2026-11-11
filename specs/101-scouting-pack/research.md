@@ -671,3 +671,46 @@ seguem no Qdrant embutido com `store: qdrant`.
   presidente em 2015"), a regra do órgão tomaria vagas da ata.
 - **Alternatives**: usar os órgãos da taxonomia (`bodies`), que são pastas: "assembleias" junta a nacional e a
   regional, e a Diretoria Regional não tem seção própria nas normas da pasta dela.
+
+## R44 — `entities` e `plan` na derivação ([ADR-064](../../docs/adr/ADR-064-grafo-de-dominio-e-consultas-no-scouting.md))
+
+- **Decision**:
+  - **O que a derivação publica:** `entities`, pelo `reconhecer` da 106 sobre os `entity_terms` que o `pack.py` injeta,
+    e `plan` (`QueryPlan.to_json()`) pela forma da pergunta. `organs` deixa de ser publicado.
+  - **Imports:** `context/` importa só `axon_scouting.rag.graph.api`. O import-linter põe `context` acima de `rag` e
+    limita esse acesso (106 R14).
+  - **G1:** o plano é o `sobre` dos órgãos, com as mesmas exclusões da R43 (síntese, lista, enumeração, período).
+  - **G2:** entram `para_cada` nos ramos (ADR-045), a interseção de duas entidades e a área.
+  - **G3:** entra `aplicavel_a` com a instituição citada.
+- **Rationale**: o esquema do plano e o reconhecimento são da 106 (clarify da 106, de 2026-11-10). A 101 decide a
+  forma da pergunta, que ela já reconhece.
+- **Alternatives**: a 101 montar um dicionário solto, o que daria duas definições do contrato; ou a 103 montar o
+  plano, que não conhece a forma da pergunta.
+
+- **G2 (106 R19, 2026-11-11)**: a forma da pergunta dá o plano. Com órgão, fica o plano do ADR-063 (até o G3). "Cada
+  ramo" vira `para_cada`. Um ramo com uma entidade, ou duas entidades, vira `todas`, e com duas entidades também a
+  consulta de cada uma. **Uma entidade sozinha não pede plano**: ela derrubava a semente ("Sinal de Promessa", MRR 1,0
+  → 0,25). O léxico recebe os termos dos cargos, áreas e conceitos do grafo, e os ramos continuam reconhecidos pelo
+  léxico (`branches`).
+- **G3 (106 R20, 2026-11-11)**: a instituição real citada (`inst:`, a Região SP e o GE Inah, pelos apelidos do
+  grafo) entra no plano como `intersecao` com `aplicavel_a` dela. Com um órgão, o `sobre` é o do órgão; sozinha, o
+  `sobre` é o dela. Com um cargo ou conceito, fica o plano do G2, porque o assunto são eles. A instituição não entra no
+  `sobre` junto com o órgão: as partes do grupo derrubavam o `inah-voto-dos-jovens`.
+- **G4 (106 R21, 2026-11-11)**: a síntese com entidade reconhecida vira `linha_do_tempo` dela:
+  - só eleições quando a pergunta fala de eleição, mandato ou chapa (`election_terms`);
+  - o período é o citado;
+  - com duas entidades, a interseção das linhas do tempo;
+  - a instituição não é alvo.
+
+  A síntese passa a publicar `entities`. Na síntese, a enumeração sem tipo de unidade ("quais foram…") não impede o
+  reconhecimento. "Fórum" e "fóruns" passam a ser palavras de reunião, e "quantos votos", marcador de síntese. O
+  documento (`doc:`) só entra no plano da síntese.
+- **G5 (106 R22, 2026-11-11)**: duas formas novas, antes do plano de antes:
+  - **mudança** ("o que mudou", "que resolução alterou", "foi revogada"; `change_terms`) →
+    `ligados(alvo, [ALTERA, REVOGA])`, com o `doc:` citado pelo número ("a Resolução CAN 15/2025"), senão as entidades
+    (até 2), senão o ramo;
+  - **publicação** ("publicou", "estabeleceu", "normatizou"; `publication_terms`), com órgão e assunto →
+    `sobre(assunto) ∩ documentos(emissor=órgão, aplica_se_a=instituição citada)`.
+
+  Sem alvo, ou sem órgão e assunto, fica o plano de antes. As resoluções passam a ser reconhecidas pelo número
+  (`doc:<document_id>`, termos do grafo).
