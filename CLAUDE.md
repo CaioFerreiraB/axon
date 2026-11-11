@@ -404,7 +404,7 @@ Pendente: a revisão das 91 transcrições pelo Codex e a troca das 57 cópias O
   relação, está em `corpus/organizacao.yaml`, ainda não lido por código. A Fase 2 (grafo, parágrafo e inciso) e a
   Fase G (fichas de ata e linha do tempo) estão no relatório.
 
-**A Fase 8 do roadmap está em andamento** (grafo de domínio e consultas do scouting,
+**A Fase 8 do roadmap está completa, sem o G7 opcional** (grafo de domínio e consultas do scouting,
 [plano](docs/plano-sdd-grafo-de-dominio-scouting-2026-11.md)). O ADR-064 está aceito:
 - a 106 passa a ser o módulo do grafo de domínio (`rag/graph/`, seam *Grafo de domínio*);
 - a aresta `SOBRE` tem um modo, que vem do papel do tipo de documento;
@@ -480,6 +480,11 @@ posição na árvore; `itens` as lista (ou, com `de`, os órgãos de uma institu
 `list_documents` e `list_units` são fachadas: o grafo diz quem pode entrar, e o catálogo e a árvore da 102 continuam
 dando os filtros e o texto das fichas; sem grafo ao lado do índice, as listas são as de hoje. A saída das duas tools é
 idêntica à gravada antes (`tests/rag/retrieval/data/list_facades_reference.json`), e nenhum conjunto mudou.
+
+Para a instalação: a `axon-cfblabs` troca o índice inteiro do pacote pela cópia em `packages/scouting-index/`, e o
+`graph.jsonl` de lá ainda é o v1 do ADR-063. O código novo recusa esse grafo (`GraphUnavailable`) e não responde sem
+ele, então subir o `PACKS` para 0.12.0 ou mais exige copiar junto o `graph.jsonl` do pack (106 T067). O
+`axon-deploy/template` usa o índice do pacote e não precisa de nada.
 
 O ambiente de dev local (`axon-scouting/.cache/dev/
 dev.sh`, fora do git: Postgres e Open WebUI em contêiner, `axon serve` do venv do pack, trace em `.cache/dev/trace/`)

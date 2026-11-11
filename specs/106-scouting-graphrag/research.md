@@ -549,3 +549,24 @@ clarificação de 2026-11-10, levadas aqui sem re-pesquisa. Os números de base 
     retriever os seams `DocumentCatalog` e `DocumentOutline` da 102, mas duplicaria o catálogo no `graph.jsonl`; fica
     para quando o seam do índice mudar;
   - **o grafo vazio esvaziando as listas:** medido na integração e recusado.
+
+## R24 — O fechamento da 106 sem o G7 (2026-11-11)
+
+- **Decision**: a 106 fecha com G1–G6; o G7 (força normativa, US8) era opcional e não foi pedido. O T042 (o prompt pelo
+  papel do trecho) segue adiado. O README do pack ganhou a seção do grafo (T065).
+- **Resultado da fase**, contra o 0.11.1 (105 R26):
+
+  | Conjunto | 0.11.1 | 0.17.0 |
+  |---|---|---|
+  | acervo | 0,9236 | 0,9549 |
+  | regressão | 0,9768 | 0,9696 (−0,007, no G2) |
+  | síntese | 0,8462 | 0,9487 |
+  | programa-adultos | 0,8409 | 0,9091 |
+
+- **A instalação (T067).** O `axon-deploy/template` usa o índice que vem no pacote: nada a fazer. A `axon-cfblabs`
+  substitui o índice do pacote pela cópia em `packages/scouting-index/` (`install-scouting-index.py`, que trata o
+  `graph.jsonl` e o `summaries.jsonl` como opcionais). Os trechos, o catálogo, o manifesto e os resumos dessa cópia
+  são idênticos aos do pack, mas o `graph.jsonl` é o v1 do ADR-063 (27 KB, sem `meta`). Com o código de 0.12.0 em
+  diante, a carga levanta `GraphUnavailable` (decisão do G1: grafo de outro build falha explícito), e a pergunta não
+  é respondida. Subir o `PACKS` dela exige copiar junto o `graph.jsonl` do pack (10,7 MB). Não foi feito: é mudança na
+  instalação, só com pedido do mantenedor.

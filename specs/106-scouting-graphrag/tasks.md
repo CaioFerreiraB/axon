@@ -423,16 +423,20 @@ Só com pedido explícito do mantenedor depois do G6.
 
 ## Phase 11: Polish & Cross-Cutting
 
-- [ ] T065 Atualizar o README do pack (`README.md`) com o grafo: `scripts/grafo.py build|query|plan|export` e quando
+- [X] T065 Atualizar o README do pack (`README.md`) com o grafo: `scripts/grafo.py build|query|plan|export` e quando
   reconstruir.
-- [ ] T066 No `axon`, para cada incremento:
+- [X] T066 No `axon`, para cada incremento:
   - o FR e o research de encaixe já existem;
   - atualizar a linha da 106 em `specs/README.md`, a Fase 8 de `docs/roadmap.md` e o parágrafo da Fase 8 do
     `CLAUDE.md`;
   - rodar `graphify update .`;
   - o ponteiro do submódulo.
-- [ ] T067 Conferir a instalação. A cópia do índice no `axon-deploy/template` e no `axon-cfblabs` já leva o
+- [X] T067 Conferir a instalação. A cópia do índice no `axon-deploy/template` e no `axon-cfblabs` já leva o
   `graph.jsonl`, então confirmar que nada mais é preciso. Nada de imagem nem de deploy sem pedido.
+  **Conferido (R24):** o `axon-deploy/template` usa o índice do pacote e não precisa de nada. O `axon-cfblabs` troca o
+  índice inteiro pela cópia em `packages/scouting-index/`: trechos, catálogo, manifesto e resumos são idênticos aos do
+  pack, mas o `graph.jsonl` de lá é o v1 do ADR-063, que o código novo recusa (`GraphUnavailable`). Subir o `PACKS`
+  exige copiar junto o `graph.jsonl` do pack. Não mexido sem pedido.
 
 ---
 
