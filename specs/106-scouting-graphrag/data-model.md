@@ -27,14 +27,14 @@ As decisões estão no [research.md](research.md). O seam está em
 | Nó | Chave | Campos |
 |---|---|---|
 | `Version` | `doc_key` | `document_id`, `type` (`taxonomy_id`), `role`, `scope`, `status`, `date` (vigência) e `bodies` |
-| `Unit` | `unit_id` (`<doc_key>#u/…`) | `doc_key`, `unit_kind`, `title`, `chunk_ids` (na ordem do documento), `branches` e `parent`. Só entram as que alguma aresta usa e as dos tipos de unidade com nome do ADR-048, que `itens` lista (G6) |
+| `Unit` | `unit_id` (`<doc_key>#u/…`; o documento inteiro, `<doc_key>#documento`) | `doc_key`, `unit_kind`, `title`, `chunk_ids` (na ordem do documento), `branches`, `parent` e `ancestors` (as unidades acima e, no documento de um ramo, o documento inteiro; para o `todas`). Só entram as que alguma aresta usa e as dos tipos de unidade com nome do ADR-048, que `itens` lista (G6) |
 | `Event` | `evento:<doc_key>#<n>` | `doc_key`, `date`, `type` (`reuniao`, `deliberacao` ou `eleicao`), `text` (o tema e a decisão da ficha) e `page` |
 
 ## Aresta (`Edge`)
 
 | Campo | Tipo | Regra |
 |---|---|---|
-| `type` | `EdgeType` | `SOBRE`, `CONTEM`, `GERA`, `DE`, `INSTANCIA_DE`, `PARTE_DE`, `EMITIDO_POR`, `APLICA_SE_A`, `DE_AREA`, `REGE`, `DE_RAMO`, `ATUA_EM`, `ALTERA`, `REVOGA`, `SUBSTITUI`, `CITA`, e os de governança (`ELEGE`, `COMPOE`, `INTEGRA`, `CONVOCA`, `FISCALIZA`, `APRECIA_RECURSO_DE`, `DIRIGE`) |
+| `type` | `EdgeType` | `SOBRE`, `CONTEM`, `GERA`, `DE`, `INSTANCIA_DE`, `PARTE_DE`, `EMITIDO_POR`, `APLICA_SE_A`, `DE_AREA`, `REGE`, `DE_RAMO`, `E_UM` (a entidade específica → o termo genérico, curado: o escotista é um adulto; R19), `ATUA_EM`, `ALTERA`, `REVOGA`, `SUBSTITUI`, `CITA`, e os de governança (`ELEGE`, `COMPOE`, `INTEGRA`, `CONVOCA`, `FISCALIZA`, `APRECIA_RECURSO_DE`, `DIRIGE`) |
 | `mode` | `Mode \| None` | só no `SOBRE`: `disciplina`, `orienta`, `registra` ou `comunica`, igual a `MODE_OF[role da versão da unidade]` |
 | `from`, `to` | `str` | ids de nó ou de entidade existentes (nenhum órfão) |
 | `source` | `str` | um `chunk_id`, um `unit_id`, `<doc_key>#<n>@p<página>`, `taxonomia:<pasta>` ou `<arquivo>.yaml:<seção>/<id>` |

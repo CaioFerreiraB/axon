@@ -255,3 +255,65 @@ clarificação de 2026-11-10, levadas aqui sem re-pesquisa. Os números de base 
   importava o `NormGraph`, que saiu.
 - **Rationale**: a mudança de arquitetura sem mudança de comportamento é o que permite medir o G2 contra uma base limpa
   (R2, SC-001).
+
+## R19 — O G2 medido: entidades de programa e adultos, `todas` e `para_cada` (2026-11-11)
+
+- **Decision**: o G2 entra como o `scouting` 0.13.0, depois de dez rodadas medidas.
+  - **O que foi construído:**
+    - `corpus/dominio.yaml` com 5 ramos, 5 seções, 3 áreas e 20 conceitos, mais os 8 cargos de programa e adultos no
+      `organizacao.yaml`, cada entrada com fonte;
+    - `SOBRE` por regra, com 1.611 arestas. O título real da regra do POR sai do texto ("REGRA 080 PATRULHA NO RAMO
+      ESCOTEIRO"), o manual de um ramo vale inteiro para o ramo, e há `DE_AREA`, `REGE`, `DE_RAMO` e `E_UM`;
+    - `sobre` em camadas: as unidades diretas e as das seções, depois as do termo genérico, por último o documento
+      inteiro das áreas que regem a entidade;
+    - o `modo=todas`, que vale pelo caminho da unidade e prefere a unidade que nomeia tudo no próprio caminho à que só
+      herda o documento do ramo;
+    - as formas `para_cada` e `intersecao`.
+  - **"Adultos" é o termo genérico de escotista e dirigente** (pedido do mantenedor em 2026-11-11). A aresta curada
+    `E_UM` liga escotista e dirigente a adulto (`abrange` no `dominio.yaml`). O que vale para os adultos vale para
+    cada um, e a unidade sobre escotistas satisfaz "adulto" no `todas`.
+  - **O plano, pela forma da pergunta (101 R44):**
+    - **com órgão:** o plano do ADR-063, até o G3;
+    - **"cada ramo":** `para_cada` ramo, com `todas`;
+    - **ramo com entidade, ou duas entidades:** `todas`, e, com duas entidades, também a consulta de cada uma;
+    - **uma entidade sozinha:** sem plano.
+  - **Quem escolhe na 103 (103 R23)** (aprovado pelo mantenedor em 2026-11-11, item 1):
+    - **Corte em documentos.** O executor entrega toda a evidência, na ordem do papel, do nível e da camada. A 103
+      corta em 3 documentos por grupo, ordenando por relevância à pergunta dentro do mesmo papel, nível e camada.
+    - **Trechos.** Dentro de cada documento, a 103 escolhe os 3 trechos pela posição numa busca híbrida funda
+      (`GRAPH_DEPTH`, 200), com o melhor primeiro (aprovado no item 2). O BM25 fica só como desempate.
+    - **Vagas.** As 8 vagas se repartem sem passar do total.
+- **Medido** (perfil `test`, e5, 20 candidatos e 20 trechos), contra o 0.11.1:
+
+  | Conjunto | 0.11.1 | G2 | Itens que mudaram |
+  |---|---|---|---|
+  | acervo | 0,9236 | **0,9549** | `patrulhas-escoteiro-e-senior` 0,5 → 1,0; `reconhecimento-de-cada-ramo` 0,5 → 1,0; `requisitos-do-escotista` 0 → 0,5 |
+  | regressão | 0,9768 | 0,9696 | `marco-5-ramos` 0,8 → 1,0; `marco-cada-ramo` 1,0 → 0,8; `marco-ramos-nomeados` 0,8 → 0,6 |
+  | síntese | 0,8462 | 0,8462 | nenhum |
+  | programa-adultos | 0,8409 | **0,8485** | `nome-do-chefe-de-cada-ramo` 0,25 → 0,5 |
+  | semente | recall@5 0,667, MRR 0,551 | iguais | — |
+
+  - **Os 10 itens-alvo:** média de 0,568 para 0,719. Três chegaram a 1,0 (patrulhas, reconhecimentos e marco dos 5
+    ramos). **O SC-004 (metade em 1) não foi cumprido.**
+  - **Linhas de base:** regravadas com o aval do mantenedor. A regressão fica 0,007 abaixo, dentro da tolerância.
+- **O que as rodadas ensinaram:**
+  1. **Uma entidade sozinha atrapalha.** Um conceito ou cargo sozinho é amplo demais. "Como é feito o Sinal de
+     Promessa?" foi de MRR 1,0 a 0,25 na semente.
+  2. **A ordem alfabética dos documentos derrubava o marco.** Dentro do mesmo papel e nível, os documentos ficavam na
+     ordem do `doc_key`, sem relação com a pergunta.
+  3. **O BM25 da pergunta dentro da unidade erra o trecho.** A busca híbrida acerta mais. Dentro de cada documento, o
+     melhor trecho tem de vir primeiro: a ordem do id da unidade punha "capítulo 12" antes de "capítulo 2".
+  4. **"Cada ramo" com 5 ramos é uma troca de qualidade.** O trecho do grafo toma o lugar do 4º trecho da faceta. Ele
+     ganha nos reconhecimentos e perde no marco simbólico, nos ramos Sênior e Pioneiro.
+  5. **O salto pela área e a ordem por nível só para órgãos não mudaram nenhum número.** O salto fica, porque está no
+     ADR-064. A ordem por nível só para órgãos foi desfeita.
+- **Pendências:**
+  - o fato da Política de Espaços Seguros no `requisitos-do-escotista` (a seção 8.2 fica em 173º na busca, abaixo de
+    outras políticas);
+  - `blocos-escoteiro-e-senior`, `passagem-senior-pioneiro`, `tamanho-das-equipes` e `patrulha-sem-adultos`;
+  - o prompt pelo papel (T042), que pede uma rodada com modelo real e ficou para depois.
+- **O teste de identidade do G1** foi retirado: ele cumpriu o papel no `b75b5ab`.
+- **Alternatives** (medidas e não adotadas):
+  - `para_cada` só nas normas: não derruba nada, mas perde os reconhecimentos e o nome do chefe de seção;
+  - o BM25 dentro da unidade: acervo 0,9392 e regressão igual à base;
+  - as consultas amplas com uma entidade só: derrubam a semente.

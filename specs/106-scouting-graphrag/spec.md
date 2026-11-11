@@ -307,9 +307,11 @@ real.
   - `para_cada` reparte as vagas por entidade;
   - a interseção filtra a evidência da primeira consulta pelas seguintes.
 
-  Ele DEVE ordenar por papel, nível (de cima para baixo) e data e cortar em até 3 documentos por consulta. A
-  evidência DEVE levar todos os trechos de cada unidade.
-- **FR-012a**: A 103 DEVE escolher, dentro de cada documento, até 3 trechos pelos termos da pergunta e limitar as
+  Ele DEVE ordenar por papel, nível (de cima para baixo), camada (direta, termo genérico, área) e data. A evidência
+  DEVE levar todos os trechos de cada unidade. O corte em documentos é da 103 (R19, aprovado em 2026-11-11).
+- **FR-012a**: A 103 DEVE ordenar os documentos de cada grupo por papel, nível e camada e, entre esses, pela relevância
+  à pergunta, ficando com até 3. Dentro de cada documento, DEVE escolher até 3 trechos pela posição numa busca híbrida
+  funda, com o BM25 como desempate (R19). Também DEVE limitar as
   frentes do grafo a 8 das 20 vagas, repartidas por entidade em `para_cada`, a partir do G2 (no G1, os tetos do
   ADR-063, FR-015). Os tetos são constantes, ajustáveis depois de medidos.
 - **FR-013**: A busca híbrida DEVE rodar em toda pergunta. O grafo só ocupa as primeiras vagas, e sem plano, ou com

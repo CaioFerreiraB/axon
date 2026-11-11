@@ -241,7 +241,7 @@ pela forma da pergunta.
 - `cada_ramo`, `duas_entidades`, `requisitos` e `obrigatorio` do programa-adultos não caem;
 - nenhum conjunto cai.
 
-- [ ] T034 [US2] Criar `corpus/dominio.yaml` (`version: 1`), com os `ramos` saindo do `organizacao.yaml`, mais:
+- [X] T034 [US2] Criar `corpus/dominio.yaml` (`version: 1`), com os `ramos` saindo do `organizacao.yaml`, mais:
   - `secoes` (ninhada, alcateia, tropa escoteira, tropa sênior/guia, clã, com `DE_RAMO`);
   - `areas` (programa educativo, gestão de adultos, espaços seguros, gestão institucional, relações institucionais,
     rede de jovens líderes…, cada uma com as categorias da taxonomia que ela agrupa);
@@ -250,7 +250,7 @@ pela forma da pergunta.
   - `rege` (área → cargo, ramo, seção).
 
   Toda entrada tem `fonte` (`chunk_id`) e `citacao`.
-- [ ] T035 [US2] Ampliar os `cargos` do `corpus/organizacao.yaml` com os de programa e adultos:
+- [X] T035 [US2] Ampliar os `cargos` do `corpus/organizacao.yaml` com os de programa e adultos:
   - escotista, chefe de seção (Chefe de Alcateia, Chefe de Tropa Escoteira, Chefe de Tropa Sênior/Guia, Mestre
     Pioneiro);
   - assistente;
@@ -261,7 +261,7 @@ pela forma da pergunta.
   - monitor.
 
   Cada um com apelidos, `atua_em` e fonte (POR, Perfis de Cargos, Política Nacional de Adultos).
-- [ ] T036 [P] [US2] Testes das regras de aresta em `tests/rag/graph/unit/test_build_sobre.py`, sobre um acervo
+- [X] T036 [P] [US2] Testes das regras de aresta em `tests/rag/graph/unit/test_build_sobre.py`, sobre um acervo
   sintético:
   - título → entidade pelo nome mais longo;
   - `branches` → `ramo:`;
@@ -269,10 +269,10 @@ pela forma da pergunta.
   - categoria → `DE_AREA`;
   - modo pelo papel;
   - instituição nunca pelo título do documento.
-- [ ] T037 [US2] Implementar `src/axon_scouting/rag/graph/domain/build/sobre.py` com as regras do R6, itens 1 a 5,
+- [X] T037 [US2] Implementar `src/axon_scouting/rag/graph/domain/build/sobre.py` com as regras do R6, itens 1 a 5,
   para todos os tipos de documento, e `build/domain.py`, que lê `dominio.yaml` e os cargos e gera `entity`, `REGE`,
   `DE_RAMO` e `ATUA_EM`. O `ArtifactSources` passa a ler o `dominio.yaml`.
-- [ ] T038 [P] [US2] Testes de `sobre` completo e do executor em `tests/rag/graph/unit/test_sobre.py` e
+- [X] T038 [P] [US2] Testes de `sobre` completo e do executor em `tests/rag/graph/unit/test_sobre.py` e
   `test_executor.py`:
   - `modo=todas` (a mesma unidade ou a seção mãe);
   - o salto `REGE`+`DE_AREA` depois das diretas;
@@ -280,15 +280,15 @@ pela forma da pergunta.
   - `para_cada` com `$cada` e grupos por entidade;
   - interseção com `documentos`;
   - a ordem por papel, nível e data.
-- [ ] T039 [US2] Completar `sobre` em `domain/queries.py` e as formas `para_cada` e `intersecao` em
+- [X] T039 [US2] Completar `sobre` em `domain/queries.py` e as formas `para_cada` e `intersecao` em
   `domain/executor.py`.
-- [ ] T040 [US2] [103] No `retriever.py`:
+- [X] T040 [US2] [103] No `retriever.py`:
   - o teto total entra aqui, medido: `GRAPH_TOTAL: Final = 8`, repartido por grupo de `para_cada` (`ceil(8/n)`);
   - a busca por faceta (ADR-045) continua e reparte as vagas que sobram, com `facet_rank` e `facet_order` como hoje
     (R17).
 
   Testes em `tests/rag/retrieval/`.
-- [ ] T041 [US2] [101] Na derivação (`src/axon_scouting/context/derivation.py`), a tabela "forma → plano":
+- [X] T041 [US2] [101] Na derivação (`src/axon_scouting/context/derivation.py`), a tabela "forma → plano":
   - entidades sem forma especial → `sobre(entidades, papeis=[norma, orientacao])`;
   - duas entidades de tipos diferentes → `modo=todas`;
   - `branches` → `para_cada(branches, sobre([$cada, …]))`;
@@ -298,8 +298,8 @@ pela forma da pergunta.
 - [ ] T042 [US2] [101] O prompt (`src/axon_scouting/prompts/`) usa o metadado `role` do trecho para falar pela
   natureza ("o Estatuto determina" × "o manual orienta"), só se a medida com modelo real mostrar ganho. A medida é a
   fidelidade pelo juiz (`eval/assistants-openrouter.yaml`, juiz `gpt-4.1-mini`) no programa-adultos, antes e depois
-  da mudança do prompt. Sem ganho, fica registrado e adiado.
-- [ ] T043 [US2] `scripts/grafo.py build`, os invariantes (T031), o teste de tempo (T028a), a suíte completa e a medida dos quatro conjuntos com
+  da mudança do prompt. Sem ganho, fica registrado e adiado. **Adiada no G2** (R19): pede a rodada com modelo real.
+- [X] T043 [US2] `scripts/grafo.py build`, os invariantes (T031), o teste de tempo (T028a), a suíte completa e a medida dos quatro conjuntos com
   o `eval_diff.py`. Registrar no research da 106 (R19, a medida do G2), com os 10 itens alvo, item a item. O `scouting`
   vai a 0.13.0.
 

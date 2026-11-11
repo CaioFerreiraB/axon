@@ -116,6 +116,7 @@ evidência que a justifica:
 | `DE_AREA` | versão → `area:` | sim | regra: a categoria temática da taxonomia | G2 |
 | `REGE` | `area:` → `cargo:`/`ramo:`/`secao:` | sim (um salto em `sobre`) | curado, poucas dezenas de linhas | G2 |
 | `DE_RAMO` | `secao:` → `ramo:` | sim | curado | G2 |
+| `E_UM` | entidade específica → termo genérico (`cargo:escotista` → `conceito:adulto`) | sim (camada 1 do `sobre` e o `todas`) | curado (`abrange` no `dominio.yaml`) | G2 (R19) |
 | `ATUA_EM` | `cargo:` → `secao:`/`tipo_orgao:` | sim | curado (o `orgao` do cargo de hoje) | G2 |
 | `ALTERA`, `REVOGA` | versão → versão ou unidade | `ligados` | regra no texto ("Altera a Regra 057", "Revoga a Resolução…"); o alvo casa pelo título da regra, e não só pelo número, porque a numeração do POR muda (105 R26) | G5 |
 | `SUBSTITUI` | versão → versão | `ligados` | a linhagem do catálogo | G5 |

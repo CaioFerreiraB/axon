@@ -366,3 +366,11 @@ da 005, o N do rerank e o limiar do portão.
 - **Rationale**: a clarificação da 106 (Q1, Q2) deixa a escolha dos trechos com quem lida com o texto da pergunta. Os
   tetos são os do ADR-063 até serem medidos.
 - **Alternatives**: a 106 escolher os trechos; frentes sem teto total.
+
+- **G2 (106 R19, 2026-11-11; aprovado pelo mantenedor)**: o corte em 3 documentos por grupo passou do executor para cá.
+  - **Documentos.** A ordem é papel, nível e camada e, dentro deles, a relevância à pergunta (a melhor posição de um
+    trecho do documento na busca híbrida). A ordem por `doc_key` era alfabética e derrubava o marco simbólico.
+  - **Trechos.** Dentro do documento, eles saem pela posição numa busca híbrida funda (`GRAPH_DEPTH` = 200, a pergunta
+    e, no grupo de um ramo, o nome do ramo), com o melhor primeiro. O BM25 é o desempate.
+  - **Vagas.** As 8 se repartem entre os grupos sem passar do total.
+  - **Facetas.** Com elas, as frentes do grafo vêm antes, e a busca por faceta reparte o que sobra.

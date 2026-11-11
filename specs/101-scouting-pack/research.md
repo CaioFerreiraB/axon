@@ -686,3 +686,9 @@ seguem no Qdrant embutido com `store: qdrant`.
   forma da pergunta, que ela já reconhece.
 - **Alternatives**: a 101 montar um dicionário solto, o que daria duas definições do contrato; ou a 103 montar o
   plano, que não conhece a forma da pergunta.
+
+- **G2 (106 R19, 2026-11-11)**: a forma da pergunta dá o plano. Com órgão, fica o plano do ADR-063 (até o G3). "Cada
+  ramo" vira `para_cada`. Um ramo com uma entidade, ou duas entidades, vira `todas`, e com duas entidades também a
+  consulta de cada uma. **Uma entidade sozinha não pede plano**: ela derrubava a semente ("Sinal de Promessa", MRR 1,0
+  → 0,25). O léxico recebe os termos dos cargos, áreas e conceitos do grafo, e os ramos continuam reconhecidos pelo
+  léxico (`branches`).

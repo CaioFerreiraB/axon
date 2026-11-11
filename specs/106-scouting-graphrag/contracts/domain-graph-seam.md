@@ -65,7 +65,7 @@ class Evidence:
 class FrontGroup:
     step: int                             # o índice do passo no plano
     entity: str | None                    # em para_cada, a entidade do grupo
-    evidence: tuple[Evidence, ...]        # até 3 documentos, já ordenados
+    evidence: tuple[Evidence, ...]        # toda a evidência, ordenada (o corte em documentos é da 103)
 
 Frentes = tuple[FrontGroup, ...]
 
@@ -88,7 +88,8 @@ class DomainGraphSource(Protocol):
 2. **Ordem.** Dentro de um grupo de `sobre`, a ordem é a posição da entidade em `entidades` (a ordem da menção), depois
    o papel (norma, orientação, registro, comunicação), o nível (do mundial ao local), o `doc_key` e o `unit_id`, que é
    a ordem do `sorted` do ADR-063 estendida. Os eventos vão por data, e os documentos de `documentos` vão por `doc_key`.
-3. **Teto de documentos.** Nenhum grupo passa de 3 documentos (R9). Os trechos não são cortados aqui: a 103 escolhe.
+3. **Sem corte.** O executor entrega toda a evidência de cada grupo, na ordem da garantia 2. O corte em 3 documentos
+   (pela relevância à pergunta dentro do mesmo papel, nível e camada) e a escolha dos trechos são da 103 (R19).
 4. **Governança.** `run` nunca devolve aresta de governança. Só `query("ligados", …)` as devolve (FR-007).
 5. **Fonte.** Toda `Evidence` tem `edge.source` e `edge.origin`.
 6. **Vazio.** Sem `graph.jsonl`, `aliases() == {}` e `run(p) == ()`. Com um grafo de outro build, a primeira chamada

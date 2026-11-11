@@ -424,7 +424,18 @@ O G1 está implementado (`scouting` 0.12.0, 106 R18). O `NormGraph` saiu do *Ín
 com o `DomainGraphService` sobre o `ArtifactGraphStore` e o `graph.jsonl` v2, que tem as entidades, as versões com
 papel, as seções com `SOBRE` e a governança, cada uma com fonte e origem. A derivação publica `entities` e `plan`, e o
 retriever executa o plano. O `scripts/grafo.py` tem `build`, `query`, `plan` e `export --arrows`. Os quatro conjuntos
-e a semente ficaram idênticos ao 0.11.1, e a identidade dos trechos está em `tests/rag/graph/test_g1_identity.py`.
+e a semente ficaram idênticos ao 0.11.1, e a identidade dos trechos foi provada antes de mudar o comportamento (o teste saiu no G2).
+O G2 está implementado (`scouting` 0.13.0, 106 R19):
+- `corpus/dominio.yaml` tem ramos, seções, áreas e conceitos, e o `organizacao.yaml` ganhou os cargos de programa e
+  adultos;
+- o `SOBRE` sai pelo título (o das regras do POR vem do texto) e pelo manual do ramo;
+- "adultos" é o termo genérico de escotista e dirigente (`E_UM`), e o salto pela área usa o `REGE` e o `DE_AREA`;
+- a derivação escreve o plano pela forma da pergunta: `para_cada` em "cada ramo", `todas` em combinações, e nenhum plano
+  com uma entidade sozinha;
+- a 103 corta em 3 documentos pela relevância e escolhe os trechos pela posição numa busca híbrida funda.
+
+Resultado: acervo 0,9549, regressão 0,9696 (−0,007) e programa-adultos 0,8485, com as linhas de base regravadas. O
+SC-004 (metade dos 10 itens-alvo em 1) não foi cumprido: foram 3 de 10.
 
 O ambiente de dev local (`axon-scouting/.cache/dev/
 dev.sh`, fora do git: Postgres e Open WebUI em contêiner, `axon serve` do venv do pack, trace em `.cache/dev/trace/`)
