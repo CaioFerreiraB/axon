@@ -475,6 +475,12 @@ O G5 está implementado (`scouting` 0.16.0, 106 R22):
 Resultado: programa-adultos 0,8939 → 0,9091 (`dr-sp-cursos-distritais` 0,5 → 1). Acervo, regressão, síntese e semente
 não mudaram.
 
+O G6 está implementado (`scouting` 0.17.0, 106 R23): as 993 unidades dos tipos com nome (ADR-048) estão no grafo, com a
+posição na árvore; `itens` as lista (ou, com `de`, os órgãos de uma instituição), e `documentos` ordena do mais recente.
+`list_documents` e `list_units` são fachadas: o grafo diz quem pode entrar, e o catálogo e a árvore da 102 continuam
+dando os filtros e o texto das fichas; sem grafo ao lado do índice, as listas são as de hoje. A saída das duas tools é
+idêntica à gravada antes (`tests/rag/retrieval/data/list_facades_reference.json`), e nenhum conjunto mudou.
+
 O ambiente de dev local (`axon-scouting/.cache/dev/
 dev.sh`, fora do git: Postgres e Open WebUI em contêiner, `axon serve` do venv do pack, trace em `.cache/dev/trace/`)
 serve para testar antes de publicar. A chave do

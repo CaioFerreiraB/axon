@@ -395,15 +395,15 @@ pela forma da pergunta.
 **Teste independente**: acervo e regressão sem cair, e as tools de lista com a mesma saída para as perguntas de lista
 dos conjuntos.
 
-- [ ] T060 [P] [US6] Testes de identidade da saída de `list_documents` e `list_units` antes e depois, para as perguntas
+- [X] T060 [P] [US6] Testes de identidade da saída de `list_documents` e `list_units` antes e depois, para as perguntas
   dos grupos `lista`, `lista_documentos` e `lista_itens`, em `tests/rag/retrieval/test_list_facades.py`, com a
   referência gravada antes da mudança.
-- [ ] T061 [US6] Implementar `documentos` e `itens` em `domain/queries.py` (as versões e as unidades do grafo, com a
+- [X] T061 [US6] Implementar `documentos` e `itens` em `domain/queries.py` (as versões e as unidades do grafo, com a
   ordem de hoje). O build passa a pôr no grafo as unidades dos tipos com nome do ADR-048 (especialidade, insígnia,
   etapa, cargo…), com `CONTEM`, para o `itens` listar sem a árvore da 102.
-- [ ] T062 [US6] [103] `src/axon_scouting/rag/retrieval/catalog.py` e `units.py` viram fachadas de `documentos` e
+- [X] T062 [US6] [103] `src/axon_scouting/rag/retrieval/catalog.py` e `units.py` viram fachadas de `documentos` e
   `itens`, com o mesmo nome de tool, a mesma descrição e as mesmas fichas (`catalog_rank`, `structure_rank`).
-- [ ] T063 [US6] Build, invariantes, suíte e medida dos quatro conjuntos. Registrar no research (R23). O `scouting` vai
+- [X] T063 [US6] Build, invariantes, suíte e medida dos quatro conjuntos. Registrar no research (R23). O `scouting` vai
   a 0.17.0.
 
 **Checkpoint G6 — PARADA 4.**

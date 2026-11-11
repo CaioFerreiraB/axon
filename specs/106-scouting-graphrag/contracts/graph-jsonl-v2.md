@@ -11,7 +11,7 @@ mesmos YAML dão o mesmo arquivo, byte a byte.
 | `meta` | `version` (2), `chunking` (o do manifesto do índice), `built_at` (o do índice, para o arquivo ser reprodutível), `sources` (sha256 do `organizacao.yaml` e, a partir do G2, do `dominio.yaml` e da taxonomia) | `report` (contagens por tipo de aresta e origem, e as entradas descartadas com o motivo) |
 | `entity` | `id`, `type`, `name`, `terms`, `source`, `origin` | `aliases`, `level` |
 | `version` | `doc_key`, `document_id`, `type`, `role`, `status` | `scope`, `date`, `bodies`, `chunk_ids` e `ementa` (G5) |
-| `unit` | `unit_id`, `doc_key`, `unit_kind`, `title`, `chunk_ids` | `branches`, `parent` |
+| `unit` | `unit_id`, `doc_key`, `unit_kind`, `title`, `chunk_ids` | `branches`, `parent`, `ancestors`, `position` (a posição na árvore do documento, nas unidades dos tipos com nome; G6) |
 | `edge` | `type`, `from`, `to`, `source`, `origin` | `mode` (no `SOBRE`), `checked` (no `modelo_conferido`), `attrs` (o `modo`, a `periodicidade`… da governança; em `ALTERA` e `CITA` de regra, a `regra` citada e o `casamento`, `titulo` ou `numero`; entre resoluções, o `numero`) |
 | `event` | `id`, `doc_key`, `type`, `text`, `source` | `date`, `page`, `chunk_ids` (os trechos da ata na página e nas vizinhas, G4) |
 

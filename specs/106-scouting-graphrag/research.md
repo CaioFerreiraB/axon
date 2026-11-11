@@ -520,3 +520,32 @@ clarificação de 2026-11-10, levadas aqui sem re-pesquisa. Os números de base 
   - **órgãos e instituições no `SOBRE` da ementa:** fora, para não mexer no `sobre` dos órgãos do ADR-063;
   - **o número da regra sem título em resolução antiga:** liga à regra errada (a 191 de 2023 é o recrutador; a de
     hoje, o Brevê do CATAR I).
+
+## R23 — O G6 medido: as listas como consultas do grafo (2026-11-11)
+
+- **Decision**: o G6 entra como o `scouting` 0.17.0.
+  - **A referência antes da mudança (T060).** `tests/rag/retrieval/list_reference.py` roda as perguntas dos cinco
+    conjuntos pelo próprio pack (a derivação dá os filtros; o artefato e o e5) e grava a saída de `list_documents` e
+    `list_units`. São 19 perguntas de lista: 3 com fichas do acervo, 14 com unidades (5 pelo tipo de unidade, as
+    outras pelos trechos com forma de lista e o sumário). A referência está em
+    `tests/rag/retrieval/data/list_facades_reference.json`, e o teste a refaz quando o e5 está em `.cache/e5`.
+  - **O grafo (T061).**
+    - **As unidades dos tipos com nome** (o `TYPED` da árvore da 102, ADR-048) entram todas, com `CONTEM` e a
+      posição na árvore: 993 (442 itens de pauta, 206 especialidades, 141 blocos…). O `scripts/grafo.py` passa o
+      `TYPED` ao build, porque o grafo não importa a ingestão. O `graph.jsonl` foi a 10,7 MB.
+    - **`itens(tipo_de_unidade, de, ramo)`**: as unidades do tipo, por `doc_key` e posição, com o ramo da unidade; com
+      `de`, as entidades filhas pelo `PARTE_DE` (os órgãos de uma instituição), com o trecho da fonte.
+    - **`documentos`** passa a ordenar do mais recente ao mais antigo, como a lista de documentos (ADR-047).
+  - **As fachadas (T062, 103).** As duas tools recebem o grafo e perguntam a ele quais documentos do tipo e quais
+    unidades do tipo existem. O catálogo e a árvore da 102 continuam dando a vigência dos filtros, a fração dos
+    qualificadores e o texto das fichas, porque levar isso ao grafo duplicaria o catálogo inteiro. **Sem grafo** ao
+    lado do índice (a suíte de integração, um Qdrant de fora), as listas são as de hoje: a primeira rodada esvaziava a
+    lista ali.
+- **Medido** (perfil `test`, e5, 20 candidatos e 20 trechos): nenhum item mudou nos quatro conjuntos (acervo 0,9549,
+  regressão 0,9696, síntese 0,9487, programa-adultos 0,9091), a semente ficou igual (recall@5 0,667, MRR 0,551), e a
+  saída das duas tools é idêntica à referência.
+- **Alternatives:**
+  - **levar ao grafo o que as fichas mostram** (vigência, versão, link, classificação, caminho e página): tiraria do
+    retriever os seams `DocumentCatalog` e `DocumentOutline` da 102, mas duplicaria o catálogo no `graph.jsonl`; fica
+    para quando o seam do índice mudar;
+  - **o grafo vazio esvaziando as listas:** medido na integração e recusado.

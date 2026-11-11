@@ -381,3 +381,8 @@ da 005, o N do rerank e o limiar do portão.
   - **A linha do tempo fica numa faixa só no retriever,** porque a evidência dela vem por data.
     - Com "as últimas", as atas mais recentes vêm primeiro.
     - As cópias de uma reunião (a mesma data) valem uma ata.
+- **G6 (106 R23, 2026-11-11)**: `list_documents` e `list_units` são fachadas de `documentos` e `itens`. O
+  `CatalogRetriever` e o `UnitsRetriever` recebem o grafo pela composição e perguntam a ele quais documentos do tipo
+  e quais unidades do tipo existem. O catálogo e a árvore da 102 continuam dando os filtros de vigência e ramo, a
+  fração dos qualificadores e o texto das fichas, e a saída é a mesma (referência gravada antes, nas 19 perguntas de
+  lista dos cinco conjuntos). Sem grafo ao lado do índice, as listas são as de hoje.
