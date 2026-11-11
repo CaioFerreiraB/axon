@@ -7,7 +7,7 @@ Só offline, na máquina do mantenedor. É rodado de dentro de `axon-scouting/` 
 
 ```text
 grafo.py build [--index DIR] [--organization corpus/organizacao.yaml] [--domain corpus/dominio.yaml]
-               [--taxonomy corpus/taxonomia.yaml] [--minutes corpus/resumos/atas] [--summarize-resolutions]
+               [--taxonomy corpus/taxonomia.yaml] [--minutes corpus/resumos/atas] [--subjects corpus/resumos/resolucoes/assuntos.yaml]
 ```
 
 - Monta o grafo e grava `<index>/graph.jsonl` (v2).
@@ -17,11 +17,12 @@ grafo.py build [--index DIR] [--organization corpus/organizacao.yaml] [--domain 
   - `0` quando monta;
   - `2` quando um YAML é inválido, nomeando a entrada;
   - `1` quando um invariante falha (por exemplo, um tipo da taxonomia sem papel).
-- **`--summarize-resolutions` (G5):**
-  - imprime a estimativa de custo e pede confirmação antes de qualquer chamada;
-  - lê a chave só de `AXON_OPENROUTER_API_KEY`;
-  - grava as propostas conferidas em `corpus/resumos/resolucoes/`, como as fichas, para o build seguinte não chamar o
-    modelo de novo.
+- **`--subjects` (G5; default `corpus/resumos/resolucoes/assuntos.yaml`):** as propostas de assunto das resoluções que
+  a ementa não resolve, feitas por um modelo offline e conferidas pelo build (a entidade no catálogo, o trecho citado
+  num trecho da resolução). O `--summarize-resolutions` com o OpenRouter não foi implementado: por decisão do
+  mantenedor, as propostas do G5 saíram da própria sessão (R22).
+- O relatório do build conta as resoluções (com ementa, com assunto pela ementa, pelo modelo conferido e sem assunto)
+  e as ligações por tipo, e lista as descartadas com o motivo.
 
 ## `query`
 

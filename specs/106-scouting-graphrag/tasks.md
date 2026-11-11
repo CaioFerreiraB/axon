@@ -361,18 +361,19 @@ pela forma da pergunta.
 
 **Teste independente**: `mudanca` e `publicacoes` não caem, e os itens abaixo de 1 sobem. Toda ligação tem fonte.
 
-- [ ] T054 [P] [US5] Testes em `tests/rag/graph/unit/test_build_resolutions.py`:
+- [X] T054 [P] [US5] Testes em `tests/rag/graph/unit/test_build_resolutions.py`:
   - ementa por regra (primeira frase "Altera…/Aprova…/Dispõe sobre…/Revoga…");
   - `ALTERA` e `REVOGA` com o alvo pelo título da regra, inclusive renumerada (CAN 11/2021 "Regra 178" → a regra 183
     do POR 2025 pelo título "Distintivos de Idiomas");
   - `SUBSTITUI` pela linhagem;
   - `CITA` ("Regra 054", "art. 27");
   - os apelidos de `doc:` pelo número ("Resolução CAN 15/2025").
-- [ ] T055 [US5] Implementar `build/resolutions.py` (regra) e `ligados` completo em `domain/queries.py`. Medir e
+- [X] T055 [US5] Implementar `build/resolutions.py` (regra) e `ligados` completo em `domain/queries.py`. Medir e
   imprimir no relatório do build quantas resoluções ficaram sem assunto.
-- [ ] T056 [US5] Estimar o custo do modelo nas resoluções sem assunto (tokens × preço do `gpt-4.1-mini` no OpenRouter)
+- [X] T056 [US5] Estimar o custo do modelo nas resoluções sem assunto (tokens × preço do `gpt-4.1-mini` no OpenRouter)
   e **mostrar ao mantenedor antes de rodar** (FR-020).
-- [ ] T057 [US5] Só com o aval do T056:
+- [X] T057 [US5] Só com o aval do T056 (feito de outro modo, por decisão do mantenedor: as propostas são da própria sessão,
+  em `corpus/resumos/resolucoes/assuntos.yaml`, conferidas pelo build; sem `ResolutionSummarizer` — R22):
   - `src/axon_scouting/rag/graph/adapters/summarizer.py` (`ResolutionSummarizer` pelo OpenRouter, chave só em
     `AXON_OPENROUTER_API_KEY`) e o simulado em `tests/`;
   - a conferência da fonte por código contra a página, como `rag/ingestion/domain/minutes.py` faz;
@@ -380,9 +381,9 @@ pela forma da pergunta.
   - a suíte de conformidade do `ResolutionSummarizer` em `tests/rag/graph/contract/test_summarizer.py`, que roda
     sempre contra o simulado e contra o real só com `AXON_OPENROUTER_API_KEY` no ambiente (pulada sem ela, como a
     integração paga da 006).
-- [ ] T058 [US5] [101] A derivação escreve `ligados(doc, [ALTERA, REVOGA])` e `documentos(emissor=…) ∩ sobre(area)`
+- [X] T058 [US5] [101] A derivação escreve `ligados(doc, [ALTERA, REVOGA])` e `documentos(emissor=…) ∩ sobre(area)`
   pelas formas "o que mudou / que resolução alterou" e "o que o órgão publicou". Testes em `tests/context/`.
-- [ ] T059 [US5] Build, invariantes, suíte e medida dos quatro conjuntos. Registrar no research (R22), com o custo
+- [X] T059 [US5] Build, invariantes, suíte e medida dos quatro conjuntos. Registrar no research (R22), com o custo
   real. O `scouting` vai a 0.16.0.
 
 **Checkpoint G5 — PARADA 4.**

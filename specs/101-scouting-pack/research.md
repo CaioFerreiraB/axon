@@ -705,3 +705,12 @@ seguem no Qdrant embutido com `store: qdrant`.
   A síntese passa a publicar `entities`. Na síntese, a enumeração sem tipo de unidade ("quais foram…") não impede o
   reconhecimento. "Fórum" e "fóruns" passam a ser palavras de reunião, e "quantos votos", marcador de síntese. O
   documento (`doc:`) só entra no plano da síntese.
+- **G5 (106 R22, 2026-11-11)**: duas formas novas, antes do plano de antes:
+  - **mudança** ("o que mudou", "que resolução alterou", "foi revogada"; `change_terms`) →
+    `ligados(alvo, [ALTERA, REVOGA])`, com o `doc:` citado pelo número ("a Resolução CAN 15/2025"), senão as entidades
+    (até 2), senão o ramo;
+  - **publicação** ("publicou", "estabeleceu", "normatizou"; `publication_terms`), com órgão e assunto →
+    `sobre(assunto) ∩ documentos(emissor=órgão, aplica_se_a=instituição citada)`.
+
+  Sem alvo, ou sem órgão e assunto, fica o plano de antes. As resoluções passam a ser reconhecidas pelo número
+  (`doc:<document_id>`, termos do grafo).

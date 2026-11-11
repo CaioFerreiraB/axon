@@ -447,3 +447,76 @@ clarificação de 2026-11-10, levadas aqui sem re-pesquisa. Os números de base 
   - **só a página citada:** perde os 24 delegados;
   - **a faixa de papel e nível na linha do tempo:** perde o mandato de 2022.
 
+
+## R22 — O G5 medido: as resoluções, `ligados` e `documentos` (2026-11-11)
+
+- **Decision**: o G5 entra como o `scouting` 0.16.0.
+  - **As resoluções no build (T054, T055; `build/resolutions.py`), por regra:**
+    - **a ementa**: as linhas depois do cabeçalho ("RESOLUÇÃO CAN 03/2021", "INSTRUÇÃO NORMATIVA 2024.02", com o número
+      no começo da linha, ou na linha de baixo) até o "Considerando", a fórmula de quem resolve ou o primeiro artigo.
+      A regra lê 271 das 273; a CAN 01/2025 e a CAN 08/2025 trazem a ementa depois do "Considerando";
+    - **o assunto pela ementa**: o `reconhecer` com as entidades de programa e adultos dá `SOBRE` (modo `disciplina`)
+      da resolução inteira (`<doc_key>#documento`, só a vigente), com a fonte no primeiro trecho. São 61. Órgão e
+      instituição na ementa dizem quem emite ou onde vale, que já são `EMITIDO_POR` e `APLICA_SE_A` (G3), e ficam fora;
+    - **o número e o `doc:`**: cada resolução vira `doc:<document_id>`, reconhecível pelo número ("resolucao can 15
+      2025", com e sem os zeros, "nº", e a forma ano.número das regionais e das instruções);
+    - **`ALTERA` de regra do POR pelo título** que a resolução reproduz (Jaccard ≥ 0,5 entre as palavras do título,
+      cortado no primeiro item "I –" ou "A."): a 178 da CAN 11/2021 é a 183 de hoje (Distintivos de Idiomas), a 191 da
+      CAN 03/2023 é a 196, a 171 da CAN 05/2022 é a 175, e as 130 e 131 da CAN 05/2021 são a 133 e a 134. **Pelo
+      número só quando a resolução é posterior ao POR vigente** (abril de 2025): a renumeração é ampla. 11 alterações
+      ficam de fora, com o motivo no relatório (sem título e de antes do POR, ou título sem regra correspondente, como
+      a 174 da Tribo da Terra, "Distintivos especiais");
+    - **`ALTERA` e `REVOGA` entre resoluções** pelo número depois do verbo; sem a série, a da própria resolução. A
+      passiva ("alterado conforme a Resolução Nº 01/2019", "alterada pela…") inverte o sentido, e a mais antiga (pelo
+      ano do número, e não pela vigência do texto consolidado) não altera a mais nova;
+    - **`CITA`** ("Regra 054", "art. 27 do Estatuto") da unidade que cita para a regra ou o artigo vigente, só quando a
+      resolução não é anterior à norma, e nunca a regra que a mesma resolução altera;
+    - **`SUBSTITUI`** pela linhagem do catálogo (fonte `corpus.yaml:<document_id>`). Hoje dá zero arestas: o acervo
+      tem uma versão por documento.
+
+    São 27 `ALTERA`, 38 `REVOGA` e 20 `CITA`, cada uma com o trecho que a escreve como fonte.
+  - **A versão leva os trechos e a ementa** (campos opcionais do `graph.jsonl` v2): é o que `documentos` e `ligados`
+    entregam quando a evidência é o documento inteiro. O `graph.jsonl` foi de 7,6 MB a 9,9 MB.
+  - **As consultas:**
+    - **`ligados(alvo, relacoes)`** completa: o alvo pode ser uma unidade, uma versão, um `doc:` (as versões dele e as
+      unidades delas) ou uma entidade (ela, para a governança, e as unidades com `SOBRE` para ela). A evidência é a
+      outra ponta: a unidade, ou a versão com o trecho que escreve a ligação primeiro;
+    - **`documentos`** entra antes do G6, com os filtros que o plano do G5 usa: tipo, emissor (o tipo de órgão vale
+      pelas instâncias; a instituição, pelos órgãos dela), `aplica_se_a`, área, ramo, período e vigência. O G6 (T061)
+      confere a ordem com a lista de documentos de hoje (ADR-047) e faz a fachada.
+  - **O assunto pelo modelo (T056, T057), por decisão do mantenedor nesta passada:** em vez da rodada paga pelo
+    OpenRouter (`gpt-4.1-mini`, estimada em US$ 0,20 para as 212), o modelo offline foi o da própria sessão (Claude),
+    lendo a ementa e a primeira página das 188 vigentes sem assunto. As propostas estão em
+    `corpus/resumos/resolucoes/assuntos.yaml`, com o critério (a resolução disciplina a entidade; ato individual,
+    orçamento, registro e governança ficam sem assunto; medalha não é `conceito:reconhecimento`, que é o
+    Reconhecimento de Ramo). O build as lê pela porta `GraphSources.resolution_subjects()` e as confere por código
+    (`checked_subjects`): a entidade no catálogo e o trecho citado num trecho da própria resolução, que vira a fonte.
+    As 9 propostas passaram, e são 10 arestas `SOBRE` `modelo_conferido`. O `ResolutionSummarizer` e o
+    `--summarize-resolutions` não foram implementados; o `--subjects` aponta o arquivo.
+  - **A derivação (T058, 101 R44):** "o que mudou / que resolução alterou / foi revogada" vira
+    `ligados(alvo, [ALTERA, REVOGA])` — o `doc:` citado, senão as entidades, senão o ramo —, e "o que o órgão
+    publicou / estabeleceu / normatizou sobre X" vira `sobre(X) ∩ documentos(emissor=…, aplica_se_a=…)`. Sem alvo, ou
+    sem órgão e assunto, segue o plano de antes. O `conceito:formacao` ganhou "iniciativas de formação" e "eventos
+    formativos", como as instruções da DR-SP dizem.
+- **Medido** (perfil `test`, e5, 20 candidatos e 20 trechos), contra o G4:
+
+  | Conjunto | G4 | G5 | Itens que mudaram |
+  |---|---|---|---|
+  | acervo | 0,9549 | 0,9549 | nenhum |
+  | regressão | 0,9696 | 0,9696 | nenhum |
+  | síntese | 0,9487 | 0,9487 | nenhum |
+  | programa-adultos | 0,8939 | **0,9091** | `dr-sp-cursos-distritais` 0,5 → 1,0 |
+  | semente | recall@5 0,667, MRR 0,551 | iguais | — |
+
+  - **O teste independente da US5 está cumprido:** `mudanca` segue em 1,0, e `publicacoes` foi de 0,75 a 1,0 — a IN
+    2024.02 chega pela interseção com os dois trechos dos fatos.
+  - **Os assuntos pelo modelo não mudaram nenhum item** (a rodada só com a regra deu os mesmos números).
+  - **Linha de base do programa-adultos regravada.**
+- **Custo real do modelo:** zero de API.
+- **Alternatives:**
+  - **o `gpt-4.1-mini` pelo OpenRouter:** estimado em US$ 0,20 e não rodado; a leitura das 212 mostrou que quase todas
+    tratam do que o catálogo curado não tem, e o mapeamento provável das 41 comissões de medalha para
+    `conceito:reconhecimento` estaria errado;
+  - **órgãos e instituições no `SOBRE` da ementa:** fora, para não mexer no `sobre` dos órgãos do ADR-063;
+  - **o número da regra sem título em resolução antiga:** liga à regra errada (a 191 de 2023 é o recrutador; a de
+    hoje, o Brevê do CATAR I).

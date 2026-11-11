@@ -461,6 +461,20 @@ O G4 está implementado (`scouting` 0.15.0, 106 R21):
 Resultado: síntese 0,8462 → 0,9487 (SC-006) e programa-adultos 0,8636 → 0,8939. Acervo, regressão e semente não
 mudaram.
 
+O G5 está implementado (`scouting` 0.16.0, 106 R22):
+- as resoluções têm a ementa lida por regra (271 de 273), que dá o `SOBRE` de 61, e um `doc:` reconhecível pelo
+  número ("Resolução CAN 15/2025");
+- `ALTERA` de regra do POR pelo título que a resolução reproduz (a numeração mudou: a 178 de 2021 é a 183 de hoje), e
+  pelo número só depois do POR vigente; `ALTERA`/`REVOGA` entre resoluções pelo número (a passiva inverte); `CITA`;
+  `SUBSTITUI` pela linhagem (zero hoje). São 27, 38 e 20, cada uma com o trecho como fonte;
+- `ligados` completo e `documentos` (antes do G6, com os filtros do plano); a derivação escreve "o que mudou" →
+  `ligados` e "o que o órgão publicou sobre X" → `sobre ∩ documentos(emissor)`;
+- o assunto das resoluções que a regra não resolve não usou o OpenRouter (decisão do mantenedor): as propostas da
+  sessão estão em `corpus/resumos/resolucoes/assuntos.yaml` e o build as confere (9, todas aprovadas).
+
+Resultado: programa-adultos 0,8939 → 0,9091 (`dr-sp-cursos-distritais` 0,5 → 1). Acervo, regressão, síntese e semente
+não mudaram.
+
 O ambiente de dev local (`axon-scouting/.cache/dev/
 dev.sh`, fora do git: Postgres e Open WebUI em contêiner, `axon serve` do venv do pack, trace em `.cache/dev/trace/`)
 serve para testar antes de publicar. A chave do
