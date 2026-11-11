@@ -696,3 +696,12 @@ seguem no Qdrant embutido com `store: qdrant`.
   grafo) entra no plano como `intersecao` com `aplicavel_a` dela. Com um órgão, o `sobre` é o do órgão; sozinha, o
   `sobre` é o dela. Com um cargo ou conceito, fica o plano do G2, porque o assunto são eles. A instituição não entra no
   `sobre` junto com o órgão: as partes do grupo derrubavam o `inah-voto-dos-jovens`.
+- **G4 (106 R21, 2026-11-11)**: a síntese com entidade reconhecida vira `linha_do_tempo` dela:
+  - só eleições quando a pergunta fala de eleição, mandato ou chapa (`election_terms`);
+  - o período é o citado;
+  - com duas entidades, a interseção das linhas do tempo;
+  - a instituição não é alvo.
+
+  A síntese passa a publicar `entities`. Na síntese, a enumeração sem tipo de unidade ("quais foram…") não impede o
+  reconhecimento. "Fórum" e "fóruns" passam a ser palavras de reunião, e "quantos votos", marcador de síntese. O
+  documento (`doc:`) só entra no plano da síntese.

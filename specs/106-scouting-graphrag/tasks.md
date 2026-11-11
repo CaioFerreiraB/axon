@@ -337,20 +337,20 @@ pela forma da pergunta.
 
 **Teste independente**: a síntese não cai, a média dos 3 itens de 0,33 sobe (SC-006), e `historico` sobe.
 
-- [ ] T049 [P] [US4] Testes em `tests/rag/graph/unit/test_eventos.py` e `test_linha_do_tempo.py`:
+- [X] T049 [P] [US4] Testes em `tests/rag/graph/unit/test_eventos.py` e `test_linha_do_tempo.py`:
   - um item de ficha vira `event` com a página;
   - `GERA` e `DE` pelo `reconhecer` no tema e na decisão, mais o órgão da ata;
   - pessoa nunca vira entidade;
   - a ordem por data;
   - os filtros de `eventos` e `periodo`.
-- [ ] T050 [US4] Implementar `build/minutes.py`, que lê `corpus/resumos/atas/*.yaml` pelo `ArtifactSources` (só os itens
+- [X] T050 [US4] Implementar `build/minutes.py`, que lê `corpus/resumos/atas/*.yaml` pelo `ArtifactSources` (só os itens
   `conferido: true`), e `linha_do_tempo` em `domain/queries.py`.
-- [ ] T051 [US4] [103] `src/axon_scouting/rag/retrieval/summaries.py`: o `SummariesRetriever` vira uma fachada de
+- [X] T051 [US4] [103] `src/axon_scouting/rag/retrieval/summaries.py`: o `SummariesRetriever` vira uma fachada de
   `linha_do_tempo`. O nome da tool, a descrição e a forma da saída (`summary_rank`) não mudam. Os `SummaryEntry` da 102
   continuam como texto do resumo. Testes que comparam a saída para as perguntas da síntese.
-- [ ] T052 [US4] [101] A derivação escreve `linha_do_tempo(alvo, eventos, periodo)` quando publica `synthesis` com uma
+- [X] T052 [US4] [101] A derivação escreve `linha_do_tempo(alvo, eventos, periodo)` quando publica `synthesis` com uma
   entidade reconhecida. Testes em `tests/context/`.
-- [ ] T053 [US4] Build, invariantes, suíte e medida dos quatro conjuntos. Registrar no research (R21). O `scouting` vai
+- [X] T053 [US4] Build, invariantes, suíte e medida dos quatro conjuntos. Registrar no research (R21). O `scouting` vai
   a 0.15.0.
 
 **Checkpoint G4 — PARADA 4.**

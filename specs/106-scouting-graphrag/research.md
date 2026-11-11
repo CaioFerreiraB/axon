@@ -378,3 +378,72 @@ clarificação de 2026-11-10, levadas aqui sem re-pesquisa. Os números de base 
   - **reconhecer os órgãos reais ("Diretoria Regional de São Paulo"):** o tipo já traz as mesmas unidades, e o nome
     da instância só ganha uso com o `documentos` por emissor (G6).
 
+## R21 — O G4 medido: os eventos das atas e a `linha_do_tempo` (2026-11-11)
+
+- **Decision**: o G4 entra como o `scouting` 0.15.0.
+  - **Os eventos (T050).** As 256 fichas conferidas (`corpus/resumos/atas/`, ADR-062), lidas pela porta
+    `GraphSources.minutes()`, dão 4.423 eventos, sem modelo:
+    - um evento por reunião e um por item conferido (deliberação ou eleição), com a data, a página e o texto. Os
+      números ficam só na ficha;
+    - a deliberação cujo tema é uma eleição ("Eleição da Direção Regional gestão 2022-2025") é do tipo `eleicao`;
+    - **o evento leva os trechos da ata na página citada e nas vizinhas**, como a conferência da ficha. O trecho com
+      "24 delegados eleitos" está no fim da p. 3, e a ficha cita a p. 4;
+    - **`GERA` sai da versão (a ata)**, e não de uma unidade, porque as atas não têm unidade por página. A fonte é
+      `<doc_key>#<n>@p<página>`;
+    - **`DE`** é a do `reconhecer` no tema e na decisão (na eleição, no órgão e no cargo) e a do órgão que emite a ata
+      (`EMITIDO_POR`, G3). O nome do eleito fica só no texto, fora do reconhecimento (decisão 2).
+  - **O catálogo.**
+    - Apelidos que as atas usam: "diretorias regionais", "direção regional" e "assembleia escoteira nacional".
+    - O `dominio.yaml` ganhou `documentos`, com o Regulamento Regional de SP e o Estatuto da UEB, como alvo da linha do
+      tempo. Os apelidos de todo o acervo são do G5. "POR" ficou de fora, porque "por" está em toda frase.
+    - O documento não entra no plano fora da síntese.
+  - **A consulta `linha_do_tempo(alvo, eventos, periodo)`:**
+    - devolve os eventos `DE` o alvo e, sendo ele um tipo, `DE` as instâncias dele, por data;
+    - cada evidência traz o `EventRef` e os trechos.
+  - **A derivação (T052, 101 R44).** A síntese com entidade reconhecida vira `linha_do_tempo`:
+    - **só eleições** quando a pergunta fala de eleição, mandato ou chapa;
+    - **o período** é o citado, do primeiro ao último ano;
+    - **com duas entidades**, a interseção das linhas do tempo ("os delegados à Assembleia Nacional que a Assembleia
+      Regional elegeu");
+    - **a instituição** situa a pergunta e não é alvo;
+    - **a enumeração sem tipo de unidade** ("quais foram…") não impede o reconhecimento na síntese.
+    - **O léxico ganhou** `election_terms`, "fórum" e "fóruns" como palavras de reunião, e "quantos votos" como
+      marcador de síntese.
+  - **A 103 (T051, 103 R23):**
+    - **A `search_summaries` vira uma fachada da linha do tempo.** As partes das fichas das atas com eventos vão à
+      frente (até 4, escolhidas pelos termos), e a seleção de hoje completa as 10 vagas. O nome, a descrição e a saída
+      (`summary_rank`) não mudam.
+    - **No retriever principal, a linha do tempo fica numa faixa só.** A evidência vem por data, e a faixa de papel e
+      nível partia as atas: uma ata do CAN no meio punha as mais antigas primeiro. "As últimas" ordena pela data, e as
+      cópias de uma reunião (a registrada e a do CNPJ da filial) valem uma ata.
+- **Medido** (perfil `test`, e5, 20 candidatos e 20 trechos), contra o G3:
+
+  | Conjunto | G3 | G4 | Itens que mudaram |
+  |---|---|---|---|
+  | acervo | 0,9549 | 0,9549 | nenhum |
+  | regressão | 0,9696 | 0,9696 | nenhum |
+  | síntese | 0,8462 | **0,9487** | `mandatos-da-diretoria-regional` 0,33 → 1,0; `delegados-a-assembleia-nacional` 0,33 → 1,0 |
+  | programa-adultos | 0,8636 | **0,8939** | `regulamento-do-forum-pioneiro` 0 → 1,0 |
+  | semente | recall@5 0,667, MRR 0,551 | iguais | — |
+
+  - **O SC-006 está cumprido.** A média dos 3 itens de 0,33 foi a 0,78: dois chegaram a 1, e o
+    `alteracoes-do-regulamento-regional` ficou em 0,33.
+  - **O `historico` subiu** de 0,5 a 0,83 (o `sedes-do-forum-pioneiro` ficou em 0,5).
+  - **Linhas de base da síntese e do programa-adultos regravadas.**
+- **O que as rodadas ensinaram:**
+  1. **A faixa de papel e nível não serve à linha do tempo.** Com a evidência por data, ela partia as atas regionais
+     em várias faixas, e as mais antigas vinham primeiro (0,67 → 1,0 no `mandatos`).
+  2. **A página da ficha erra por uma.** Com só a página citada, o trecho dos "24 delegados" ficava de fora.
+  3. **As cópias da mesma reunião tomam as vagas.** A AR de 2024 e a de 2025 têm duas cópias cada.
+  4. **O ano anterior ao citado não mudou nada.** Ele foi medido para a sede do fórum, que se escolhe no ano anterior,
+     e ficou fora: o período é o que a pergunta diz.
+- **Pendências:**
+  - `alteracoes-do-regulamento-regional`: a ficha da ata do CCR de 2017 não registra a minuta, e, entre as atas da
+    linha do tempo, a relevância prefere as de 2014 e 2018 às de 2024;
+  - `sedes-do-forum-pioneiro`: a ficha da AR Pioneira de 2022 chega e diz "Mogi das Cruzes". O fato do conjunto é a
+    frase literal da p. 4, e o grafo escolhe só 3 trechos por documento.
+- **Alternatives** (medidas e não adotadas):
+  - **o ano anterior no período:** igual nos quatro conjuntos;
+  - **só a página citada:** perde os 24 delegados;
+  - **a faixa de papel e nível na linha do tempo:** perde o mandato de 2022.
+

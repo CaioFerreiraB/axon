@@ -13,7 +13,7 @@ mesmos YAML dão o mesmo arquivo, byte a byte.
 | `version` | `doc_key`, `document_id`, `type`, `role`, `status` | `scope`, `date`, `bodies` |
 | `unit` | `unit_id`, `doc_key`, `unit_kind`, `title`, `chunk_ids` | `branches`, `parent` |
 | `edge` | `type`, `from`, `to`, `source`, `origin` | `mode` (no `SOBRE`), `checked` (no `modelo_conferido`), `attrs` (o `modo`, a `periodicidade`… da governança) |
-| `event` | `id`, `doc_key`, `type`, `text`, `source` | `date`, `page` |
+| `event` | `id`, `doc_key`, `type`, `text`, `source` | `date`, `page`, `chunk_ids` (os trechos da ata na página e nas vizinhas, G4) |
 
 **Regras:**
 - **Chunking.** Um `meta.chunking` diferente do manifesto do índice faz a carga levantar `GraphUnavailable`.

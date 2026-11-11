@@ -28,7 +28,7 @@ As decisões estão no [research.md](research.md). O seam está em
 |---|---|---|
 | `Version` | `doc_key` | `document_id`, `type` (`taxonomy_id`), `role`, `scope`, `status`, `date` (vigência) e `bodies` |
 | `Unit` | `unit_id` (`<doc_key>#u/…`; o documento inteiro, `<doc_key>#documento`) | `doc_key`, `unit_kind`, `title`, `chunk_ids` (na ordem do documento), `branches`, `parent` e `ancestors` (as unidades acima e, no documento de um ramo, o documento inteiro; para o `todas`). Só entram as que alguma aresta usa e as dos tipos de unidade com nome do ADR-048, que `itens` lista (G6) |
-| `Event` | `evento:<doc_key>#<n>` | `doc_key`, `date`, `type` (`reuniao`, `deliberacao` ou `eleicao`), `text` (o tema e a decisão da ficha) e `page` |
+| `Event` | `evento:<doc_key>#<n>` | `doc_key`, `date`, `type` (`reuniao`, `deliberacao` ou `eleicao`; a deliberação cujo tema é uma eleição é `eleicao`), `text` (o tema e a decisão da ficha), `page` e `chunk_ids` (os trechos da ata na página e nas vizinhas). `GERA` sai da versão da ata, que não tem unidade por página (R21) |
 
 ## Aresta (`Edge`)
 

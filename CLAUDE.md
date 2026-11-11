@@ -448,6 +448,19 @@ O G3 está implementado (`scouting` 0.14.0, 106 R20):
 Resultado: o `inah-balanco-rejeitado` foi a 1 (SC-005), e o programa-adultos a 0,8636. Os outros conjuntos e a semente
 não mudaram.
 
+O G4 está implementado (`scouting` 0.15.0, 106 R21):
+- as fichas das atas viram 4.423 eventos no grafo, com a página, os trechos da ata nela e nas vizinhas, `GERA` e `DE`
+  (pelo tema e pelo órgão que emite a ata; pessoa nunca é entidade);
+- a `linha_do_tempo` dá os eventos de uma entidade por data, e o `dominio.yaml` ganhou `documentos` (Regulamento
+  Regional SP, Estatuto da UEB) como alvo;
+- a derivação escreve `linha_do_tempo` na síntese com entidade (só eleições quando a pergunta fala delas; duas
+  entidades, a interseção);
+- a `search_summaries` é uma fachada dela, com o mesmo nome e a mesma saída, e no retriever a linha do tempo fica numa
+  faixa só ("as últimas" pela data; as cópias de uma reunião valem uma).
+
+Resultado: síntese 0,8462 → 0,9487 (SC-006) e programa-adultos 0,8636 → 0,8939. Acervo, regressão e semente não
+mudaram.
+
 O ambiente de dev local (`axon-scouting/.cache/dev/
 dev.sh`, fora do git: Postgres e Open WebUI em contêiner, `axon serve` do venv do pack, trace em `.cache/dev/trace/`)
 serve para testar antes de publicar. A chave do

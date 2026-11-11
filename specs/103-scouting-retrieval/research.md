@@ -374,3 +374,10 @@ da 005, o N do rerank e o limiar do portão.
     e, no grupo de um ramo, o nome do ramo), com o melhor primeiro. O BM25 é o desempate.
   - **Vagas.** As 8 se repartem entre os grupos sem passar do total.
   - **Facetas.** Com elas, as frentes do grafo vêm antes, e a busca por faceta reparte o que sobra.
+- **G4 (106 R21, 2026-11-11)**:
+  - **A `search_summaries` é uma fachada da `linha_do_tempo`.** Com o plano dela, o `SummariesRetriever` recebe o grafo
+    e põe à frente as partes das fichas das atas com eventos (até 4, pelos termos da pergunta). A seleção do ADR-062
+    completa as 10 vagas, e o nome, a descrição e a saída não mudam.
+  - **A linha do tempo fica numa faixa só no retriever,** porque a evidência dela vem por data.
+    - Com "as últimas", as atas mais recentes vêm primeiro.
+    - As cópias de uma reunião (a mesma data) valem uma ata.
