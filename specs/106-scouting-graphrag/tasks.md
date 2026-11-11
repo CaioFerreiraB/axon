@@ -311,22 +311,22 @@ pela forma da pergunta.
 
 **Teste independente**: `inah-balanco-rejeitado` chega a 1 (SC-005), e nenhum conjunto cai.
 
-- [ ] T044 [US3] Acrescentar ao `corpus/organizacao.yaml`:
+- [X] T044 [US3] Acrescentar ao `corpus/organizacao.yaml`:
   - `instituicoes`: OMME, Região Interamericana, UEB, Região SP, GE Prof. Inah de Mello, e os distritos e grupos que o
     acervo nomeia com fonte;
   - `orgaos`: as instâncias com documento no acervo, como DR-SP, AR-SP, CCR-SP, CAN, DEN, a Comissão Fiscal Regional
     SP, a Comissão Regional Pioneira SP e o Conselho Regional Jovem SP.
 
   Cada uma com `instancia_de`, `parte_de` e fonte. A que não tem fonte fica de fora (decisão 1).
-- [ ] T045 [P] [US3] Testes em `tests/rag/graph/unit/test_aplicavel_a.py` e `test_build_taxonomy.py`:
+- [X] T045 [P] [US3] Testes em `tests/rag/graph/unit/test_aplicavel_a.py` e `test_build_taxonomy.py`:
   - `PARTE_DE` até 5 níveis, de cima para baixo;
   - `APLICA_SE_A` e `EMITIDO_POR` pela pasta, pelo nível e pela subpasta da taxonomia;
   - a interseção `sobre` ∩ `aplicavel_a`.
-- [ ] T046 [US3] Implementar `build/taxonomy.py` (`APLICA_SE_A`, `EMITIDO_POR`) e `aplicavel_a` em
+- [X] T046 [US3] Implementar `build/taxonomy.py` (`APLICA_SE_A`, `EMITIDO_POR`) e `aplicavel_a` em
   `domain/queries.py`.
-- [ ] T047 [US3] [101] A derivação reconhece a instituição citada (`inst:`) e escreve a interseção
+- [X] T047 [US3] [101] A derivação reconhece a instituição citada (`inst:`) e escreve a interseção
   `sobre(...) ∩ aplicavel_a(inst)`. Testes em `tests/context/`.
-- [ ] T048 [US3] Build, invariantes, suíte e medida dos quatro conjuntos. Registrar no research (R20). O `scouting` vai
+- [X] T048 [US3] Build, invariantes, suíte e medida dos quatro conjuntos. Registrar no research (R20). O `scouting` vai
   a 0.14.0.
 
 **Checkpoint G3 — PARADA 4.**

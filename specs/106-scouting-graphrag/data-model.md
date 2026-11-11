@@ -37,12 +37,17 @@ As decisões estão no [research.md](research.md). O seam está em
 | `type` | `EdgeType` | `SOBRE`, `CONTEM`, `GERA`, `DE`, `INSTANCIA_DE`, `PARTE_DE`, `EMITIDO_POR`, `APLICA_SE_A`, `DE_AREA`, `REGE`, `DE_RAMO`, `E_UM` (a entidade específica → o termo genérico, curado: o escotista é um adulto; R19), `ATUA_EM`, `ALTERA`, `REVOGA`, `SUBSTITUI`, `CITA`, e os de governança (`ELEGE`, `COMPOE`, `INTEGRA`, `CONVOCA`, `FISCALIZA`, `APRECIA_RECURSO_DE`, `DIRIGE`) |
 | `mode` | `Mode \| None` | só no `SOBRE`: `disciplina`, `orienta`, `registra` ou `comunica`, igual a `MODE_OF[role da versão da unidade]` |
 | `from`, `to` | `str` | ids de nó ou de entidade existentes (nenhum órfão) |
-| `source` | `str` | um `chunk_id`, um `unit_id`, `<doc_key>#<n>@p<página>`, `taxonomia:<pasta>` ou `<arquivo>.yaml:<seção>/<id>` |
+| `source` | `str` | um `chunk_id`, um `unit_id`, `<doc_key>#<n>@p<página>`, `taxonomia:<categoria>`, `pasta:<caminho no corpus>` (G3: `APLICA_SE_A` e `EMITIDO_POR`, a pasta do arquivo sem o `ocr/`) ou `<arquivo>.yaml:<seção>/<id>` |
 | `origin` | `Origin` | `curado`, `regra` ou `modelo_conferido` (este com `checked: true`) |
 | `search` | `bool` | derivado do tipo: as de governança têm `False` (FR-007) |
 
 As pontas válidas de cada tipo estão no design.md, seção 2.4. O build recusa uma aresta com pontas de tipo errado,
-nomeando-a.
+nomeando-a. O G3 (R20) acrescenta duas, que o design não listava:
+- **`PARTE_DE` entre os tipos** (`tipo_orgao:` → `tipo_inst:`), do `instituicao` de cada tipo de órgão no
+  `organizacao.yaml`, com o `instituido_em` como fonte quando ele está no acervo. É por ela que a instituição citada
+  traz as partes do tipo: o que trata da assembleia de grupo trata do GE Inah;
+- **`SOBRE` do documento inteiro → `inst:`**, quando o título do documento nomeia a instituição (o estatuto do GE, o
+  Regulamento da Região SP), pelo `reconhecer` com os apelidos dela, como o regulamento que nomeia um órgão no ADR-063.
 
 ## Papel (`Role`) e modo
 

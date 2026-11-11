@@ -317,3 +317,64 @@ clarificação de 2026-11-10, levadas aqui sem re-pesquisa. Os números de base 
   - `para_cada` só nas normas: não derruba nada, mas perde os reconhecimentos e o nome do chefe de seção;
   - o BM25 dentro da unidade: acervo 0,9392 e regressão igual à base;
   - as consultas amplas com uma entidade só: derrubam a semente.
+
+## R20 — O G3 medido: instituições reais, `aplicavel_a` e a interseção (2026-11-11)
+
+- **Decision**: o G3 entra como o `scouting` 0.14.0.
+  - **O catálogo (T044).** O `organizacao.yaml` ganhou `instituicoes` (OMME, Região Interamericana, UEB, Região SP e GE
+    Professora Inah de Mello) e `orgaos` (AN, CAN, DEN, CCN, CFN, CEDN, RNJL, AR-SP, DR-SP, CCR-SP, CFR-SP, CEDR-SP,
+    CRJ-SP, CVL-SP e CRP-SP). Cada uma tem o tipo (`instancia_de`), a de cima (`parte_de`) e a fonte, um trecho do
+    acervo conferido: `estatuto-2024#art1@p4`, `regulamento-regional-sp-2022#art1@p2` e `#art2@p2`,
+    `estatuto-gepim-2026#art1@p2`, os `instituido_em` dos órgãos nacionais e os art. 1º dos regimentos regionais.
+    - A instância sem fonte fica fora (decisão 1).
+    - Os distritos e os outros grupos ficam fora, porque nenhum tem documento no acervo.
+    - Só a Região SP e o GE reconhecem a pergunta. A UEB, a OMME e a Interamericana já são reconhecidas pelo tipo, e
+      os órgãos reais não reconhecem no G3, porque o tipo já reconhece.
+  - **As arestas (T046), por regra:**
+    - **`APLICA_SE_A`:** pelo nível do documento, pela jurisdição e pela subpasta da UEL. As 642 versões têm uma
+      (invariante novo): 450 na UEB, 186 na Região SP, 3 no GE, 2 na OMME e 1 na Interamericana;
+    - **`EMITIDO_POR`:** a pasta do tipo do órgão nos `bodies` do documento e a instituição do órgão. São 555, com 255
+      do CAN e 82 da DR-SP; o `documentos` que as usa é do G6. A fonte das duas é `pasta:<caminho>`.
+    - **`INSTANCIA_DE` e `PARTE_DE`, curadas.** O `PARTE_DE` vale também **entre os tipos**, pelo `instituicao` de cada
+      tipo de órgão, com o `instituido_em` como fonte. O design não listava esse caso (data-model, "Aresta").
+    - **O documento inteiro cujo título nomeia a instituição `SOBRE` ela:** os 3 do GE e o Regulamento da Região SP.
+      Os apelidos "regional sp" e "escoteiros sp" saíram, porque punham 65 resoluções da DR "sobre" a região só
+      porque o título nomeia o emissor.
+  - **As consultas:**
+    - **`aplicavel_a(instituicao, papeis=("norma",))`:** os documentos da instituição e das de cima pelo `PARTE_DE`,
+      até 5 níveis, de cima para baixo.
+    - **O `sobre` de uma instituição real** traz o documento dela, o tipo (`INSTANCIA_DE`) e as partes do tipo (o que
+      trata da assembleia de grupo trata do GE).
+    - **O tipo citado sozinho** ("grupo escoteiro", "região") fica como no G1, sem as partes.
+  - **O plano (T047, 101 R44):**
+    - **com órgão e instituição:** `sobre(órgão) ∩ aplicavel_a(instituição)`;
+    - **a instituição sozinha:** `sobre(instituição) ∩ aplicavel_a(instituição)`;
+    - **a instituição com um cargo ou conceito:** o plano do G2, porque o assunto são eles.
+- **Medido** (perfil `test`, e5, 20 candidatos e 20 trechos), contra o G2:
+
+  | Conjunto | G2 | G3 | Itens que mudaram |
+  |---|---|---|---|
+  | acervo | 0,9549 | 0,9549 | nenhum |
+  | regressão | 0,9696 | 0,9696 | nenhum |
+  | síntese | 0,8462 | 0,8462 | nenhum |
+  | programa-adultos | 0,8485 | **0,8636** | `inah-balanco-rejeitado` 0,5 → 1,0 |
+  | semente | recall@5 0,667, MRR 0,551 | iguais | — |
+
+  - **O SC-005 está cumprido.** O Estatuto da UEB, art. 32, V (contas e balanço do grupo, com o parecer da Comissão
+    Fiscal de Grupo) chega pela parte do tipo. Antes, o Estatuto da UEB só aparecia em 17º.
+  - **Linha de base do programa-adultos regravada.** As outras não mudaram.
+- **O que a medida ensinou:** na 1ª rodada, a instituição entrava no `sobre` junto com o órgão citado. Com isso, o
+  `inah-voto-dos-jovens` caiu de 1 para 0,5:
+  - as partes do grupo trouxeram o art. 35 (Diretoria de Grupo) no lugar do art. 33, que tem a representação juvenil;
+  - a política do GE tomou uma das 3 vagas de documento.
+
+  Com órgão citado, a instituição fica só no `aplicavel_a`.
+- **Efeito da interseção hoje:** nenhum. No acervo, tudo vale para a Região SP e o GE, que não têm vizinhos (outra
+  região, outro grupo). Ela passa a cortar quando entrar o documento de outra região ou UEL.
+- **Alternatives:**
+  - **as partes também na menção do tipo:** ampliaria "região" e "grupo escoteiro" em perguntas que já acertam, sem
+    caso que ganhe;
+  - **a instituição no `sobre` junto com o órgão:** medida, derruba o `inah-voto-dos-jovens`;
+  - **reconhecer os órgãos reais ("Diretoria Regional de São Paulo"):** o tipo já traz as mesmas unidades, e o nome
+    da instância só ganha uso com o `documentos` por emissor (G6).
+

@@ -692,3 +692,7 @@ seguem no Qdrant embutido com `store: qdrant`.
   consulta de cada uma. **Uma entidade sozinha não pede plano**: ela derrubava a semente ("Sinal de Promessa", MRR 1,0
   → 0,25). O léxico recebe os termos dos cargos, áreas e conceitos do grafo, e os ramos continuam reconhecidos pelo
   léxico (`branches`).
+- **G3 (106 R20, 2026-11-11)**: a instituição real citada (`inst:`, a Região SP e o GE Inah, pelos apelidos do
+  grafo) entra no plano como `intersecao` com `aplicavel_a` dela. Com um órgão, o `sobre` é o do órgão; sozinha, o
+  `sobre` é o dela. Com um cargo ou conceito, fica o plano do G2, porque o assunto são eles. A instituição não entra no
+  `sobre` junto com o órgão: as partes do grupo derrubavam o `inah-voto-dos-jovens`.

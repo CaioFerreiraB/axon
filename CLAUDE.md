@@ -437,6 +437,17 @@ O G2 está implementado (`scouting` 0.13.0, 106 R19):
 Resultado: acervo 0,9549, regressão 0,9696 (−0,007) e programa-adultos 0,8485, com as linhas de base regravadas. O
 SC-004 (metade dos 10 itens-alvo em 1) não foi cumprido: foram 3 de 10.
 
+O G3 está implementado (`scouting` 0.14.0, 106 R20):
+- o `organizacao.yaml` tem `instituicoes` (OMME, Interamericana, UEB, Região SP, GE Inah) e `orgaos` (15, nacionais e
+  de SP), cada um com o tipo, a instituição de cima e a fonte num trecho;
+- o grafo tem `INSTANCIA_DE`, `PARTE_DE` (também entre os tipos), `APLICA_SE_A` em todo documento e `EMITIDO_POR`
+  (pela pasta, com a fonte `pasta:<caminho>`), e o documento cujo título nomeia a instituição trata dela por inteiro;
+- `aplicavel_a` sobe até 5 níveis, e o `sobre` de uma instituição real traz o tipo e as partes dele;
+- a derivação escreve `sobre ∩ aplicavel_a` quando a pergunta cita a Região SP ou o GE.
+
+Resultado: o `inah-balanco-rejeitado` foi a 1 (SC-005), e o programa-adultos a 0,8636. Os outros conjuntos e a semente
+não mudaram.
+
 O ambiente de dev local (`axon-scouting/.cache/dev/
 dev.sh`, fora do git: Postgres e Open WebUI em contêiner, `axon serve` do venv do pack, trace em `.cache/dev/trace/`)
 serve para testar antes de publicar. A chave do
