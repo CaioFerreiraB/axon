@@ -715,6 +715,10 @@ instalação (`axon-deploy/template`, `axon-cfblabs`) e o dev mandam `x-axon-cit
 Em 2026-11-06, o `scouting` 0.8.1 trouxe só dados: três documentos do GE Professora Inah de Mello (lei de
 utilidade pública, estatuto e política; pastas novas `legislacao/utilidade-publica/local` e `…/politicas/local`, tipo
 `Lei`), com 642 documentos e 15.685 trechos e `fact_recall` igual.
+Em 2026-11-15, o `scouting` 0.17.1 trouxe só dados: o Regulamento do Fórum Regional Pioneiro de SP (aprovado em
+16/02/2025; pasta nova `programa-educativo/comissao-regional-pioneira/regulamentos/regional`, tipo `Regulamento`), lido
+pela transcrição em `corpus/ocr/` porque a camada de texto do Canva repete os rótulos de artigo; 643 documentos, 15.730
+trechos, grafo refeito e `fact_recall` igual nos quatro conjuntos.
 
 Gráficos na conversa (ADR-052): os contratos `0.2.4` têm `Chart` (com `ChartSeries` e `ChartPoint`) e
 `ToolResult.charts`. O esquema é fechado: tipos `line|area|bar|stacked_bar|scatter|pie|donut`, eixo
