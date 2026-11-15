@@ -719,6 +719,9 @@ Em 2026-11-15, o `scouting` 0.17.1 trouxe só dados: o Regulamento do Fórum Reg
 16/02/2025; pasta nova `programa-educativo/comissao-regional-pioneira/regulamentos/regional`, tipo `Regulamento`), lido
 pela transcrição em `corpus/ocr/` porque a camada de texto do Canva repete os rótulos de artigo; 643 documentos, 15.730
 trechos, grafo refeito e `fact_recall` igual nos quatro conjuntos.
+No 0.17.2, o ADR-065: a seção de uma política que nomeia um órgão também o disciplina (nunca instituição, nunca a
+política inteira), e "equipe regional pioneira" é apelido da Comissão Regional Pioneira — a PNEJ §4 e §4.3 vêm antes
+do regulamento regional; `fact_recall` igual.
 
 Gráficos na conversa (ADR-052): os contratos `0.2.4` têm `Chart` (com `ChartSeries` e `ChartPoint`) e
 `ToolResult.charts`. O esquema é fechado: tipos `line|area|bar|stacked_bar|scatter|pie|donut`, eixo
