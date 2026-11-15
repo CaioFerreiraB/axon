@@ -570,3 +570,19 @@ clarificação de 2026-11-10, levadas aqui sem re-pesquisa. Os números de base 
   diante, a carga levanta `GraphUnavailable` (decisão do G1: grafo de outro build falha explícito), e a pergunta não
   é respondida. Subir o `PACKS` dela exige copiar junto o `graph.jsonl` do pack (10,7 MB). Não foi feito: é mudança na
   instalação, só com pedido do mantenedor.
+
+## R25 — A política disciplina órgão pela seção (2026-11-15, ADR-065)
+
+- **Decision**: `politica` entra nos tipos cujas seções disciplinam órgãos (`organs.py`), só pela seção e nunca
+  instituição; "equipe(s) regional(is) pioneira(s)" vira apelido da Comissão Regional Pioneira. Pedido do mantenedor
+  depois do 0.17.1: o Regulamento do Fórum Regional Pioneiro de SP é subordinado à PNEJ, e a pergunta sobre a Comissão
+  só recebia o regulamento.
+- **Rationale (ADR-065)**: a hierarquia das normas já sai de normas de níveis diferentes que disciplinam o mesmo
+  órgão (`SCOPE_ORDER`); o ADR-064 já dava à política o papel `norma`, e a regra dos órgãos do ADR-063 era a única que a
+  deixava de fora.
+- **Alternatives considered**: aresta curada `SUBORDINADO_A` entre documentos, ou as duas; rejeitadas por pedirem um
+  tipo novo de ligação e código no retriever, sem pergunta que o exija hoje.
+- **Medida**: na primeira versão, com instituições, a UEB ganhava 32 seções e a OMME 4, quase todas falsas ("© União
+  dos Escoteiros do Brasil"); só com órgãos, ganham a Comissão Regional Pioneira (+2, PNEJ §4 e §4.3), o CAN (+10), a
+  DEN (+7) e a CFN (+2). `fact_recall` igual nos quatro conjuntos, nenhum item mudou; seis perguntas sobre o Fórum e a
+  Comissão, 0,83 → 1,0. axon-scouting 0.17.2 (`165e655`).

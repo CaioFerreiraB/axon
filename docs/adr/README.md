@@ -69,6 +69,7 @@ Divergir de um ADR aceito num `plan.md` exige um ADR novo (ver constituição, "
 | [062](ADR-062-busca-global-pelas-fichas-das-atas-no-scouting.md) | No scouting, a pergunta de síntese recebe resumos das atas: fichas de reunião extraídas offline e uma linha do tempo por órgão e ano | Aceita | 101, 102, 103, 105 |
 | [063](ADR-063-grafo-das-normas-por-orgao-no-scouting.md) | No scouting, a pergunta sobre um órgão recebe as seções das normas que o disciplinam, pelo grafo das normas | Aceita | 101, 102, 103 |
 | [064](ADR-064-grafo-de-dominio-e-consultas-no-scouting.md) | No scouting, um grafo de domínio com sete consultas com nome, e a 106 passa a ser o módulo dele (substitui o item 3 do 063; refina os itens 4 e 5 do 063, o 045, o 047, o 048 e o 062) | Aceita | 106, 101, 102, 103, 105 |
+| [065](ADR-065-a-politica-disciplina-orgao-pela-secao-no-scouting.md) | No scouting, a seção de uma política que nomeia um órgão também o disciplina (refina o item 2 do 063) | Aceita | 106 |
 
 ## Modelo para ADR novo
 
